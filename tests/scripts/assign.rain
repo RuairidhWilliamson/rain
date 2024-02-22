@@ -1,0 +1,3 @@
+let msg = "Good afternoon"
+
+std.print(msg)

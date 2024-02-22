@@ -1,0 +1,3 @@
+std.print("Hello World")
+# We can do some cool stuff in between here
+std.print("Goodbye") # yay

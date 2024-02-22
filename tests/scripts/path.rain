@@ -1,0 +1,7 @@
+let my_path = `./test.txt`
+let the_same_path = `test.txt`
+let my_other_path = `~/foo.txt`
+let my_abs_path = `/bin/bash`
+
+# std.assert(my_path == the_same_path)
+# std.assert(my_path != my_other_path)
