@@ -9,15 +9,25 @@ use crate::{
     span::Span,
 };
 
-pub fn execute(script: &Script<'_>) -> Result<(), ExecError> {
-    let mut executor = Executor::default();
+pub fn execute(script: &Script<'_>, options: ExecuteOptions) -> Result<(), ExecError> {
+    let mut executor = Executor {
+        options,
+        ..Executor::default()
+    };
     script.execute(&mut executor)?;
     Ok(())
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct ExecuteOptions {
+    pub sealed: bool,
 }
 
 #[derive(Default)]
 struct Executor {
     variables: HashMap<String, ExecValue>,
+    #[allow(unused)]
+    options: ExecuteOptions,
 }
 
 impl Executor {
@@ -36,7 +46,7 @@ impl Executor {
     fn lookup_std(&self, path: &[&str]) -> Option<ExecValue> {
         match path {
             ["print"] => Some(ExecValue::Function(Function::StdFunc(StdFunc::Print))),
-            _ => todo!(),
+            _ => None,
         }
     }
 }
@@ -46,7 +56,6 @@ enum ExecValue {
     Unit,
     Bool(bool),
     String(String),
-    Path(String),
     Function(Function),
 }
 
@@ -56,7 +65,6 @@ impl std::fmt::Display for ExecValue {
             Self::Unit => f.write_str("Unit"),
             Self::Bool(val) => f.write_str(if *val { "true" } else { "false" }),
             Self::String(val) => f.write_str(val),
-            Self::Path(val) => f.write_str(val),
             Self::Function(_) => f.write_str("Function"),
         }
     }
@@ -157,7 +165,6 @@ impl Executable for Expr<'_> {
             Self::FnCall(fn_call) => fn_call.execute(executor),
             Self::BoolLiteral(value) => Ok(ExecValue::Bool(*value)),
             Self::StringLiteral(value) => Ok(ExecValue::String(String::from(*value))),
-            Self::PathLiteral(value) => Ok(ExecValue::Path(String::from(*value))),
         }
     }
 }

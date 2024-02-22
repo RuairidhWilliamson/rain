@@ -10,7 +10,6 @@ pub enum Expr<'a> {
     FnCall(FnCall<'a>),
     BoolLiteral(bool),
     StringLiteral(&'a str),
-    PathLiteral(&'a str),
 }
 
 impl<'a> Expr<'a> {
@@ -32,10 +31,6 @@ impl<'a> Expr<'a> {
                 token: Token::DoubleQuoteLiteral(value),
                 ..
             }] => Ok(Expr::StringLiteral(value)),
-            [TokenSpan {
-                token: Token::BackTickLiteral(value),
-                ..
-            }] => Ok(Expr::PathLiteral(value)),
             [.., TokenSpan {
                 token: Token::RParen,
                 ..
@@ -60,7 +55,6 @@ impl<'a> Expr<'a> {
             Expr::FnCall(inner) => inner.reset_spans(),
             Expr::BoolLiteral(_) => (),
             Expr::StringLiteral(_) => (),
-            Expr::PathLiteral(_) => (),
         }
     }
 }
@@ -265,11 +259,5 @@ mod tests {
             args: vec![Expr::StringLiteral("hello world")],
             span: Span::default(),
         })
-    );
-
-    parse_expr_test!(
-        parse_absolute_path_literal,
-        "`/hello.txt`",
-        Expr::PathLiteral("/hello.txt")
     );
 }

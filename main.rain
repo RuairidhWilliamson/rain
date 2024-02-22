@@ -1,0 +1,3 @@
+let cargo = std.escape.bin("cargo")
+
+cargo test

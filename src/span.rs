@@ -57,6 +57,10 @@ impl Span {
         self.end.index - self.start.index
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.end.index == self.start.index
+    }
+
     pub fn lines(&self) -> usize {
         self.end.line - self.start.line
     }

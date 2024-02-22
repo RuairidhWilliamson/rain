@@ -5,19 +5,23 @@ use rain::ast::Script;
 
 #[derive(Parser)]
 struct Cli {
-    script: PathBuf,
+    script: Option<PathBuf>,
 
     #[arg(long)]
     print_tokens: bool,
 
     #[arg(long)]
     print_ast: bool,
+
+    #[arg(long)]
+    sealed: bool,
 }
 
 fn main() {
     let cli = Cli::parse();
 
-    let source = std::fs::read_to_string(cli.script).unwrap();
+    let path = cli.script.unwrap_or_else(|| PathBuf::from("main.rain"));
+    let source = std::fs::read_to_string(&path).unwrap();
     let mut token_stream = rain::tokens::TokenStream::new(&source);
     let tokens = token_stream.parse_collect().unwrap();
     if cli.print_tokens {
@@ -29,5 +33,11 @@ fn main() {
         println!("{script:#?}");
     }
 
-    rain::exec::execute(&script).unwrap();
+    let options = rain::exec::ExecuteOptions { sealed: cli.sealed };
+
+    if let Err(err) = rain::exec::execute(&script, options) {
+        let err = rain::error::RainError::from(err).resolve(&path, &source);
+        eprintln!("{err:#}");
+        std::process::exit(1);
+    }
 }

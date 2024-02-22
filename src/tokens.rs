@@ -10,7 +10,6 @@ pub struct TokenSpan<'a> {
 pub enum Token<'a> {
     Ident(&'a str),
     DoubleQuoteLiteral(&'a str),
-    BackTickLiteral(&'a str),
     TrueLiteral,
     FalseLiteral,
     Let,
@@ -74,7 +73,7 @@ impl<'a> TokenStream<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             source,
-            raw_source: dbg!(source.as_bytes()),
+            raw_source: source.as_bytes(),
             index: 0,
             line: 0,
             column: 0,
@@ -86,7 +85,6 @@ impl<'a> TokenStream<'a> {
             let Some(c) = self.raw_source.get(self.index) else {
                 return Ok(None);
             };
-            dbg!(self.index, c);
             return match c {
                 b'\n' => Ok(self.newline()),
                 b'#' => Ok(self.single_line_comment()),
@@ -101,7 +99,6 @@ impl<'a> TokenStream<'a> {
                 b'{' => Ok(self.increment(Token::LBrace)),
                 b'}' => Ok(self.increment(Token::RBrace)),
                 b'"' => Ok(self.double_quotes()),
-                b'`' => Ok(self.back_ticks()),
                 b'a'..=b'z' | b'A'..=b'Z' | b'_' => Ok(self.ident()),
                 b' ' => {
                     self.index += 1;
@@ -255,39 +252,6 @@ impl<'a> TokenStream<'a> {
         }
         panic!("error missing closing double quote")
     }
-
-    fn back_ticks(&mut self) -> Option<TokenSpan<'a>> {
-        let start = Place {
-            index: self.index,
-            line: self.line,
-            column: self.column,
-        };
-        for i in start.index + 1..self.source.len() {
-            let c = self.raw_source[i];
-            match c {
-                b'`' => {
-                    self.index = i + 1;
-                    self.column += 2;
-                    let end = Place {
-                        index: self.index,
-                        line: self.line,
-                        column: self.column,
-                    };
-                    return Some(TokenSpan {
-                        token: Token::BackTickLiteral(&self.source[start.index + 1..i]),
-                        span: Span { start, end },
-                    });
-                }
-                b'\n' => {
-                    self.line += 1;
-                }
-                _ => {
-                    self.column += 1;
-                }
-            }
-        }
-        panic!("error missing closing back tick")
-    }
 }
 
 #[cfg(test)]
@@ -407,23 +371,6 @@ mod tests {
                 Token::Ident("print"),
                 Token::LParen,
                 Token::RParen,
-            ]
-        )
-    }
-
-    #[test]
-    fn tokens_back_ticks() {
-        let source = "let a = `./a.txt`";
-        let tokens: Vec<Token> = TokenStream::new(source)
-            .map(|ts| ts.unwrap().token)
-            .collect();
-        assert_eq!(
-            tokens,
-            vec![
-                Token::Let,
-                Token::Ident("a"),
-                Token::Assign,
-                Token::BackTickLiteral("./a.txt")
             ]
         )
     }

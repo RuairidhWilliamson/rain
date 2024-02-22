@@ -13,6 +13,6 @@ pub fn run<'a>(source_path: &'a Path, source: &'a str) -> Result<(), error::Reso
 fn run_inner(source: &str) -> Result<(), error::RainError> {
     let tokens = tokens::TokenStream::new(source).parse_collect()?;
     let script = ast::Script::parse(&tokens)?;
-    exec::execute(&script)?;
+    exec::execute(&script, Default::default())?;
     Ok(())
 }
