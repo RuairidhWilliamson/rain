@@ -1,5 +1,6 @@
-use super::{ParseError, ParseErrorKind};
+use super::ParseError;
 use crate::{
+    error::RainError,
     span::Span,
     tokens::{Token, TokenSpan},
 };
@@ -13,12 +14,9 @@ pub enum Expr<'a> {
 }
 
 impl<'a> Expr<'a> {
-    pub fn parse(tokens: &[TokenSpan<'a>], span: Span) -> Result<Self, ParseError> {
+    pub fn parse(tokens: &[TokenSpan<'a>], span: Span) -> Result<Self, RainError> {
         match tokens {
-            [] => Err(ParseError {
-                err: ParseErrorKind::EmptyExpression,
-                span,
-            }),
+            [] => Err(RainError::new(ParseError::EmptyExpression, span)),
             [TokenSpan {
                 token: Token::TrueLiteral,
                 ..
@@ -42,10 +40,7 @@ impl<'a> Expr<'a> {
             {
                 Ok(Self::Item(Item::parse(tokens)?))
             }
-            _ => Err(ParseError {
-                err: ParseErrorKind::UnexpectedTokens,
-                span,
-            }),
+            _ => Err(RainError::new(ParseError::UnexpectedTokens, span)),
         }
     }
 
@@ -66,7 +61,7 @@ pub struct Item<'a> {
 }
 
 impl<'a> Item<'a> {
-    fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, ParseError> {
+    fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, RainError> {
         let idents = tokens
             .iter()
             .filter_map(|t| match &t.token {
@@ -96,7 +91,7 @@ pub struct FnCall<'a> {
 }
 
 impl<'a> FnCall<'a> {
-    fn parse(tokens: &[TokenSpan<'a>], span: Span) -> Result<Self, ParseError> {
+    fn parse(tokens: &[TokenSpan<'a>], span: Span) -> Result<Self, RainError> {
         let (rparen, tokens) = tokens.split_last().unwrap();
         assert_eq!(rparen.token, Token::RParen);
         let Some((lparen_index, _)) = tokens

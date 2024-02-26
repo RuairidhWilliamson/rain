@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+mod stdlib;
+pub mod types;
+
+use std::rc::Rc;
 
 use crate::{
     ast::{
@@ -6,16 +9,31 @@ use crate::{
         stmt::{Declare, Stmt},
         Script,
     },
-    span::Span,
+    error::RainError,
 };
 
-pub fn execute(script: &Script<'_>, options: ExecuteOptions) -> Result<(), ExecError> {
-    let mut executor = Executor {
-        options,
-        ..Executor::default()
-    };
+use self::types::DynValue;
+
+pub fn execute(script: &Script<'_>, options: ExecuteOptions) -> Result<(), RainError> {
+    let mut executor = Executor::new(options);
     script.execute(&mut executor)?;
     Ok(())
+}
+
+#[derive(Debug)]
+pub enum ExecError {
+    UnknownVariable(String),
+    UnknownItem(String),
+    UnexpectedType {
+        expected: types::Type,
+        actual: types::Type,
+    },
+}
+
+impl std::fmt::Display for ExecError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -24,133 +42,38 @@ pub struct ExecuteOptions {
 }
 
 #[derive(Default)]
-struct Executor {
-    variables: HashMap<String, ExecValue>,
+pub struct Executor {
+    global_record: types::record::Record,
     #[allow(unused)]
     options: ExecuteOptions,
 }
 
 impl Executor {
-    fn declare_variable(&mut self, name: &str, value: ExecValue) {
-        self.variables.insert(String::from(name), value);
-    }
-
-    fn lookup_variable(&self, item: &Item<'_>) -> Option<ExecValue> {
-        let (tli, rest) = item.idents.split_first()?;
-        match *tli {
-            "std" => self.lookup_std(rest),
-            v => self.variables.get(v).cloned(),
+    pub fn new(options: ExecuteOptions) -> Self {
+        let mut global_record = types::record::Record::default();
+        global_record.insert(String::from("std"), Rc::new(stdlib::std_lib()));
+        Self {
+            global_record,
+            options,
         }
-    }
-
-    fn lookup_std(&self, path: &[&str]) -> Option<ExecValue> {
-        match path {
-            ["print"] => Some(ExecValue::Function(Function::StdFunc(StdFunc::Print))),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-enum ExecValue {
-    Unit,
-    Bool(bool),
-    String(String),
-    Function(Function),
-}
-
-impl std::fmt::Display for ExecValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Unit => f.write_str("Unit"),
-            Self::Bool(val) => f.write_str(if *val { "true" } else { "false" }),
-            Self::String(val) => f.write_str(val),
-            Self::Function(_) => f.write_str("Function"),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum ExecError {
-    UnknownItem(Span),
-    CannotCallNonFunction(Span),
-}
-
-impl ExecError {
-    pub fn span(&self) -> Span {
-        match self {
-            ExecError::UnknownItem(span) => *span,
-            ExecError::CannotCallNonFunction(span) => *span,
-        }
-    }
-}
-
-impl std::fmt::Display for ExecError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self, f)
-    }
-}
-
-#[derive(Debug, Clone)]
-enum Function {
-    StdFunc(StdFunc),
-}
-
-#[derive(Debug, Clone)]
-enum StdFunc {
-    Print,
-}
-
-impl Function {
-    fn execute(&self, args: &[ExecValue]) {
-        match self {
-            Function::StdFunc(std_function) => std_function.execute(args),
-        }
-    }
-}
-
-impl StdFunc {
-    fn execute(&self, args: &[ExecValue]) {
-        match self {
-            StdFunc::Print => self.execute_print(args),
-        }
-    }
-
-    fn execute_print(&self, args: &[ExecValue]) {
-        struct Args<'a>(&'a [ExecValue]);
-        impl std::fmt::Display for Args<'_> {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let Some((first, rest)) = self.0.split_first() else {
-                    return Ok(());
-                };
-                first.fmt(f)?;
-                for a in rest {
-                    a.fmt(f)?;
-                    f.write_str(" ")?;
-                }
-                Ok(())
-            }
-        }
-        let args = Args(args);
-        println!("{args}");
     }
 }
 
 trait Executable {
-    fn execute(&self, executor: &mut Executor) -> Result<ExecValue, ExecError>;
+    fn execute(&self, executor: &mut Executor) -> Result<DynValue, RainError>;
 }
 
 impl Executable for Script<'_> {
-    fn execute(&self, executor: &mut Executor) -> Result<ExecValue, ExecError> {
+    fn execute(&self, executor: &mut Executor) -> Result<DynValue, RainError> {
         for stmt in &self.statements {
             stmt.execute(executor)?;
         }
-        Ok(ExecValue::Unit)
+        Ok(Rc::new(types::Unit))
     }
 }
 
 impl Executable for Stmt<'_> {
-    fn execute(&self, executor: &mut Executor) -> Result<ExecValue, ExecError> {
+    fn execute(&self, executor: &mut Executor) -> Result<DynValue, RainError> {
         match self {
             Self::Expr(expr) => expr.execute(executor),
             Self::Declare(declare) => declare.execute(executor),
@@ -159,46 +82,69 @@ impl Executable for Stmt<'_> {
 }
 
 impl Executable for Expr<'_> {
-    fn execute(&self, executor: &mut Executor) -> Result<ExecValue, ExecError> {
+    fn execute(&self, executor: &mut Executor) -> Result<DynValue, RainError> {
         match self {
             Self::Item(item) => item.execute(executor),
             Self::FnCall(fn_call) => fn_call.execute(executor),
-            Self::BoolLiteral(value) => Ok(ExecValue::Bool(*value)),
-            Self::StringLiteral(value) => Ok(ExecValue::String(String::from(*value))),
+            Self::BoolLiteral(value) => Ok(Rc::new(*value)),
+            Self::StringLiteral(value) => Ok(Rc::new(String::from(*value))),
         }
     }
 }
 
 impl Executable for FnCall<'_> {
-    fn execute(&self, executor: &mut Executor) -> Result<ExecValue, ExecError> {
-        let Some(fn_value) = executor.lookup_variable(&self.item) else {
-            return Err(ExecError::UnknownItem(self.span));
-        };
-        let ExecValue::Function(function) = fn_value else {
-            return Err(ExecError::CannotCallNonFunction(self.item.span));
-        };
+    fn execute(&self, executor: &mut Executor) -> Result<DynValue, RainError> {
+        let fn_dyn_value = self.item.execute(executor)?;
+        let fn_value = fn_dyn_value.as_fn().map_err(|typ| {
+            RainError::new(
+                ExecError::UnexpectedType {
+                    expected: types::Type::Function,
+                    actual: typ,
+                },
+                self.item.span,
+            )
+        })?;
         let args = self
             .args
             .iter()
             .map(|a| a.execute(executor))
-            .collect::<Result<Vec<ExecValue>, ExecError>>()?;
-        function.execute(&args);
-        Ok(ExecValue::Unit)
+            .collect::<Result<Vec<DynValue>, RainError>>()?;
+        fn_value.call(executor, &args)
     }
 }
 
 impl Executable for Declare<'_> {
-    fn execute(&self, executor: &mut Executor) -> Result<ExecValue, ExecError> {
+    fn execute(&self, executor: &mut Executor) -> Result<DynValue, RainError> {
         let value = self.value.execute(executor)?;
-        executor.declare_variable(self.name, value);
-        Ok(ExecValue::Unit)
+        executor.global_record.insert(self.name.to_owned(), value);
+        Ok(Rc::new(types::Unit))
     }
 }
 
 impl Executable for Item<'_> {
-    fn execute(&self, executor: &mut Executor) -> Result<ExecValue, ExecError> {
-        executor
-            .lookup_variable(self)
-            .ok_or(ExecError::UnknownItem(self.span))
+    fn execute(&self, executor: &mut Executor) -> Result<DynValue, RainError> {
+        let (&global, rest) = self.idents.split_first().unwrap();
+        let mut record = executor.global_record.get(global).ok_or(RainError::new(
+            ExecError::UnknownVariable(global.to_owned()),
+            self.span,
+        ))?;
+        for &ident in rest {
+            record = record
+                .as_record()
+                .map_err(|typ| {
+                    RainError::new(
+                        ExecError::UnexpectedType {
+                            expected: types::Type::Record,
+                            actual: typ,
+                        },
+                        self.span,
+                    )
+                })?
+                .get(ident)
+                .ok_or_else(|| {
+                    RainError::new(ExecError::UnknownItem(String::from(ident)), self.span)
+                })?;
+        }
+        Ok(record.to_owned())
     }
 }

@@ -1,6 +1,9 @@
-use crate::tokens::{Token, TokenSpan};
+use crate::{
+    error::RainError,
+    tokens::{Token, TokenSpan},
+};
 
-use super::{expr::Expr, ParseError, ParseErrorKind};
+use super::{expr::Expr, ParseError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt<'a> {
@@ -9,7 +12,7 @@ pub enum Stmt<'a> {
 }
 
 impl<'a> Stmt<'a> {
-    pub fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, ParseError> {
+    pub fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, RainError> {
         match tokens {
             [] => panic!("empty statement"),
             [TokenSpan {
@@ -37,15 +40,15 @@ pub struct Declare<'a> {
 }
 
 impl<'a> Declare<'a> {
-    pub fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, ParseError> {
+    pub fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, RainError> {
         let Token::Ident(name) = tokens[1].token else {
             panic!("expected ident in let statement");
         };
         if tokens[2].token != Token::Assign {
-            return Err(ParseError {
-                err: ParseErrorKind::ExpectedAssignToken,
-                span: TokenSpan::span(tokens).unwrap(),
-            });
+            return Err(RainError::new(
+                ParseError::ExpectedAssignToken,
+                TokenSpan::span(tokens).unwrap(),
+            ));
         }
         let value = Expr::parse(&tokens[3..], TokenSpan::span(tokens).unwrap())?;
         Ok(Self { name, value })

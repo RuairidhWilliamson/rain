@@ -2,7 +2,7 @@ pub mod expr;
 pub mod stmt;
 
 use crate::{
-    span::Span,
+    error::RainError,
     tokens::{Token, TokenSpan},
 };
 
@@ -14,7 +14,7 @@ pub struct Script<'a> {
 }
 
 impl<'a> Script<'a> {
-    pub fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, ParseError> {
+    pub fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, RainError> {
         let statements = tokens
             .split(|ts| ts.token == Token::NewLine)
             .filter_map(|tss| {
@@ -24,7 +24,7 @@ impl<'a> Script<'a> {
                     Some(Stmt::parse(tss))
                 }
             })
-            .collect::<Result<Vec<Stmt>, ParseError>>()?;
+            .collect::<Result<Vec<Stmt>, RainError>>()?;
         Ok(Self { statements })
     }
 
@@ -36,27 +36,15 @@ impl<'a> Script<'a> {
 }
 
 #[derive(Debug)]
-pub struct ParseError {
-    err: ParseErrorKind,
-    span: Span,
-}
-
-impl std::fmt::Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self.err, f)
-    }
-}
-
-#[derive(Debug)]
-pub enum ParseErrorKind {
+pub enum ParseError {
     EmptyExpression,
     UnexpectedTokens,
     ExpectedAssignToken,
 }
 
-impl ParseError {
-    pub fn span(&self) -> Span {
-        self.span
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
     }
 }
 
