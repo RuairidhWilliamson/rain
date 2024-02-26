@@ -65,7 +65,8 @@ impl Value for String {
     }
 }
 
-pub struct FnWrapper(pub Box<dyn Fn(&mut Executor, &[DynValue]) -> Result<DynValue, RainError>>);
+type Function = Box<dyn Fn(&mut Executor, &[DynValue]) -> Result<DynValue, RainError>>;
+pub struct FnWrapper(pub Function);
 
 impl Value for FnWrapper {
     fn get_type(&self) -> Type {
@@ -73,7 +74,7 @@ impl Value for FnWrapper {
     }
 
     fn as_fn(&self) -> Result<&Self, Type> {
-        Ok(&self)
+        Ok(self)
     }
 }
 

@@ -11,13 +11,13 @@ impl Value for Record {
     }
 
     fn as_record(&self) -> Result<&Record, super::Type> {
-        Ok(&self)
+        Ok(self)
     }
 }
 
 impl std::fmt::Display for Record {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.keys().map(|k| f.write_str(k)).collect()
+        self.0.keys().try_for_each(|k| f.write_str(k))
     }
 }
 

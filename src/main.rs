@@ -36,7 +36,7 @@ fn main() {
     let options = rain::exec::ExecuteOptions { sealed: cli.sealed };
 
     if let Err(err) = rain::exec::execute(&script, options) {
-        let err = rain::error::RainError::from(err).resolve(&path, &source);
+        let err = err.resolve(&path, &source);
         eprintln!("{err:#}");
         std::process::exit(1);
     }
