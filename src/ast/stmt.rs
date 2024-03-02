@@ -3,12 +3,13 @@ use crate::{
     tokens::{Token, TokenSpan},
 };
 
-use super::{expr::Expr, ParseError};
+use super::{declare::Declare, expr::Expr, fn_def::FnDef};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt<'a> {
     Expr(Expr<'a>),
     Declare(Declare<'a>),
+    FnDef(FnDef<'a>),
 }
 
 impl<'a> Stmt<'a> {
@@ -18,6 +19,9 @@ impl<'a> Stmt<'a> {
             [TokenSpan {
                 token: Token::Let, ..
             }, ..] => Ok(Self::Declare(Declare::parse(tokens)?)),
+            [TokenSpan {
+                token: Token::Fn, ..
+            }, ..] => Ok(Self::FnDef(FnDef::parse(tokens)?)),
             _ => Ok(Self::Expr(Expr::parse(
                 tokens,
                 TokenSpan::span(tokens).unwrap(),
@@ -29,45 +33,20 @@ impl<'a> Stmt<'a> {
         match self {
             Stmt::Expr(inner) => inner.reset_spans(),
             Stmt::Declare(inner) => inner.reset_spans(),
+            Stmt::FnDef(inner) => inner.reset_spans(),
         }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Declare<'a> {
-    pub name: &'a str,
-    pub value: Expr<'a>,
-}
-
-impl<'a> Declare<'a> {
-    pub fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, RainError> {
-        let Token::Ident(name) = tokens[1].token else {
-            panic!("expected ident in let statement");
-        };
-        if tokens[2].token != Token::Assign {
-            return Err(RainError::new(
-                ParseError::ExpectedAssignToken,
-                TokenSpan::span(tokens).unwrap(),
-            ));
-        }
-        let value = Expr::parse(&tokens[3..], TokenSpan::span(tokens).unwrap())?;
-        Ok(Self { name, value })
-    }
-
-    pub fn reset_spans(&mut self) {
-        self.value.reset_spans();
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::expr::{Expr, Item},
+        ast::{ident::Ident, item::Item},
         span::Span,
         tokens::{TokenError, TokenStream},
     };
 
-    use super::{Declare, Stmt};
+    use super::*;
 
     #[test]
     fn parse_declare() {
@@ -81,7 +60,10 @@ mod tests {
             Stmt::Declare(Declare {
                 name: "a",
                 value: Expr::Item(Item {
-                    idents: vec!["b"],
+                    idents: vec![Ident {
+                        name: "b",
+                        span: Span::default()
+                    }],
                     span: Span::default()
                 })
             })

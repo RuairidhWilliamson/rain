@@ -105,6 +105,11 @@ impl<'a> TokenStream<'a> {
                     self.column += 1;
                     continue;
                 }
+                b'\t' => {
+                    self.index += 1;
+                    self.column += 1;
+                    continue;
+                }
                 c if !c.is_ascii() => Ok(self.ident()),
                 c => Err(TokenError {
                     char: char::from_u32(*c as u32),

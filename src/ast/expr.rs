@@ -1,4 +1,4 @@
-use super::ParseError;
+use super::{fn_call::FnCall, item::Item, ParseError};
 use crate::{
     error::RainError,
     span::Span,
@@ -54,85 +54,15 @@ impl<'a> Expr<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Item<'a> {
-    pub idents: Vec<&'a str>,
-    pub span: Span,
-}
-
-impl<'a> Item<'a> {
-    fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, RainError> {
-        let idents = tokens
-            .iter()
-            .filter_map(|t| match &t.token {
-                Token::Ident(ident) => Some(*ident),
-                Token::Dot => None,
-                token => panic!("unexpected token {token:?}"),
-            })
-            .collect();
-        let span = tokens
-            .iter()
-            .map(|ts| ts.span)
-            .reduce(Span::combine)
-            .unwrap();
-        Ok(Self { idents, span })
-    }
-
-    fn reset_spans(&mut self) {
-        self.span.reset();
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct FnCall<'a> {
-    pub item: Item<'a>,
-    pub args: Vec<Expr<'a>>,
-    pub span: Span,
-}
-
-impl<'a> FnCall<'a> {
-    fn parse(tokens: &[TokenSpan<'a>], span: Span) -> Result<Self, RainError> {
-        let (rparen, tokens) = tokens.split_last().unwrap();
-        assert_eq!(rparen.token, Token::RParen);
-        let Some((lparen_index, _)) = tokens
-            .iter()
-            .enumerate()
-            .find(|(_, ts)| ts.token == Token::LParen)
-        else {
-            panic!("missing lparen")
-        };
-        let (item_tokens, args) = tokens.split_at(lparen_index);
-        let item = Item::parse(item_tokens)?;
-        let (lparen, args) = args.split_first().unwrap();
-        assert_eq!(lparen.token, Token::LParen);
-        let args = if args.is_empty() {
-            vec![]
-        } else {
-            args.split(|ts| ts.token == Token::Comma)
-                .map(|tokens| Expr::parse(tokens, span).unwrap())
-                .collect()
-        };
-        let span = item.span.combine(rparen.span);
-        Ok(Self { item, args, span })
-    }
-
-    fn reset_spans(&mut self) {
-        self.item.reset_spans();
-        for a in &mut self.args {
-            a.reset_spans();
-        }
-        self.span.reset();
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{
+        ast::{fn_call::FnCall, ident::Ident, item::Item},
         span::Span,
         tokens::{TokenError, TokenSpan, TokenStream},
     };
 
-    use super::{Expr, FnCall, Item};
+    use super::Expr;
 
     macro_rules! parse_expr_test {
         ($name:ident, $source:expr, $expected: expr) => {
@@ -152,7 +82,10 @@ mod tests {
         parse_single_ident,
         "std",
         Expr::Item(Item {
-            idents: vec!["std"],
+            idents: vec![Ident {
+                name: "std",
+                span: Span::default()
+            }],
             span: Span::default(),
         })
     );
@@ -161,7 +94,16 @@ mod tests {
         parse_item,
         "std.print",
         Expr::Item(Item {
-            idents: vec!["std", "print"],
+            idents: vec![
+                Ident {
+                    name: "std",
+                    span: Span::default()
+                },
+                Ident {
+                    name: "print",
+                    span: Span::default()
+                }
+            ],
             span: Span::default(),
         })
     );
@@ -171,7 +113,10 @@ mod tests {
         "foo()",
         Expr::FnCall(FnCall {
             item: Item {
-                idents: vec!["foo"],
+                idents: vec![Ident {
+                    name: "foo",
+                    span: Span::default()
+                }],
                 span: Span::default(),
             },
             args: vec![],
@@ -184,11 +129,17 @@ mod tests {
         "foo(a)",
         Expr::FnCall(FnCall {
             item: Item {
-                idents: vec!["foo"],
+                idents: vec![Ident {
+                    name: "foo",
+                    span: Span::default()
+                }],
                 span: Span::default(),
             },
             args: vec![Expr::Item(Item {
-                idents: vec!["a"],
+                idents: vec![Ident {
+                    name: "a",
+                    span: Span::default()
+                }],
                 span: Span::default()
             })],
             span: Span::default(),
@@ -200,20 +151,32 @@ mod tests {
         "foo(a, b, c)",
         Expr::FnCall(FnCall {
             item: Item {
-                idents: vec!["foo"],
+                idents: vec![Ident {
+                    name: "foo",
+                    span: Span::default()
+                }],
                 span: Span::default(),
             },
             args: vec![
                 Expr::Item(Item {
-                    idents: vec!["a"],
+                    idents: vec![Ident {
+                        name: "a",
+                        span: Span::default()
+                    }],
                     span: Span::default()
                 }),
                 Expr::Item(Item {
-                    idents: vec!["b"],
+                    idents: vec![Ident {
+                        name: "b",
+                        span: Span::default()
+                    }],
                     span: Span::default()
                 }),
                 Expr::Item(Item {
-                    idents: vec!["c"],
+                    idents: vec![Ident {
+                        name: "c",
+                        span: Span::default()
+                    }],
                     span: Span::default()
                 })
             ],
@@ -226,16 +189,31 @@ mod tests {
         "std.print(a, b)",
         Expr::FnCall(FnCall {
             item: Item {
-                idents: vec!["std", "print"],
+                idents: vec![
+                    Ident {
+                        name: "std",
+                        span: Span::default()
+                    },
+                    Ident {
+                        name: "print",
+                        span: Span::default()
+                    }
+                ],
                 span: Span::default(),
             },
             args: vec![
                 Expr::Item(Item {
-                    idents: vec!["a"],
+                    idents: vec![Ident {
+                        name: "a",
+                        span: Span::default()
+                    }],
                     span: Span::default()
                 }),
                 Expr::Item(Item {
-                    idents: vec!["b"],
+                    idents: vec![Ident {
+                        name: "b",
+                        span: Span::default()
+                    }],
                     span: Span::default()
                 }),
             ],
@@ -248,7 +226,16 @@ mod tests {
         "std.print(\"hello world\")",
         Expr::FnCall(FnCall {
             item: Item {
-                idents: vec!["std", "print"],
+                idents: vec![
+                    Ident {
+                        name: "std",
+                        span: Span::default()
+                    },
+                    Ident {
+                        name: "print",
+                        span: Span::default()
+                    }
+                ],
                 span: Span::default(),
             },
             args: vec![Expr::StringLiteral("hello world")],

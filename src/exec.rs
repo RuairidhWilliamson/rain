@@ -5,8 +5,7 @@ use std::rc::Rc;
 
 use crate::{
     ast::{
-        expr::{Expr, FnCall, Item},
-        stmt::{Declare, Stmt},
+        declare::Declare, expr::Expr, fn_call::FnCall, fn_def::FnDef, item::Item, stmt::Stmt,
         Script,
     },
     error::RainError,
@@ -77,6 +76,7 @@ impl Executable for Stmt<'_> {
         match self {
             Self::Expr(expr) => expr.execute(executor),
             Self::Declare(declare) => declare.execute(executor),
+            Self::FnDef(fndef) => fndef.execute(executor),
         }
     }
 }
@@ -121,14 +121,24 @@ impl Executable for Declare<'_> {
     }
 }
 
+impl Executable for FnDef<'_> {
+    fn execute(&self, executor: &mut Executor) -> Result<DynValue, RainError> {
+        // executor.global_record.insert(self.name.to_owned());
+        todo!()
+    }
+}
+
 impl Executable for Item<'_> {
     fn execute(&self, executor: &mut Executor) -> Result<DynValue, RainError> {
-        let (&global, rest) = self.idents.split_first().unwrap();
-        let mut record = executor.global_record.get(global).ok_or(RainError::new(
-            ExecError::UnknownVariable(global.to_owned()),
-            self.span,
-        ))?;
-        for &ident in rest {
+        let (global, rest) = self.idents.split_first().unwrap();
+        let mut record = executor
+            .global_record
+            .get(global.name)
+            .ok_or(RainError::new(
+                ExecError::UnknownVariable(global.name.to_owned()),
+                self.span,
+            ))?;
+        for ident in rest {
             record = record
                 .as_record()
                 .map_err(|typ| {
@@ -140,9 +150,9 @@ impl Executable for Item<'_> {
                         self.span,
                     )
                 })?
-                .get(ident)
+                .get(ident.name)
                 .ok_or_else(|| {
-                    RainError::new(ExecError::UnknownItem(String::from(ident)), self.span)
+                    RainError::new(ExecError::UnknownItem(String::from(ident.name)), self.span)
                 })?;
         }
         Ok(record.to_owned())

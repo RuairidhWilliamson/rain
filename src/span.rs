@@ -80,4 +80,18 @@ impl Span {
     pub fn reset(&mut self) {
         *self = Self::default();
     }
+
+    pub fn extract_lines<'a>(&self, source: &'a str) -> &'a str {
+        assert_eq!(self.start.line, self.end.line);
+
+        let start = source[..self.start.index]
+            .rfind('\n')
+            .map(|i| i + 1)
+            .unwrap_or(0);
+        let end = source[self.end.index..]
+            .find('\n')
+            .map(|i| i + self.end.index)
+            .unwrap_or(source.len());
+        &source[start..end]
+    }
 }

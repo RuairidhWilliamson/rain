@@ -1,4 +1,9 @@
+pub mod declare;
 pub mod expr;
+pub mod fn_call;
+pub mod fn_def;
+pub mod ident;
+pub mod item;
 pub mod stmt;
 
 use crate::{
@@ -40,6 +45,10 @@ pub enum ParseError {
     EmptyExpression,
     UnexpectedTokens,
     ExpectedAssignToken,
+    ExpectedIdent,
+    ExpectedFn,
+    ExpectedLParen,
+    ExpectedRBrace,
 }
 
 impl std::fmt::Display for ParseError {
@@ -51,15 +60,12 @@ impl std::fmt::Display for ParseError {
 #[cfg(test)]
 mod tests {
     use crate::{
+        ast::{declare::Declare, fn_call::FnCall, ident::Ident, item::Item},
         span::Span,
         tokens::{TokenError, TokenStream},
     };
 
-    use super::{
-        expr::{Expr, FnCall, Item},
-        stmt::{Declare, Stmt},
-        Script,
-    };
+    use super::{expr::Expr, stmt::Stmt, Script};
 
     #[test]
     fn parse_script() {
@@ -78,7 +84,16 @@ mod tests {
                 statements: vec![
                     Stmt::Expr(Expr::FnCall(FnCall {
                         item: Item {
-                            idents: vec!["std", "print"],
+                            idents: vec![
+                                Ident {
+                                    name: "std",
+                                    span: Span::default()
+                                },
+                                Ident {
+                                    name: "print",
+                                    span: Span::default()
+                                }
+                            ],
                             span: Span::default(),
                         },
                         args: vec![Expr::StringLiteral("hello world")],
@@ -90,18 +105,39 @@ mod tests {
                     }),
                     Stmt::Expr(Expr::FnCall(FnCall {
                         item: Item {
-                            idents: vec!["std", "print"],
+                            idents: vec![
+                                Ident {
+                                    name: "std",
+                                    span: Span::default()
+                                },
+                                Ident {
+                                    name: "print",
+                                    span: Span::default()
+                                }
+                            ],
                             span: Span::default(),
                         },
                         args: vec![Expr::Item(Item {
-                            idents: vec!["msg"],
+                            idents: vec![Ident {
+                                name: "msg",
+                                span: Span::default()
+                            }],
                             span: Span::default(),
                         })],
                         span: Span::default(),
                     })),
                     Stmt::Expr(Expr::FnCall(FnCall {
                         item: Item {
-                            idents: vec!["std", "print"],
+                            idents: vec![
+                                Ident {
+                                    name: "std",
+                                    span: Span::default()
+                                },
+                                Ident {
+                                    name: "print",
+                                    span: Span::default()
+                                }
+                            ],
                             span: Span::default(),
                         },
                         args: vec![Expr::StringLiteral("goodbye"),],
@@ -109,6 +145,6 @@ mod tests {
                     }))
                 ]
             }
-        )
+        );
     }
 }
