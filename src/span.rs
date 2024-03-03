@@ -1,4 +1,4 @@
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Default, Clone, Copy)]
 pub struct Place {
     // Zero based byte index of the place in the file
     pub index: usize,
@@ -6,6 +6,15 @@ pub struct Place {
     pub line: usize,
     // Zero based column number of the place in the line
     pub column: usize,
+}
+
+impl std::fmt::Debug for Place {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "({:?} {:?}:{:?})",
+            self.index, self.line, self.column
+        ))
+    }
 }
 
 impl PartialEq for Place {
@@ -28,12 +37,18 @@ impl Ord for Place {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+#[derive(Default, PartialEq, Eq, Clone, Copy)]
 pub struct Span {
     // Inclusive start of span
     pub start: Place,
     // Exclusive end of span
     pub end: Place,
+}
+
+impl std::fmt::Debug for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("[{:?} -> {:?}]", self.start, self.end))
+    }
 }
 
 impl Span {

@@ -8,7 +8,7 @@ pub mod stmt;
 
 use crate::{
     error::RainError,
-    tokens::{Token, TokenSpan},
+    tokens::{Token, TokenKind, TokenSpan},
 };
 
 use self::stmt::Stmt;
@@ -49,6 +49,8 @@ pub enum ParseError {
     ExpectedFn,
     ExpectedLParen,
     ExpectedRBrace,
+    Expected(TokenKind),
+    ExpectedAny(Vec<TokenKind>),
 }
 
 impl std::fmt::Display for ParseError {
@@ -62,7 +64,7 @@ mod tests {
     use crate::{
         ast::{declare::Declare, fn_call::FnCall, ident::Ident, item::Item},
         span::Span,
-        tokens::{TokenError, TokenStream},
+        tokens::{stream::TokenStream, TokenError},
     };
 
     use super::{expr::Expr, stmt::Stmt, Script};

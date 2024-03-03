@@ -43,7 +43,7 @@ mod tests {
     use crate::{
         ast::{ident::Ident, item::Item},
         span::Span,
-        tokens::{TokenError, TokenStream},
+        tokens::{stream::TokenStream, TokenError},
     };
 
     use super::*;

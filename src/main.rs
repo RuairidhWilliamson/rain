@@ -39,7 +39,7 @@ fn main() {
 }
 
 fn main_inner(source: &str, cli: &Cli) -> Result<(), RainError> {
-    let mut token_stream = rain::tokens::TokenStream::new(source);
+    let mut token_stream = rain::tokens::stream::TokenStream::new(source);
     let tokens = token_stream.parse_collect()?;
     if cli.print_tokens {
         println!("{tokens:#?}");

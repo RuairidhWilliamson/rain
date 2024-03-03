@@ -2,7 +2,7 @@ use super::{fn_call::FnCall, item::Item, ParseError};
 use crate::{
     error::RainError,
     span::Span,
-    tokens::{Token, TokenSpan},
+    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenKind, TokenSpan},
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -44,6 +44,17 @@ impl<'a> Expr<'a> {
         }
     }
 
+    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+        let first_token_span = match stream.parse_next()? {
+            NextTokenSpan::Next(token_span) => token_span,
+            NextTokenSpan::End(span) => {
+                return Err(RainError::new(ParseError::EmptyExpression, span));
+            }
+        };
+
+        todo!()
+    }
+
     pub fn reset_spans(&mut self) {
         match self {
             Expr::Item(inner) => inner.reset_spans(),
@@ -56,24 +67,19 @@ impl<'a> Expr<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        ast::{fn_call::FnCall, ident::Ident, item::Item},
-        span::Span,
-        tokens::{TokenError, TokenSpan, TokenStream},
-    };
+    use crate::ast::ident::Ident;
 
-    use super::Expr;
+    use super::*;
 
     macro_rules! parse_expr_test {
         ($name:ident, $source:expr, $expected: expr) => {
             #[test]
-            fn $name() {
-                let token_stream = TokenStream::new($source);
-                let tokens: Vec<_> = token_stream.collect::<Result<_, TokenError>>().unwrap();
-                let mut expr =
-                    Expr::parse(&tokens, TokenSpan::span(&tokens).unwrap_or_default()).unwrap();
+            fn $name() -> Result<(), RainError> {
+                let mut token_stream = PeekTokenStream::new($source);
+                let mut expr = Expr::parse_stream(&mut token_stream)?;
                 expr.reset_spans();
                 assert_eq!(expr, $expected);
+                Ok(())
             }
         };
     }
@@ -81,13 +87,7 @@ mod tests {
     parse_expr_test!(
         parse_single_ident,
         "std",
-        Expr::Item(Item {
-            idents: vec![Ident {
-                name: "std",
-                span: Span::default()
-            }],
-            span: Span::default(),
-        })
+        Expr::Item(Item::nosp(vec![Ident::nosp("std")]))
     );
 
     parse_expr_test!(

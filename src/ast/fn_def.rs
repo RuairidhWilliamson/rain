@@ -45,7 +45,7 @@ impl<'a> FnDef<'a> {
             ));
         }
         Ok(Self {
-            name: Ident::parse(&tokens[1])?,
+            name: Ident::parse(tokens[1].clone())?,
             args: Vec::default(),
             statements: Vec::default(),
         })
