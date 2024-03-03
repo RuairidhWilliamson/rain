@@ -83,8 +83,8 @@ impl std::fmt::Display for ResolvedError<'_> {
         let extract = span.extract_lines(self.source);
         let err = &self.err.kind;
         let col_count = span.end.column - span.start.column;
-        let span_arrows: String = std::iter::repeat('^').take(col_count).collect();
-        let span_arrows_spaces: String = std::iter::repeat(' ').take(span.start.column).collect();
+        let span_arrows: String = "^".repeat(col_count);
+        let span_arrows_spaces: String = " ".repeat(span.start.column);
         f.write_fmt(format_args!(
             "Found error {err}\n{path}:{line}\n\t{extract}\n\t{span_arrows_spaces}{span_arrows}\n"
         ))?;

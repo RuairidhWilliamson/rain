@@ -18,7 +18,7 @@ impl<'a> Item<'a> {
             .iter()
             .filter_map(|t| match &t.token {
                 Token::Ident(ident) => Some(Ident {
-                    name: *ident,
+                    name: ident,
                     span: t.span,
                 }),
                 Token::Dot => None,

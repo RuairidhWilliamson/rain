@@ -28,19 +28,18 @@ fn main() {
 
     let path = cli
         .script
-        .as_ref()
-        .map(|p| p.as_path())
+        .as_deref()
         .unwrap_or_else(|| Path::new("main.rain"));
-    let source = std::fs::read_to_string(&path).unwrap();
+    let source = std::fs::read_to_string(path).unwrap();
     if let Err(err) = main_inner(&source, &cli) {
-        let err = err.resolve(&path, &source);
+        let err = err.resolve(path, &source);
         eprintln!("{err:#}");
         exit(1)
     }
 }
 
 fn main_inner(source: &str, cli: &Cli) -> Result<(), RainError> {
-    let mut token_stream = rain::tokens::TokenStream::new(&source);
+    let mut token_stream = rain::tokens::TokenStream::new(source);
     let tokens = token_stream.parse_collect()?;
     if cli.print_tokens {
         println!("{tokens:#?}");

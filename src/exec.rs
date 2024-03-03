@@ -122,7 +122,7 @@ impl Executable for Declare<'_> {
 }
 
 impl Executable for FnDef<'_> {
-    fn execute(&self, executor: &mut Executor) -> Result<DynValue, RainError> {
+    fn execute(&self, _executor: &mut Executor) -> Result<DynValue, RainError> {
         // executor.global_record.insert(self.name.to_owned());
         todo!()
     }
