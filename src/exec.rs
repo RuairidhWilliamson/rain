@@ -138,7 +138,7 @@ impl Executable for Item<'_> {
             .get(global.name)
             .ok_or(RainError::new(
                 ExecError::UnknownVariable(global.name.to_owned()),
-                self.span,
+                global.span,
             ))?;
         for ident in rest {
             record = record
@@ -149,12 +149,12 @@ impl Executable for Item<'_> {
                             expected: types::Type::Record,
                             actual: typ,
                         },
-                        self.span,
+                        ident.span,
                     )
                 })?
                 .get(ident.name)
                 .ok_or_else(|| {
-                    RainError::new(ExecError::UnknownItem(String::from(ident.name)), self.span)
+                    RainError::new(ExecError::UnknownItem(String::from(ident.name)), ident.span)
                 })?;
         }
         Ok(record.to_owned())

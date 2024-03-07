@@ -24,15 +24,15 @@ impl<'a> Expr<'a> {
         match first_token_span.token {
             Token::TrueLiteral => {
                 peeking.consume();
-                return Ok(Expr::BoolLiteral(true));
+                Ok(Expr::BoolLiteral(true))
             }
             Token::FalseLiteral => {
                 peeking.consume();
-                return Ok(Expr::BoolLiteral(false));
+                Ok(Expr::BoolLiteral(false))
             }
             Token::DoubleQuoteLiteral(value) => {
                 peeking.consume();
-                return Ok(Expr::StringLiteral(value));
+                Ok(Expr::StringLiteral(value))
             }
             Token::Ident(_) => {
                 let item = Item::parse_stream(stream)?;
@@ -42,17 +42,17 @@ impl<'a> Expr<'a> {
                     ..
                 }) = peeking.value()
                 {
-                    return Ok(Expr::FnCall(FnCall::parse_stream_item(item, stream)?));
+                    Ok(Expr::FnCall(FnCall::parse_stream_item(item, stream)?))
                 } else {
-                    return Ok(Expr::Item(item));
+                    Ok(Expr::Item(item))
                 }
             }
             _ => {
                 eprintln!("{first_token_span:?}");
-                return Err(RainError::new(
+                Err(RainError::new(
                     ParseError::UnexpectedTokens,
                     first_token_span.span,
-                ));
+                ))
             }
         }
     }
