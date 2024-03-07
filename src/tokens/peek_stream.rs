@@ -26,10 +26,24 @@ impl<'a> PeekTokenStream<'a> {
         self.stream.parse_next()
     }
 
-    pub fn peek(&mut self) -> Result<&NextTokenSpan<'a>, TokenError> {
+    pub fn peek<'b>(&'b mut self) -> Result<PeekNextTokenSpan<'a, 'b>, TokenError> {
         if self.peeked.is_none() {
             self.peeked = Some(self.stream.parse_next()?);
         }
-        Ok(self.peeked.as_ref().unwrap())
+        Ok(PeekNextTokenSpan { stream: self })
+    }
+}
+
+pub struct PeekNextTokenSpan<'a, 'b> {
+    stream: &'b mut PeekTokenStream<'a>,
+}
+
+impl<'a, 'b> PeekNextTokenSpan<'a, 'b> {
+    pub fn value(&self) -> &NextTokenSpan<'a> {
+        self.stream.peeked.as_ref().unwrap()
+    }
+
+    pub fn consume(self) -> NextTokenSpan<'a> {
+        self.stream.parse_next().unwrap()
     }
 }

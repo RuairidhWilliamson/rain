@@ -11,8 +11,8 @@ pub fn run<'a>(source_path: &'a Path, source: &'a str) -> Result<(), error::Reso
 }
 
 fn run_inner(source: &str) -> Result<(), error::RainError> {
-    let tokens = tokens::stream::TokenStream::new(source).parse_collect()?;
-    let script = ast::Script::parse(&tokens)?;
+    let mut token_stream = tokens::peek_stream::PeekTokenStream::new(source);
+    let script = ast::script::Script::parse_stream(&mut token_stream)?;
     exec::execute(&script, Default::default())?;
     Ok(())
 }

@@ -5,8 +5,8 @@ use std::rc::Rc;
 
 use crate::{
     ast::{
-        declare::Declare, expr::Expr, fn_call::FnCall, fn_def::FnDef, item::Item, stmt::Stmt,
-        Script,
+        declare::Declare, expr::Expr, fn_call::FnCall, fn_def::FnDef, item::Item, script::Script,
+        stmt::Stmt,
     },
     error::RainError,
 };
@@ -116,7 +116,9 @@ impl Executable for FnCall<'_> {
 impl Executable for Declare<'_> {
     fn execute(&self, executor: &mut Executor) -> Result<DynValue, RainError> {
         let value = self.value.execute(executor)?;
-        executor.global_record.insert(self.name.to_owned(), value);
+        executor
+            .global_record
+            .insert(self.name.name.to_owned(), value);
         Ok(Rc::new(types::Unit))
     }
 }

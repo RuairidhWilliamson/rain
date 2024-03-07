@@ -1,9 +1,11 @@
 use crate::{
     error::RainError,
-    tokens::{Token, TokenSpan},
+    tokens::{peek_stream::PeekTokenStream, TokenKind},
 };
 
-use super::{declare::Declare, expr::Expr, fn_def::FnDef};
+use super::{
+    declare::Declare, expr::Expr, fn_def::FnDef, helpers::PeekNextTokenHelpers, ParseError,
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt<'a> {
@@ -13,19 +15,13 @@ pub enum Stmt<'a> {
 }
 
 impl<'a> Stmt<'a> {
-    pub fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, RainError> {
-        match tokens {
-            [] => panic!("empty statement"),
-            [TokenSpan {
-                token: Token::Let, ..
-            }, ..] => Ok(Self::Declare(Declare::parse(tokens)?)),
-            [TokenSpan {
-                token: Token::Fn, ..
-            }, ..] => Ok(Self::FnDef(FnDef::parse(tokens)?)),
-            _ => Ok(Self::Expr(Expr::parse(
-                tokens,
-                TokenSpan::span(tokens).unwrap(),
-            )?)),
+    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+        let peeking = stream.peek()?;
+        let peeking_token = peeking.expect_not_end(ParseError::ExpectedStmt)?;
+        match TokenKind::from(&peeking_token.token) {
+            TokenKind::Let => Ok(Self::Declare(Declare::parse_stream(stream)?)),
+            TokenKind::Fn => Ok(Self::FnDef(FnDef::parse_stream(stream)?)),
+            _ => Ok(Self::Expr(Expr::parse_stream(stream)?)),
         }
     }
 
@@ -43,7 +39,6 @@ mod tests {
     use crate::{
         ast::{ident::Ident, item::Item},
         span::Span,
-        tokens::{stream::TokenStream, TokenError},
     };
 
     use super::*;
@@ -51,14 +46,13 @@ mod tests {
     #[test]
     fn parse_declare() {
         let source = "let a = b";
-        let token_stream = TokenStream::new(source);
-        let tokens: Vec<_> = token_stream.collect::<Result<_, TokenError>>().unwrap();
-        let mut stmt = Stmt::parse(&tokens).unwrap();
+        let mut token_stream = PeekTokenStream::new(source);
+        let mut stmt = Stmt::parse_stream(&mut token_stream).unwrap();
         stmt.reset_spans();
         assert_eq!(
             stmt,
             Stmt::Declare(Declare {
-                name: "a",
+                name: Ident::nosp("a"),
                 value: Expr::Item(Item {
                     idents: vec![Ident {
                         name: "b",
@@ -73,14 +67,13 @@ mod tests {
     #[test]
     fn parse_declare_utf8() {
         let source = "let 🌧 = \"rain\"";
-        let token_stream = TokenStream::new(source);
-        let tokens: Vec<_> = token_stream.collect::<Result<_, TokenError>>().unwrap();
-        let mut stmt = Stmt::parse(&tokens).unwrap();
+        let mut token_stream = PeekTokenStream::new(source);
+        let mut stmt = Stmt::parse_stream(&mut token_stream).unwrap();
         stmt.reset_spans();
         assert_eq!(
             stmt,
             Stmt::Declare(Declare {
-                name: "🌧",
+                name: Ident::nosp("🌧"),
                 value: Expr::StringLiteral("rain")
             })
         );

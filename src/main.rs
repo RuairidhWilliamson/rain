@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::Parser;
-use rain::{ast::Script, error::RainError};
+use rain::{ast::script::Script, error::RainError};
 
 #[derive(Parser)]
 struct Cli {
@@ -12,9 +12,6 @@ struct Cli {
 
     #[arg(long)]
     no_exec: bool,
-
-    #[arg(long)]
-    print_tokens: bool,
 
     #[arg(long)]
     print_ast: bool,
@@ -39,13 +36,9 @@ fn main() {
 }
 
 fn main_inner(source: &str, cli: &Cli) -> Result<(), RainError> {
-    let mut token_stream = rain::tokens::stream::TokenStream::new(source);
-    let tokens = token_stream.parse_collect()?;
-    if cli.print_tokens {
-        println!("{tokens:#?}");
-    }
+    let mut token_stream = rain::tokens::peek_stream::PeekTokenStream::new(source);
 
-    let script = Script::parse(&tokens)?;
+    let script = Script::parse_stream(&mut token_stream)?;
     if cli.print_ast {
         println!("{script:#?}");
     }

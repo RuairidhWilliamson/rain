@@ -1,6 +1,6 @@
 use crate::{
     error::RainError,
-    tokens::{Token, TokenSpan},
+    tokens::{peek_stream::PeekTokenStream, Token, TokenSpan},
 };
 
 use super::{ident::Ident, stmt::Stmt};
@@ -49,6 +49,10 @@ impl<'a> FnDef<'a> {
             args: Vec::default(),
             statements: Vec::default(),
         })
+    }
+
+    pub fn parse_stream(_stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+        todo!()
     }
 
     pub fn reset_spans(&mut self) {

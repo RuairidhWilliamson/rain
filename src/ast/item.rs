@@ -4,7 +4,7 @@ use crate::{
     tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenKind, TokenSpan},
 };
 
-use super::{ident::Ident, ParseError};
+use super::{helpers::PeekTokenStreamHelpers, ident::Ident, ParseError};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Item<'a> {
@@ -32,23 +32,19 @@ impl<'a> Item<'a> {
 
     pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
         let mut idents = Vec::default();
-        let token = match stream.parse_next()? {
-            NextTokenSpan::Next(token) => token,
-            NextTokenSpan::End(span) => {
-                return Err(RainError::new(ParseError::Expected(TokenKind::Ident), span));
-            }
-        };
+        let token = stream.expect_parse_next(TokenKind::Ident)?;
         idents.push(Ident::parse(token)?);
 
         loop {
-            let NextTokenSpan::Next(token) = stream.peek()? else {
+            let peeking = stream.peek()?;
+            let NextTokenSpan::Next(token) = peeking.value() else {
                 break;
             };
             if TokenKind::from(&token.token) != TokenKind::Dot {
                 break;
             }
             // Consume the Dot we have just peeked
-            stream.parse_next()?;
+            peeking.consume();
             let ident_token = match stream.parse_next()? {
                 NextTokenSpan::Next(ident_token) => ident_token,
                 NextTokenSpan::End(span) => {

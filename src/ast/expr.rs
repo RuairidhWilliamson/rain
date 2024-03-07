@@ -1,8 +1,7 @@
 use super::{fn_call::FnCall, item::Item, ParseError};
 use crate::{
     error::RainError,
-    span::Span,
-    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenKind, TokenSpan},
+    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenSpan},
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -14,60 +13,63 @@ pub enum Expr<'a> {
 }
 
 impl<'a> Expr<'a> {
-    pub fn parse(tokens: &[TokenSpan<'a>], span: Span) -> Result<Self, RainError> {
-        match tokens {
-            [] => Err(RainError::new(ParseError::EmptyExpression, span)),
-            [TokenSpan {
-                token: Token::TrueLiteral,
-                ..
-            }] => Ok(Expr::BoolLiteral(true)),
-            [TokenSpan {
-                token: Token::FalseLiteral,
-                ..
-            }] => Ok(Expr::BoolLiteral(false)),
-            [TokenSpan {
-                token: Token::DoubleQuoteLiteral(value),
-                ..
-            }] => Ok(Expr::StringLiteral(value)),
-            [.., TokenSpan {
-                token: Token::RParen,
-                ..
-            }] => Ok(Self::FnCall(FnCall::parse(tokens, span)?)),
-            tokens
-                if tokens
-                    .iter()
-                    .all(|ts| matches!(ts.token, Token::Ident(_) | Token::Dot)) =>
-            {
-                Ok(Self::Item(Item::parse(tokens)?))
-            }
-            _ => Err(RainError::new(ParseError::UnexpectedTokens, span)),
-        }
-    }
-
     pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
-        let first_token_span = match stream.parse_next()? {
+        let peeking = stream.peek()?;
+        let first_token_span = match peeking.value() {
             NextTokenSpan::Next(token_span) => token_span,
             NextTokenSpan::End(span) => {
-                return Err(RainError::new(ParseError::EmptyExpression, span));
+                return Err(RainError::new(ParseError::EmptyExpression, *span));
             }
         };
-
-        todo!()
+        match first_token_span.token {
+            Token::TrueLiteral => {
+                peeking.consume();
+                return Ok(Expr::BoolLiteral(true));
+            }
+            Token::FalseLiteral => {
+                peeking.consume();
+                return Ok(Expr::BoolLiteral(false));
+            }
+            Token::DoubleQuoteLiteral(value) => {
+                peeking.consume();
+                return Ok(Expr::StringLiteral(value));
+            }
+            Token::Ident(_) => {
+                let item = Item::parse_stream(stream)?;
+                let peeking = stream.peek()?;
+                if let NextTokenSpan::Next(TokenSpan {
+                    token: Token::LParen,
+                    ..
+                }) = peeking.value()
+                {
+                    return Ok(Expr::FnCall(FnCall::parse_stream_item(item, stream)?));
+                } else {
+                    return Ok(Expr::Item(item));
+                }
+            }
+            _ => {
+                eprintln!("{first_token_span:?}");
+                return Err(RainError::new(
+                    ParseError::UnexpectedTokens,
+                    first_token_span.span,
+                ));
+            }
+        }
     }
 
     pub fn reset_spans(&mut self) {
         match self {
-            Expr::Item(inner) => inner.reset_spans(),
-            Expr::FnCall(inner) => inner.reset_spans(),
-            Expr::BoolLiteral(_) => (),
-            Expr::StringLiteral(_) => (),
+            Self::Item(inner) => inner.reset_spans(),
+            Self::FnCall(inner) => inner.reset_spans(),
+            Self::BoolLiteral(_) => (),
+            Self::StringLiteral(_) => (),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::ident::Ident;
+    use crate::{ast::ident::Ident, span::Span};
 
     use super::*;
 

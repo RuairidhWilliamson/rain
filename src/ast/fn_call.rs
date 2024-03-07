@@ -1,10 +1,17 @@
 use crate::{
     error::RainError,
     span::Span,
-    tokens::{peek_stream::PeekTokenStream, Token, TokenSpan},
+    tokens::{peek_stream::PeekTokenStream, Token, TokenKind, TokenSpan},
 };
 
-use super::{expr::Expr, item::Item};
+use super::{
+    expr::Expr,
+    helpers::{
+        NextTokenSpanHelpers, PeekNextTokenHelpers, PeekTokenStreamHelpers, TokenSpanHelpers,
+    },
+    item::Item,
+    ParseError,
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FnCall<'a> {
@@ -14,39 +21,65 @@ pub struct FnCall<'a> {
 }
 
 impl<'a> FnCall<'a> {
-    pub fn parse(tokens: &[TokenSpan<'a>], span: Span) -> Result<Self, RainError> {
-        let (rparen, tokens) = tokens.split_last().unwrap();
-        assert_eq!(rparen.token, Token::RParen);
-        let Some((lparen_index, _)) = tokens
-            .iter()
-            .enumerate()
-            .find(|(_, ts)| ts.token == Token::LParen)
-        else {
-            panic!("missing lparen")
-        };
-        let (item_tokens, args) = tokens.split_at(lparen_index);
-        let item = Item::parse(item_tokens)?;
-        let (lparen, args) = args.split_first().unwrap();
-        assert_eq!(lparen.token, Token::LParen);
-        let args = if args.is_empty() {
-            vec![]
-        } else {
-            args.split(|ts| ts.token == Token::Comma)
-                .map(|tokens| Expr::parse(tokens, span).unwrap())
-                .collect()
-        };
-        let span = item.span.combine(rparen.span);
-        Ok(Self { item, args, span })
-    }
+    // pub fn parse(tokens: &[TokenSpan<'a>], span: Span) -> Result<Self, RainError> {
+    //     let (rparen, tokens) = tokens.split_last().unwrap();
+    //     assert_eq!(rparen.token, Token::RParen);
+    //     let Some((lparen_index, _)) = tokens
+    //         .iter()
+    //         .enumerate()
+    //         .find(|(_, ts)| ts.token == Token::LParen)
+    //     else {
+    //         panic!("missing lparen")
+    //     };
+    //     let (item_tokens, args) = tokens.split_at(lparen_index);
+    //     let item = Item::parse(item_tokens)?;
+    //     let (lparen, args) = args.split_first().unwrap();
+    //     assert_eq!(lparen.token, Token::LParen);
+    //     let args = if args.is_empty() {
+    //         vec![]
+    //     } else {
+    //         args.split(|ts| ts.token == Token::Comma)
+    //             .map(|tokens| Expr::parse(tokens, span).unwrap())
+    //             .collect()
+    //     };
+    //     let span = item.span.combine(rparen.span);
+    //     Ok(Self { item, args, span })
+    // }
 
     pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
         let item = Item::parse_stream(stream)?;
-        let span = Span::default();
-        Ok(Self {
-            item,
-            args: Vec::default(),
-            span,
-        })
+        Self::parse_stream_item(item, stream)
+    }
+
+    pub fn parse_stream_item(
+        item: Item<'a>,
+        stream: &mut PeekTokenStream<'a>,
+    ) -> Result<Self, RainError> {
+        stream.expect_parse_next(TokenKind::LParen)?;
+        let mut args = Vec::default();
+        let rparen_token: TokenSpan<'a>;
+        loop {
+            let peeking = stream.peek()?;
+            if peeking
+                .expect_not_end(ParseError::Expected(TokenKind::RParen))?
+                .token
+                == Token::RParen
+            {
+                rparen_token = peeking.consume().expect_next(TokenKind::RParen)?;
+                break;
+            }
+            let expr = Expr::parse_stream(stream)?;
+            args.push(expr);
+            let next_token = stream.parse_next()?.expect_next(TokenKind::RParen)?;
+            if next_token.token == Token::Comma {
+                continue;
+            }
+            next_token.expect(TokenKind::RParen)?;
+            rparen_token = next_token;
+            break;
+        }
+        let span = item.span.combine(rparen_token.span);
+        Ok(Self { item, args, span })
     }
 
     pub fn nosp(item: Item<'a>, args: Vec<Expr<'a>>) -> Self {

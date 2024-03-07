@@ -1,33 +1,28 @@
 use crate::{
     error::RainError,
-    tokens::{Token, TokenSpan},
+    tokens::{peek_stream::PeekTokenStream, TokenKind},
 };
 
-use super::{expr::Expr, ParseError};
+use super::{expr::Expr, helpers::PeekTokenStreamHelpers, ident::Ident};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Declare<'a> {
-    pub name: &'a str,
+    pub name: Ident<'a>,
     pub value: Expr<'a>,
 }
 
 impl<'a> Declare<'a> {
-    pub fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, RainError> {
-        assert_eq!(tokens[0].token, Token::Let);
-        let Token::Ident(name) = tokens[1].token else {
-            panic!("expected ident in let statement");
-        };
-        if tokens[2].token != Token::Assign {
-            return Err(RainError::new(
-                ParseError::ExpectedAssignToken,
-                TokenSpan::span(tokens).unwrap(),
-            ));
-        }
-        let value = Expr::parse(&tokens[3..], TokenSpan::span(tokens).unwrap())?;
+    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+        stream.expect_parse_next(TokenKind::Let)?;
+        let ident_token = stream.expect_parse_next(TokenKind::Ident)?;
+        let name = Ident::parse(ident_token)?;
+        stream.expect_parse_next(TokenKind::Assign)?;
+        let value = Expr::parse_stream(stream)?;
         Ok(Self { name, value })
     }
 
     pub fn reset_spans(&mut self) {
+        self.name.span_reset();
         self.value.reset_spans();
     }
 }
