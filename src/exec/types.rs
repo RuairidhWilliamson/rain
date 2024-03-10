@@ -1,97 +1,41 @@
-pub mod record;
-
 use std::rc::Rc;
 
-use crate::error::RainError;
+pub mod function;
+pub mod record;
 
-use super::Executor;
-
-#[derive(Debug, Clone, Copy)]
-pub enum Type {
+#[derive(Debug, Clone, enum_kinds::EnumKind)]
+#[enum_kind(RainType)]
+pub enum RainValue {
     Unit,
-    Bool,
-    Int,
-    String,
-    Path,
-    Record,
-    List,
-    Function,
+    Bool(bool),
+    String(Rc<str>),
+    // Path,
+    Record(record::Record),
+    // List,
+    Function(function::Function),
 }
 
-pub type DynValue = Rc<dyn Value>;
-
-pub trait Value: std::fmt::Debug + std::fmt::Display {
-    fn get_type(&self) -> Type;
-
-    fn as_record(&self) -> Result<&record::Record, Type> {
-        Err(self.get_type())
+impl RainValue {
+    pub fn as_type(&self) -> RainType {
+        RainType::from(self)
     }
 
-    fn as_fn(&self) -> Result<&FnWrapper, Type> {
-        Err(self.get_type())
+    pub fn as_record(&self) -> Result<&record::Record, RainType> {
+        let Self::Record(record) = self else {
+            return Err(self.as_type());
+        };
+        Ok(record)
     }
 }
 
-#[derive(Debug, Default)]
-pub struct Unit;
-
-impl Value for Unit {
-    fn get_type(&self) -> Type {
-        Type::Unit
-    }
-}
-
-impl std::fmt::Display for Unit {
+impl std::fmt::Display for RainValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Unit")
-    }
-}
-
-impl Value for bool {
-    fn get_type(&self) -> Type {
-        Type::Bool
-    }
-}
-
-impl Value for u64 {
-    fn get_type(&self) -> Type {
-        Type::Int
-    }
-}
-
-impl Value for String {
-    fn get_type(&self) -> Type {
-        Type::String
-    }
-}
-
-type Function = Box<dyn Fn(&mut Executor, &[DynValue]) -> Result<DynValue, RainError>>;
-pub struct FnWrapper(pub Function);
-
-impl Value for FnWrapper {
-    fn get_type(&self) -> Type {
-        Type::Function
-    }
-
-    fn as_fn(&self) -> Result<&Self, Type> {
-        Ok(self)
-    }
-}
-
-impl std::fmt::Debug for FnWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Function")
-    }
-}
-
-impl std::fmt::Display for FnWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Function")
-    }
-}
-
-impl FnWrapper {
-    pub fn call(&self, executor: &mut Executor, args: &[DynValue]) -> Result<DynValue, RainError> {
-        self.0(executor, args)
+        match self {
+            RainValue::Unit => f.write_str("Unit"),
+            RainValue::Bool(b) => b.fmt(f),
+            RainValue::String(s) => s.fmt(f),
+            RainValue::Record(r) => r.fmt(f),
+            RainValue::Function(func) => func.fmt(f),
+        }
     }
 }

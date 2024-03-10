@@ -78,4 +78,20 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn parse_fn() {
+        let source = "fn foo() { true }";
+        let mut token_stream = PeekTokenStream::new(source);
+        let mut stmt = Stmt::parse_stream(&mut token_stream).unwrap();
+        stmt.reset_spans();
+        assert_eq!(
+            stmt,
+            Stmt::FnDef(FnDef {
+                name: Ident::nosp("foo"),
+                args: Vec::default(),
+                statements: vec![Stmt::Expr(Expr::BoolLiteral(true))],
+            })
+        );
+    }
 }

@@ -1,9 +1,14 @@
 use crate::{
     error::RainError,
-    tokens::{peek_stream::PeekTokenStream, Token, TokenSpan},
+    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenKind},
 };
 
-use super::{ident::Ident, stmt::Stmt};
+use super::{
+    helpers::{NextTokenSpanHelpers, PeekNextTokenHelpers, PeekTokenStreamHelpers},
+    ident::Ident,
+    stmt::Stmt,
+    ParseError,
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FnDef<'a> {
@@ -12,50 +17,59 @@ pub struct FnDef<'a> {
     pub statements: Vec<Stmt<'a>>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct FnDefArg<'a> {
-    pub name: Ident<'a>,
-}
-
 impl<'a> FnDef<'a> {
-    pub fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, RainError> {
-        if tokens[0].token != Token::Fn {
-            return Err(RainError::new(
-                super::ParseError::ExpectedFn,
-                tokens[0].span,
-            ));
+    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+        stream.expect_parse_next(TokenKind::Fn)?;
+        let name = Ident::parse(stream.expect_parse_next(TokenKind::Ident)?)?;
+        stream.expect_parse_next(TokenKind::LParen)?;
+        let mut args = Vec::new();
+        loop {
+            let peeking = stream.peek()?;
+            let peeking_token_span =
+                peeking.expect_not_end(ParseError::Expected(TokenKind::RParen))?;
+            if peeking_token_span.token == Token::RParen {
+                peeking.consume();
+                break;
+            }
+            if TokenKind::from(&peeking_token_span.token) == TokenKind::Ident {
+                let ident = Ident::parse(peeking.consume().expect_next(TokenKind::Ident)?)?;
+                args.push(FnDefArg { name: ident });
+            }
+            let peeking = stream.peek()?;
+            let peeking_token_span =
+                peeking.expect_not_end(ParseError::Expected(TokenKind::RParen))?;
+            if peeking_token_span.token == Token::RParen {
+                peeking.consume();
+                break;
+            } else if peeking_token_span.token == Token::Comma {
+                peeking.consume();
+            }
         }
-        let Token::Ident(_) = tokens[1].token else {
-            return Err(RainError::new(
-                super::ParseError::ExpectedIdent,
-                tokens[1].span,
-            ));
-        };
-        if tokens[2].token != Token::LParen {
-            return Err(RainError::new(
-                super::ParseError::ExpectedLParen,
-                tokens[2].span,
-            ));
+        stream.expect_parse_next(TokenKind::LBrace)?;
+        let mut statements = Vec::new();
+        loop {
+            let peeking = stream.peek()?;
+            let NextTokenSpan::Next(token) = peeking.value() else {
+                break;
+            };
+            if token.token == Token::NewLine {
+                peeking.consume();
+                continue;
+            } else if token.token == Token::RBrace {
+                break;
+            }
+            statements.push(Stmt::parse_stream(stream)?);
         }
-        let last_token = &tokens[tokens.len() - 1];
-        if last_token.token != Token::RBrace {
-            return Err(RainError::new(
-                super::ParseError::ExpectedRBrace,
-                last_token.span,
-            ));
-        }
+        stream.expect_parse_next(TokenKind::RBrace)?;
         Ok(Self {
-            name: Ident::parse(tokens[1].clone())?,
-            args: Vec::default(),
-            statements: Vec::default(),
+            name,
+            args,
+            statements,
         })
     }
 
-    pub fn parse_stream(_stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
-        todo!()
-    }
-
     pub fn reset_spans(&mut self) {
+        self.name.span_reset();
         for a in &mut self.args {
             a.reset_spans();
         }
@@ -65,6 +79,13 @@ impl<'a> FnDef<'a> {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct FnDefArg<'a> {
+    pub name: Ident<'a>,
+}
+
 impl<'a> FnDefArg<'a> {
-    pub fn reset_spans(&mut self) {}
+    pub fn reset_spans(&mut self) {
+        self.name.span_reset();
+    }
 }

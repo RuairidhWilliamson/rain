@@ -1,4 +1,4 @@
-use super::{fn_call::FnCall, item::Item, ParseError};
+use super::{fn_call::FnCall, if_condition::IfCondition, item::Item, ParseError};
 use crate::{
     error::RainError,
     tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenSpan},
@@ -10,6 +10,7 @@ pub enum Expr<'a> {
     FnCall(FnCall<'a>),
     BoolLiteral(bool),
     StringLiteral(&'a str),
+    IfCondition(IfCondition<'a>),
 }
 
 impl<'a> Expr<'a> {
@@ -47,13 +48,10 @@ impl<'a> Expr<'a> {
                     Ok(Expr::Item(item))
                 }
             }
-            _ => {
-                eprintln!("{first_token_span:?}");
-                Err(RainError::new(
-                    ParseError::UnexpectedTokens,
-                    first_token_span.span,
-                ))
-            }
+            _ => Err(RainError::new(
+                ParseError::UnexpectedTokens,
+                first_token_span.span,
+            )),
         }
     }
 
@@ -63,6 +61,7 @@ impl<'a> Expr<'a> {
             Self::FnCall(inner) => inner.reset_spans(),
             Self::BoolLiteral(_) => (),
             Self::StringLiteral(_) => (),
+            Self::IfCondition(inner) => inner.reset_spans(),
         }
     }
 }
@@ -244,4 +243,10 @@ mod tests {
             span: Span::default(),
         })
     );
+
+    // parse_expr_test!(
+    //     parse_if,
+    //     "if true { std.print(\"hello world\") }",
+    //     Expr::IfCondition(IfCondition {})
+    // );
 }
