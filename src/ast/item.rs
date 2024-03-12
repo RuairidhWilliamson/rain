@@ -6,7 +6,7 @@ use crate::{
 
 use super::{helpers::PeekTokenStreamHelpers, ident::Ident, ParseError};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Item<'a> {
     pub idents: Vec<Ident<'a>>,
     pub span: Span,

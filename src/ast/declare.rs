@@ -5,7 +5,7 @@ use crate::{
 
 use super::{expr::Expr, helpers::PeekTokenStreamHelpers, ident::Ident};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Declare<'a> {
     pub name: Ident<'a>,
     pub value: Expr<'a>,

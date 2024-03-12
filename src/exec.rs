@@ -11,7 +11,7 @@ use crate::{
 
 use self::types::RainValue;
 
-pub fn execute(script: &Script<'_>, options: ExecuteOptions) -> Result<(), RainError> {
+pub fn execute(script: &Script<'static>, options: ExecuteOptions) -> Result<(), RainError> {
     let mut executor = Executor::new(options);
     script.execute(&mut executor)?;
     Ok(())
@@ -41,12 +41,8 @@ pub struct ExecuteOptions {
 #[derive(Default)]
 pub struct Executor {
     global_record: types::record::Record,
+    #[allow(dead_code)]
     options: ExecuteOptions,
-    call_stack: Vec<StackFrame>,
-}
-
-struct StackFrame {
-    locals: types::record::Record,
 }
 
 impl Executor {
@@ -56,7 +52,6 @@ impl Executor {
         Self {
             global_record,
             options,
-            call_stack: Vec::default(),
         }
     }
 }
@@ -65,7 +60,7 @@ trait Executable {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError>;
 }
 
-impl Executable for Script<'_> {
+impl Executable for Script<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         for stmt in &self.statements {
             stmt.execute(executor)?;
@@ -74,7 +69,16 @@ impl Executable for Script<'_> {
     }
 }
 
-impl Executable for Stmt<'_> {
+impl Executable for Vec<Stmt<'static>> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
+        for stmt in self {
+            stmt.execute(executor)?;
+        }
+        Ok(types::RainValue::Unit)
+    }
+}
+
+impl Executable for Stmt<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         match self {
             Self::Expr(expr) => expr.execute(executor),
@@ -84,7 +88,7 @@ impl Executable for Stmt<'_> {
     }
 }
 
-impl Executable for Expr<'_> {
+impl Executable for Expr<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         match self {
             Self::Item(item) => item.execute(executor),
@@ -96,7 +100,7 @@ impl Executable for Expr<'_> {
     }
 }
 
-impl Executable for FnCall<'_> {
+impl Executable for FnCall<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         let fn_value = self.item.execute(executor)?;
         let RainValue::Function(func) = fn_value else {
@@ -118,7 +122,7 @@ impl Executable for FnCall<'_> {
     }
 }
 
-impl Executable for Declare<'_> {
+impl Executable for Declare<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         let value = self.value.execute(executor)?;
         executor
@@ -128,17 +132,17 @@ impl Executable for Declare<'_> {
     }
 }
 
-impl Executable for FnDef<'_> {
+impl Executable for FnDef<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         executor.global_record.insert(
             self.name.name.to_owned(),
-            types::RainValue::Function(types::function::Function::new()),
+            types::RainValue::Function(types::function::Function::new(self.clone())),
         );
         Ok(types::RainValue::Unit)
     }
 }
 
-impl Executable for Item<'_> {
+impl Executable for Item<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         let (global, rest) = self.idents.split_first().unwrap();
         let mut record = executor

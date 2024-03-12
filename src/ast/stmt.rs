@@ -7,7 +7,7 @@ use super::{
     declare::Declare, expr::Expr, fn_def::FnDef, helpers::PeekNextTokenHelpers, ParseError,
 };
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stmt<'a> {
     Expr(Expr<'a>),
     Declare(Declare<'a>),

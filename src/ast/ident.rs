@@ -6,7 +6,7 @@ use crate::{
 
 use super::ParseError;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ident<'a> {
     pub name: &'a str,
     pub span: Span,

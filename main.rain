@@ -1,3 +1,6 @@
-let cargo = std.escape.bin("cargo")
+fn foo() {
+	std.print("World :)")
+}
 
-cargo test
+std.print("Hello :)")
+foo()

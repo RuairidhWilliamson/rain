@@ -1,6 +1,10 @@
 use std::rc::Rc;
 
-use crate::{error::RainError, exec::Executor};
+use crate::{
+    ast::fn_def::FnDef,
+    error::RainError,
+    exec::{Executable, Executor},
+};
 
 use super::RainValue;
 
@@ -10,9 +14,9 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new() -> Self {
+    pub fn new(fn_def: FnDef<'static>) -> Self {
         Self {
-            implementation: Rc::new(FunctionImpl::Local),
+            implementation: Rc::new(FunctionImpl::Local(fn_def)),
         }
     }
 
@@ -41,14 +45,14 @@ pub trait ExternalFnPtr: Fn(&mut Executor, &[RainValue]) -> Result<RainValue, Ra
 impl<F> ExternalFnPtr for F where F: Fn(&mut Executor, &[RainValue]) -> Result<RainValue, RainError> {}
 
 enum FunctionImpl {
-    Local,
+    Local(FnDef<'static>),
     External(Box<dyn ExternalFnPtr>),
 }
 
 impl std::fmt::Debug for FunctionImpl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Local => f.write_str("LocalFunctionImpl"),
+            Self::Local(_) => f.write_str("LocalFunctionImpl"),
             Self::External(_) => f.write_str("ExternalFunctionImpl"),
         }
     }
@@ -58,7 +62,7 @@ impl FunctionImpl {
     fn call(&self, executor: &mut Executor, args: &[RainValue]) -> Result<RainValue, RainError> {
         match self {
             // TODO: Implement this
-            Self::Local => Ok(RainValue::Unit),
+            Self::Local(fn_def) => fn_def.statements.execute(executor),
             Self::External(func) => func(executor, args),
         }
     }

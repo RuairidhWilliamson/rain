@@ -4,7 +4,7 @@ use crate::{
     tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenSpan},
 };
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr<'a> {
     Item(Item<'a>),
     FnCall(FnCall<'a>),

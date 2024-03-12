@@ -10,7 +10,7 @@ use super::{
     ParseError,
 };
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnDef<'a> {
     pub name: Ident<'a>,
     pub args: Vec<FnDefArg<'a>>,
@@ -79,7 +79,7 @@ impl<'a> FnDef<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnDefArg<'a> {
     pub name: Ident<'a>,
 }

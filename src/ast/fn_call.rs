@@ -13,7 +13,7 @@ use super::{
     ParseError,
 };
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnCall<'a> {
     pub item: Item<'a>,
     pub args: Vec<Expr<'a>>,

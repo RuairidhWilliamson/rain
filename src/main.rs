@@ -35,7 +35,9 @@ fn main() {
     }
 }
 
-fn main_inner(source: &str, cli: &Cli) -> Result<(), RainError> {
+fn main_inner(source: impl Into<String>, cli: &Cli) -> Result<(), RainError> {
+    // TODO: We should properly track the lifetime of the source code
+    let source = Into::<String>::into(source).leak();
     let mut token_stream = rain::tokens::peek_stream::PeekTokenStream::new(source);
 
     let script = Script::parse_stream(&mut token_stream)?;

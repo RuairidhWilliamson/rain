@@ -1,6 +1,6 @@
 use super::expr::Expr;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IfCondition<'a> {
     pub condition: Box<Expr<'a>>,
 }
