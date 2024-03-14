@@ -4,3 +4,8 @@ fn foo() {
 
 std.print("Hello")
 foo()
+
+let cargo = std.escape.bin("cargo")
+
+std.print(cargo)
+# std.run(cargo, "clippy")

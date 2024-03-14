@@ -25,6 +25,10 @@ pub enum ExecError {
         expected: &'static [types::RainType],
         actual: types::RainType,
     },
+    IncorrectArgCount {
+        expected: usize,
+        actual: usize,
+    },
 }
 
 impl std::fmt::Display for ExecError {
@@ -118,7 +122,7 @@ impl Executable for FnCall<'static> {
             .iter()
             .map(|a| a.execute(executor))
             .collect::<Result<Vec<RainValue>, RainError>>()?;
-        func.call(executor, &args)
+        func.call(executor, &args, self)
     }
 }
 

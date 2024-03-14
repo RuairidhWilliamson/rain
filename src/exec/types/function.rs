@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    ast::fn_def::FnDef,
+    ast::{fn_call::FnCall, fn_def::FnDef},
     error::RainError,
     exec::{Executable, Executor},
 };
@@ -30,8 +30,9 @@ impl Function {
         &self,
         executor: &mut Executor,
         args: &[RainValue],
+        fn_call: &FnCall<'_>,
     ) -> Result<RainValue, RainError> {
-        self.implementation.call(executor, args)
+        self.implementation.call(executor, args, fn_call)
     }
 }
 
@@ -41,8 +42,14 @@ impl std::fmt::Display for Function {
     }
 }
 
-pub trait ExternalFnPtr: Fn(&mut Executor, &[RainValue]) -> Result<RainValue, RainError> {}
-impl<F> ExternalFnPtr for F where F: Fn(&mut Executor, &[RainValue]) -> Result<RainValue, RainError> {}
+pub trait ExternalFnPtr:
+    Fn(&mut Executor, &[RainValue], &FnCall<'_>) -> Result<RainValue, RainError>
+{
+}
+impl<F> ExternalFnPtr for F where
+    F: Fn(&mut Executor, &[RainValue], &FnCall<'_>) -> Result<RainValue, RainError>
+{
+}
 
 enum FunctionImpl {
     Local(FnDef<'static>),
@@ -59,11 +66,16 @@ impl std::fmt::Debug for FunctionImpl {
 }
 
 impl FunctionImpl {
-    fn call(&self, executor: &mut Executor, args: &[RainValue]) -> Result<RainValue, RainError> {
+    fn call(
+        &self,
+        executor: &mut Executor,
+        args: &[RainValue],
+        fn_call: &FnCall<'_>,
+    ) -> Result<RainValue, RainError> {
         match self {
             // TODO: Implement this
             Self::Local(fn_def) => fn_def.statements.execute(executor),
-            Self::External(func) => func(executor, args),
+            Self::External(func) => func(executor, args, fn_call),
         }
     }
 }

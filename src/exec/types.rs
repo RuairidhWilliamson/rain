@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{path::PathBuf, rc::Rc};
 
 pub mod function;
 pub mod record;
@@ -9,7 +9,7 @@ pub enum RainValue {
     Unit,
     Bool(bool),
     String(Rc<str>),
-    // Path,
+    Path(Rc<PathBuf>),
     Record(record::Record),
     // List,
     Function(function::Function),
@@ -34,6 +34,7 @@ impl std::fmt::Display for RainValue {
             RainValue::Unit => f.write_str("Unit"),
             RainValue::Bool(b) => b.fmt(f),
             RainValue::String(s) => s.fmt(f),
+            RainValue::Path(p) => std::fmt::Debug::fmt(&p, f),
             RainValue::Record(r) => r.fmt(f),
             RainValue::Function(func) => func.fmt(f),
         }
