@@ -11,6 +11,7 @@ pub fn std_lib() -> Record {
         String::from("print"),
         RainValue::Function(Function::new_external(execute_print)),
     );
+    std_lib.insert(String::from("escape"), RainValue::Record(std_escape_lib()));
     std_lib
 }
 
@@ -32,4 +33,17 @@ fn execute_print(_executor: &mut Executor, args: &[RainValue]) -> Result<RainVal
     let args = Args(args);
     println!("{args}");
     Ok(RainValue::Unit)
+}
+
+pub fn std_escape_lib() -> Record {
+    let mut std_escape_lib = Record::default();
+    std_escape_lib.insert(
+        String::from("bin"),
+        RainValue::Function(Function::new_external(execute_bin)),
+    );
+    std_escape_lib
+}
+
+fn execute_bin(_executor: &mut Executor, _args: &[RainValue]) -> Result<RainValue, RainError> {
+    todo!("implement std.escape.bin")
 }

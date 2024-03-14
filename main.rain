@@ -1,6 +1,6 @@
 fn foo() {
-	std.print("World :)")
+	std.print("World")
 }
 
-std.print("Hello :)")
+std.print("Hello")
 foo()

@@ -1,5 +1,7 @@
 fn foo() {
 	std.print("foo bar")
+	return "foo"
 }
 
-foo()
+let f = foo()
+std.print(f)

@@ -79,14 +79,13 @@ impl std::fmt::Display for ResolvedError<'_> {
         let span = self.err.span;
         let path = self.source_path.display();
         // Line is zero based so we change it to be one based
-        let line = span.start.line + 1;
-        let extract = span.extract_lines(self.source);
+        let lineno = span.start.line + 1;
+        let extract = span.extract(self.source);
         let err = &self.err.kind;
-        let col_count = span.end.column - span.start.column;
-        let span_arrows: String = "^".repeat(col_count);
-        let span_arrows_spaces: String = " ".repeat(span.start.column);
+        let under_arrows = extract.under_arrows();
+        let line = extract.line;
         f.write_fmt(format_args!(
-            "Found error {err}\n{path}:{line}\n\t{extract}\n\t{span_arrows_spaces}{span_arrows}\n"
+            "Found error {err}\n{path}:{lineno}\n\t{line}\n\t{under_arrows}\n"
         ))?;
         Ok(())
     }

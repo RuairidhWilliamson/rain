@@ -1,3 +1,5 @@
+use crate::utils::Padding;
+
 #[derive(Default, Clone, Copy)]
 pub struct Place {
     // Zero based byte index of the place in the file
@@ -96,17 +98,45 @@ impl Span {
         *self = Self::default();
     }
 
-    pub fn extract_lines<'a>(&self, source: &'a str) -> &'a str {
+    pub fn extract<'a>(&self, source: &'a str) -> Extract<'a> {
         assert_eq!(self.start.line, self.end.line);
 
-        let start = source[..self.start.index]
+        let line_start = source[..self.start.index]
             .rfind('\n')
             .map(|i| i + 1)
             .unwrap_or(0);
-        let end = source[self.end.index..]
+        let line_end = source[self.end.index..]
             .find('\n')
             .map(|i| i + self.end.index)
             .unwrap_or(source.len());
-        &source[start..end]
+        let line = &source[line_start..line_end];
+
+        Extract {
+            line,
+            exact: self.start.index - line_start..self.end.index - line_start,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Extract<'a> {
+    pub line: &'a str,
+    /// The index of the extract within the line
+    pub exact: std::ops::Range<usize>,
+}
+
+impl Extract<'_> {
+    pub fn before_exact(&self) -> &str {
+        &self.line[..self.exact.start]
+    }
+
+    pub fn exact_str(&self) -> &str {
+        &self.line[self.exact.clone()]
+    }
+
+    pub fn under_arrows(&self) -> String {
+        let padding = Padding::new_matching_string(self.before_exact());
+        let arrows = Padding::new_matching_string(self.exact_str());
+        padding.pad_with_whitespace() + &arrows.pad_with_char('^', 4)
     }
 }

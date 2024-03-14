@@ -5,6 +5,7 @@ pub mod error;
 pub mod exec;
 pub mod span;
 pub mod tokens;
+mod utils;
 
 pub fn run<'a>(source_path: &'a Path, source: &'a str) -> Result<(), error::ResolvedError<'a>> {
     run_inner(source).map_err(|err| err.resolve(source_path, source))
