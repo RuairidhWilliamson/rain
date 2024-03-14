@@ -7,5 +7,7 @@ foo()
 
 let cargo = std.escape.bin("cargo")
 
-std.print(cargo)
-# std.run(cargo, "clippy")
+# std.print(cargo)
+std.run(cargo, "clippy")
+std.run(cargo, "fmt", "--check")
+std.run(cargo, "test")

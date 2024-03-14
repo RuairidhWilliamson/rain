@@ -16,6 +16,10 @@ pub fn std_lib() -> Record {
         String::from("print"),
         RainValue::Function(Function::new_external(execute_print)),
     );
+    std_lib.insert(
+        String::from("run"),
+        RainValue::Function(Function::new_external(execute_run)),
+    );
     std_lib.insert(String::from("escape"), RainValue::Record(std_escape_lib()));
     std_lib
 }
@@ -41,6 +45,52 @@ fn execute_print(
     }
     let args = Args(args);
     println!("{args}");
+    Ok(RainValue::Unit)
+}
+
+fn execute_run(
+    _executor: &mut Executor,
+    args: &[RainValue],
+    fn_call: &FnCall<'_>,
+) -> Result<RainValue, RainError> {
+    let Some((program, args)) = args.split_first() else {
+        return Err(RainError::new(
+            ExecError::IncorrectArgCount {
+                expected: 1,
+                actual: 0,
+            },
+            fn_call.span,
+        ));
+    };
+    let RainValue::Path(program) = program else {
+        return Err(RainError::new(
+            ExecError::UnexpectedType {
+                expected: &[RainType::Path],
+                actual: program.as_type(),
+            },
+            fn_call.span,
+        ));
+    };
+    let args = args
+        .iter()
+        .map(|a| {
+            let RainValue::String(a) = a else {
+                return Err(RainError::new(
+                    ExecError::UnexpectedType {
+                        expected: &[RainType::String],
+                        actual: a.as_type(),
+                    },
+                    fn_call.span,
+                ));
+            };
+            Ok(a.as_ref())
+        })
+        .collect::<Result<Vec<_>, RainError>>()?;
+    let status = std::process::Command::new(program.as_ref())
+        .args(args)
+        .status()
+        .unwrap();
+    assert!(status.success());
     Ok(RainValue::Unit)
 }
 
