@@ -20,6 +20,7 @@ pub enum Token<'a> {
     Colon,
     Slash,
     Tilde,
+    Return,
     LParen,
     RParen,
     LBrace,

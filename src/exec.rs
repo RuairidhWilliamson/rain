@@ -3,8 +3,8 @@ pub mod types;
 
 use crate::{
     ast::{
-        declare::Declare, expr::Expr, fn_call::FnCall, fn_def::FnDef, item::Item, script::Script,
-        stmt::Stmt,
+        declare::Declare, expr::Expr, fn_call::FnCall, fn_def::FnDef, item::Item,
+        return_stmt::Return, script::Script, stmt::Stmt,
     },
     error::RainError,
 };
@@ -76,6 +76,9 @@ impl Executable for Script<'static> {
 impl Executable for Vec<Stmt<'static>> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         for stmt in self {
+            if let Stmt::Return(ret) = stmt {
+                return ret.execute(executor);
+            }
             stmt.execute(executor)?;
         }
         Ok(types::RainValue::Unit)
@@ -88,6 +91,7 @@ impl Executable for Stmt<'static> {
             Self::Expr(expr) => expr.execute(executor),
             Self::Declare(declare) => declare.execute(executor),
             Self::FnDef(fndef) => fndef.execute(executor),
+            Self::Return(ret) => ret.execute(executor),
         }
     }
 }
@@ -174,5 +178,12 @@ impl Executable for Item<'static> {
                 })?;
         }
         Ok(record.to_owned())
+    }
+}
+
+impl Executable for Return<'static> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
+        let value = self.expr.execute(executor)?;
+        Ok(value)
     }
 }

@@ -177,6 +177,7 @@ impl<'a> TokenStream<'a> {
             "fn" => Token::Fn,
             "true" => Token::TrueLiteral,
             "false" => Token::FalseLiteral,
+            "return" => Token::Return,
             _ => Token::Ident(name),
         };
         NextTokenSpan::Next(TokenSpan { token, span })

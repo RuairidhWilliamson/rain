@@ -4,7 +4,8 @@ use crate::{
 };
 
 use super::{
-    declare::Declare, expr::Expr, fn_def::FnDef, helpers::PeekNextTokenHelpers, ParseError,
+    declare::Declare, expr::Expr, fn_def::FnDef, helpers::PeekNextTokenHelpers,
+    return_stmt::Return, ParseError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -12,6 +13,7 @@ pub enum Stmt<'a> {
     Expr(Expr<'a>),
     Declare(Declare<'a>),
     FnDef(FnDef<'a>),
+    Return(Return<'a>),
 }
 
 impl<'a> Stmt<'a> {
@@ -21,6 +23,7 @@ impl<'a> Stmt<'a> {
         match TokenKind::from(&peeking_token.token) {
             TokenKind::Let => Ok(Self::Declare(Declare::parse_stream(stream)?)),
             TokenKind::Fn => Ok(Self::FnDef(FnDef::parse_stream(stream)?)),
+            TokenKind::Return => Ok(Self::Return(Return::parse_stream(stream)?)),
             _ => Ok(Self::Expr(Expr::parse_stream(stream)?)),
         }
     }
@@ -30,6 +33,7 @@ impl<'a> Stmt<'a> {
             Stmt::Expr(inner) => inner.reset_spans(),
             Stmt::Declare(inner) => inner.reset_spans(),
             Stmt::FnDef(inner) => inner.reset_spans(),
+            Stmt::Return(inner) => inner.reset_spans(),
         }
     }
 }
@@ -93,5 +97,19 @@ mod tests {
                 statements: vec![Stmt::Expr(Expr::BoolLiteral(true))],
             })
         );
+    }
+
+    #[test]
+    fn parse_return() {
+        let source = "return b";
+        let mut token_stream = PeekTokenStream::new(source);
+        let mut stmt = Stmt::parse_stream(&mut token_stream).unwrap();
+        stmt.reset_spans();
+        assert_eq!(
+            stmt,
+            Stmt::Return(Return {
+                expr: Expr::Item(Item::nosp(vec![Ident::nosp("b")]))
+            })
+        )
     }
 }

@@ -1,13 +1,13 @@
 fn foo() {
-	std.print("World")
+	std.print("world")
+	return "hello"
 }
 
-std.print("Hello")
-foo()
+std.print(foo())
 
 let cargo = std.escape.bin("cargo")
 
 # std.print(cargo)
-std.run(cargo, "clippy")
-std.run(cargo, "fmt", "--check")
-std.run(cargo, "test")
+# std.run(cargo, "clippy")
+# std.run(cargo, "fmt", "--check")
+# std.run(cargo, "test")

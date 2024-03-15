@@ -73,7 +73,6 @@ impl FunctionImpl {
         fn_call: &FnCall<'_>,
     ) -> Result<RainValue, RainError> {
         match self {
-            // TODO: Implement this
             Self::Local(fn_def) => fn_def.statements.execute(executor),
             Self::External(func) => func(executor, args, fn_call),
         }
