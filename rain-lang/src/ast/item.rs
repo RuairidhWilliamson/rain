@@ -1,7 +1,7 @@
 use crate::{
     error::RainError,
     span::Span,
-    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenKind, TokenSpan},
+    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, TokenKind},
 };
 
 use super::{helpers::PeekTokenStreamHelpers, ident::Ident, ParseError};
@@ -13,23 +13,6 @@ pub struct Item<'a> {
 }
 
 impl<'a> Item<'a> {
-    pub fn parse(tokens: &[TokenSpan<'a>]) -> Result<Self, RainError> {
-        let idents = tokens
-            .iter()
-            .filter_map(|t| match &t.token {
-                Token::Ident(name) => Some(Ident { name, span: t.span }),
-                Token::Dot => None,
-                token => panic!("unexpected token {token:?}"),
-            })
-            .collect();
-        let span = tokens
-            .iter()
-            .map(|ts| ts.span)
-            .reduce(Span::combine)
-            .unwrap();
-        Ok(Self { idents, span })
-    }
-
     pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
         let mut idents = Vec::default();
         let token = stream.expect_parse_next(TokenKind::Ident)?;

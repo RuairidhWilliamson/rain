@@ -1,0 +1,9 @@
+[package]
+name = "rain-lang"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+enum-kinds = "0.5"
+thiserror = "1.0"
+unicode-width = "0.1"

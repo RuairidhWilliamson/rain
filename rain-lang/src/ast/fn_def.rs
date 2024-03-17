@@ -68,6 +68,14 @@ impl<'a> FnDef<'a> {
         })
     }
 
+    pub fn nosp(name: Ident<'a>, args: Vec<FnDefArg<'a>>, statements: Vec<Stmt<'a>>) -> Self {
+        Self {
+            name,
+            args,
+            statements,
+        }
+    }
+
     pub fn reset_spans(&mut self) {
         self.name.span_reset();
         for a in &mut self.args {
@@ -87,5 +95,26 @@ pub struct FnDefArg<'a> {
 impl<'a> FnDefArg<'a> {
     pub fn reset_spans(&mut self) {
         self.name.span_reset();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::error::RainError;
+
+    use super::*;
+
+    fn parse_fn_def(source: &str) -> Result<FnDef, RainError> {
+        let mut stream = PeekTokenStream::new(source);
+        let mut fn_def = super::FnDef::parse_stream(&mut stream)?;
+        fn_def.reset_spans();
+        Ok(fn_def)
+    }
+
+    #[test]
+    fn parse_no_args() -> Result<(), RainError> {
+        let fn_def = parse_fn_def("fn foo() {}")?;
+        assert_eq!(fn_def, FnDef::nosp(Ident::nosp("foo"), vec![], vec![]));
+        Ok(())
     }
 }

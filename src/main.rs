@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::Parser;
-use rain::{ast::script::Script, error::RainError};
+use rain_lang::{ast::script::Script, error::RainError};
 
 #[derive(Parser)]
 struct Cli {
@@ -38,7 +38,7 @@ fn main() {
 fn main_inner(source: impl Into<String>, cli: &Cli) -> Result<(), RainError> {
     // TODO: We should properly track the lifetime of the source code
     let source = Into::<String>::into(source).leak();
-    let mut token_stream = rain::tokens::peek_stream::PeekTokenStream::new(source);
+    let mut token_stream = rain_lang::tokens::peek_stream::PeekTokenStream::new(source);
 
     let script = Script::parse_stream(&mut token_stream)?;
     if cli.print_ast {
@@ -46,8 +46,8 @@ fn main_inner(source: impl Into<String>, cli: &Cli) -> Result<(), RainError> {
     }
 
     if !cli.no_exec {
-        let options = rain::exec::ExecuteOptions { sealed: cli.sealed };
-        rain::exec::execute(&script, options)?;
+        let options = rain_lang::exec::ExecuteOptions { sealed: cli.sealed };
+        rain_lang::exec::execute(&script, options)?;
     }
     Ok(())
 }
