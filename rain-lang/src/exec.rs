@@ -1,4 +1,4 @@
-mod stdlib;
+mod corelib;
 pub mod types;
 
 use crate::{
@@ -11,8 +11,12 @@ use crate::{
 
 use self::types::RainValue;
 
-pub fn execute(script: &Script<'static>, options: ExecuteOptions) -> Result<(), RainError> {
-    let mut executor = Executor::new(options);
+pub fn execute(
+    script: &Script<'static>,
+    stdlib: Option<types::record::Record>,
+    options: ExecuteOptions,
+) -> Result<(), RainError> {
+    let mut executor = Executor::new(stdlib, options);
     script.execute(&mut executor)?;
     Ok(())
 }
@@ -50,9 +54,12 @@ pub struct Executor {
 }
 
 impl Executor {
-    pub fn new(options: ExecuteOptions) -> Self {
+    pub fn new(stdlib: Option<types::record::Record>, options: ExecuteOptions) -> Self {
         let mut global_record = types::record::Record::default();
-        global_record.insert(String::from("std"), RainValue::Record(stdlib::std_lib()));
+        global_record.insert(String::from("core"), RainValue::Record(corelib::core_lib()));
+        if let Some(stdlib) = stdlib {
+            global_record.insert(String::from("std"), RainValue::Record(stdlib))
+        }
         Self {
             global_record,
             options,

@@ -1,3 +1,5 @@
+mod stdlib;
+
 use std::{
     path::{Path, PathBuf},
     process::exit,
@@ -47,7 +49,7 @@ fn main_inner(source: impl Into<String>, cli: &Cli) -> Result<(), RainError> {
 
     if !cli.no_exec {
         let options = rain_lang::exec::ExecuteOptions { sealed: cli.sealed };
-        rain_lang::exec::execute(&script, options)?;
+        rain_lang::exec::execute(&script, Some(stdlib::std_lib()), options)?;
     }
     Ok(())
 }

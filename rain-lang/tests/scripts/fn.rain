@@ -1,7 +1,7 @@
 fn foo() {
-	std.print("foo bar")
+	core.print("foo bar")
 	return "foo"
 }
 
 let f = foo()
-std.print(f)
+core.print(f)

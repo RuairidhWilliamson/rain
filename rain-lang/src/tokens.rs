@@ -90,7 +90,7 @@ mod tests {
     #[test]
     fn token_fn_declaration() {
         let source = "fn foo() {
-            std.print(\"Hello :)\")
+            core.print(\"Hello :)\")
         }";
         let tokens: Vec<Token> = TokenStream::new(source)
             .map(|ts| ts.unwrap().token)
@@ -104,7 +104,7 @@ mod tests {
                 Token::LParen,
                 Token::RParen,
                 Token::LBrace,
-                Token::Ident("std"),
+                Token::Ident("core"),
                 Token::Dot,
                 Token::Ident("print"),
                 Token::LParen,
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn tokens_hello_world() {
-        let source = "std.print(\"hello world\")";
+        let source = "core.print(\"hello world\")";
         let tokens: Vec<Token> = TokenStream::new(source)
             .map(|ts| ts.unwrap().token)
             .collect();
@@ -125,7 +125,7 @@ mod tests {
         assert_eq!(
             tokens,
             vec![
-                Token::Ident("std"),
+                Token::Ident("core"),
                 Token::Dot,
                 Token::Ident("print"),
                 Token::LParen,
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn tokens_multiline() {
-        let source = "std.print()\nstd.print()";
+        let source = "core.print()\ncore.print()";
         let tokens: Vec<Token> = TokenStream::new(source)
             .map(|ts| ts.unwrap().token)
             .collect();
@@ -145,13 +145,13 @@ mod tests {
         assert_eq!(
             tokens,
             vec![
-                Token::Ident("std"),
+                Token::Ident("core"),
                 Token::Dot,
                 Token::Ident("print"),
                 Token::LParen,
                 Token::RParen,
                 Token::NewLine,
-                Token::Ident("std"),
+                Token::Ident("core"),
                 Token::Dot,
                 Token::Ident("print"),
                 Token::LParen,
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn tokens_comment() {
-        let source = "std.print()\n# This should not be tokens\nstd.print()";
+        let source = "core.print()\n# This should not be tokens\ncore.print()";
         let tokens: Vec<Token> = TokenStream::new(source)
             .map(|ts| ts.unwrap().token)
             .collect();
@@ -170,14 +170,14 @@ mod tests {
         assert_eq!(
             tokens,
             vec![
-                Token::Ident("std"),
+                Token::Ident("core"),
                 Token::Dot,
                 Token::Ident("print"),
                 Token::LParen,
                 Token::RParen,
                 Token::NewLine,
                 Token::NewLine,
-                Token::Ident("std"),
+                Token::Ident("core"),
                 Token::Dot,
                 Token::Ident("print"),
                 Token::LParen,
@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn tokens_column() {
-        let source = "std.print(\"hello world\")";
+        let source = "core.print(\"hello world\")";
         let token_span = TokenStream::new(source).last().unwrap().unwrap();
         assert_eq!(token_span.span.start.column, source.len() - 1);
     }

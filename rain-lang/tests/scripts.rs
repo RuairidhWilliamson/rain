@@ -12,7 +12,7 @@ fn run_all_test_scripts() {
             return;
         }
         let source = std::fs::read_to_string(&path).unwrap();
-        if let Err(err) = rain::run(&path, &source) {
+        if let Err(err) = rain_lang::run(&path, &source) {
             eprintln!("{err:#}");
             error_count += 1;
         }

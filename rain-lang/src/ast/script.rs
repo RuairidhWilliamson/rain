@@ -45,10 +45,10 @@ mod tests {
 
     #[test]
     fn parse_script() {
-        let source = "std.print(\"hello world\")
+        let source = "core.print(\"hello world\")
         let msg = \"okie\"
-        std.print(msg)
-        std.print(\"goodbye\")
+        core.print(msg)
+        core.print(\"goodbye\")
         ";
         let mut token_stream = PeekTokenStream::new(source);
         let mut script = Script::parse_stream(&mut token_stream).unwrap();
@@ -61,7 +61,7 @@ mod tests {
                         item: Item {
                             idents: vec![
                                 Ident {
-                                    name: "std",
+                                    name: "core",
                                     span: Span::default()
                                 },
                                 Ident {
@@ -82,7 +82,7 @@ mod tests {
                         item: Item {
                             idents: vec![
                                 Ident {
-                                    name: "std",
+                                    name: "core",
                                     span: Span::default()
                                 },
                                 Ident {
@@ -105,7 +105,7 @@ mod tests {
                         item: Item {
                             idents: vec![
                                 Ident {
-                                    name: "std",
+                                    name: "core",
                                     span: Span::default()
                                 },
                                 Ident {

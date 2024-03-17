@@ -93,11 +93,11 @@ mod tests {
 
     parse_expr_test!(
         parse_item,
-        "std.print",
+        "core.print",
         Expr::Item(Item {
             idents: vec![
                 Ident {
-                    name: "std",
+                    name: "core",
                     span: Span::default()
                 },
                 Ident {
@@ -187,12 +187,12 @@ mod tests {
 
     parse_expr_test!(
         parse_print_call,
-        "std.print(a, b)",
+        "core.print(a, b)",
         Expr::FnCall(FnCall {
             item: Item {
                 idents: vec![
                     Ident {
-                        name: "std",
+                        name: "core",
                         span: Span::default()
                     },
                     Ident {
@@ -224,12 +224,12 @@ mod tests {
 
     parse_expr_test!(
         parse_print_hello_world,
-        "std.print(\"hello world\")",
+        "core.print(\"hello world\")",
         Expr::FnCall(FnCall {
             item: Item {
                 idents: vec![
                     Ident {
-                        name: "std",
+                        name: "core",
                         span: Span::default()
                     },
                     Ident {
@@ -246,7 +246,7 @@ mod tests {
 
     // parse_expr_test!(
     //     parse_if,
-    //     "if true { std.print(\"hello world\") }",
+    //     "if true { core.print(\"hello world\") }",
     //     Expr::IfCondition(IfCondition {})
     // );
 }

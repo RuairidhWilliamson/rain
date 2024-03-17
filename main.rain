@@ -1,7 +1,7 @@
 let cargo = std.escape.bin("cargo")
 
-std.print(cargo)
+core.print(cargo)
 std.run(cargo, "clippy")
 std.run(cargo, "fmt", "--check")
-std.run(cargo, "test")
+std.run(cargo, "test", "--all")
 std.run(cargo, "outdated")

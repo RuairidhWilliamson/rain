@@ -1,5 +1,5 @@
 let x = "hello"
 
 if x == "hello" {
-	std.print("Yep hello == hello")
+	core.print("Yep hello == hello")
 }

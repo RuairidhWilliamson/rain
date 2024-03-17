@@ -16,6 +16,6 @@ fn run_inner(source: impl Into<String>) -> Result<(), error::RainError> {
     let source = Into::<String>::into(source).leak();
     let mut token_stream = tokens::peek_stream::PeekTokenStream::new(source);
     let script = ast::script::Script::parse_stream(&mut token_stream)?;
-    exec::execute(&script, Default::default())?;
+    exec::execute(&script, None, Default::default())?;
     Ok(())
 }

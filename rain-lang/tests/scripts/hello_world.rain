@@ -1,1 +1,1 @@
-std.print("Hello World")
+core.print("Hello World")
