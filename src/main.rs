@@ -22,19 +22,43 @@ struct Cli {
     sealed: bool,
 }
 
-fn main() {
+fn main() -> color_eyre::Result<()> {
+    color_eyre::install()?;
+    tracing_subscriber::fmt::init();
+
     let cli = Cli::parse();
 
-    let path = cli
-        .script
-        .as_deref()
-        .unwrap_or_else(|| Path::new("main.rain"));
-    let source = std::fs::read_to_string(path).unwrap();
-    if let Err(err) = main_inner(&source, &cli) {
-        let err = err.resolve(path, &source);
+    let source = read_src(cli.script.as_deref().unwrap_or(Path::new(".")))?;
+    if let Err(err) = main_inner(&source.source, &cli) {
+        let err = err.resolve(&source.path, &source.source);
         eprintln!("{err:#}");
         exit(1)
     }
+    Ok(())
+}
+
+fn read_src(path: &Path) -> color_eyre::Result<Source> {
+    let f = std::fs::File::open(path)?;
+    let metadata = f.metadata()?;
+    if !metadata.is_dir() {
+        let source = std::io::read_to_string(f)?;
+        return Ok(Source {
+            path: path.to_path_buf(),
+            source,
+        });
+    }
+    let new_path = path.join("main.rain");
+    tracing::debug!("{path:?} is a directory using {new_path:?}");
+    let source = std::fs::read_to_string(&new_path)?;
+    Ok(Source {
+        path: new_path,
+        source,
+    })
+}
+
+struct Source {
+    path: PathBuf,
+    source: String,
 }
 
 fn main_inner(source: impl Into<String>, cli: &Cli) -> Result<(), RainError> {

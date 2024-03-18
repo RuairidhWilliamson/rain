@@ -3,7 +3,12 @@ name = "rain-lang"
 version.workspace = true
 edition.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
+tracing.workspace = true
+
 enum-kinds = "0.5"
 thiserror = "1.0"
 unicode-width = "0.1"

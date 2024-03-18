@@ -8,12 +8,27 @@ members = [
 version = "0.0.0"
 edition = "2021"
 
+[workspace.dependencies]
+tracing = "0.1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+# unwrap_used = "warn"
+# nursery = "warn"
+
 [package]
 name = "rain"
 version.workspace = true
 edition.workspace = true
+description = "Well it certainly looks like a build system"
 
 [dependencies]
 rain-lang = { path = "rain-lang" }
 
+tracing.workspace = true
+
 clap = { version = "4.5", features = ["derive"] }
+color-eyre = "0.6"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
