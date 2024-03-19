@@ -1,5 +1,7 @@
 use std::ffi::OsStr;
 
+use rain_lang::Source;
+
 #[test]
 fn run_all_test_scripts() {
     let test_scripts_dir = std::fs::read_dir("tests/scripts").unwrap();
@@ -12,7 +14,8 @@ fn run_all_test_scripts() {
             return;
         }
         let source = std::fs::read_to_string(&path).unwrap();
-        if let Err(err) = rain_lang::run(&path, &source) {
+        let source = Source { path, source };
+        if let Err(err) = rain_lang::run(&source) {
             eprintln!("{err:#}");
             error_count += 1;
         }

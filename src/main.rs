@@ -6,7 +6,7 @@ use std::{
 };
 
 use clap::Parser;
-use rain_lang::{ast::script::Script, error::RainError};
+use rain_lang::{ast::script::Script, error::RainError, Source};
 
 #[derive(Parser)]
 struct Cli {
@@ -27,10 +27,9 @@ fn main() -> color_eyre::Result<()> {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
-
     let source = read_src(cli.script.as_deref().unwrap_or(Path::new(".")))?;
     if let Err(err) = main_inner(&source.source, &cli) {
-        let err = err.resolve(&source.path, &source.source);
+        let err = err.resolve(&source);
         eprintln!("{err:#}");
         exit(1)
     }
@@ -54,11 +53,6 @@ fn read_src(path: &Path) -> color_eyre::Result<Source> {
         path: new_path,
         source,
     })
-}
-
-struct Source {
-    path: PathBuf,
-    source: String,
 }
 
 fn main_inner(source: impl Into<String>, cli: &Cli) -> Result<(), RainError> {

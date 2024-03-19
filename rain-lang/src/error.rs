@@ -1,6 +1,4 @@
-use std::path::Path;
-
-use crate::span::Span;
+use crate::{span::Span, Source};
 
 #[derive(Debug)]
 pub struct RainError {
@@ -48,12 +46,8 @@ impl RainError {
         }
     }
 
-    pub fn resolve<'a>(self, source_path: &'a Path, source: &'a str) -> ResolvedError<'a> {
-        ResolvedError {
-            source,
-            source_path,
-            err: self,
-        }
+    pub fn resolve(self, source: &Source) -> ResolvedError {
+        ResolvedError { source, err: self }
     }
 }
 
@@ -69,18 +63,17 @@ impl std::fmt::Display for RainErrorKind {
 
 #[derive(Debug)]
 pub struct ResolvedError<'a> {
-    source: &'a str,
-    source_path: &'a Path,
+    source: &'a Source,
     err: RainError,
 }
 
 impl std::fmt::Display for ResolvedError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let span = self.err.span;
-        let path = self.source_path.display();
+        let path = self.source.path.display();
         // Line is zero based so we change it to be one based
         let lineno = span.start.line + 1;
-        let extract = span.extract(self.source);
+        let extract = span.extract(&self.source.source);
         let err = &self.err.kind;
         let under_arrows = extract.under_arrows();
         let line = extract.line;

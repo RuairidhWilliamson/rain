@@ -1,16 +1,16 @@
 pub fn build() {
-  let clang_file = std.download(url)
-  let clang = std.executable(clangFile)
-  let optmode = match ctx.profile {
-    debug => "-O0",
-    release => "-O3",
-  }
-  let out = core.path.executable(./foo)
-  std.exec.run(clang, ./main.c, optmode, "-o", out)!
-  return std.executable(out)
+    let clang_file = std.download(url)
+    let clang = std.executable(clangFile)
+    let optmode = match ctx.profile {
+        std.profile.debug => "-O0",
+        std.profile.release => "-O3",
+    }
+    let out = core.path.executable(./foo)
+    std.exec.run(clang, ./main.c, optmode, "-o", out)!
+    return std.executable(out)
 }
 
 pub fn run(...args: [Arg]) {
-  let foo: Executable = build()
-  std.exec.run(foo, ...args)!
+    let foo: Executable = build()
+    std.exec.run(foo, ...args)!
 }
