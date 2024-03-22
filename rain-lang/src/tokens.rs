@@ -10,17 +10,20 @@ pub enum Token<'a> {
     DoubleQuoteLiteral(&'a str),
     TrueLiteral,
     FalseLiteral,
+
     Let,
     If,
     Else,
     Fn,
+    Return,
+    Match,
+
     Dot,
-    Assign,
+    Equals,
     Comma,
     Colon,
     Slash,
     Tilde,
-    Return,
     LParen,
     RParen,
     LBrace,
@@ -28,7 +31,7 @@ pub enum Token<'a> {
     NewLine,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TokenSpan<'a> {
     pub token: Token<'a>,
     pub span: Span,
@@ -81,7 +84,7 @@ mod tests {
             vec![
                 Token::Let,
                 Token::Ident("a"),
-                Token::Assign,
+                Token::Equals,
                 Token::DoubleQuoteLiteral("abc")
             ],
         )
@@ -197,7 +200,7 @@ mod tests {
             vec![
                 Token::Let,
                 Token::Ident("🦀"),
-                Token::Assign,
+                Token::Equals,
                 Token::DoubleQuoteLiteral("🦀"),
             ]
         )
@@ -214,7 +217,7 @@ mod tests {
             vec![
                 Token::Let,
                 Token::Ident("🌧"),
-                Token::Assign,
+                Token::Equals,
                 Token::DoubleQuoteLiteral("rain"),
             ]
         )
@@ -225,5 +228,22 @@ mod tests {
         let source = "core.print(\"hello world\")";
         let token_span = TokenStream::new(source).last().unwrap().unwrap();
         assert_eq!(token_span.span.start.column, source.len() - 1);
+    }
+
+    #[test]
+    fn match_tokens() {
+        let source = "match a {}";
+        let tokens: Vec<Token> = TokenStream::new(source)
+            .map(|ts| ts.unwrap().token)
+            .collect();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Match,
+                Token::Ident("a"),
+                Token::LBrace,
+                Token::RBrace,
+            ]
+        )
     }
 }

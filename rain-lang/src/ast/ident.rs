@@ -4,7 +4,7 @@ use crate::{
     tokens::{Token, TokenKind, TokenSpan},
 };
 
-use super::ParseError;
+use super::{Ast, ParseError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ident<'a> {
@@ -33,8 +33,10 @@ impl<'a> Ident<'a> {
             span: Span::default(),
         }
     }
+}
 
-    pub fn span_reset(&mut self) {
+impl Ast for Ident<'_> {
+    fn reset_spans(&mut self) {
         self.span.reset();
     }
 }

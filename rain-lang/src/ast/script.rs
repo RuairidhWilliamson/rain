@@ -1,43 +1,31 @@
-use crate::{
-    error::RainError,
-    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token},
-};
+use crate::{error::RainError, tokens::peek_stream::PeekTokenStream};
 
-use super::stmt::Stmt;
+use super::{statement_list::StatementList, Ast};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Script<'a> {
-    pub statements: Vec<Stmt<'a>>,
+    pub statements: StatementList<'a>,
 }
 
 impl<'a> Script<'a> {
     pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
-        let mut statements = Vec::new();
-        loop {
-            let peeking = stream.peek()?;
-            let NextTokenSpan::Next(token) = peeking.value() else {
-                break;
-            };
-            if token.token == Token::NewLine {
-                peeking.consume();
-                continue;
-            }
-            statements.push(Stmt::parse_stream(stream)?);
-        }
+        let statements = StatementList::parse_stream(stream)?;
         Ok(Self { statements })
     }
+}
 
-    pub fn reset_spans(&mut self) {
-        for s in &mut self.statements {
-            s.reset_spans();
-        }
+impl Ast for Script<'_> {
+    fn reset_spans(&mut self) {
+        self.statements.reset_spans();
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{declare::Declare, expr::Expr, fn_call::FnCall, ident::Ident, item::Item},
+        ast::{
+            declare::Declare, expr::Expr, fn_call::FnCall, ident::Ident, item::Item, stmt::Stmt,
+        },
         span::Span,
     };
 
@@ -56,7 +44,7 @@ mod tests {
         assert_eq!(
             script,
             Script {
-                statements: vec![
+                statements: StatementList::nosp(vec![
                     Stmt::Expr(Expr::FnCall(FnCall {
                         item: Item {
                             idents: vec![
@@ -118,7 +106,7 @@ mod tests {
                         args: vec![Expr::StringLiteral("goodbye"),],
                         span: Span::default(),
                     }))
-                ]
+                ])
             }
         );
     }

@@ -1,20 +1,20 @@
 use crate::{
     error::RainError,
-    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenKind},
+    tokens::{peek_stream::PeekTokenStream, Token, TokenKind},
 };
 
 use super::{
+    block::Block,
     helpers::{NextTokenSpanHelpers, PeekNextTokenHelpers, PeekTokenStreamHelpers},
     ident::Ident,
-    stmt::Stmt,
-    ParseError,
+    Ast, ParseError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnDef<'a> {
     pub name: Ident<'a>,
     pub args: Vec<FnDefArg<'a>>,
-    pub statements: Vec<Stmt<'a>>,
+    pub block: Block<'a>,
 }
 
 impl<'a> FnDef<'a> {
@@ -45,45 +45,22 @@ impl<'a> FnDef<'a> {
                 peeking.consume();
             }
         }
-        stream.expect_parse_next(TokenKind::LBrace)?;
-        let mut statements = Vec::new();
-        loop {
-            let peeking = stream.peek()?;
-            let NextTokenSpan::Next(token) = peeking.value() else {
-                break;
-            };
-            if token.token == Token::NewLine {
-                peeking.consume();
-                continue;
-            } else if token.token == Token::RBrace {
-                break;
-            }
-            statements.push(Stmt::parse_stream(stream)?);
-        }
-        stream.expect_parse_next(TokenKind::RBrace)?;
-        Ok(Self {
-            name,
-            args,
-            statements,
-        })
+        let block = Block::parse_stream(stream)?;
+        Ok(Self { name, args, block })
     }
 
-    pub fn nosp(name: Ident<'a>, args: Vec<FnDefArg<'a>>, statements: Vec<Stmt<'a>>) -> Self {
-        Self {
-            name,
-            args,
-            statements,
-        }
+    pub fn nosp(name: Ident<'a>, args: Vec<FnDefArg<'a>>, block: Block<'a>) -> Self {
+        Self { name, args, block }
     }
+}
 
-    pub fn reset_spans(&mut self) {
-        self.name.span_reset();
+impl Ast for FnDef<'_> {
+    fn reset_spans(&mut self) {
+        self.name.reset_spans();
         for a in &mut self.args {
             a.reset_spans();
         }
-        for s in &mut self.statements {
-            s.reset_spans();
-        }
+        self.block.reset_spans();
     }
 }
 
@@ -92,9 +69,9 @@ pub struct FnDefArg<'a> {
     pub name: Ident<'a>,
 }
 
-impl<'a> FnDefArg<'a> {
-    pub fn reset_spans(&mut self) {
-        self.name.span_reset();
+impl Ast for FnDefArg<'_> {
+    fn reset_spans(&mut self) {
+        self.name.reset_spans();
     }
 }
 
@@ -114,7 +91,10 @@ mod tests {
     #[test]
     fn parse_no_args() -> Result<(), RainError> {
         let fn_def = parse_fn_def("fn foo() {}")?;
-        assert_eq!(fn_def, FnDef::nosp(Ident::nosp("foo"), vec![], vec![]));
+        assert_eq!(
+            fn_def,
+            FnDef::nosp(Ident::nosp("foo"), vec![], Block::nosp(vec![]))
+        );
         Ok(())
     }
 }

@@ -1,4 +1,6 @@
-use super::{fn_call::FnCall, if_condition::IfCondition, item::Item, ParseError};
+use super::{
+    fn_call::FnCall, if_condition::IfCondition, item::Item, match_expr::Match, Ast, ParseError,
+};
 use crate::{
     error::RainError,
     tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenSpan},
@@ -11,6 +13,7 @@ pub enum Expr<'a> {
     BoolLiteral(bool),
     StringLiteral(&'a str),
     IfCondition(IfCondition<'a>),
+    Match(Match<'a>),
 }
 
 impl<'a> Expr<'a> {
@@ -35,6 +38,8 @@ impl<'a> Expr<'a> {
                 peeking.consume();
                 Ok(Expr::StringLiteral(value))
             }
+            Token::If => Ok(Expr::IfCondition(IfCondition::parse_stream(stream)?)),
+            Token::Match => Ok(Expr::Match(Match::parse_stream(stream)?)),
             Token::Ident(_) => {
                 let item = Item::parse_stream(stream)?;
                 let peeking = stream.peek()?;
@@ -54,21 +59,27 @@ impl<'a> Expr<'a> {
             )),
         }
     }
+}
 
-    pub fn reset_spans(&mut self) {
+impl Ast for Expr<'_> {
+    fn reset_spans(&mut self) {
         match self {
-            Self::Item(inner) => inner.reset_spans(),
-            Self::FnCall(inner) => inner.reset_spans(),
-            Self::BoolLiteral(_) => (),
-            Self::StringLiteral(_) => (),
-            Self::IfCondition(inner) => inner.reset_spans(),
+            Expr::Item(inner) => inner.reset_spans(),
+            Expr::FnCall(inner) => inner.reset_spans(),
+            Expr::BoolLiteral(_) => (),
+            Expr::StringLiteral(_) => (),
+            Expr::IfCondition(inner) => inner.reset_spans(),
+            Expr::Match(inner) => inner.reset_spans(),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::ident::Ident, span::Span};
+    use crate::{
+        ast::{block::Block, ident::Ident},
+        span::Span,
+    };
 
     use super::*;
 
@@ -244,9 +255,12 @@ mod tests {
         })
     );
 
-    // parse_expr_test!(
-    //     parse_if,
-    //     "if true { core.print(\"hello world\") }",
-    //     Expr::IfCondition(IfCondition {})
-    // );
+    parse_expr_test!(
+        parse_if,
+        "if true {}",
+        Expr::IfCondition(IfCondition::nosp(
+            Expr::BoolLiteral(true),
+            Block::nosp(vec![])
+        ))
+    );
 }

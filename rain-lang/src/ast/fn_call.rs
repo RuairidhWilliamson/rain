@@ -10,7 +10,7 @@ use super::{
         NextTokenSpanHelpers, PeekNextTokenHelpers, PeekTokenStreamHelpers, TokenSpanHelpers,
     },
     item::Item,
-    ParseError,
+    Ast, ParseError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,8 +64,10 @@ impl<'a> FnCall<'a> {
             span: Span::default(),
         }
     }
+}
 
-    pub fn reset_spans(&mut self) {
+impl Ast for FnCall<'_> {
+    fn reset_spans(&mut self) {
         self.item.reset_spans();
         for a in &mut self.args {
             a.reset_spans();

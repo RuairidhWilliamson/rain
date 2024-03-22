@@ -5,7 +5,7 @@ use crate::{
 
 use super::{
     declare::Declare, expr::Expr, fn_def::FnDef, helpers::PeekNextTokenHelpers,
-    return_stmt::Return, ParseError,
+    return_stmt::Return, Ast, ParseError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,8 +27,10 @@ impl<'a> Stmt<'a> {
             _ => Ok(Self::Expr(Expr::parse_stream(stream)?)),
         }
     }
+}
 
-    pub fn reset_spans(&mut self) {
+impl Ast for Stmt<'_> {
+    fn reset_spans(&mut self) {
         match self {
             Stmt::Expr(inner) => inner.reset_spans(),
             Stmt::Declare(inner) => inner.reset_spans(),
@@ -41,7 +43,7 @@ impl<'a> Stmt<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{ident::Ident, item::Item},
+        ast::{block::Block, ident::Ident, item::Item},
         span::Span,
     };
 
@@ -94,7 +96,7 @@ mod tests {
             Stmt::FnDef(FnDef {
                 name: Ident::nosp("foo"),
                 args: Vec::default(),
-                statements: vec![Stmt::Expr(Expr::BoolLiteral(true))],
+                block: Block::nosp(vec![Stmt::Expr(Expr::BoolLiteral(true))]),
             })
         );
     }

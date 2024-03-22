@@ -3,8 +3,8 @@ pub mod types;
 
 use crate::{
     ast::{
-        declare::Declare, expr::Expr, fn_call::FnCall, fn_def::FnDef, item::Item,
-        return_stmt::Return, script::Script, stmt::Stmt,
+        block::Block, declare::Declare, expr::Expr, fn_call::FnCall, fn_def::FnDef, item::Item,
+        return_stmt::Return, script::Script, statement_list::StatementList, stmt::Stmt,
     },
     error::RainError,
 };
@@ -73,16 +73,20 @@ trait Executable {
 
 impl Executable for Script<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
-        for stmt in &self.statements {
-            stmt.execute(executor)?;
-        }
+        self.statements.execute(executor)?;
         Ok(types::RainValue::Unit)
     }
 }
 
-impl Executable for Vec<Stmt<'static>> {
+impl Executable for Block<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
-        for stmt in self {
+        self.stmts.execute(executor)
+    }
+}
+
+impl Executable for StatementList<'static> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
+        for stmt in &self.statements {
             if let Stmt::Return(ret) = stmt {
                 return ret.execute(executor);
             }
@@ -111,6 +115,7 @@ impl Executable for Expr<'static> {
             Self::BoolLiteral(value) => Ok(RainValue::Bool(*value)),
             Self::StringLiteral(value) => Ok(RainValue::String((*value).into())),
             Self::IfCondition(_) => todo!(),
+            Self::Match(_) => todo!(),
         }
     }
 }

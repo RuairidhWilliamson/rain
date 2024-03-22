@@ -44,7 +44,7 @@ impl<'a> TokenStream<'a> {
                 b'/' => Ok(self.increment(Token::Slash)),
                 b'~' => Ok(self.increment(Token::Tilde)),
                 b'.' => Ok(self.increment(Token::Dot)),
-                b'=' => Ok(self.increment(Token::Assign)),
+                b'=' => Ok(self.increment(Token::Equals)),
                 b',' => Ok(self.increment(Token::Comma)),
                 b':' => Ok(self.increment(Token::Colon)),
                 b'(' => Ok(self.increment(Token::LParen)),
@@ -175,9 +175,11 @@ impl<'a> TokenStream<'a> {
             "if" => Token::If,
             "else" => Token::Else,
             "fn" => Token::Fn,
+            "match" => Token::Match,
+            "return" => Token::Return,
+
             "true" => Token::TrueLiteral,
             "false" => Token::FalseLiteral,
-            "return" => Token::Return,
             _ => Token::Ident(name),
         };
         NextTokenSpan::Next(TokenSpan { token, span })

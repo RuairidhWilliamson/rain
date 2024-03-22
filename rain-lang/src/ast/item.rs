@@ -4,7 +4,7 @@ use crate::{
     tokens::{peek_stream::PeekTokenStream, NextTokenSpan, TokenKind},
 };
 
-use super::{helpers::PeekTokenStreamHelpers, ident::Ident, ParseError};
+use super::{helpers::PeekTokenStreamHelpers, ident::Ident, Ast, ParseError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Item<'a> {
@@ -46,9 +46,13 @@ impl<'a> Item<'a> {
             span: Span::default(),
         }
     }
+}
 
-    pub fn reset_spans(&mut self) {
-        self.idents.iter_mut().for_each(|ident| ident.span_reset());
+impl Ast for Item<'_> {
+    fn reset_spans(&mut self) {
+        for i in &mut self.idents {
+            i.reset_spans();
+        }
         self.span.reset();
     }
 }

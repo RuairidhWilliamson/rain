@@ -3,7 +3,7 @@ use crate::{
     tokens::{peek_stream::PeekTokenStream, TokenKind},
 };
 
-use super::{expr::Expr, helpers::PeekTokenStreamHelpers};
+use super::{expr::Expr, helpers::PeekTokenStreamHelpers, Ast};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Return<'a> {
@@ -16,8 +16,10 @@ impl<'a> Return<'a> {
         let expr = Expr::parse_stream(stream)?;
         Ok(Self { expr })
     }
+}
 
-    pub fn reset_spans(&mut self) {
-        self.expr.reset_spans();
+impl Ast for Return<'_> {
+    fn reset_spans(&mut self) {
+        self.expr.reset_spans()
     }
 }
