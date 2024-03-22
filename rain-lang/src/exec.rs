@@ -1,6 +1,8 @@
 mod corelib;
 pub mod types;
 
+use std::path::{Path, PathBuf};
+
 use crate::{
     ast::{
         block::Block, declare::Declare, expr::Expr, fn_call::FnCall, fn_def::FnDef, item::Item,
@@ -13,10 +15,12 @@ use self::types::RainValue;
 
 pub fn execute(
     script: &Script<'static>,
+    script_path: &Path,
     stdlib: Option<types::record::Record>,
     options: ExecuteOptions,
 ) -> Result<(), RainError> {
-    let mut executor = Executor::new(stdlib, options);
+    let current_directory = script_path.parent().unwrap().to_path_buf();
+    let mut executor = Executor::new(current_directory, stdlib, options);
     script.execute(&mut executor)?;
     Ok(())
 }
@@ -48,19 +52,25 @@ pub struct ExecuteOptions {
 
 #[derive(Default)]
 pub struct Executor {
+    pub current_directory: PathBuf,
     global_record: types::record::Record,
     #[allow(dead_code)]
     options: ExecuteOptions,
 }
 
 impl Executor {
-    pub fn new(stdlib: Option<types::record::Record>, options: ExecuteOptions) -> Self {
+    pub fn new(
+        current_directory: PathBuf,
+        stdlib: Option<types::record::Record>,
+        options: ExecuteOptions,
+    ) -> Self {
         let mut global_record = types::record::Record::default();
         global_record.insert(String::from("core"), RainValue::Record(corelib::core_lib()));
         if let Some(stdlib) = stdlib {
             global_record.insert(String::from("std"), RainValue::Record(stdlib))
         }
         Self {
+            current_directory,
             global_record,
             options,
         }

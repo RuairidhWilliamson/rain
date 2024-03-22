@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::str::FromStr;
 
 use rain_lang::ast::fn_call::FnCall;
 use rain_lang::error::RainError;
@@ -16,12 +17,20 @@ pub fn std_lib() -> Record {
         String::from("run"),
         RainValue::Function(Function::new_external(execute_run)),
     );
+    std_lib.insert(
+        String::from("download"),
+        RainValue::Function(Function::new_external(execute_download)),
+    );
+    std_lib.insert(
+        String::from("path"),
+        RainValue::Function(Function::new_external(execute_path)),
+    );
     std_lib.insert(String::from("escape"), RainValue::Record(std_escape_lib()));
     std_lib
 }
 
 fn execute_run(
-    _executor: &mut Executor,
+    executor: &mut Executor,
     args: &[RainValue],
     fn_call: &FnCall<'_>,
 ) -> Result<RainValue, RainError> {
@@ -43,10 +52,13 @@ fn execute_run(
             fn_call.span,
         ));
     };
-    let args = args
-        .iter()
-        .map(|a| {
-            let RainValue::String(a) = a else {
+    let mut cmd = std::process::Command::new(program.as_ref());
+    cmd.current_dir(&executor.current_directory);
+    for a in args {
+        match a {
+            RainValue::String(a) => cmd.arg(a.as_ref()),
+            RainValue::Path(p) => cmd.arg(p.as_ref()),
+            _ => {
                 return Err(RainError::new(
                     ExecError::UnexpectedType {
                         expected: &[RainType::String],
@@ -54,16 +66,46 @@ fn execute_run(
                     },
                     fn_call.span,
                 ));
-            };
-            Ok(a.as_ref())
-        })
-        .collect::<Result<Vec<_>, RainError>>()?;
-    let status = std::process::Command::new(program.as_ref())
-        .args(args)
-        .status()
-        .unwrap();
+            }
+        };
+    }
+    let status = cmd.status().unwrap();
     assert!(status.success());
     Ok(RainValue::Unit)
+}
+
+fn execute_download(
+    _executor: &mut Executor,
+    _args: &[RainValue],
+    _fn_call: &FnCall<'_>,
+) -> Result<RainValue, RainError> {
+    todo!()
+}
+
+fn execute_path(
+    _executor: &mut Executor,
+    args: &[RainValue],
+    fn_call: &FnCall<'_>,
+) -> Result<RainValue, RainError> {
+    let [a] = args else {
+        return Err(RainError::new(
+            ExecError::IncorrectArgCount {
+                expected: 1,
+                actual: args.len(),
+            },
+            fn_call.span,
+        ));
+    };
+    let RainValue::String(s) = a else {
+        return Err(RainError::new(
+            ExecError::UnexpectedType {
+                expected: &[RainType::String],
+                actual: a.as_type(),
+            },
+            fn_call.span,
+        ));
+    };
+    Ok(RainValue::Path(Rc::new(PathBuf::from_str(&s).unwrap())))
 }
 
 pub fn std_escape_lib() -> Record {

@@ -28,7 +28,7 @@ fn main() -> color_eyre::Result<()> {
 
     let cli = Cli::parse();
     let source = read_src(cli.script.as_deref().unwrap_or(Path::new(".")))?;
-    if let Err(err) = main_inner(&source.source, &cli) {
+    if let Err(err) = main_inner(&source, &cli) {
         let err = err.resolve(&source);
         eprintln!("{err:#}");
         exit(1)
@@ -55,10 +55,10 @@ fn read_src(path: &Path) -> color_eyre::Result<Source> {
     })
 }
 
-fn main_inner(source: impl Into<String>, cli: &Cli) -> Result<(), RainError> {
+fn main_inner(source: &Source, cli: &Cli) -> Result<(), RainError> {
     // TODO: We should properly track the lifetime of the source code
-    let source = Into::<String>::into(source).leak();
-    let mut token_stream = rain_lang::tokens::peek_stream::PeekTokenStream::new(source);
+    let s = Into::<String>::into(&source.source).leak();
+    let mut token_stream = rain_lang::tokens::peek_stream::PeekTokenStream::new(s);
 
     let script = Script::parse_stream(&mut token_stream)?;
     if cli.print_ast {
@@ -67,7 +67,7 @@ fn main_inner(source: impl Into<String>, cli: &Cli) -> Result<(), RainError> {
 
     if !cli.no_exec {
         let options = rain_lang::exec::ExecuteOptions { sealed: cli.sealed };
-        rain_lang::exec::execute(&script, Some(stdlib::std_lib()), options)?;
+        rain_lang::exec::execute(&script, &source.path, Some(stdlib::std_lib()), options)?;
     }
     Ok(())
 }
