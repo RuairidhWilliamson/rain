@@ -24,7 +24,8 @@ impl Ast for Script<'_> {
 mod tests {
     use crate::{
         ast::{
-            declare::Declare, expr::Expr, fn_call::FnCall, ident::Ident, item::Item, stmt::Stmt,
+            declare::Declare, expr::Expr, function_call::FnCall, ident::Ident, item::Item,
+            statement::Statement,
         },
         span::Span,
     };
@@ -45,7 +46,7 @@ mod tests {
             script,
             Script {
                 statements: StatementList::nosp(vec![
-                    Stmt::Expr(Expr::FnCall(FnCall {
+                    Statement::Expr(Expr::FnCall(FnCall {
                         item: Item {
                             idents: vec![
                                 Ident {
@@ -62,11 +63,11 @@ mod tests {
                         args: vec![Expr::StringLiteral("hello world")],
                         span: Span::default(),
                     })),
-                    Stmt::Declare(Declare {
+                    Statement::Declare(Declare {
                         name: Ident::nosp("msg"),
                         value: Expr::StringLiteral("okie")
                     }),
-                    Stmt::Expr(Expr::FnCall(FnCall {
+                    Statement::Expr(Expr::FnCall(FnCall {
                         item: Item {
                             idents: vec![
                                 Ident {
@@ -89,7 +90,7 @@ mod tests {
                         })],
                         span: Span::default(),
                     })),
-                    Stmt::Expr(Expr::FnCall(FnCall {
+                    Statement::Expr(Expr::FnCall(FnCall {
                         item: Item {
                             idents: vec![
                                 Ident {

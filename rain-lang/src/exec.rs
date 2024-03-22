@@ -5,8 +5,9 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     ast::{
-        block::Block, declare::Declare, expr::Expr, fn_call::FnCall, fn_def::FnDef, item::Item,
-        return_stmt::Return, script::Script, statement_list::StatementList, stmt::Stmt,
+        block::Block, declare::Declare, expr::Expr, function_call::FnCall, function_def::FnDef,
+        item::Item, return_stmt::Return, script::Script, statement::Statement,
+        statement_list::StatementList,
     },
     error::RainError,
 };
@@ -97,7 +98,7 @@ impl Executable for Block<'static> {
 impl Executable for StatementList<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         for stmt in &self.statements {
-            if let Stmt::Return(ret) = stmt {
+            if let Statement::Return(ret) = stmt {
                 return ret.execute(executor);
             }
             stmt.execute(executor)?;
@@ -106,7 +107,7 @@ impl Executable for StatementList<'static> {
     }
 }
 
-impl Executable for Stmt<'static> {
+impl Executable for Statement<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         match self {
             Self::Expr(expr) => expr.execute(executor),

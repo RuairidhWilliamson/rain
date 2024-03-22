@@ -1,8 +1,10 @@
-use std::path::{Path, PathBuf};
+mod escape;
+
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::str::FromStr;
 
-use rain_lang::ast::fn_call::FnCall;
+use rain_lang::ast::function_call::FnCall;
 use rain_lang::error::RainError;
 use rain_lang::exec::types::RainType;
 use rain_lang::exec::ExecError;
@@ -12,21 +14,24 @@ use rain_lang::exec::{
 };
 
 pub fn std_lib() -> Record {
-    let mut std_lib = Record::default();
-    std_lib.insert(
-        String::from("run"),
-        RainValue::Function(Function::new_external(execute_run)),
-    );
-    std_lib.insert(
-        String::from("download"),
-        RainValue::Function(Function::new_external(execute_download)),
-    );
-    std_lib.insert(
-        String::from("path"),
-        RainValue::Function(Function::new_external(execute_path)),
-    );
-    std_lib.insert(String::from("escape"), RainValue::Record(std_escape_lib()));
-    std_lib
+    Record::new([
+        (
+            String::from("run"),
+            RainValue::Function(Function::new_external(execute_run)),
+        ),
+        (
+            String::from("download"),
+            RainValue::Function(Function::new_external(execute_download)),
+        ),
+        (
+            String::from("path"),
+            RainValue::Function(Function::new_external(execute_path)),
+        ),
+        (
+            String::from("escape"),
+            RainValue::Record(escape::std_escape_lib()),
+        ),
+    ])
 }
 
 fn execute_run(
@@ -70,8 +75,9 @@ fn execute_run(
         };
     }
     let status = cmd.status().unwrap();
-    assert!(status.success());
-    Ok(RainValue::Unit)
+
+    let out = Record::new([(String::from("success"), RainValue::Bool(status.success()))]);
+    Ok(RainValue::Record(out))
 }
 
 fn execute_download(
@@ -106,58 +112,4 @@ fn execute_path(
         ));
     };
     Ok(RainValue::Path(Rc::new(PathBuf::from_str(&s).unwrap())))
-}
-
-pub fn std_escape_lib() -> Record {
-    let mut std_escape_lib = Record::default();
-    std_escape_lib.insert(
-        String::from("bin"),
-        RainValue::Function(Function::new_external(execute_bin)),
-    );
-    std_escape_lib
-}
-
-fn execute_bin(
-    _executor: &mut Executor,
-    args: &[RainValue],
-    fn_call: &FnCall<'_>,
-) -> Result<RainValue, RainError> {
-    let [arg] = args else {
-        return Err(RainError::new(
-            ExecError::IncorrectArgCount {
-                expected: 1,
-                actual: args.len(),
-            },
-            fn_call.span,
-        ));
-    };
-    let RainValue::String(name) = arg else {
-        return Err(RainError::new(
-            ExecError::UnexpectedType {
-                expected: &[RainType::String],
-                actual: arg.as_type(),
-            },
-            fn_call.span,
-        ));
-    };
-    let path = find_bin_in_path(name).unwrap();
-    Ok(RainValue::Path(Rc::new(path)))
-}
-
-fn find_bin_in_path(name: &str) -> Option<PathBuf> {
-    std::env::var("PATH")
-        .unwrap()
-        .split(':')
-        .find_map(|p| find_bin_in_dir(Path::new(p), name))
-}
-
-fn find_bin_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
-    std::fs::read_dir(dir).ok()?.find_map(|e| {
-        let p = e.ok()?;
-        if p.file_name().to_str()? == name {
-            Some(p.path())
-        } else {
-            None
-        }
-    })
 }

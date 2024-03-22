@@ -16,6 +16,11 @@ impl std::fmt::Display for Record {
 }
 
 impl Record {
+    pub fn new(kv: impl IntoIterator<Item = (String, RainValue)>) -> Self {
+        let m = kv.into_iter().collect();
+        Self(Rc::new(RefCell::new(m)))
+    }
+
     pub fn insert(&mut self, k: String, v: RainValue) {
         self.0.borrow_mut().insert(k, v);
     }

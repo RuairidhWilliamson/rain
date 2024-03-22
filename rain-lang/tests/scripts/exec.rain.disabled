@@ -1,5 +1,0 @@
-# All these are equivalent
-
-std.exec("ls")
-# ls
-# "ls"

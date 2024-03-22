@@ -5,16 +5,16 @@ mod helpers;
 pub mod block;
 pub mod declare;
 pub mod expr;
-pub mod fn_call;
-pub mod fn_def;
+pub mod function_call;
+pub mod function_def;
 pub mod ident;
 pub mod if_condition;
 pub mod item;
 pub mod match_expr;
 pub mod return_stmt;
 pub mod script;
+pub mod statement;
 pub mod statement_list;
-pub mod stmt;
 
 #[derive(Debug)]
 pub enum ParseError {

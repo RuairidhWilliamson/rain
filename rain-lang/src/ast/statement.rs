@@ -4,19 +4,19 @@ use crate::{
 };
 
 use super::{
-    declare::Declare, expr::Expr, fn_def::FnDef, helpers::PeekNextTokenHelpers,
+    declare::Declare, expr::Expr, function_def::FnDef, helpers::PeekNextTokenHelpers,
     return_stmt::Return, Ast, ParseError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Stmt<'a> {
+pub enum Statement<'a> {
     Expr(Expr<'a>),
     Declare(Declare<'a>),
     FnDef(FnDef<'a>),
     Return(Return<'a>),
 }
 
-impl<'a> Stmt<'a> {
+impl<'a> Statement<'a> {
     pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
         let peeking = stream.peek()?;
         let peeking_token = peeking.expect_not_end(ParseError::ExpectedStmt)?;
@@ -29,13 +29,13 @@ impl<'a> Stmt<'a> {
     }
 }
 
-impl Ast for Stmt<'_> {
+impl Ast for Statement<'_> {
     fn reset_spans(&mut self) {
         match self {
-            Stmt::Expr(inner) => inner.reset_spans(),
-            Stmt::Declare(inner) => inner.reset_spans(),
-            Stmt::FnDef(inner) => inner.reset_spans(),
-            Stmt::Return(inner) => inner.reset_spans(),
+            Statement::Expr(inner) => inner.reset_spans(),
+            Statement::Declare(inner) => inner.reset_spans(),
+            Statement::FnDef(inner) => inner.reset_spans(),
+            Statement::Return(inner) => inner.reset_spans(),
         }
     }
 }
@@ -53,11 +53,11 @@ mod tests {
     fn parse_declare() {
         let source = "let a = b";
         let mut token_stream = PeekTokenStream::new(source);
-        let mut stmt = Stmt::parse_stream(&mut token_stream).unwrap();
+        let mut stmt = Statement::parse_stream(&mut token_stream).unwrap();
         stmt.reset_spans();
         assert_eq!(
             stmt,
-            Stmt::Declare(Declare {
+            Statement::Declare(Declare {
                 name: Ident::nosp("a"),
                 value: Expr::Item(Item {
                     idents: vec![Ident {
@@ -74,11 +74,11 @@ mod tests {
     fn parse_declare_utf8() {
         let source = "let 🌧 = \"rain\"";
         let mut token_stream = PeekTokenStream::new(source);
-        let mut stmt = Stmt::parse_stream(&mut token_stream).unwrap();
+        let mut stmt = Statement::parse_stream(&mut token_stream).unwrap();
         stmt.reset_spans();
         assert_eq!(
             stmt,
-            Stmt::Declare(Declare {
+            Statement::Declare(Declare {
                 name: Ident::nosp("🌧"),
                 value: Expr::StringLiteral("rain")
             })
@@ -89,14 +89,14 @@ mod tests {
     fn parse_fn() {
         let source = "fn foo() { true }";
         let mut token_stream = PeekTokenStream::new(source);
-        let mut stmt = Stmt::parse_stream(&mut token_stream).unwrap();
+        let mut stmt = Statement::parse_stream(&mut token_stream).unwrap();
         stmt.reset_spans();
         assert_eq!(
             stmt,
-            Stmt::FnDef(FnDef {
+            Statement::FnDef(FnDef {
                 name: Ident::nosp("foo"),
                 args: Vec::default(),
-                block: Block::nosp(vec![Stmt::Expr(Expr::BoolLiteral(true))]),
+                block: Block::nosp(vec![Statement::Expr(Expr::BoolLiteral(true))]),
             })
         );
     }
@@ -105,11 +105,11 @@ mod tests {
     fn parse_return() {
         let source = "return b";
         let mut token_stream = PeekTokenStream::new(source);
-        let mut stmt = Stmt::parse_stream(&mut token_stream).unwrap();
+        let mut stmt = Statement::parse_stream(&mut token_stream).unwrap();
         stmt.reset_spans();
         assert_eq!(
             stmt,
-            Stmt::Return(Return {
+            Statement::Return(Return {
                 expr: Expr::Item(Item::nosp(vec![Ident::nosp("b")]))
             })
         )

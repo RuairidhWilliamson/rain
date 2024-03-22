@@ -3,11 +3,11 @@ use crate::{
     tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token},
 };
 
-use super::{stmt::Stmt, Ast};
+use super::{statement::Statement, Ast};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatementList<'a> {
-    pub statements: Vec<Stmt<'a>>,
+    pub statements: Vec<Statement<'a>>,
 }
 
 impl<'a> StatementList<'a> {
@@ -24,12 +24,12 @@ impl<'a> StatementList<'a> {
             } else if token.token == Token::RBrace {
                 break;
             }
-            statements.push(Stmt::parse_stream(stream)?);
+            statements.push(Statement::parse_stream(stream)?);
         }
         Ok(Self { statements })
     }
 
-    pub fn nosp(statements: Vec<Stmt<'a>>) -> Self {
+    pub fn nosp(statements: Vec<Statement<'a>>) -> Self {
         Self { statements }
     }
 }

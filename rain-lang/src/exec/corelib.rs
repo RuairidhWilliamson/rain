@@ -1,4 +1,4 @@
-use crate::{ast::fn_call::FnCall, error::RainError};
+use crate::{ast::function_call::FnCall, error::RainError};
 
 use super::{
     types::{function::Function, record::Record, RainValue},

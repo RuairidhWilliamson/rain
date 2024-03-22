@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    ast::{fn_call::FnCall, fn_def::FnDef},
+    ast::{function_call::FnCall, function_def::FnDef},
     error::RainError,
     exec::{Executable, Executor},
 };

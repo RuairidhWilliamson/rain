@@ -1,5 +1,6 @@
 use super::{
-    fn_call::FnCall, if_condition::IfCondition, item::Item, match_expr::Match, Ast, ParseError,
+    function_call::FnCall, if_condition::IfCondition, item::Item, match_expr::Match, Ast,
+    ParseError,
 };
 use crate::{
     error::RainError,
@@ -77,7 +78,7 @@ impl Ast for Expr<'_> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{block::Block, ident::Ident},
+        ast::{block::Block, ident::Ident, if_condition::ElseCondition},
         span::Span,
     };
 
@@ -260,7 +261,18 @@ mod tests {
         "if true {}",
         Expr::IfCondition(IfCondition::nosp(
             Expr::BoolLiteral(true),
-            Block::nosp(vec![])
+            Block::nosp(vec![]),
+            None,
+        ))
+    );
+
+    parse_expr_test!(
+        parse_if_else,
+        "if false {} else {}",
+        Expr::IfCondition(IfCondition::nosp(
+            Expr::BoolLiteral(false),
+            Block::nosp(vec![]),
+            Some(ElseCondition::nosp(Block::nosp(vec![])))
         ))
     );
 }

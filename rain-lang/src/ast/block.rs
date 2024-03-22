@@ -4,7 +4,9 @@ use crate::{
     tokens::{peek_stream::PeekTokenStream, TokenKind},
 };
 
-use super::{helpers::PeekTokenStreamHelpers, statement_list::StatementList, stmt::Stmt, Ast};
+use super::{
+    helpers::PeekTokenStreamHelpers, statement::Statement, statement_list::StatementList, Ast,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Block<'a> {
@@ -25,7 +27,7 @@ impl<'a> Block<'a> {
         })
     }
 
-    pub fn nosp(stmts: Vec<Stmt<'a>>) -> Self {
+    pub fn nosp(stmts: Vec<Statement<'a>>) -> Self {
         Self {
             lbrace_token: Span::default(),
             stmts: StatementList::nosp(stmts),
