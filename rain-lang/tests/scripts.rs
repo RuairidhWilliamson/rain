@@ -15,7 +15,7 @@ fn run_all_test_scripts() {
         }
         let source = std::fs::read_to_string(&path).unwrap();
         let source = Source { path, source };
-        if let Err(err) = rain_lang::run(&source) {
+        if let Err(err) = rain_lang::run(&source, Default::default()) {
             eprintln!("{err:#}");
             error_count += 1;
         }

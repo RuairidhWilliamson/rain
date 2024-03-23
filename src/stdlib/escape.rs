@@ -4,7 +4,7 @@ use std::{
 };
 
 use rain_lang::{
-    ast::function_call::FnCall,
+    ast::{function_call::FnCall, Ast},
     error::RainError,
     exec::{
         types::{function::Function, record::Record, RainType, RainValue},
@@ -32,7 +32,7 @@ fn execute_bin(
                 expected: 1,
                 actual: args.len(),
             },
-            fn_call.span,
+            fn_call.span(),
         ));
     };
     let RainValue::String(name) = arg else {
@@ -41,7 +41,7 @@ fn execute_bin(
                 expected: &[RainType::String],
                 actual: arg.as_type(),
             },
-            fn_call.span,
+            fn_call.span(),
         ));
     };
     let path = find_bin_in_path(name).unwrap();

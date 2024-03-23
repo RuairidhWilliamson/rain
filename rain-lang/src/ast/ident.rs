@@ -36,6 +36,10 @@ impl<'a> Ident<'a> {
 }
 
 impl Ast for Ident<'_> {
+    fn span(&self) -> Span {
+        self.span
+    }
+
     fn reset_spans(&mut self) {
         self.span.reset();
     }

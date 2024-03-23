@@ -16,8 +16,9 @@ use super::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnCall<'a> {
     pub item: Item<'a>,
+    pub lparen_token: Span,
     pub args: Vec<Expr<'a>>,
-    pub span: Span,
+    pub rparen_token: Span,
 }
 
 impl<'a> FnCall<'a> {
@@ -30,7 +31,7 @@ impl<'a> FnCall<'a> {
         item: Item<'a>,
         stream: &mut PeekTokenStream<'a>,
     ) -> Result<Self, RainError> {
-        stream.expect_parse_next(TokenKind::LParen)?;
+        let lparen_token = stream.expect_parse_next(TokenKind::LParen)?.span;
         let mut args = Vec::default();
         let rparen_token: TokenSpan<'a>;
         loop {
@@ -53,26 +54,37 @@ impl<'a> FnCall<'a> {
             rparen_token = next_token;
             break;
         }
-        let span = item.span.combine(rparen_token.span);
-        Ok(Self { item, args, span })
+        let rparen_token = rparen_token.span;
+        Ok(Self {
+            item,
+            lparen_token,
+            args,
+            rparen_token,
+        })
     }
 
     pub fn nosp(item: Item<'a>, args: Vec<Expr<'a>>) -> Self {
         Self {
             item,
+            lparen_token: Span::default(),
             args,
-            span: Span::default(),
+            rparen_token: Span::default(),
         }
     }
 }
 
 impl Ast for FnCall<'_> {
+    fn span(&self) -> Span {
+        self.item.span.combine(self.rparen_token)
+    }
+
     fn reset_spans(&mut self) {
         self.item.reset_spans();
+        self.lparen_token.reset();
         for a in &mut self.args {
             a.reset_spans();
         }
-        self.span.reset();
+        self.rparen_token.reset();
     }
 }
 

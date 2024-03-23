@@ -37,6 +37,10 @@ impl<'a> Block<'a> {
 }
 
 impl Ast for Block<'_> {
+    fn span(&self) -> Span {
+        self.lbrace_token.combine(self.rbrace_token)
+    }
+
     fn reset_spans(&mut self) {
         self.lbrace_token.reset();
         self.stmts.reset_spans();

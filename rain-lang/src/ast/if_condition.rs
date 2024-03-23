@@ -52,11 +52,22 @@ impl<'a> IfCondition<'a> {
 }
 
 impl Ast for IfCondition<'_> {
+    fn span(&self) -> Span {
+        let last = self
+            .else_condition
+            .as_ref()
+            .map(|e| e.span())
+            .unwrap_or_else(|| self.then_block.span());
+        self.if_token.combine(last)
+    }
+
     fn reset_spans(&mut self) {
         self.if_token.reset();
         self.condition.reset_spans();
         self.then_block.reset_spans();
-        self.else_condition.as_mut().map(|e| e.reset_spans());
+        if let Some(e) = self.else_condition.as_mut() {
+            e.reset_spans();
+        }
     }
 }
 
@@ -85,6 +96,10 @@ impl<'a> ElseCondition<'a> {
 }
 
 impl Ast for ElseCondition<'_> {
+    fn span(&self) -> Span {
+        self.else_token.combine(self.block.span())
+    }
+
     fn reset_spans(&mut self) {
         self.else_token.reset();
         self.block.reset_spans();

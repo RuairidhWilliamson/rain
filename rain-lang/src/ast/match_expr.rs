@@ -1,4 +1,4 @@
-use crate::{error::RainError, tokens::peek_stream::PeekTokenStream};
+use crate::{error::RainError, span::Span, tokens::peek_stream::PeekTokenStream};
 
 use super::{expr::Expr, Ast};
 
@@ -14,6 +14,10 @@ impl<'a> Match<'a> {
 }
 
 impl Ast for Match<'_> {
+    fn span(&self) -> Span {
+        todo!()
+    }
+
     fn reset_spans(&mut self) {
         self.expr.reset_spans();
     }

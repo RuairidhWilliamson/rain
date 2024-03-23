@@ -5,6 +5,17 @@ use super::{
     Executor,
 };
 
+pub trait CoreHandler: std::fmt::Debug {
+    fn print(&mut self, s: std::fmt::Arguments) {
+        println!("{s}");
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DefaultCoreHandler;
+
+impl CoreHandler for DefaultCoreHandler {}
+
 pub fn core_lib() -> Record {
     let mut core_lib = Record::default();
     core_lib.insert(
@@ -15,7 +26,7 @@ pub fn core_lib() -> Record {
 }
 
 fn execute_print(
-    _executor: &mut Executor,
+    executor: &mut Executor,
     args: &[RainValue],
     _fn_call: &FnCall<'_>,
 ) -> Result<RainValue, RainError> {
@@ -34,6 +45,6 @@ fn execute_print(
         }
     }
     let args = Args(args);
-    println!("{args}");
+    executor.core_handler.print(format_args!("{args}"));
     Ok(RainValue::Unit)
 }

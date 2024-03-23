@@ -5,6 +5,7 @@ use std::rc::Rc;
 use std::str::FromStr;
 
 use rain_lang::ast::function_call::FnCall;
+use rain_lang::ast::Ast;
 use rain_lang::error::RainError;
 use rain_lang::exec::types::RainType;
 use rain_lang::exec::ExecError;
@@ -45,7 +46,7 @@ fn execute_run(
                 expected: 1,
                 actual: 0,
             },
-            fn_call.span,
+            fn_call.span(),
         ));
     };
     let RainValue::Path(program) = program else {
@@ -54,7 +55,7 @@ fn execute_run(
                 expected: &[RainType::Path],
                 actual: program.as_type(),
             },
-            fn_call.span,
+            fn_call.span(),
         ));
     };
     let mut cmd = std::process::Command::new(program.as_ref());
@@ -69,7 +70,7 @@ fn execute_run(
                         expected: &[RainType::String],
                         actual: a.as_type(),
                     },
-                    fn_call.span,
+                    fn_call.span(),
                 ));
             }
         };
@@ -99,7 +100,7 @@ fn execute_path(
                 expected: 1,
                 actual: args.len(),
             },
-            fn_call.span,
+            fn_call.span(),
         ));
     };
     let RainValue::String(s) = a else {
@@ -108,8 +109,8 @@ fn execute_path(
                 expected: &[RainType::String],
                 actual: a.as_type(),
             },
-            fn_call.span,
+            fn_call.span(),
         ));
     };
-    Ok(RainValue::Path(Rc::new(PathBuf::from_str(&s).unwrap())))
+    Ok(RainValue::Path(Rc::new(PathBuf::from_str(s).unwrap())))
 }

@@ -1,5 +1,6 @@
 use crate::{
     error::RainError,
+    span::Span,
     tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token},
 };
 
@@ -35,6 +36,10 @@ impl<'a> StatementList<'a> {
 }
 
 impl Ast for StatementList<'_> {
+    fn span(&self) -> Span {
+        todo!()
+    }
+
     fn reset_spans(&mut self) {
         for s in &mut self.statements {
             s.reset_spans();

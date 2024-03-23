@@ -67,7 +67,14 @@ fn main_inner(source: &Source, cli: &Cli) -> Result<(), RainError> {
 
     if !cli.no_exec {
         let options = rain_lang::exec::ExecuteOptions { sealed: cli.sealed };
-        rain_lang::exec::execute(&script, &source.path, Some(stdlib::std_lib()), options)?;
+        let mut executor = rain_lang::exec::ExecutorBuilder {
+            current_directory: source.path.parent().unwrap().to_path_buf(),
+            std_lib: Some(stdlib::std_lib()),
+            options,
+            ..Default::default()
+        }
+        .build();
+        rain_lang::exec::Executable::execute(&script, &mut executor)?;
     }
     Ok(())
 }

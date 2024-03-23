@@ -1,8 +1,8 @@
-use crate::{error::RainError, tokens::peek_stream::PeekTokenStream};
+use crate::{error::RainError, span::Span, tokens::peek_stream::PeekTokenStream};
 
 use super::{statement_list::StatementList, Ast};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Script<'a> {
     pub statements: StatementList<'a>,
 }
@@ -12,9 +12,17 @@ impl<'a> Script<'a> {
         let statements = StatementList::parse_stream(stream)?;
         Ok(Self { statements })
     }
+
+    pub fn nosp(statements: StatementList<'a>) -> Self {
+        Self { statements }
+    }
 }
 
 impl Ast for Script<'_> {
+    fn span(&self) -> Span {
+        todo!()
+    }
+
     fn reset_spans(&mut self) {
         self.statements.reset_spans();
     }
@@ -22,12 +30,9 @@ impl Ast for Script<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        ast::{
-            declare::Declare, expr::Expr, function_call::FnCall, ident::Ident, item::Item,
-            statement::Statement,
-        },
-        span::Span,
+    use crate::ast::{
+        declare::Declare, expr::Expr, function_call::FnCall, ident::Ident, item::Item,
+        statement::Statement, string_literal::StringLiteral,
     };
 
     use super::*;
@@ -44,71 +49,24 @@ mod tests {
         script.reset_spans();
         assert_eq!(
             script,
-            Script {
-                statements: StatementList::nosp(vec![
-                    Statement::Expr(Expr::FnCall(FnCall {
-                        item: Item {
-                            idents: vec![
-                                Ident {
-                                    name: "core",
-                                    span: Span::default()
-                                },
-                                Ident {
-                                    name: "print",
-                                    span: Span::default()
-                                }
-                            ],
-                            span: Span::default(),
-                        },
-                        args: vec![Expr::StringLiteral("hello world")],
-                        span: Span::default(),
-                    })),
-                    Statement::Declare(Declare {
-                        name: Ident::nosp("msg"),
-                        value: Expr::StringLiteral("okie")
-                    }),
-                    Statement::Expr(Expr::FnCall(FnCall {
-                        item: Item {
-                            idents: vec![
-                                Ident {
-                                    name: "core",
-                                    span: Span::default()
-                                },
-                                Ident {
-                                    name: "print",
-                                    span: Span::default()
-                                }
-                            ],
-                            span: Span::default(),
-                        },
-                        args: vec![Expr::Item(Item {
-                            idents: vec![Ident {
-                                name: "msg",
-                                span: Span::default()
-                            }],
-                            span: Span::default(),
-                        })],
-                        span: Span::default(),
-                    })),
-                    Statement::Expr(Expr::FnCall(FnCall {
-                        item: Item {
-                            idents: vec![
-                                Ident {
-                                    name: "core",
-                                    span: Span::default()
-                                },
-                                Ident {
-                                    name: "print",
-                                    span: Span::default()
-                                }
-                            ],
-                            span: Span::default(),
-                        },
-                        args: vec![Expr::StringLiteral("goodbye"),],
-                        span: Span::default(),
-                    }))
-                ])
-            }
+            Script::nosp(StatementList::nosp(vec![
+                Statement::Expr(Expr::FnCall(FnCall::nosp(
+                    Item::nosp(vec![Ident::nosp("core",), Ident::nosp("print")]),
+                    vec![Expr::StringLiteral(StringLiteral::nosp("hello world"))],
+                ))),
+                Statement::Declare(Declare::nosp(
+                    Ident::nosp("msg"),
+                    Expr::StringLiteral(StringLiteral::nosp("okie"))
+                )),
+                Statement::Expr(Expr::FnCall(FnCall::nosp(
+                    Item::nosp(vec![Ident::nosp("core",), Ident::nosp("print")]),
+                    vec![Expr::Item(Item::nosp(vec![Ident::nosp("msg")]))],
+                ))),
+                Statement::Expr(Expr::FnCall(FnCall::nosp(
+                    Item::nosp(vec![Ident::nosp("core"), Ident::nosp("print")]),
+                    vec![Expr::StringLiteral(StringLiteral::nosp("goodbye"))],
+                )))
+            ]))
         );
     }
 }

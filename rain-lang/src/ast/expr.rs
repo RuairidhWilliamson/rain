@@ -1,9 +1,11 @@
 use super::{
-    function_call::FnCall, if_condition::IfCondition, item::Item, match_expr::Match, Ast,
+    bool_literal::BoolLiteral, function_call::FnCall, helpers::NextTokenSpanHelpers,
+    if_condition::IfCondition, item::Item, match_expr::Match, string_literal::StringLiteral, Ast,
     ParseError,
 };
 use crate::{
     error::RainError,
+    span::Span,
     tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenSpan},
 };
 
@@ -11,8 +13,8 @@ use crate::{
 pub enum Expr<'a> {
     Item(Item<'a>),
     FnCall(FnCall<'a>),
-    BoolLiteral(bool),
-    StringLiteral(&'a str),
+    BoolLiteral(BoolLiteral),
+    StringLiteral(StringLiteral<'a>),
     IfCondition(IfCondition<'a>),
     Match(Match<'a>),
 }
@@ -28,16 +30,25 @@ impl<'a> Expr<'a> {
         };
         match first_token_span.token {
             Token::TrueLiteral => {
-                peeking.consume();
-                Ok(Expr::BoolLiteral(true))
+                let span = peeking
+                    .consume()
+                    .expect_next(crate::tokens::TokenKind::TrueLiteral)?
+                    .span;
+                Ok(Expr::BoolLiteral(BoolLiteral { value: true, span }))
             }
             Token::FalseLiteral => {
-                peeking.consume();
-                Ok(Expr::BoolLiteral(false))
+                let span = peeking
+                    .consume()
+                    .expect_next(crate::tokens::TokenKind::TrueLiteral)?
+                    .span;
+                Ok(Expr::BoolLiteral(BoolLiteral { value: false, span }))
             }
             Token::DoubleQuoteLiteral(value) => {
-                peeking.consume();
-                Ok(Expr::StringLiteral(value))
+                let span = peeking
+                    .consume()
+                    .expect_next(crate::tokens::TokenKind::DoubleQuoteLiteral)?
+                    .span;
+                Ok(Expr::StringLiteral(StringLiteral { value, span }))
             }
             Token::If => Ok(Expr::IfCondition(IfCondition::parse_stream(stream)?)),
             Token::Match => Ok(Expr::Match(Match::parse_stream(stream)?)),
@@ -63,12 +74,23 @@ impl<'a> Expr<'a> {
 }
 
 impl Ast for Expr<'_> {
+    fn span(&self) -> Span {
+        match self {
+            Expr::Item(inner) => inner.span(),
+            Expr::FnCall(inner) => inner.span(),
+            Expr::BoolLiteral(inner) => inner.span(),
+            Expr::StringLiteral(inner) => inner.span(),
+            Expr::IfCondition(inner) => inner.span(),
+            Expr::Match(inner) => inner.span(),
+        }
+    }
+
     fn reset_spans(&mut self) {
         match self {
             Expr::Item(inner) => inner.reset_spans(),
             Expr::FnCall(inner) => inner.reset_spans(),
-            Expr::BoolLiteral(_) => (),
-            Expr::StringLiteral(_) => (),
+            Expr::BoolLiteral(inner) => inner.reset_spans(),
+            Expr::StringLiteral(inner) => inner.reset_spans(),
             Expr::IfCondition(inner) => inner.reset_spans(),
             Expr::Match(inner) => inner.reset_spans(),
         }
@@ -85,7 +107,7 @@ mod tests {
     use super::*;
 
     macro_rules! parse_expr_test {
-        ($name:ident, $source:expr, $expected: expr) => {
+        ($name:ident, $source:expr, $expected:expr) => {
             #[test]
             fn $name() -> Result<(), RainError> {
                 let mut token_stream = PeekTokenStream::new($source);
@@ -124,143 +146,57 @@ mod tests {
     parse_expr_test!(
         parse_fn_call,
         "foo()",
-        Expr::FnCall(FnCall {
-            item: Item {
-                idents: vec![Ident {
-                    name: "foo",
-                    span: Span::default()
-                }],
-                span: Span::default(),
-            },
-            args: vec![],
-            span: Span::default(),
-        })
+        Expr::FnCall(FnCall::nosp(Item::nosp(vec![Ident::nosp("foo")]), vec![]))
     );
 
     parse_expr_test!(
         parse_fn_call_arg,
         "foo(a)",
-        Expr::FnCall(FnCall {
-            item: Item {
-                idents: vec![Ident {
-                    name: "foo",
-                    span: Span::default()
-                }],
-                span: Span::default(),
-            },
-            args: vec![Expr::Item(Item {
-                idents: vec![Ident {
-                    name: "a",
-                    span: Span::default()
-                }],
-                span: Span::default()
-            })],
-            span: Span::default(),
-        })
+        Expr::FnCall(FnCall::nosp(
+            Item::nosp(vec![Ident::nosp("foo")]),
+            vec![Expr::Item(Item::nosp(vec![Ident::nosp("a")]))],
+        ))
     );
 
     parse_expr_test!(
         parse_fn_call_args,
         "foo(a, b, c)",
-        Expr::FnCall(FnCall {
-            item: Item {
-                idents: vec![Ident {
-                    name: "foo",
-                    span: Span::default()
-                }],
-                span: Span::default(),
-            },
-            args: vec![
-                Expr::Item(Item {
-                    idents: vec![Ident {
-                        name: "a",
-                        span: Span::default()
-                    }],
-                    span: Span::default()
-                }),
-                Expr::Item(Item {
-                    idents: vec![Ident {
-                        name: "b",
-                        span: Span::default()
-                    }],
-                    span: Span::default()
-                }),
-                Expr::Item(Item {
-                    idents: vec![Ident {
-                        name: "c",
-                        span: Span::default()
-                    }],
-                    span: Span::default()
-                })
+        Expr::FnCall(FnCall::nosp(
+            Item::nosp(vec![Ident::nosp("foo")]),
+            vec![
+                Expr::Item(Item::nosp(vec![Ident::nosp("a")])),
+                Expr::Item(Item::nosp(vec![Ident::nosp("b")])),
+                Expr::Item(Item::nosp(vec![Ident::nosp("c")]))
             ],
-            span: Span::default(),
-        })
+        ))
     );
 
     parse_expr_test!(
         parse_print_call,
         "core.print(a, b)",
-        Expr::FnCall(FnCall {
-            item: Item {
-                idents: vec![
-                    Ident {
-                        name: "core",
-                        span: Span::default()
-                    },
-                    Ident {
-                        name: "print",
-                        span: Span::default()
-                    }
-                ],
-                span: Span::default(),
-            },
-            args: vec![
-                Expr::Item(Item {
-                    idents: vec![Ident {
-                        name: "a",
-                        span: Span::default()
-                    }],
-                    span: Span::default()
-                }),
-                Expr::Item(Item {
-                    idents: vec![Ident {
-                        name: "b",
-                        span: Span::default()
-                    }],
-                    span: Span::default()
-                }),
+        Expr::FnCall(FnCall::nosp(
+            Item::nosp(vec![Ident::nosp("core"), Ident::nosp("print")]),
+            vec![
+                Expr::Item(Item::nosp(vec![Ident::nosp("a")])),
+                Expr::Item(Item::nosp(vec![Ident::nosp("b")])),
             ],
-            span: Span::default(),
-        })
+        ))
     );
 
     parse_expr_test!(
         parse_print_hello_world,
         "core.print(\"hello world\")",
-        Expr::FnCall(FnCall {
-            item: Item {
-                idents: vec![
-                    Ident {
-                        name: "core",
-                        span: Span::default()
-                    },
-                    Ident {
-                        name: "print",
-                        span: Span::default()
-                    }
-                ],
-                span: Span::default(),
-            },
-            args: vec![Expr::StringLiteral("hello world")],
-            span: Span::default(),
-        })
+        Expr::FnCall(FnCall::nosp(
+            Item::nosp(vec![Ident::nosp("core",), Ident::nosp("print",)],),
+            vec![Expr::StringLiteral(StringLiteral::nosp("hello world"))],
+        ))
     );
 
     parse_expr_test!(
         parse_if,
         "if true {}",
         Expr::IfCondition(IfCondition::nosp(
-            Expr::BoolLiteral(true),
+            Expr::BoolLiteral(BoolLiteral::nosp(true)),
             Block::nosp(vec![]),
             None,
         ))
@@ -270,7 +206,7 @@ mod tests {
         parse_if_else,
         "if false {} else {}",
         Expr::IfCondition(IfCondition::nosp(
-            Expr::BoolLiteral(false),
+            Expr::BoolLiteral(BoolLiteral::nosp(false)),
             Block::nosp(vec![]),
             Some(ElseCondition::nosp(Block::nosp(vec![])))
         ))

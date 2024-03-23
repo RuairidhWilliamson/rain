@@ -1,8 +1,9 @@
-use crate::tokens::TokenKind;
+use crate::{span::Span, tokens::TokenKind};
 
 mod helpers;
 
 pub mod block;
+pub mod bool_literal;
 pub mod declare;
 pub mod expr;
 pub mod function_call;
@@ -15,6 +16,7 @@ pub mod return_stmt;
 pub mod script;
 pub mod statement;
 pub mod statement_list;
+pub mod string_literal;
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -31,6 +33,8 @@ impl std::fmt::Display for ParseError {
     }
 }
 
-trait Ast {
+pub trait Ast: std::fmt::Debug + Clone + Eq {
+    fn span(&self) -> Span;
+
     fn reset_spans(&mut self);
 }

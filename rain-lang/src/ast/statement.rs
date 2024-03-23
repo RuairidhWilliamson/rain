@@ -1,5 +1,6 @@
 use crate::{
     error::RainError,
+    span::Span,
     tokens::{peek_stream::PeekTokenStream, TokenKind},
 };
 
@@ -30,6 +31,15 @@ impl<'a> Statement<'a> {
 }
 
 impl Ast for Statement<'_> {
+    fn span(&self) -> Span {
+        match self {
+            Statement::Expr(inner) => inner.span(),
+            Statement::Declare(inner) => inner.span(),
+            Statement::FnDef(inner) => inner.span(),
+            Statement::Return(inner) => inner.span(),
+        }
+    }
+
     fn reset_spans(&mut self) {
         match self {
             Statement::Expr(inner) => inner.reset_spans(),
@@ -42,9 +52,9 @@ impl Ast for Statement<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        ast::{block::Block, ident::Ident, item::Item},
-        span::Span,
+    use crate::ast::{
+        block::Block, bool_literal::BoolLiteral, ident::Ident, item::Item,
+        string_literal::StringLiteral,
     };
 
     use super::*;
@@ -57,16 +67,10 @@ mod tests {
         stmt.reset_spans();
         assert_eq!(
             stmt,
-            Statement::Declare(Declare {
-                name: Ident::nosp("a"),
-                value: Expr::Item(Item {
-                    idents: vec![Ident {
-                        name: "b",
-                        span: Span::default()
-                    }],
-                    span: Span::default()
-                })
-            })
+            Statement::Declare(Declare::nosp(
+                Ident::nosp("a"),
+                Expr::Item(Item::nosp(vec![Ident::nosp("b")]))
+            ))
         );
     }
 
@@ -78,10 +82,10 @@ mod tests {
         stmt.reset_spans();
         assert_eq!(
             stmt,
-            Statement::Declare(Declare {
-                name: Ident::nosp("🌧"),
-                value: Expr::StringLiteral("rain")
-            })
+            Statement::Declare(Declare::nosp(
+                Ident::nosp("🌧"),
+                Expr::StringLiteral(StringLiteral::nosp("rain"))
+            ))
         );
     }
 
@@ -93,11 +97,13 @@ mod tests {
         stmt.reset_spans();
         assert_eq!(
             stmt,
-            Statement::FnDef(FnDef {
-                name: Ident::nosp("foo"),
-                args: Vec::default(),
-                block: Block::nosp(vec![Statement::Expr(Expr::BoolLiteral(true))]),
-            })
+            Statement::FnDef(FnDef::nosp(
+                Ident::nosp("foo"),
+                Vec::default(),
+                Block::nosp(vec![Statement::Expr(Expr::BoolLiteral(BoolLiteral::nosp(
+                    true
+                )))]),
+            ))
         );
     }
 
@@ -109,9 +115,7 @@ mod tests {
         stmt.reset_spans();
         assert_eq!(
             stmt,
-            Statement::Return(Return {
-                expr: Expr::Item(Item::nosp(vec![Ident::nosp("b")]))
-            })
+            Statement::Return(Return::nosp(Expr::Item(Item::nosp(vec![Ident::nosp("b")]))))
         )
     }
 }

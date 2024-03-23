@@ -1,30 +1,21 @@
-mod corelib;
+pub mod corelib;
 pub mod types;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::{
     ast::{
         block::Block, declare::Declare, expr::Expr, function_call::FnCall, function_def::FnDef,
-        item::Item, return_stmt::Return, script::Script, statement::Statement,
-        statement_list::StatementList,
+        if_condition::IfCondition, item::Item, return_stmt::Return, script::Script,
+        statement::Statement, statement_list::StatementList, Ast,
     },
     error::RainError,
 };
 
-use self::types::RainValue;
-
-pub fn execute(
-    script: &Script<'static>,
-    script_path: &Path,
-    stdlib: Option<types::record::Record>,
-    options: ExecuteOptions,
-) -> Result<(), RainError> {
-    let current_directory = script_path.parent().unwrap().to_path_buf();
-    let mut executor = Executor::new(current_directory, stdlib, options);
-    script.execute(&mut executor)?;
-    Ok(())
-}
+use self::{
+    corelib::{CoreHandler, DefaultCoreHandler},
+    types::{RainType, RainValue},
+};
 
 #[derive(Debug)]
 pub enum ExecError {
@@ -51,34 +42,48 @@ pub struct ExecuteOptions {
     pub sealed: bool,
 }
 
-#[derive(Default)]
-pub struct Executor {
+#[derive(Debug, Default)]
+pub struct ExecutorBuilder {
     pub current_directory: PathBuf,
-    global_record: types::record::Record,
-    #[allow(dead_code)]
-    options: ExecuteOptions,
+    pub core_handler: Option<Box<dyn CoreHandler>>,
+    pub std_lib: Option<types::record::Record>,
+    pub options: ExecuteOptions,
 }
 
-impl Executor {
-    pub fn new(
-        current_directory: PathBuf,
-        stdlib: Option<types::record::Record>,
-        options: ExecuteOptions,
-    ) -> Self {
-        let mut global_record = types::record::Record::default();
-        global_record.insert(String::from("core"), RainValue::Record(corelib::core_lib()));
-        if let Some(stdlib) = stdlib {
-            global_record.insert(String::from("std"), RainValue::Record(stdlib))
+impl ExecutorBuilder {
+    pub fn build(self) -> Executor {
+        let current_directory = self.current_directory;
+        let core_handler = self
+            .core_handler
+            .unwrap_or_else(|| Box::new(DefaultCoreHandler));
+        let options = self.options;
+        let mut global_record = types::record::Record::new([(
+            String::from("core"),
+            RainValue::Record(corelib::core_lib()),
+        )]);
+        if let Some(std_lib) = self.std_lib {
+            global_record.insert(String::from("std"), RainValue::Record(std_lib));
         }
-        Self {
+
+        Executor {
             current_directory,
+            core_handler,
             global_record,
             options,
         }
     }
 }
 
-trait Executable {
+#[derive(Debug)]
+pub struct Executor {
+    pub core_handler: Box<dyn CoreHandler>,
+    pub current_directory: PathBuf,
+    global_record: types::record::Record,
+    #[allow(dead_code)]
+    options: ExecuteOptions,
+}
+
+pub trait Executable {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError>;
 }
 
@@ -97,13 +102,14 @@ impl Executable for Block<'static> {
 
 impl Executable for StatementList<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
+        let mut out = types::RainValue::Unit;
         for stmt in &self.statements {
-            if let Statement::Return(ret) = stmt {
-                return ret.execute(executor);
+            out = stmt.execute(executor)?;
+            if let Statement::Return(_) = stmt {
+                break;
             }
-            stmt.execute(executor)?;
         }
-        Ok(types::RainValue::Unit)
+        Ok(out)
     }
 }
 
@@ -123,9 +129,9 @@ impl Executable for Expr<'static> {
         match self {
             Self::Item(item) => item.execute(executor),
             Self::FnCall(fn_call) => fn_call.execute(executor),
-            Self::BoolLiteral(value) => Ok(RainValue::Bool(*value)),
-            Self::StringLiteral(value) => Ok(RainValue::String((*value).into())),
-            Self::IfCondition(_) => todo!(),
+            Self::BoolLiteral(inner) => Ok(RainValue::Bool(inner.value)),
+            Self::StringLiteral(inner) => Ok(RainValue::String((inner.value).into())),
+            Self::IfCondition(inner) => inner.execute(executor),
             Self::Match(_) => todo!(),
         }
     }
@@ -208,5 +214,27 @@ impl Executable for Return<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         let value = self.expr.execute(executor)?;
         Ok(value)
+    }
+}
+
+impl Executable for IfCondition<'static> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
+        let condition_value = self.condition.execute(executor)?;
+        let RainValue::Bool(v) = condition_value else {
+            return Err(RainError::new(
+                ExecError::UnexpectedType {
+                    expected: &[RainType::Bool],
+                    actual: condition_value.as_type(),
+                },
+                self.condition.span(),
+            ));
+        };
+        if v {
+            return self.then_block.execute(executor);
+        }
+        if let Some(else_condition) = &self.else_condition {
+            return else_condition.block.execute(executor);
+        }
+        Ok(RainValue::Unit)
     }
 }

@@ -49,6 +49,10 @@ impl<'a> Item<'a> {
 }
 
 impl Ast for Item<'_> {
+    fn span(&self) -> Span {
+        self.span
+    }
+
     fn reset_spans(&mut self) {
         for i in &mut self.idents {
             i.reset_spans();
