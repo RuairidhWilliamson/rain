@@ -77,8 +77,8 @@ impl Executable for Expr<'static> {
         match self {
             Self::Item(item) => item.execute(executor),
             Self::FnCall(fn_call) => fn_call.execute(executor),
-            Self::BoolLiteral(inner) => Ok(RainValue::Bool(inner.value).into()),
-            Self::StringLiteral(inner) => Ok(RainValue::String((inner.value).into()).into()),
+            Self::BoolLiteral(inner) => Ok(RainValue::Bool(inner.value)),
+            Self::StringLiteral(inner) => Ok(RainValue::String((inner.value).into())),
             Self::IfCondition(inner) => inner.execute(executor),
             Self::Match(_) => todo!(),
         }
@@ -91,7 +91,7 @@ impl Executable for FnDef<'static> {
             self.name.name.to_owned(),
             RainValue::Function(Function::new(self.clone())),
         );
-        Ok(RainValue::Void.into())
+        Ok(RainValue::Void)
     }
 }
 
@@ -125,7 +125,7 @@ impl Executable for Declare<'static> {
             .global_executor()
             .global_record
             .insert(self.name.name.to_owned(), value);
-        Ok(RainValue::Void.into())
+        Ok(RainValue::Void)
     }
 }
 
