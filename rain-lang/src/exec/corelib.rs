@@ -1,6 +1,7 @@
-use crate::{ast::function_call::FnCall, error::RainError};
+use crate::ast::function_call::FnCall;
 
 use super::{
+    executable::ExecCF,
     executor::Executor,
     types::{function::Function, record::Record, RainValue},
 };
@@ -29,7 +30,7 @@ fn execute_print(
     executor: &mut Executor,
     args: &[RainValue],
     _fn_call: &FnCall<'_>,
-) -> Result<RainValue, RainError> {
+) -> Result<RainValue, ExecCF> {
     struct Args<'a>(&'a [RainValue]);
     impl std::fmt::Display for Args<'_> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

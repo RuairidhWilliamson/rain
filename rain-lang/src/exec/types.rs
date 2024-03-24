@@ -3,22 +3,6 @@ use std::{path::PathBuf, rc::Rc};
 pub mod function;
 pub mod record;
 
-/// Control flow rain value
-///
-/// Returned during execution to control the flow of execution
-#[derive(Debug, Clone)]
-pub enum CFRainValue {
-    Val(RainValue),
-    Return(RainValue),
-    Error(String),
-}
-
-impl From<RainValue> for CFRainValue {
-    fn from(value: RainValue) -> Self {
-        Self::Val(value)
-    }
-}
-
 #[derive(Debug, Clone, enum_kinds::EnumKind)]
 #[enum_kind(RainType)]
 pub enum RainValue {

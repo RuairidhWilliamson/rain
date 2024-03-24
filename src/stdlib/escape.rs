@@ -7,6 +7,7 @@ use rain_lang::{
     ast::{function_call::FnCall, Ast},
     error::RainError,
     exec::{
+        executable::ExecCF,
         executor::Executor,
         types::{function::Function, record::Record, RainType, RainValue},
         ExecError,
@@ -26,7 +27,7 @@ fn execute_bin(
     _executor: &mut Executor,
     args: &[RainValue],
     fn_call: &FnCall<'_>,
-) -> Result<RainValue, RainError> {
+) -> Result<RainValue, ExecCF> {
     let [arg] = args else {
         return Err(RainError::new(
             ExecError::IncorrectArgCount {
@@ -34,7 +35,8 @@ fn execute_bin(
                 actual: args.len(),
             },
             fn_call.span(),
-        ));
+        )
+        .into());
     };
     let RainValue::String(name) = arg else {
         return Err(RainError::new(
@@ -43,7 +45,8 @@ fn execute_bin(
                 actual: arg.as_type(),
             },
             fn_call.span(),
-        ));
+        )
+        .into());
     };
     let path = find_bin_in_path(name).unwrap();
     Ok(RainValue::Path(Rc::new(path)))

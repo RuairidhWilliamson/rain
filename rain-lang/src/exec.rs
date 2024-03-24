@@ -3,7 +3,7 @@ pub mod executable;
 pub mod executor;
 pub mod types;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExecError {
     UnknownVariable(String),
     UnknownItem(String),

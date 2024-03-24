@@ -29,7 +29,7 @@ macro_rules! script_prints_test {
                 core_handler: Some(ch),
                 ..GlobalExecutorBuilder::default()
             };
-            let source = rain_lang::Source::from($source);
+            let source = rain_lang::source::Source::from($source);
             if let Err(err) = rain_lang::run(&source, executor_builder) {
                 panic!("{err}");
             }

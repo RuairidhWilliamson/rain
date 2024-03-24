@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 
-use rain_lang::Source;
+use rain_lang::source::Source;
 
 #[test]
 fn run_all_test_scripts() {

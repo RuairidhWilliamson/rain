@@ -1,6 +1,6 @@
-use crate::{span::Span, Source};
+use crate::{source::Source, span::Span};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RainError {
     kind: RainErrorKind,
     span: Span,
@@ -13,7 +13,7 @@ impl From<crate::tokens::TokenError> for RainError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RainErrorKind {
     TokenError(crate::tokens::TokenError),
     ParseError(crate::ast::ParseError),

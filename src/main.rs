@@ -6,7 +6,7 @@ use std::{
 };
 
 use clap::Parser;
-use rain_lang::{ast::script::Script, error::RainError, Source};
+use rain_lang::{ast::script::Script, exec::executable::ExecCF, source::Source};
 
 #[derive(Parser)]
 struct Cli {
@@ -28,15 +28,19 @@ fn main() -> color_eyre::Result<()> {
 
     let cli = Cli::parse();
     let source = Source::new(cli.script.as_deref().unwrap_or(Path::new(".")))?;
-    if let Err(err) = main_inner(&source, &cli) {
-        let err = err.resolve(&source);
-        eprintln!("{err:#}");
-        exit(1)
+    match main_inner(&source, &cli) {
+        Ok(()) => Ok(()),
+        Err(ExecCF::Return(_)) => todo!(),
+        Err(ExecCF::Backtrace(_)) => todo!(),
+        Err(ExecCF::RainError(err)) => {
+            let err = err.resolve(&source);
+            eprintln!("{err:#}");
+            exit(1)
+        }
     }
-    Ok(())
 }
 
-fn main_inner(source: &Source, cli: &Cli) -> Result<(), RainError> {
+fn main_inner(source: &Source, cli: &Cli) -> Result<(), ExecCF> {
     // TODO: We should properly track the lifetime of the source code
     let s = Into::<String>::into(&source.source).leak();
     let mut token_stream = rain_lang::tokens::peek_stream::PeekTokenStream::new(s);

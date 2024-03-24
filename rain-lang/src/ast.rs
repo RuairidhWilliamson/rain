@@ -18,7 +18,7 @@ pub mod statement;
 pub mod statement_list;
 pub mod string_literal;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParseError {
     EmptyExpression,
     UnexpectedTokens,

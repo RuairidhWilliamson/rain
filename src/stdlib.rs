@@ -7,6 +7,7 @@ use std::str::FromStr;
 use rain_lang::ast::function_call::FnCall;
 use rain_lang::ast::Ast;
 use rain_lang::error::RainError;
+use rain_lang::exec::executable::ExecCF;
 use rain_lang::exec::executor::Executor;
 use rain_lang::exec::types::RainType;
 use rain_lang::exec::types::{function::Function, record::Record, RainValue};
@@ -37,7 +38,7 @@ fn execute_run(
     executor: &mut Executor,
     args: &[RainValue],
     fn_call: &FnCall<'_>,
-) -> Result<RainValue, RainError> {
+) -> Result<RainValue, ExecCF> {
     let Some((program, args)) = args.split_first() else {
         return Err(RainError::new(
             ExecError::IncorrectArgCount {
@@ -45,7 +46,8 @@ fn execute_run(
                 actual: 0,
             },
             fn_call.span(),
-        ));
+        )
+        .into());
     };
     let RainValue::Path(program) = program else {
         return Err(RainError::new(
@@ -54,7 +56,8 @@ fn execute_run(
                 actual: program.as_type(),
             },
             fn_call.span(),
-        ));
+        )
+        .into());
     };
     let mut cmd = std::process::Command::new(program.as_ref());
     cmd.current_dir(&executor.global_executor.current_directory);
@@ -69,7 +72,8 @@ fn execute_run(
                         actual: a.as_type(),
                     },
                     fn_call.span(),
-                ));
+                )
+                .into());
             }
         };
     }
@@ -83,7 +87,7 @@ fn execute_download(
     _executor: &mut Executor,
     _args: &[RainValue],
     _fn_call: &FnCall<'_>,
-) -> Result<RainValue, RainError> {
+) -> Result<RainValue, ExecCF> {
     todo!()
 }
 
@@ -91,7 +95,7 @@ fn execute_path(
     _executor: &mut Executor,
     args: &[RainValue],
     fn_call: &FnCall<'_>,
-) -> Result<RainValue, RainError> {
+) -> Result<RainValue, ExecCF> {
     let [a] = args else {
         return Err(RainError::new(
             ExecError::IncorrectArgCount {
@@ -99,7 +103,8 @@ fn execute_path(
                 actual: args.len(),
             },
             fn_call.span(),
-        ));
+        )
+        .into());
     };
     let RainValue::String(s) = a else {
         return Err(RainError::new(
@@ -108,7 +113,8 @@ fn execute_path(
                 actual: a.as_type(),
             },
             fn_call.span(),
-        ));
+        )
+        .into());
     };
     Ok(RainValue::Path(Rc::new(PathBuf::from_str(s).unwrap())))
 }

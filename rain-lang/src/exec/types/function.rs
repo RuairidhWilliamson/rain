@@ -2,8 +2,10 @@ use std::rc::Rc;
 
 use crate::{
     ast::{function_call::FnCall, function_def::FnDef},
-    error::RainError,
-    exec::{executable::Executable, executor::Executor},
+    exec::{
+        executable::{ExecCF, Executable},
+        executor::Executor,
+    },
 };
 
 use super::{record::Record, RainValue};
@@ -31,7 +33,7 @@ impl Function {
         executor: &mut Executor,
         args: &[RainValue],
         fn_call: &FnCall<'_>,
-    ) -> Result<RainValue, RainError> {
+    ) -> Result<RainValue, ExecCF> {
         self.implementation.call(executor, args, fn_call)
     }
 }
@@ -43,11 +45,11 @@ impl std::fmt::Display for Function {
 }
 
 pub trait ExternalFnPtr:
-    Fn(&mut Executor, &[RainValue], &FnCall<'_>) -> Result<RainValue, RainError>
+    Fn(&mut Executor, &[RainValue], &FnCall<'_>) -> Result<RainValue, ExecCF>
 {
 }
 impl<F> ExternalFnPtr for F where
-    F: Fn(&mut Executor, &[RainValue], &FnCall<'_>) -> Result<RainValue, RainError>
+    F: Fn(&mut Executor, &[RainValue], &FnCall<'_>) -> Result<RainValue, ExecCF>
 {
 }
 
@@ -71,7 +73,7 @@ impl FunctionImpl {
         executor: &mut Executor,
         args: &[RainValue],
         fn_call: &FnCall<'_>,
-    ) -> Result<RainValue, RainError> {
+    ) -> Result<RainValue, ExecCF> {
         match self {
             Self::Local(fn_def) => {
                 let local_record = Record::new(
@@ -85,7 +87,10 @@ impl FunctionImpl {
                     global_executor: executor.global_executor,
                     local_record,
                 };
-                fn_def.block.execute(&mut executor)
+                match fn_def.block.execute(&mut executor) {
+                    Err(ExecCF::Return(v)) => Ok(v),
+                    v => v,
+                }
             }
             Self::External(func) => func(executor, args, fn_call),
         }
