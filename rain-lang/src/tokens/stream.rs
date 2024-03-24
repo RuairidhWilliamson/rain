@@ -171,13 +171,13 @@ impl<'a> TokenStream<'a> {
 
     fn keyword_or_ident(&mut self, name: &'a str, span: Span) -> NextTokenSpan<'a> {
         let token = match name {
+            "void" => Token::Void,
             "let" => Token::Let,
             "if" => Token::If,
             "else" => Token::Else,
             "fn" => Token::Fn,
-            "match" => Token::Match,
             "return" => Token::Return,
-
+            "match" => Token::Match,
             "true" => Token::TrueLiteral,
             "false" => Token::FalseLiteral,
             _ => Token::Ident(name),

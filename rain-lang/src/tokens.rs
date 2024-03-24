@@ -6,29 +6,34 @@ use crate::span::{Place, Span};
 #[derive(Debug, Clone, PartialEq, Eq, enum_kinds::EnumKind)]
 #[enum_kind(TokenKind)]
 pub enum Token<'a> {
-    Ident(&'a str),
-    DoubleQuoteLiteral(&'a str),
-    TrueLiteral,
-    FalseLiteral,
+    Ident(&'a str),              // abc
+    DoubleQuoteLiteral(&'a str), // "abc"
 
-    Let,
-    If,
-    Else,
-    Fn,
-    Return,
-    Match,
+    Void,         // void
+    Let,          // let
+    If,           // if
+    Else,         // else
+    Fn,           // fn
+    Return,       // return
+    Match,        // match
+    TrueLiteral,  // true
+    FalseLiteral, // false
 
-    Dot,
-    Equals,
-    Comma,
-    Colon,
-    Slash,
-    Tilde,
-    LParen,
-    RParen,
-    LBrace,
-    RBrace,
-    NewLine,
+    Dot,    // .
+    Equals, // =
+    Comma,  // ,
+    Colon,  // :
+    Slash,  // /
+    Tilde,  // ~
+
+    LParen,   // (
+    RParen,   // )
+    LBrace,   // {
+    RBrace,   // }
+    LBracket, // [
+    RBracket, // ]
+
+    NewLine, // \n
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,6 +92,19 @@ mod tests {
                 Token::Equals,
                 Token::DoubleQuoteLiteral("abc")
             ],
+        )
+    }
+
+    #[test]
+    fn void_token() {
+        let source = "let a = void";
+        let tokens: Vec<Token> = TokenStream::new(source)
+            .map(|ts| ts.unwrap().token)
+            .collect();
+
+        assert_eq!(
+            tokens,
+            vec![Token::Let, Token::Ident("a"), Token::Equals, Token::Void],
         )
     }
 

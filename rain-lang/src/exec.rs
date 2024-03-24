@@ -47,8 +47,7 @@ pub trait Executable {
 
 impl Executable for Script<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
-        self.statements.execute(executor)?;
-        Ok(types::RainValue::Unit)
+        self.statements.execute(executor)
     }
 }
 
@@ -60,7 +59,7 @@ impl Executable for Block<'static> {
 
 impl Executable for StatementList<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
-        let mut out = types::RainValue::Unit;
+        let mut out = types::RainValue::Void;
         for stmt in &self.statements {
             out = stmt.execute(executor)?;
             if let Statement::Return(_) = stmt {
@@ -101,7 +100,7 @@ impl Executable for FnDef<'static> {
             self.name.name.to_owned(),
             types::RainValue::Function(types::function::Function::new(self.clone())),
         );
-        Ok(types::RainValue::Unit)
+        Ok(types::RainValue::Void)
     }
 }
 
@@ -134,20 +133,20 @@ impl Executable for Declare<'static> {
             .global_executor()
             .global_record
             .insert(self.name.name.to_owned(), value);
-        Ok(types::RainValue::Unit)
+        Ok(types::RainValue::Void)
     }
 }
 
 impl Executable for Item<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
-        let (global, rest) = self.idents.split_first().unwrap();
+        let (top_level, rest) = self.idents.split_first().unwrap();
         let mut record = executor
-            .global_executor()
-            .global_record
-            .get(global.name)
+            .local_record
+            .get(top_level.name)
+            .or_else(|| executor.global_executor().global_record.get(top_level.name))
             .ok_or(RainError::new(
-                ExecError::UnknownVariable(global.name.to_owned()),
-                global.span,
+                ExecError::UnknownVariable(top_level.name.to_owned()),
+                top_level.span,
             ))?;
         for ident in rest {
             record = record
@@ -195,6 +194,6 @@ impl Executable for IfCondition<'static> {
         if let Some(else_condition) = &self.else_condition {
             return else_condition.block.execute(executor);
         }
-        Ok(RainValue::Unit)
+        Ok(RainValue::Void)
     }
 }

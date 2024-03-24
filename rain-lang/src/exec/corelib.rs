@@ -49,5 +49,5 @@ fn execute_print(
         .global_executor()
         .core_handler
         .print(format_args!("{args}"));
-    Ok(RainValue::Unit)
+    Ok(RainValue::Void)
 }
