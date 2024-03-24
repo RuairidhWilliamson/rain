@@ -6,7 +6,8 @@ use std::{
 };
 
 use clap::Parser;
-use rain_lang::{ast::script::Script, exec::executable::ExecCF, source::Source};
+use color_eyre::owo_colors::OwoColorize;
+use rain_lang::{ast::script::Script, error::ResolvedError, exec::ExecCF, source::Source};
 
 #[derive(Parser)]
 struct Cli {
@@ -31,10 +32,18 @@ fn main() -> color_eyre::Result<()> {
     match main_inner(&source, &cli) {
         Ok(()) => Ok(()),
         Err(ExecCF::Return(_)) => todo!(),
-        Err(ExecCF::Backtrace(_)) => todo!(),
+        Err(ExecCF::RuntimeError(err)) => {
+            eprintln!("{}: {}", "runtime error".bold().red(), err.msg.bold());
+            exit(1)
+        }
         Err(ExecCF::RainError(err)) => {
-            let err = err.resolve(&source);
-            eprintln!("{err:#}");
+            let ResolvedError { source, err } = err.resolve(&source);
+            let extract = err.span.extract(&source.source);
+            let lineno = err.span.start.line + 1;
+            eprintln!("{}: {}", "error".bold().red(), err.kind.bold());
+            eprintln!("\t{}:{}", source.path.yellow(), lineno.yellow());
+            eprintln!("\t{}", extract.line);
+            eprintln!("\t{}", extract.under_arrows().red());
             exit(1)
         }
     }
@@ -60,7 +69,7 @@ fn main_inner(source: &Source, cli: &Cli) -> Result<(), ExecCF> {
         }
         .build();
         let mut executor = rain_lang::exec::executor::Executor::new(&mut global_executor);
-        rain_lang::exec::executable::Executable::execute(&script, &mut executor)?;
+        rain_lang::exec::executable::Execution::execute(&script, &mut executor)?;
     }
     Ok(())
 }

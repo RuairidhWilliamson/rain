@@ -7,11 +7,10 @@ use std::str::FromStr;
 use rain_lang::ast::function_call::FnCall;
 use rain_lang::ast::Ast;
 use rain_lang::error::RainError;
-use rain_lang::exec::executable::ExecCF;
 use rain_lang::exec::executor::Executor;
 use rain_lang::exec::types::RainType;
 use rain_lang::exec::types::{function::Function, record::Record, RainValue};
-use rain_lang::exec::ExecError;
+use rain_lang::exec::{ExecCF, ExecError};
 
 pub fn std_lib() -> Record {
     Record::new([

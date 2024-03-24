@@ -1,16 +1,15 @@
-let print = core.print
-
 let cargo = std.escape.bin("cargo")
 
 fn check() {
-	print(cargo)
+	core.print("Checking...")
 	let out = std.run(cargo, "clippy", "--workspace", "--", "--deny", "warnings")
 	if out.success {
-		print("Success")
+		core.print("Success")
 	} else {
-		print("Failed")
+		core.error("Clippy Failed")
 	}
-
+	asdfl
+	core.error("test")
 	# std.run(cargo, "fmt", "--check")
 	# std.run(cargo, "test", "--workspace")
 	# std.run(cargo, "outdated", "--workspace")

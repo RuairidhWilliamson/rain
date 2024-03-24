@@ -2,8 +2,8 @@ use crate::{source::Source, span::Span};
 
 #[derive(Debug, Clone)]
 pub struct RainError {
-    kind: RainErrorKind,
-    span: Span,
+    pub kind: RainErrorKind,
+    pub span: Span,
 }
 
 impl From<crate::tokens::TokenError> for RainError {
@@ -63,8 +63,8 @@ impl std::fmt::Display for RainErrorKind {
 
 #[derive(Debug)]
 pub struct ResolvedError<'a> {
-    source: &'a Source,
-    err: RainError,
+    pub source: &'a Source,
+    pub err: RainError,
 }
 
 impl std::fmt::Display for ResolvedError<'_> {

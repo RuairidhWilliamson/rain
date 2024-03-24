@@ -1,6 +1,6 @@
 use exec::{
-    executable::ExecCF,
     executor::{Executor, GlobalExecutorBuilder},
+    ExecCF,
 };
 
 pub mod ast;
@@ -15,7 +15,7 @@ pub fn run(source: &source::Source, e: GlobalExecutorBuilder) -> Result<(), erro
     match run_inner(source, e) {
         Ok(()) => Ok(()),
         Err(ExecCF::Return(_)) => todo!(),
-        Err(ExecCF::Backtrace(_)) => todo!(),
+        Err(ExecCF::RuntimeError(_)) => todo!(),
         Err(ExecCF::RainError(err)) => Err(err.resolve(source)),
     }
 }
@@ -28,6 +28,6 @@ fn run_inner(source: &source::Source, builder: GlobalExecutorBuilder) -> Result<
         ast::script::Script::parse_stream(&mut token_stream)?;
     let mut global_executor = builder.build();
     let mut executor = Executor::new(&mut global_executor);
-    exec::executable::Executable::execute(&script, &mut executor)?;
+    exec::executable::Execution::execute(&script, &mut executor)?;
     Ok(())
 }

@@ -1,9 +1,12 @@
-use crate::ast::function_call::FnCall;
+use crate::{
+    ast::{function_call::FnCall, Ast},
+    error::RainError,
+};
 
 use super::{
-    executable::ExecCF,
     executor::Executor,
-    types::{function::Function, record::Record, RainValue},
+    types::{function::Function, record::Record, RainType, RainValue},
+    ExecCF, ExecError, RuntimeError,
 };
 
 pub trait CoreHandler: std::fmt::Debug {
@@ -18,12 +21,16 @@ pub struct DefaultCoreHandler;
 impl CoreHandler for DefaultCoreHandler {}
 
 pub fn core_lib() -> Record {
-    let mut core_lib = Record::default();
-    core_lib.insert(
-        String::from("print"),
-        RainValue::Function(Function::new_external(execute_print)),
-    );
-    core_lib
+    Record::new([
+        (
+            String::from("print"),
+            RainValue::Function(Function::new_external(execute_print)),
+        ),
+        (
+            String::from("error"),
+            RainValue::Function(Function::new_external(execute_error)),
+        ),
+    ])
 }
 
 fn execute_print(
@@ -51,4 +58,32 @@ fn execute_print(
         .core_handler
         .print(format_args!("{args}"));
     Ok(RainValue::Void)
+}
+
+fn execute_error(
+    _executor: &mut Executor,
+    args: &[RainValue],
+    fn_call: &FnCall<'_>,
+) -> Result<RainValue, ExecCF> {
+    let [a] = args else {
+        return Err(RainError::new(
+            ExecError::IncorrectArgCount {
+                expected: 1,
+                actual: args.len(),
+            },
+            fn_call.span(),
+        )
+        .into());
+    };
+    let RainValue::String(s) = a else {
+        return Err(RainError::new(
+            ExecError::UnexpectedType {
+                expected: &[RainType::String],
+                actual: a.as_type(),
+            },
+            fn_call.args[0].span(),
+        )
+        .into());
+    };
+    Err(RuntimeError::new(s.to_string(), fn_call.span()).into())
 }

@@ -10,48 +10,26 @@ use crate::{
 use super::{
     executor::Executor,
     types::{self, function::Function, RainType, RainValue},
-    ExecError,
+    ExecCF, ExecError,
 };
 
-/// Control flow rain value
-///
-/// Returned during execution to control the flow of execution
-#[derive(Debug, Clone)]
-pub enum ExecCF {
-    Return(RainValue),
-    Backtrace(String),
-    RainError(RainError),
-}
-
-impl From<String> for ExecCF {
-    fn from(value: String) -> Self {
-        Self::Backtrace(value)
-    }
-}
-
-impl From<RainError> for ExecCF {
-    fn from(err: RainError) -> Self {
-        Self::RainError(err)
-    }
-}
-
-pub trait Executable {
+pub trait Execution {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF>;
 }
 
-impl Executable for Script<'static> {
+impl Execution for Script<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         self.statements.execute(executor)
     }
 }
 
-impl Executable for Block<'static> {
+impl Execution for Block<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         self.stmts.execute(executor)
     }
 }
 
-impl Executable for StatementList<'static> {
+impl Execution for StatementList<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let mut out = RainValue::Void;
         for stmt in &self.statements {
@@ -61,7 +39,7 @@ impl Executable for StatementList<'static> {
     }
 }
 
-impl Executable for Statement<'static> {
+impl Execution for Statement<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         match self {
             Self::Expr(expr) => expr.execute(executor),
@@ -72,7 +50,7 @@ impl Executable for Statement<'static> {
     }
 }
 
-impl Executable for Expr<'static> {
+impl Execution for Expr<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         match self {
             Self::Item(item) => item.execute(executor),
@@ -85,7 +63,7 @@ impl Executable for Expr<'static> {
     }
 }
 
-impl Executable for FnDef<'static> {
+impl Execution for FnDef<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         executor.global_executor().global_record.insert(
             self.name.name.to_owned(),
@@ -95,7 +73,7 @@ impl Executable for FnDef<'static> {
     }
 }
 
-impl Executable for FnCall<'static> {
+impl Execution for FnCall<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let fn_value = self.item.execute(executor)?;
         let RainValue::Function(func) = fn_value else {
@@ -118,7 +96,7 @@ impl Executable for FnCall<'static> {
     }
 }
 
-impl Executable for Declare<'static> {
+impl Execution for Declare<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let value = self.value.execute(executor)?;
         executor
@@ -129,7 +107,7 @@ impl Executable for Declare<'static> {
     }
 }
 
-impl Executable for Item<'static> {
+impl Execution for Item<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let (top_level, rest) = self.idents.split_first().unwrap();
         let mut record = executor
@@ -161,14 +139,14 @@ impl Executable for Item<'static> {
     }
 }
 
-impl Executable for Return<'static> {
+impl Execution for Return<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let value = self.expr.execute(executor)?;
         Err(ExecCF::Return(value))
     }
 }
 
-impl Executable for IfCondition<'static> {
+impl Execution for IfCondition<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let condition_value = self.condition.execute(executor)?;
         let RainValue::Bool(v) = condition_value else {
@@ -182,11 +160,11 @@ impl Executable for IfCondition<'static> {
             .into());
         };
         if v {
-            return self.then_block.execute(executor);
+            self.then_block.execute(executor)
+        } else if let Some(else_condition) = &self.else_condition {
+            else_condition.block.execute(executor)
+        } else {
+            Ok(RainValue::Void)
         }
-        if let Some(else_condition) = &self.else_condition {
-            return else_condition.block.execute(executor);
-        }
-        Ok(RainValue::Void)
     }
 }
