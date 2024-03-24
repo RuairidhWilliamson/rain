@@ -56,7 +56,7 @@ fn main_inner(source: &Source, cli: &Cli) -> Result<(), RainError> {
         }
         .build();
         let mut executor = rain_lang::exec::executor::Executor::new(&mut global_executor);
-        rain_lang::exec::Executable::execute(&script, &mut executor)?;
+        rain_lang::exec::executable::Executable::execute(&script, &mut executor)?;
     }
     Ok(())
 }

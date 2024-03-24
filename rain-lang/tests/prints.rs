@@ -87,17 +87,17 @@ script_prints_test!(
     "hello world\n"
 );
 
-// script_prints_test!(
-//     if_early_return,
-//     "
-//         fn foo() {
-//             core.print(\"about to return\")
-//             if true {
-//                 return false
-//             }
-//             core.print(\"unreachable\")
-//         }
-//         foo()
-//     ",
-//     "about to return\n"
-// );
+script_prints_test!(
+    if_early_return,
+    "
+        fn foo() {
+            core.print(\"about to return\")
+            if true {
+                return false
+            }
+            core.print(\"unreachable\")
+        }
+        foo()
+    ",
+    "about to return\n"
+);

@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::{
     ast::{function_call::FnCall, function_def::FnDef},
     error::RainError,
-    exec::{Executable, Executor},
+    exec::{executable::Executable, executor::Executor},
 };
 
 use super::{record::Record, RainValue};

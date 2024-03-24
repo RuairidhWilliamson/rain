@@ -1,8 +1,8 @@
 use crate::{ast::function_call::FnCall, error::RainError};
 
 use super::{
+    executor::Executor,
     types::{function::Function, record::Record, RainValue},
-    Executor,
 };
 
 pub trait CoreHandler: std::fmt::Debug {
