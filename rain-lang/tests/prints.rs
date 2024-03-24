@@ -1,9 +1,7 @@
 use std::{cell::RefCell, fmt::Write, rc::Rc};
 
-use rain_lang::{
-    error::RainError,
-    exec::{corelib::CoreHandler, Executable, ExecutorBuilder},
-};
+use rain_lang::exec::corelib::CoreHandler;
+use rain_lang::exec::executor::GlobalExecutorBuilder;
 
 #[derive(Debug)]
 struct BufferCoreHandler {
@@ -22,21 +20,20 @@ impl CoreHandler for BufferCoreHandler {
 macro_rules! script_prints_test {
     ($name:ident, $source:expr, $expected:expr) => {
         #[test]
-        fn $name() -> Result<(), RainError> {
-            let mut token_stream = rain_lang::tokens::peek_stream::PeekTokenStream::new($source);
-            let script = rain_lang::ast::script::Script::parse_stream(&mut token_stream)?;
+        fn $name() {
             let buffer = Rc::new(RefCell::new(String::new()));
             let ch = Box::new(BufferCoreHandler {
                 output: buffer.clone(),
             });
-            let mut executor = ExecutorBuilder {
+            let executor_builder = GlobalExecutorBuilder {
                 core_handler: Some(ch),
-                ..ExecutorBuilder::default()
+                ..GlobalExecutorBuilder::default()
+            };
+            let source = rain_lang::Source::from($source);
+            if let Err(err) = rain_lang::run(&source, executor_builder) {
+                panic!("{err}");
             }
-            .build();
-            Executable::execute(&script, &mut executor)?;
             assert_eq!(buffer.borrow().as_str(), $expected);
-            Ok(())
         }
     };
 }
@@ -77,6 +74,17 @@ script_prints_test!(
         foo()
     ",
     "about to return\n"
+);
+
+script_prints_test!(
+    fn_args,
+    "
+        fn wrap(a) {
+            core.print(a)
+        }
+        wrap(\"hello world\")
+    ",
+    "hello world\n"
 );
 
 // script_prints_test!(

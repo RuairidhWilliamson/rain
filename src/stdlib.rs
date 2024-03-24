@@ -7,12 +7,10 @@ use std::str::FromStr;
 use rain_lang::ast::function_call::FnCall;
 use rain_lang::ast::Ast;
 use rain_lang::error::RainError;
+use rain_lang::exec::executor::Executor;
 use rain_lang::exec::types::RainType;
+use rain_lang::exec::types::{function::Function, record::Record, RainValue};
 use rain_lang::exec::ExecError;
-use rain_lang::exec::{
-    types::{function::Function, record::Record, RainValue},
-    Executor,
-};
 
 pub fn std_lib() -> Record {
     Record::new([
@@ -59,7 +57,7 @@ fn execute_run(
         ));
     };
     let mut cmd = std::process::Command::new(program.as_ref());
-    cmd.current_dir(&executor.current_directory);
+    cmd.current_dir(&executor.global_executor.current_directory);
     for a in args {
         match a {
             RainValue::String(a) => cmd.arg(a.as_ref()),

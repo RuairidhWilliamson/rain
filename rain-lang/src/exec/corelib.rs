@@ -45,6 +45,9 @@ fn execute_print(
         }
     }
     let args = Args(args);
-    executor.core_handler.print(format_args!("{args}"));
+    executor
+        .global_executor()
+        .core_handler
+        .print(format_args!("{args}"));
     Ok(RainValue::Unit)
 }

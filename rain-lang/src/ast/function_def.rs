@@ -95,6 +95,12 @@ pub struct FnDefArg<'a> {
     pub name: Ident<'a>,
 }
 
+impl<'a> FnDefArg<'a> {
+    pub fn nosp(name: Ident<'a>) -> Self {
+        Self { name }
+    }
+}
+
 impl Ast for FnDefArg<'_> {
     fn span(&self) -> Span {
         self.name.span
@@ -123,7 +129,21 @@ mod tests {
         let fn_def = parse_fn_def("fn foo() {}")?;
         assert_eq!(
             fn_def,
-            FnDef::nosp(Ident::nosp("foo"), vec![], Block::nosp(vec![]))
+            FnDef::nosp(Ident::nosp("foo"), vec![], Block::nosp(vec![])),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parse_single_arg() -> Result<(), RainError> {
+        let fn_def = parse_fn_def("fn foo(a) {}")?;
+        assert_eq!(
+            fn_def,
+            FnDef::nosp(
+                Ident::nosp("foo"),
+                vec![FnDefArg::nosp(Ident::nosp("a"))],
+                Block::nosp(vec![])
+            ),
         );
         Ok(())
     }

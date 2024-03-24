@@ -1,7 +1,6 @@
 pub mod corelib;
+pub mod executor;
 pub mod types;
-
-use std::path::PathBuf;
 
 use crate::{
     ast::{
@@ -13,7 +12,7 @@ use crate::{
 };
 
 use self::{
-    corelib::{CoreHandler, DefaultCoreHandler},
+    executor::Executor,
     types::{RainType, RainValue},
 };
 
@@ -40,47 +39,6 @@ impl std::fmt::Display for ExecError {
 #[derive(Debug, Default, Clone)]
 pub struct ExecuteOptions {
     pub sealed: bool,
-}
-
-#[derive(Debug, Default)]
-pub struct ExecutorBuilder {
-    pub current_directory: PathBuf,
-    pub core_handler: Option<Box<dyn CoreHandler>>,
-    pub std_lib: Option<types::record::Record>,
-    pub options: ExecuteOptions,
-}
-
-impl ExecutorBuilder {
-    pub fn build(self) -> Executor {
-        let current_directory = self.current_directory;
-        let core_handler = self
-            .core_handler
-            .unwrap_or_else(|| Box::new(DefaultCoreHandler));
-        let options = self.options;
-        let mut global_record = types::record::Record::new([(
-            String::from("core"),
-            RainValue::Record(corelib::core_lib()),
-        )]);
-        if let Some(std_lib) = self.std_lib {
-            global_record.insert(String::from("std"), RainValue::Record(std_lib));
-        }
-
-        Executor {
-            current_directory,
-            core_handler,
-            global_record,
-            options,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Executor {
-    pub core_handler: Box<dyn CoreHandler>,
-    pub current_directory: PathBuf,
-    global_record: types::record::Record,
-    #[allow(dead_code)]
-    options: ExecuteOptions,
 }
 
 pub trait Executable {
@@ -137,6 +95,16 @@ impl Executable for Expr<'static> {
     }
 }
 
+impl Executable for FnDef<'static> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
+        executor.global_executor().global_record.insert(
+            self.name.name.to_owned(),
+            types::RainValue::Function(types::function::Function::new(self.clone())),
+        );
+        Ok(types::RainValue::Unit)
+    }
+}
+
 impl Executable for FnCall<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         let fn_value = self.item.execute(executor)?;
@@ -163,18 +131,9 @@ impl Executable for Declare<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         let value = self.value.execute(executor)?;
         executor
+            .global_executor()
             .global_record
             .insert(self.name.name.to_owned(), value);
-        Ok(types::RainValue::Unit)
-    }
-}
-
-impl Executable for FnDef<'static> {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
-        executor.global_record.insert(
-            self.name.name.to_owned(),
-            types::RainValue::Function(types::function::Function::new(self.clone())),
-        );
         Ok(types::RainValue::Unit)
     }
 }
@@ -183,6 +142,7 @@ impl Executable for Item<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, RainError> {
         let (global, rest) = self.idents.split_first().unwrap();
         let mut record = executor
+            .global_executor()
             .global_record
             .get(global.name)
             .ok_or(RainError::new(

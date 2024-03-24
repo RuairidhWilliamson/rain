@@ -7,8 +7,9 @@ use rain_lang::{
     ast::{function_call::FnCall, Ast},
     error::RainError,
     exec::{
+        executor::Executor,
         types::{function::Function, record::Record, RainType, RainValue},
-        ExecError, Executor,
+        ExecError,
     },
 };
 

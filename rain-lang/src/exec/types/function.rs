@@ -6,7 +6,7 @@ use crate::{
     exec::{Executable, Executor},
 };
 
-use super::RainValue;
+use super::{record::Record, RainValue};
 
 #[derive(Debug, Clone)]
 pub struct Function {
@@ -73,7 +73,20 @@ impl FunctionImpl {
         fn_call: &FnCall<'_>,
     ) -> Result<RainValue, RainError> {
         match self {
-            Self::Local(fn_def) => fn_def.block.execute(executor),
+            Self::Local(fn_def) => {
+                let local_record = Record::new(
+                    fn_def
+                        .args
+                        .iter()
+                        .zip(args)
+                        .map(|(k, v)| (String::from(k.name.name), v.clone())),
+                );
+                let mut executor = Executor {
+                    global_executor: executor.global_executor,
+                    local_record,
+                };
+                fn_def.block.execute(&mut executor)
+            }
             Self::External(func) => func(executor, args, fn_call),
         }
     }

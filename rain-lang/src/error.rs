@@ -70,7 +70,7 @@ pub struct ResolvedError<'a> {
 impl std::fmt::Display for ResolvedError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let span = self.err.span;
-        let path = self.source.path.display();
+        let path = &self.source.path;
         // Line is zero based so we change it to be one based
         let lineno = span.start.line + 1;
         let extract = span.extract(&self.source.source);
