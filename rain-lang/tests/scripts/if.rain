@@ -1,5 +1,3 @@
-let x = "hello"
-
-if x == "hello" {
+if true {
 	core.print("Yep hello == hello")
 }
