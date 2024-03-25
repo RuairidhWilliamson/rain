@@ -39,7 +39,7 @@ impl<'a> Expr<'a> {
             Token::FalseLiteral => {
                 let span = peeking
                     .consume()
-                    .expect_next(crate::tokens::TokenKind::TrueLiteral)?
+                    .expect_next(crate::tokens::TokenKind::FalseLiteral)?
                     .span;
                 Ok(Expr::BoolLiteral(BoolLiteral { value: false, span }))
             }

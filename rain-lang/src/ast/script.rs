@@ -31,8 +31,13 @@ impl Ast for Script<'_> {
 #[cfg(test)]
 mod tests {
     use crate::ast::{
-        declare::Declare, expr::Expr, function_call::FnCall, ident::Ident, item::Item,
-        statement::Statement, string_literal::StringLiteral,
+        declare::{Declare, DeclareKind},
+        expr::Expr,
+        function_call::FnCall,
+        ident::Ident,
+        item::Item,
+        statement::Statement,
+        string_literal::StringLiteral,
     };
 
     use super::*;
@@ -55,6 +60,7 @@ mod tests {
                     vec![Expr::StringLiteral(StringLiteral::nosp("hello world"))],
                 ))),
                 Statement::Declare(Declare::nosp(
+                    DeclareKind::Let,
                     Ident::nosp("msg"),
                     Expr::StringLiteral(StringLiteral::nosp("okie"))
                 )),

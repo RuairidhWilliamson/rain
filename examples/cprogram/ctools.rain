@@ -1,0 +1,4 @@
+fn build(src, out) {
+    let clang = std.escape.bin("clang")
+    std.run(clang, src, "-o", out)
+}

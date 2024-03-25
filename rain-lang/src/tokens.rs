@@ -10,6 +10,7 @@ pub enum Token<'a> {
     DoubleQuoteLiteral(&'a str), // "abc"
 
     Void,         // void
+    Lazy,         // lazy
     Let,          // let
     If,           // if
     Else,         // else
@@ -34,6 +35,12 @@ pub enum Token<'a> {
     RBracket, // ]
 
     NewLine, // \n
+}
+
+impl Token<'_> {
+    pub fn kind(&self) -> TokenKind {
+        TokenKind::from(self)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

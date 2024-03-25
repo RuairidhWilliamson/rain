@@ -23,7 +23,7 @@ pub enum ParseError {
     EmptyExpression,
     UnexpectedTokens,
     Expected(TokenKind),
-    ExpectedAny(Vec<TokenKind>),
+    ExpectedAny(&'static [TokenKind]),
     ExpectedStmt,
 }
 

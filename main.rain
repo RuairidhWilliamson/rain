@@ -4,15 +4,24 @@ fn check() {
 	core.print("Checking...")
 	let out = std.run(cargo, "clippy", "--workspace", "--", "--deny", "warnings")
 	if out.success {
-		core.print("Success")
 	} else {
 		core.error("Clippy Failed")
 	}
-	asdfl
-	core.error("test")
-	# std.run(cargo, "fmt", "--check")
-	# std.run(cargo, "test", "--workspace")
-	# std.run(cargo, "outdated", "--workspace")
+	let out = std.run(cargo, "fmt", "--check")
+	if out.success {
+	} else {
+		core.error("Fmt Check Failed")
+	}
+	let out = std.run(cargo, "test", "--workspace")
+	if out.success {
+	} else {
+		core.error("Tests Failed")
+	}
+	let out = std.run(cargo, "outdated", "--workspace")
+	if out.success {
+	} else {
+		core.error("Outdated Failed")
+	}
 }
 
 check()

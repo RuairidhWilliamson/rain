@@ -46,7 +46,9 @@ impl<'a> FnCall<'a> {
             }
             let expr = Expr::parse_stream(stream)?;
             args.push(expr);
-            let next_token = stream.parse_next()?.expect_next(TokenKind::RParen)?;
+            let next_token = stream
+                .parse_next()?
+                .expect_not_end(ParseError::Expected(TokenKind::RParen))?;
             if next_token.token == Token::Comma {
                 continue;
             }

@@ -53,69 +53,63 @@ impl Ast for Statement<'_> {
 #[cfg(test)]
 mod tests {
     use crate::ast::{
-        block::Block, bool_literal::BoolLiteral, ident::Ident, item::Item,
+        block::Block, bool_literal::BoolLiteral, declare::DeclareKind, ident::Ident, item::Item,
         string_literal::StringLiteral,
     };
 
     use super::*;
 
-    #[test]
-    fn parse_declare() {
-        let source = "let a = b";
-        let mut token_stream = PeekTokenStream::new(source);
-        let mut stmt = Statement::parse_stream(&mut token_stream).unwrap();
-        stmt.reset_spans();
-        assert_eq!(
-            stmt,
-            Statement::Declare(Declare::nosp(
-                Ident::nosp("a"),
-                Expr::Item(Item::nosp(vec![Ident::nosp("b")]))
-            ))
-        );
+    macro_rules! parse_statement_test {
+        ($name:ident, $source:expr, $expected:expr) => {
+            #[test]
+            fn $name() -> Result<(), RainError> {
+                let mut token_stream = PeekTokenStream::new($source);
+                let mut stmt = Statement::parse_stream(&mut token_stream)?;
+                stmt.reset_spans();
+                assert_eq!(stmt, $expected);
+                Ok(())
+            }
+        };
+        ($name:ident, $source:expr, $expected:expr,) => {
+            parse_statement_test!($name, $source, $expected);
+        };
     }
 
-    #[test]
-    fn parse_declare_utf8() {
-        let source = "let 🌧 = \"rain\"";
-        let mut token_stream = PeekTokenStream::new(source);
-        let mut stmt = Statement::parse_stream(&mut token_stream).unwrap();
-        stmt.reset_spans();
-        assert_eq!(
-            stmt,
-            Statement::Declare(Declare::nosp(
-                Ident::nosp("🌧"),
-                Expr::StringLiteral(StringLiteral::nosp("rain"))
-            ))
-        );
-    }
+    parse_statement_test!(
+        parse_declare,
+        "let a = b",
+        Statement::Declare(Declare::nosp(
+            DeclareKind::Let,
+            Ident::nosp("a"),
+            Expr::Item(Item::nosp(vec![Ident::nosp("b")]))
+        )),
+    );
 
-    #[test]
-    fn parse_fn() {
-        let source = "fn foo() { true }";
-        let mut token_stream = PeekTokenStream::new(source);
-        let mut stmt = Statement::parse_stream(&mut token_stream).unwrap();
-        stmt.reset_spans();
-        assert_eq!(
-            stmt,
-            Statement::FnDef(FnDef::nosp(
-                Ident::nosp("foo"),
-                Vec::default(),
-                Block::nosp(vec![Statement::Expr(Expr::BoolLiteral(BoolLiteral::nosp(
-                    true
-                )))]),
-            ))
-        );
-    }
+    parse_statement_test!(
+        parse_utf8_declare,
+        "let 🌧 = \"rain\"",
+        Statement::Declare(Declare::nosp(
+            DeclareKind::Let,
+            Ident::nosp("🌧"),
+            Expr::StringLiteral(StringLiteral::nosp("rain"))
+        )),
+    );
 
-    #[test]
-    fn parse_return() {
-        let source = "return b";
-        let mut token_stream = PeekTokenStream::new(source);
-        let mut stmt = Statement::parse_stream(&mut token_stream).unwrap();
-        stmt.reset_spans();
-        assert_eq!(
-            stmt,
-            Statement::Return(Return::nosp(Expr::Item(Item::nosp(vec![Ident::nosp("b")]))))
-        )
-    }
+    parse_statement_test!(
+        parse_fn,
+        "fn foo() { true }",
+        Statement::FnDef(FnDef::nosp(
+            Ident::nosp("foo"),
+            Vec::default(),
+            Block::nosp(vec![Statement::Expr(Expr::BoolLiteral(BoolLiteral::nosp(
+                true
+            )))]),
+        )),
+    );
+
+    parse_statement_test!(
+        parse_return,
+        "return b",
+        Statement::Return(Return::nosp(Expr::Item(Item::nosp(vec![Ident::nosp("b")])))),
+    );
 }

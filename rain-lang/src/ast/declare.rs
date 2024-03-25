@@ -4,34 +4,55 @@ use crate::{
     tokens::{peek_stream::PeekTokenStream, TokenKind},
 };
 
-use super::{expr::Expr, helpers::PeekTokenStreamHelpers, ident::Ident, Ast};
+use super::{
+    expr::Expr,
+    helpers::{NextTokenSpanHelpers, PeekTokenStreamHelpers},
+    ident::Ident,
+    Ast,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Declare<'a> {
-    pub let_token: Span,
+    pub kind: DeclareKind,
+    pub token: Span,
     pub name: Ident<'a>,
     pub equals_token: Span,
     pub value: Expr<'a>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DeclareKind {
+    Let,
+    Lazy,
+}
+
 impl<'a> Declare<'a> {
     pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
-        let let_token = stream.expect_parse_next(TokenKind::Let)?.span;
+        let token = stream
+            .parse_next()?
+            .expect_next_any(&[TokenKind::Let, TokenKind::Lazy])?;
+        let kind = match token.token.kind() {
+            TokenKind::Let => DeclareKind::Let,
+            TokenKind::Lazy => DeclareKind::Lazy,
+            _ => unreachable!("expect_next_any only allows let or lazy"),
+        };
         let ident_token = stream.expect_parse_next(TokenKind::Ident)?;
         let name = Ident::parse(ident_token)?;
         let equals_token = stream.expect_parse_next(TokenKind::Equals)?.span;
         let value = Expr::parse_stream(stream)?;
         Ok(Self {
-            let_token,
+            kind,
+            token: token.span,
             name,
             equals_token,
             value,
         })
     }
 
-    pub fn nosp(name: Ident<'a>, value: Expr<'a>) -> Self {
+    pub fn nosp(kind: DeclareKind, name: Ident<'a>, value: Expr<'a>) -> Self {
         Self {
-            let_token: Span::default(),
+            kind,
+            token: Span::default(),
             name,
             equals_token: Span::default(),
             value,
@@ -41,11 +62,11 @@ impl<'a> Declare<'a> {
 
 impl Ast for Declare<'_> {
     fn span(&self) -> Span {
-        self.let_token.combine(self.value.span())
+        self.token.combine(self.value.span())
     }
 
     fn reset_spans(&mut self) {
-        self.let_token.reset();
+        self.token.reset();
         self.name.reset_spans();
         self.equals_token.reset();
         self.value.reset_spans();

@@ -7,6 +7,7 @@ pub mod record;
 #[enum_kind(RainType)]
 pub enum RainValue {
     Void,
+    Lazy,
     Bool(bool),
     String(Rc<str>),
     Path(Rc<PathBuf>),
@@ -32,6 +33,7 @@ impl std::fmt::Display for RainValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RainValue::Void => f.write_str("Void"),
+            RainValue::Lazy => f.write_str("Lazy"),
             RainValue::Bool(b) => b.fmt(f),
             RainValue::String(s) => s.fmt(f),
             RainValue::Path(p) => std::fmt::Debug::fmt(&p, f),
