@@ -28,6 +28,6 @@ fn run_inner(source: &source::Source, builder: GlobalExecutorBuilder) -> Result<
         ast::script::Script::parse_stream(&mut token_stream)?;
     let mut global_executor = builder.build();
     let mut executor = Executor::new(&mut global_executor);
-    exec::executable::Execution::execute(&script, &mut executor)?;
+    exec::execution::Execution::execute(&script, &mut executor)?;
     Ok(())
 }

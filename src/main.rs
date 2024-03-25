@@ -69,7 +69,7 @@ fn main_inner(source: &Source, cli: &Cli) -> Result<(), ExecCF> {
         }
         .build();
         let mut executor = rain_lang::exec::executor::Executor::new(&mut global_executor);
-        rain_lang::exec::executable::Execution::execute(&script, &mut executor)?;
+        rain_lang::exec::execution::Execution::execute(&script, &mut executor)?;
     }
     Ok(())
 }

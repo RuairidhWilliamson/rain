@@ -13,45 +13,38 @@ use super::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Declare<'a> {
-    pub kind: DeclareKind,
     pub token: Span,
     pub name: Ident<'a>,
     pub equals_token: Span,
     pub value: Expr<'a>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DeclareKind {
-    Let,
-    Lazy,
-}
-
 impl<'a> Declare<'a> {
-    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
-        let token = stream
-            .parse_next()?
-            .expect_next_any(&[TokenKind::Let, TokenKind::Lazy])?;
-        let kind = match token.token.kind() {
-            TokenKind::Let => DeclareKind::Let,
-            TokenKind::Lazy => DeclareKind::Lazy,
-            _ => unreachable!("expect_next_any only allows let or lazy"),
-        };
+    pub fn parse_stream_let(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+        let token = stream.parse_next()?.expect_next(TokenKind::Let)?;
+        Self::parse_stream(token.span, stream)
+    }
+
+    pub fn parse_stream_lazy(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+        let token = stream.parse_next()?.expect_next(TokenKind::Lazy)?;
+        Self::parse_stream(token.span, stream)
+    }
+
+    fn parse_stream(token: Span, stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
         let ident_token = stream.expect_parse_next(TokenKind::Ident)?;
         let name = Ident::parse(ident_token)?;
         let equals_token = stream.expect_parse_next(TokenKind::Equals)?.span;
         let value = Expr::parse_stream(stream)?;
         Ok(Self {
-            kind,
-            token: token.span,
+            token,
             name,
             equals_token,
             value,
         })
     }
 
-    pub fn nosp(kind: DeclareKind, name: Ident<'a>, value: Expr<'a>) -> Self {
+    pub fn nosp(name: Ident<'a>, value: Expr<'a>) -> Self {
         Self {
-            kind,
             token: Span::default(),
             name,
             equals_token: Span::default(),

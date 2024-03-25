@@ -43,7 +43,8 @@ impl Execution for Statement<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         match self {
             Self::Expr(expr) => expr.execute(executor),
-            Self::Declare(declare) => declare.execute(executor),
+            Self::LetDeclare(declare) => declare.execute(executor),
+            Self::LazyDeclare(declare) => declare.execute(executor),
             Self::FnDef(fndef) => fndef.execute(executor),
             Self::Return(ret) => ret.execute(executor),
         }

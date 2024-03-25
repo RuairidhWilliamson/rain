@@ -1,7 +1,7 @@
 use crate::{error::RainError, span::Span};
 
 pub mod corelib;
-pub mod executable;
+pub mod execution;
 pub mod executor;
 pub mod types;
 

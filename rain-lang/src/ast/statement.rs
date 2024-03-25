@@ -12,7 +12,8 @@ use super::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Statement<'a> {
     Expr(Expr<'a>),
-    Declare(Declare<'a>),
+    LetDeclare(Declare<'a>),
+    LazyDeclare(Declare<'a>),
     FnDef(FnDef<'a>),
     Return(Return<'a>),
 }
@@ -22,7 +23,8 @@ impl<'a> Statement<'a> {
         let peeking = stream.peek()?;
         let peeking_token = peeking.expect_not_end(ParseError::ExpectedStmt)?;
         match TokenKind::from(&peeking_token.token) {
-            TokenKind::Let => Ok(Self::Declare(Declare::parse_stream(stream)?)),
+            TokenKind::Let => Ok(Self::LetDeclare(Declare::parse_stream_let(stream)?)),
+            TokenKind::Lazy => Ok(Self::LazyDeclare(Declare::parse_stream_lazy(stream)?)),
             TokenKind::Fn => Ok(Self::FnDef(FnDef::parse_stream(stream)?)),
             TokenKind::Return => Ok(Self::Return(Return::parse_stream(stream)?)),
             _ => Ok(Self::Expr(Expr::parse_stream(stream)?)),
@@ -34,7 +36,8 @@ impl Ast for Statement<'_> {
     fn span(&self) -> Span {
         match self {
             Statement::Expr(inner) => inner.span(),
-            Statement::Declare(inner) => inner.span(),
+            Statement::LetDeclare(inner) => inner.span(),
+            Statement::LazyDeclare(inner) => inner.span(),
             Statement::FnDef(inner) => inner.span(),
             Statement::Return(inner) => inner.span(),
         }
@@ -43,7 +46,8 @@ impl Ast for Statement<'_> {
     fn reset_spans(&mut self) {
         match self {
             Statement::Expr(inner) => inner.reset_spans(),
-            Statement::Declare(inner) => inner.reset_spans(),
+            Statement::LetDeclare(inner) => inner.reset_spans(),
+            Statement::LazyDeclare(inner) => inner.reset_spans(),
             Statement::FnDef(inner) => inner.reset_spans(),
             Statement::Return(inner) => inner.reset_spans(),
         }
@@ -53,7 +57,7 @@ impl Ast for Statement<'_> {
 #[cfg(test)]
 mod tests {
     use crate::ast::{
-        block::Block, bool_literal::BoolLiteral, declare::DeclareKind, ident::Ident, item::Item,
+        block::Block, bool_literal::BoolLiteral, ident::Ident, item::Item,
         string_literal::StringLiteral,
     };
 
@@ -78,8 +82,7 @@ mod tests {
     parse_statement_test!(
         parse_declare,
         "let a = b",
-        Statement::Declare(Declare::nosp(
-            DeclareKind::Let,
+        Statement::LetDeclare(Declare::nosp(
             Ident::nosp("a"),
             Expr::Item(Item::nosp(vec![Ident::nosp("b")]))
         )),
@@ -88,8 +91,7 @@ mod tests {
     parse_statement_test!(
         parse_utf8_declare,
         "let 🌧 = \"rain\"",
-        Statement::Declare(Declare::nosp(
-            DeclareKind::Let,
+        Statement::LetDeclare(Declare::nosp(
             Ident::nosp("🌧"),
             Expr::StringLiteral(StringLiteral::nosp("rain"))
         )),
@@ -111,5 +113,14 @@ mod tests {
         parse_return,
         "return b",
         Statement::Return(Return::nosp(Expr::Item(Item::nosp(vec![Ident::nosp("b")])))),
+    );
+
+    parse_statement_test!(
+        parse_lazy,
+        "lazy a = b",
+        Statement::LazyDeclare(Declare::nosp(
+            Ident::nosp("a"),
+            Expr::Item(Item::nosp(vec![Ident::nosp("b")])),
+        )),
     );
 }
