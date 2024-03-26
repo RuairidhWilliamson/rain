@@ -7,11 +7,10 @@ pub struct Record(Rc<RefCell<HashMap<String, RainValue>>>);
 
 impl std::fmt::Display for Record {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0
-            .borrow()
-            .deref()
-            .keys()
-            .try_for_each(|k| f.write_str(k))
+        self.0.borrow().deref().keys().try_for_each(|k| {
+            f.write_str(k)?;
+            f.write_str(",")
+        })
     }
 }
 

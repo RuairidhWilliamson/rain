@@ -29,7 +29,7 @@ impl Function {
         &self,
         executor: &mut Executor,
         args: &[RainValue],
-        fn_call: &FnCall<'_>,
+        fn_call: Option<&FnCall<'_>>,
     ) -> Result<RainValue, ExecCF> {
         self.implementation.call(executor, args, fn_call)
     }
@@ -42,11 +42,11 @@ impl std::fmt::Display for Function {
 }
 
 pub trait ExternalFnPtr:
-    Fn(&mut Executor, &[RainValue], &FnCall<'_>) -> Result<RainValue, ExecCF>
+    Fn(&mut Executor, &[RainValue], Option<&FnCall<'_>>) -> Result<RainValue, ExecCF>
 {
 }
 impl<F> ExternalFnPtr for F where
-    F: Fn(&mut Executor, &[RainValue], &FnCall<'_>) -> Result<RainValue, ExecCF>
+    F: Fn(&mut Executor, &[RainValue], Option<&FnCall<'_>>) -> Result<RainValue, ExecCF>
 {
 }
 
@@ -69,7 +69,7 @@ impl FunctionImpl {
         &self,
         executor: &mut Executor,
         args: &[RainValue],
-        fn_call: &FnCall<'_>,
+        fn_call: Option<&FnCall<'_>>,
     ) -> Result<RainValue, ExecCF> {
         match self {
             Self::Local(fn_def) => {
@@ -81,7 +81,8 @@ impl FunctionImpl {
                         .map(|(k, v)| (String::from(k.name.name), v.clone())),
                 );
                 let mut executor = Executor {
-                    global_executor: executor.global_executor,
+                    base_executor: executor.base_executor,
+                    script_executor: executor.script_executor,
                     local_record,
                 };
                 match fn_def.block.execute(&mut executor) {

@@ -23,5 +23,3 @@ fn check() {
 		core.error("Outdated Failed")
 	}
 }
-
-check()

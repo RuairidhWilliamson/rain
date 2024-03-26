@@ -36,7 +36,7 @@ pub fn core_lib() -> Record {
 fn execute_print(
     executor: &mut Executor,
     args: &[RainValue],
-    _fn_call: &FnCall<'_>,
+    _fn_call: Option<&FnCall<'_>>,
 ) -> Result<RainValue, ExecCF> {
     struct Args<'a>(&'a [RainValue]);
     impl std::fmt::Display for Args<'_> {
@@ -53,17 +53,14 @@ fn execute_print(
         }
     }
     let args = Args(args);
-    executor
-        .global_executor()
-        .core_handler
-        .print(format_args!("{args}"));
+    executor.core_handler().print(format_args!("{args}"));
     Ok(RainValue::Void)
 }
 
 fn execute_error(
     _executor: &mut Executor,
     args: &[RainValue],
-    fn_call: &FnCall<'_>,
+    fn_call: Option<&FnCall<'_>>,
 ) -> Result<RainValue, ExecCF> {
     let [a] = args else {
         return Err(RainError::new(
@@ -71,7 +68,7 @@ fn execute_error(
                 expected: 1,
                 actual: args.len(),
             },
-            fn_call.span(),
+            fn_call.unwrap().span(),
         )
         .into());
     };
@@ -81,9 +78,9 @@ fn execute_error(
                 expected: &[RainType::String],
                 actual: a.as_type(),
             },
-            fn_call.args[0].span(),
+            fn_call.unwrap().args[0].span(),
         )
         .into());
     };
-    Err(RuntimeError::new(s.to_string(), fn_call.span()).into())
+    Err(RuntimeError::new(s.to_string(), fn_call.unwrap().span()).into())
 }

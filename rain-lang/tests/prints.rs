@@ -1,7 +1,7 @@
 use std::{cell::RefCell, fmt::Write, rc::Rc};
 
 use rain_lang::exec::corelib::CoreHandler;
-use rain_lang::exec::executor::GlobalExecutorBuilder;
+use rain_lang::exec::executor::ExecutorBuilder;
 
 #[derive(Debug)]
 struct BufferCoreHandler {
@@ -25,9 +25,9 @@ macro_rules! script_prints_test {
             let ch = Box::new(BufferCoreHandler {
                 output: buffer.clone(),
             });
-            let executor_builder = GlobalExecutorBuilder {
+            let executor_builder = ExecutorBuilder {
                 core_handler: Some(ch),
-                ..GlobalExecutorBuilder::default()
+                ..ExecutorBuilder::default()
             };
             let source = rain_lang::source::Source::from($source);
             if let Err(err) = rain_lang::run(&source, executor_builder) {

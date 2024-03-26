@@ -8,10 +8,20 @@ use crate::{
 };
 
 use super::{
-    executor::Executor,
-    types::{self, function::Function, RainType, RainValue},
+    executor::{BaseExecutor, Executor, ScriptExecutor},
+    types::{self, function::Function, record::Record, RainType, RainValue},
     ExecCF, ExecError,
 };
+
+pub fn exec_script(
+    script: &Script<'static>,
+    base_executor: &mut BaseExecutor,
+) -> Result<Record, ExecCF> {
+    let mut script_executor = ScriptExecutor::new(&base_executor);
+    let mut executor = Executor::new(base_executor, &mut script_executor);
+    script.statements.execute(&mut executor)?;
+    Ok(script_executor.global_record)
+}
 
 pub trait Execution {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF>;
@@ -66,7 +76,7 @@ impl Execution for Expr<'static> {
 
 impl Execution for FnDef<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
-        executor.global_executor().global_record.insert(
+        executor.global_record().insert(
             self.name.name.to_owned(),
             RainValue::Function(Function::new(self.clone())),
         );
@@ -93,7 +103,7 @@ impl Execution for FnCall<'static> {
             .iter()
             .map(|a| a.execute(executor))
             .collect::<Result<Vec<RainValue>, ExecCF>>()?;
-        func.call(executor, &args, self)
+        func.call(executor, &args, Some(self))
     }
 }
 
@@ -101,8 +111,7 @@ impl Execution for Declare<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let value = self.value.execute(executor)?;
         executor
-            .global_executor()
-            .global_record
+            .global_record()
             .insert(self.name.name.to_owned(), value);
         Ok(RainValue::Void)
     }
@@ -111,14 +120,10 @@ impl Execution for Declare<'static> {
 impl Execution for Item<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let (top_level, rest) = self.idents.split_first().unwrap();
-        let mut record = executor
-            .local_record
-            .get(top_level.name)
-            .or_else(|| executor.global_executor().global_record.get(top_level.name))
-            .ok_or(RainError::new(
-                ExecError::UnknownVariable(top_level.name.to_owned()),
-                top_level.span,
-            ))?;
+        let mut record = executor.resolve(top_level).ok_or(RainError::new(
+            ExecError::UnknownVariable(top_level.name.to_owned()),
+            top_level.span,
+        ))?;
         for ident in rest {
             record = record
                 .as_record()

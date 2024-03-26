@@ -36,7 +36,7 @@ pub fn std_lib() -> Record {
 fn execute_run(
     executor: &mut Executor,
     args: &[RainValue],
-    fn_call: &FnCall<'_>,
+    fn_call: Option<&FnCall<'_>>,
 ) -> Result<RainValue, ExecCF> {
     let Some((program, args)) = args.split_first() else {
         return Err(RainError::new(
@@ -44,7 +44,7 @@ fn execute_run(
                 expected: 1,
                 actual: 0,
             },
-            fn_call.span(),
+            fn_call.unwrap().span(),
         )
         .into());
     };
@@ -54,12 +54,12 @@ fn execute_run(
                 expected: &[RainType::Path],
                 actual: program.as_type(),
             },
-            fn_call.span(),
+            fn_call.unwrap().span(),
         )
         .into());
     };
     let mut cmd = std::process::Command::new(program.as_ref());
-    cmd.current_dir(&executor.global_executor.current_directory);
+    cmd.current_dir(&executor.current_directory());
     for a in args {
         match a {
             RainValue::String(a) => cmd.arg(a.as_ref()),
@@ -70,7 +70,7 @@ fn execute_run(
                         expected: &[RainType::String],
                         actual: a.as_type(),
                     },
-                    fn_call.span(),
+                    fn_call.unwrap().span(),
                 )
                 .into());
             }
@@ -85,7 +85,7 @@ fn execute_run(
 fn execute_download(
     _executor: &mut Executor,
     _args: &[RainValue],
-    _fn_call: &FnCall<'_>,
+    _fn_call: Option<&FnCall<'_>>,
 ) -> Result<RainValue, ExecCF> {
     todo!()
 }
@@ -93,7 +93,7 @@ fn execute_download(
 fn execute_path(
     _executor: &mut Executor,
     args: &[RainValue],
-    fn_call: &FnCall<'_>,
+    fn_call: Option<&FnCall<'_>>,
 ) -> Result<RainValue, ExecCF> {
     let [a] = args else {
         return Err(RainError::new(
@@ -101,7 +101,7 @@ fn execute_path(
                 expected: 1,
                 actual: args.len(),
             },
-            fn_call.span(),
+            fn_call.unwrap().span(),
         )
         .into());
     };
@@ -111,7 +111,7 @@ fn execute_path(
                 expected: &[RainType::String],
                 actual: a.as_type(),
             },
-            fn_call.span(),
+            fn_call.unwrap().span(),
         )
         .into());
     };

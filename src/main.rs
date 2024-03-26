@@ -7,11 +7,23 @@ use std::{
 
 use clap::Parser;
 use color_eyre::owo_colors::OwoColorize;
-use rain_lang::{ast::script::Script, error::ResolvedError, exec::ExecCF, source::Source};
+use rain_lang::{
+    ast::script::Script,
+    error::ResolvedError,
+    exec::{
+        executor::{Executor, ScriptExecutor},
+        types::RainValue,
+        ExecCF,
+    },
+    source::Source,
+};
 
 #[derive(Parser)]
 struct Cli {
-    script: Option<PathBuf>,
+    target: Option<String>,
+
+    #[arg(long)]
+    path: Option<PathBuf>,
 
     #[arg(long)]
     no_exec: bool,
@@ -28,7 +40,7 @@ fn main() -> color_eyre::Result<()> {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
-    let source = Source::new(cli.script.as_deref().unwrap_or(Path::new(".")))?;
+    let source = Source::new(cli.path.as_deref().unwrap_or(Path::new(".")))?;
     match main_inner(&source, &cli) {
         Ok(()) => Ok(()),
         Err(ExecCF::Return(_)) => todo!(),
@@ -61,15 +73,26 @@ fn main_inner(source: &Source, cli: &Cli) -> Result<(), ExecCF> {
 
     if !cli.no_exec {
         let options = rain_lang::exec::ExecuteOptions { sealed: cli.sealed };
-        let mut global_executor = rain_lang::exec::executor::GlobalExecutorBuilder {
+        let mut base_executor = rain_lang::exec::executor::ExecutorBuilder {
             current_directory: source.path.directory().unwrap().to_path_buf(),
             std_lib: Some(stdlib::std_lib()),
             options,
             ..Default::default()
         }
         .build();
-        let mut executor = rain_lang::exec::executor::Executor::new(&mut global_executor);
+        let mut script_executor = ScriptExecutor::new(&base_executor);
+        let mut executor = Executor::new(&mut base_executor, &mut script_executor);
         rain_lang::exec::execution::Execution::execute(&script, &mut executor)?;
+        if let Some(target) = &cli.target {
+            let t = script_executor.global_record.get(target).unwrap();
+            let RainValue::Function(func) = t else {
+                panic!("not a function");
+            };
+            let mut executor = Executor::new(&mut base_executor, &mut script_executor);
+            func.call(&mut executor, &[], None)?;
+        } else {
+            eprintln!("Specify a target: {}", script_executor.global_record);
+        }
     }
     Ok(())
 }

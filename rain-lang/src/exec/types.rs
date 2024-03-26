@@ -29,6 +29,12 @@ impl RainValue {
     }
 }
 
+impl From<record::Record> for RainValue {
+    fn from(rec: record::Record) -> Self {
+        Self::Record(rec)
+    }
+}
+
 impl std::fmt::Display for RainValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
