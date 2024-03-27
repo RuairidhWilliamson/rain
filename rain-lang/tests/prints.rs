@@ -25,12 +25,13 @@ macro_rules! script_prints_test {
             let ch = Box::new(BufferCoreHandler {
                 output: buffer.clone(),
             });
-            let executor_builder = ExecutorBuilder {
+            let mut executor_builder = ExecutorBuilder {
                 core_handler: Some(ch),
                 ..ExecutorBuilder::default()
-            };
+            }
+            .build();
             let source = rain_lang::source::Source::from($source);
-            if let Err(err) = rain_lang::run(&source, executor_builder) {
+            if let Err(err) = rain_lang::run(&source, &mut executor_builder) {
                 panic!("{err}");
             }
             assert_eq!(buffer.borrow().as_str(), $expected);
