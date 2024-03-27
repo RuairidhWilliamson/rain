@@ -76,6 +76,7 @@ fn execute_run(
             }
         };
     }
+    tracing::info!("std.run {cmd:?}");
     let status = cmd.status().unwrap();
 
     let out = Record::new([(String::from("success"), RainValue::Bool(status.success()))]);
@@ -87,7 +88,7 @@ fn execute_download(
     _args: &[RainValue],
     _fn_call: Option<&FnCall<'_>>,
 ) -> Result<RainValue, ExecCF> {
-    todo!()
+    todo!("implement std.download")
 }
 
 fn execute_path(

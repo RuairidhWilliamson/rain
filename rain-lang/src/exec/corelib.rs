@@ -116,6 +116,7 @@ fn execute_import(
         .into());
     };
     let script_path = executor.current_directory().join(p.as_ref());
+    tracing::info!("importing {script_path:?}");
     // TODO: Don't leak this properly track the lifetime
     let source = std::fs::read_to_string(&script_path)
         .unwrap()
