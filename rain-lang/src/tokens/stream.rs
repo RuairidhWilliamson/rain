@@ -47,6 +47,7 @@ impl<'a> TokenStream<'a> {
                 b'=' => Ok(self.increment(Token::Equals)),
                 b',' => Ok(self.increment(Token::Comma)),
                 b':' => Ok(self.increment(Token::Colon)),
+                b'\\' => Ok(self.increment(Token::Backslash)),
                 b'(' => Ok(self.increment(Token::LParen)),
                 b')' => Ok(self.increment(Token::RParen)),
                 b'{' => Ok(self.increment(Token::LBrace)),
@@ -192,9 +193,20 @@ impl<'a> TokenStream<'a> {
             line: self.line,
             column: self.column,
         };
+        let mut contents: Vec<u8> = Vec::default();
+        let mut escape = false;
         for i in start.index + 1..self.source.len() {
             let c = self.raw_source[i];
             match c {
+                b'\n' if escape => {
+                    self.line += 1;
+                    escape = false;
+                }
+                _ if escape => {
+                    self.column += 1;
+                    escape = false;
+                    contents.push(c);
+                }
                 b'"' => {
                     self.index = i + 1;
                     self.column += 2;
@@ -204,15 +216,21 @@ impl<'a> TokenStream<'a> {
                         column: self.column,
                     };
                     return NextTokenSpan::Next(TokenSpan {
-                        token: Token::DoubleQuoteLiteral(&self.source[start.index + 1..i]),
+                        token: Token::DoubleQuoteLiteral(String::from_utf8(contents).unwrap()),
                         span: Span { start, end },
                     });
                 }
                 b'\n' => {
                     self.line += 1;
+                    contents.push(c);
+                }
+                b'\\' => {
+                    self.column += 1;
+                    escape = true;
                 }
                 _ => {
                     self.column += 1;
+                    contents.push(c);
                 }
             }
         }

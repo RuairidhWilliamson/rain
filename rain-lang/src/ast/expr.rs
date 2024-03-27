@@ -6,7 +6,7 @@ use super::{
 use crate::{
     error::RainError,
     span::Span,
-    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenKind},
+    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenKind, TokenSpan},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,7 +15,7 @@ pub enum Expr<'a> {
     Dot(Dot<'a>),
     FnCall(FnCall<'a>),
     BoolLiteral(BoolLiteral),
-    StringLiteral(StringLiteral<'a>),
+    StringLiteral(StringLiteral),
     IfCondition(IfCondition<'a>),
     Match(Match<'a>),
 }
@@ -44,8 +44,8 @@ impl<'a> From<BoolLiteral> for Expr<'a> {
     }
 }
 
-impl<'a> From<StringLiteral<'a>> for Expr<'a> {
-    fn from(inner: StringLiteral<'a>) -> Self {
+impl<'a> From<StringLiteral> for Expr<'a> {
+    fn from(inner: StringLiteral) -> Self {
         Self::StringLiteral(inner)
     }
 }
@@ -71,7 +71,7 @@ impl<'a> Expr<'a> {
                 return Err(RainError::new(ParseError::EmptyExpression, *span));
             }
         };
-        let mut expr = match first_token_span.token {
+        let mut expr = match &first_token_span.token {
             Token::TrueLiteral => {
                 let span = peeking
                     .consume()
@@ -86,11 +86,16 @@ impl<'a> Expr<'a> {
                     .span;
                 Expr::BoolLiteral(BoolLiteral { value: false, span })
             }
-            Token::DoubleQuoteLiteral(value) => {
-                let span = peeking
+            Token::DoubleQuoteLiteral(_) => {
+                let TokenSpan {
+                    token: Token::DoubleQuoteLiteral(value),
+                    span,
+                } = peeking
                     .consume()
                     .expect_next(crate::tokens::TokenKind::DoubleQuoteLiteral)?
-                    .span;
+                else {
+                    unreachable!("we already have checked this is a double quote literal");
+                };
                 Expr::StringLiteral(StringLiteral { value, span })
             }
             Token::If => Expr::IfCondition(IfCondition::parse_stream(stream)?),

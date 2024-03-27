@@ -68,7 +68,7 @@ impl Execution for Expr<'static> {
             Self::Dot(dot) => dot.execute(executor),
             Self::FnCall(fn_call) => fn_call.execute(executor),
             Self::BoolLiteral(inner) => Ok(RainValue::Bool(inner.value)),
-            Self::StringLiteral(inner) => Ok(RainValue::String((inner.value).into())),
+            Self::StringLiteral(inner) => Ok(RainValue::String(inner.value.as_str().into())),
             Self::IfCondition(inner) => inner.execute(executor),
             Self::Match(_) => todo!(),
         }

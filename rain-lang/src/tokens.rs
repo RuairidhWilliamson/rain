@@ -6,8 +6,8 @@ use crate::span::{Place, Span};
 #[derive(Debug, Clone, PartialEq, Eq, enum_kinds::EnumKind)]
 #[enum_kind(TokenKind)]
 pub enum Token<'a> {
-    Ident(&'a str),              // abc
-    DoubleQuoteLiteral(&'a str), // "abc"
+    Ident(&'a str),             // abc
+    DoubleQuoteLiteral(String), // "abc"
 
     Void,         // void
     Lazy,         // lazy
@@ -20,12 +20,13 @@ pub enum Token<'a> {
     TrueLiteral,  // true
     FalseLiteral, // false
 
-    Dot,    // .
-    Equals, // =
-    Comma,  // ,
-    Colon,  // :
-    Slash,  // /
-    Tilde,  // ~
+    Dot,       // .
+    Equals,    // =
+    Comma,     // ,
+    Colon,     // :
+    Slash,     // /
+    Tilde,     // ~
+    Backslash, // \
 
     LParen,   // (
     RParen,   // )
@@ -97,7 +98,7 @@ mod tests {
                 Token::Let,
                 Token::Ident("a"),
                 Token::Equals,
-                Token::DoubleQuoteLiteral("abc")
+                Token::DoubleQuoteLiteral(String::from("abc"))
             ],
         )
     }
@@ -136,7 +137,7 @@ mod tests {
                 Token::Dot,
                 Token::Ident("print"),
                 Token::LParen,
-                Token::DoubleQuoteLiteral("Hello :)"),
+                Token::DoubleQuoteLiteral(String::from("Hello :)")),
                 Token::RParen,
                 Token::RBrace,
             ]
@@ -157,7 +158,7 @@ mod tests {
                 Token::Dot,
                 Token::Ident("print"),
                 Token::LParen,
-                Token::DoubleQuoteLiteral("hello world"),
+                Token::DoubleQuoteLiteral(String::from("hello world")),
                 Token::RParen
             ]
         );
@@ -226,7 +227,7 @@ mod tests {
                 Token::Let,
                 Token::Ident("🦀"),
                 Token::Equals,
-                Token::DoubleQuoteLiteral("🦀"),
+                Token::DoubleQuoteLiteral(String::from("🦀")),
             ]
         )
     }
@@ -243,7 +244,7 @@ mod tests {
                 Token::Let,
                 Token::Ident("🌧"),
                 Token::Equals,
-                Token::DoubleQuoteLiteral("rain"),
+                Token::DoubleQuoteLiteral(String::from("rain")),
             ]
         )
     }
@@ -270,5 +271,40 @@ mod tests {
                 Token::RBrace,
             ]
         )
+    }
+
+    #[test]
+    fn doublequote_escape() {
+        let source = "\"this is escaped -> \\\"rain\\\"\"";
+        let tokens: Vec<Token> = TokenStream::new(source)
+            .map(|ts| ts.unwrap().token)
+            .collect();
+        assert_eq!(
+            tokens,
+            vec![Token::DoubleQuoteLiteral(String::from(
+                "this is escaped -> \"rain\""
+            ))],
+        );
+    }
+
+    #[test]
+    fn doublequote_newline() {
+        let source = "\"a\nb\"";
+        let tokens: Vec<Token> = TokenStream::new(source)
+            .map(|ts| ts.unwrap().token)
+            .collect();
+        assert_eq!(
+            tokens,
+            vec![Token::DoubleQuoteLiteral(String::from("a\nb"))],
+        );
+    }
+
+    #[test]
+    fn doublequote_escaped_newline() {
+        let source = "\"a\\\nb\"";
+        let tokens: Vec<Token> = TokenStream::new(source)
+            .map(|ts| ts.unwrap().token)
+            .collect();
+        assert_eq!(tokens, vec![Token::DoubleQuoteLiteral(String::from("ab"))],);
     }
 }
