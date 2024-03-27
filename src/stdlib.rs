@@ -59,7 +59,7 @@ fn execute_run(
         .into());
     };
     let mut cmd = std::process::Command::new(program.as_ref());
-    cmd.current_dir(&executor.current_directory());
+    cmd.current_dir(executor.current_directory());
     for a in args {
         match a {
             RainValue::String(a) => cmd.arg(a.as_ref()),

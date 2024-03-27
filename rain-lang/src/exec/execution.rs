@@ -17,7 +17,7 @@ pub fn exec_script(
     script: &Script<'static>,
     base_executor: &mut BaseExecutor,
 ) -> Result<Record, ExecCF> {
-    let mut script_executor = ScriptExecutor::new(&base_executor);
+    let mut script_executor = ScriptExecutor::new(base_executor);
     let mut executor = Executor::new(base_executor, &mut script_executor);
     script.statements.execute(&mut executor)?;
     Ok(script_executor.global_record)
