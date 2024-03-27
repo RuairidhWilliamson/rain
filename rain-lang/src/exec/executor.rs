@@ -1,7 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use crate::ast::ident::Ident;
-
 use super::{
     corelib::{core_lib, CoreHandler},
     types::{record::Record, RainValue},
@@ -63,8 +61,8 @@ pub struct Executor<'a> {
 }
 
 impl BaseExecutor {
-    pub fn resolve(&self, ident: &Ident<'static>) -> Option<RainValue> {
-        self.base_record.get(ident.name)
+    pub fn resolve(&self, name: &str) -> Option<RainValue> {
+        self.base_record.get(name)
     }
 }
 
@@ -76,8 +74,8 @@ impl ScriptExecutor {
         }
     }
 
-    pub fn resolve(&self, ident: &Ident<'static>) -> Option<RainValue> {
-        self.global_record.get(ident.name)
+    pub fn resolve(&self, name: &str) -> Option<RainValue> {
+        self.global_record.get(name)
     }
 }
 
@@ -105,10 +103,10 @@ impl<'a> Executor<'a> {
         &self.script_executor.current_directory
     }
 
-    pub fn resolve(&self, ident: &Ident<'static>) -> Option<RainValue> {
+    pub fn resolve(&self, name: &str) -> Option<RainValue> {
         self.local_record
-            .get(ident.name)
-            .or_else(|| self.script_executor.resolve(ident))
-            .or_else(|| self.base_executor.resolve(ident))
+            .get(name)
+            .or_else(|| self.script_executor.resolve(name))
+            .or_else(|| self.base_executor.resolve(name))
     }
 }

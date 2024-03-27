@@ -1,22 +1,65 @@
 use super::{
-    bool_literal::BoolLiteral, function_call::FnCall, helpers::NextTokenSpanHelpers,
-    if_condition::IfCondition, item::Item, match_expr::Match, string_literal::StringLiteral, Ast,
+    bool_literal::BoolLiteral, dot::Dot, function_call::FnCall, helpers::NextTokenSpanHelpers,
+    ident::Ident, if_condition::IfCondition, match_expr::Match, string_literal::StringLiteral, Ast,
     ParseError,
 };
 use crate::{
     error::RainError,
     span::Span,
-    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenSpan},
+    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenKind},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr<'a> {
-    Item(Item<'a>),
+    Ident(Ident<'a>),
+    Dot(Dot<'a>),
     FnCall(FnCall<'a>),
     BoolLiteral(BoolLiteral),
     StringLiteral(StringLiteral<'a>),
     IfCondition(IfCondition<'a>),
     Match(Match<'a>),
+}
+
+impl<'a> From<Ident<'a>> for Expr<'a> {
+    fn from(inner: Ident<'a>) -> Self {
+        Self::Ident(inner)
+    }
+}
+
+impl<'a> From<Dot<'a>> for Expr<'a> {
+    fn from(inner: Dot<'a>) -> Self {
+        Self::Dot(inner)
+    }
+}
+
+impl<'a> From<FnCall<'a>> for Expr<'a> {
+    fn from(inner: FnCall<'a>) -> Self {
+        Self::FnCall(inner)
+    }
+}
+
+impl<'a> From<BoolLiteral> for Expr<'a> {
+    fn from(inner: BoolLiteral) -> Self {
+        Self::BoolLiteral(inner)
+    }
+}
+
+impl<'a> From<StringLiteral<'a>> for Expr<'a> {
+    fn from(inner: StringLiteral<'a>) -> Self {
+        Self::StringLiteral(inner)
+    }
+}
+
+impl<'a> From<IfCondition<'a>> for Expr<'a> {
+    fn from(inner: IfCondition<'a>) -> Self {
+        Self::IfCondition(inner)
+    }
+}
+
+impl<'a> From<Match<'a>> for Expr<'a> {
+    fn from(inner: Match<'a>) -> Self {
+        Self::Match(inner)
+    }
 }
 
 impl<'a> Expr<'a> {
@@ -28,47 +71,54 @@ impl<'a> Expr<'a> {
                 return Err(RainError::new(ParseError::EmptyExpression, *span));
             }
         };
-        match first_token_span.token {
+        let mut expr = match first_token_span.token {
             Token::TrueLiteral => {
                 let span = peeking
                     .consume()
                     .expect_next(crate::tokens::TokenKind::TrueLiteral)?
                     .span;
-                Ok(Expr::BoolLiteral(BoolLiteral { value: true, span }))
+                Expr::BoolLiteral(BoolLiteral { value: true, span })
             }
             Token::FalseLiteral => {
                 let span = peeking
                     .consume()
                     .expect_next(crate::tokens::TokenKind::FalseLiteral)?
                     .span;
-                Ok(Expr::BoolLiteral(BoolLiteral { value: false, span }))
+                Expr::BoolLiteral(BoolLiteral { value: false, span })
             }
             Token::DoubleQuoteLiteral(value) => {
                 let span = peeking
                     .consume()
                     .expect_next(crate::tokens::TokenKind::DoubleQuoteLiteral)?
                     .span;
-                Ok(Expr::StringLiteral(StringLiteral { value, span }))
+                Expr::StringLiteral(StringLiteral { value, span })
             }
-            Token::If => Ok(Expr::IfCondition(IfCondition::parse_stream(stream)?)),
-            Token::Match => Ok(Expr::Match(Match::parse_stream(stream)?)),
-            Token::Ident(_) => {
-                let item = Item::parse_stream(stream)?;
-                let peeking = stream.peek()?;
-                if let NextTokenSpan::Next(TokenSpan {
-                    token: Token::LParen,
-                    ..
-                }) = peeking.value()
-                {
-                    Ok(Expr::FnCall(FnCall::parse_stream_item(item, stream)?))
-                } else {
-                    Ok(Expr::Item(item))
-                }
+            Token::If => Expr::IfCondition(IfCondition::parse_stream(stream)?),
+            Token::Match => Expr::Match(Match::parse_stream(stream)?),
+            Token::Dot => Expr::Dot(Dot::parse_stream(None, stream)?),
+            Token::Ident(_) => Expr::Ident(Ident::parse(
+                peeking.consume().expect_next(TokenKind::Ident)?,
+            )?),
+            _ => {
+                return Err(RainError::new(
+                    ParseError::UnexpectedTokens,
+                    first_token_span.span,
+                ))
             }
-            _ => Err(RainError::new(
-                ParseError::UnexpectedTokens,
-                first_token_span.span,
-            )),
+        };
+        // After the initial expression we can also add .<ident> or make a function call
+        loop {
+            let peeking = stream.peek()?;
+            let NextTokenSpan::Next(token_span) = peeking.value() else {
+                // No more tokens so must be the end of the expression
+                return Ok(expr);
+            };
+            let kind = token_span.token.kind();
+            expr = match kind {
+                TokenKind::Dot => Expr::Dot(Dot::parse_stream(Some(expr), stream)?),
+                TokenKind::LParen => Expr::FnCall(FnCall::parse_stream(expr, stream)?),
+                _ => return Ok(expr),
+            };
         }
     }
 }
@@ -76,7 +126,8 @@ impl<'a> Expr<'a> {
 impl Ast for Expr<'_> {
     fn span(&self) -> Span {
         match self {
-            Expr::Item(inner) => inner.span(),
+            Expr::Ident(inner) => inner.span(),
+            Expr::Dot(inner) => inner.span(),
             Expr::FnCall(inner) => inner.span(),
             Expr::BoolLiteral(inner) => inner.span(),
             Expr::StringLiteral(inner) => inner.span(),
@@ -87,7 +138,8 @@ impl Ast for Expr<'_> {
 
     fn reset_spans(&mut self) {
         match self {
-            Expr::Item(inner) => inner.reset_spans(),
+            Expr::Ident(inner) => inner.reset_spans(),
+            Expr::Dot(inner) => inner.reset_spans(),
             Expr::FnCall(inner) => inner.reset_spans(),
             Expr::BoolLiteral(inner) => inner.reset_spans(),
             Expr::StringLiteral(inner) => inner.reset_spans(),
@@ -119,76 +171,80 @@ mod tests {
         };
     }
 
-    parse_expr_test!(
-        parse_single_ident,
-        "std",
-        Expr::Item(Item::nosp(vec![Ident::nosp("std")]))
-    );
+    parse_expr_test!(parse_single_ident, "std", Expr::Ident(Ident::nosp("std")));
 
     parse_expr_test!(
         parse_item,
         "core.print",
-        Expr::Item(Item {
-            idents: vec![
-                Ident {
-                    name: "core",
-                    span: Span::default()
-                },
-                Ident {
-                    name: "print",
-                    span: Span::default()
-                }
-            ],
-            span: Span::default(),
-        })
+        Expr::Dot(Dot::nosp(
+            Some(Expr::Ident(Ident {
+                name: "core",
+                span: Span::default()
+            })),
+            Ident {
+                name: "print",
+                span: Span::default()
+            },
+        ),)
+    );
+
+    parse_expr_test!(
+        parse_item3,
+        "a.b.c",
+        Expr::Dot(Dot::nosp(
+            Some(Expr::Dot(Dot::nosp(
+                Some(Expr::Ident(Ident::nosp("a"))),
+                Ident::nosp("b"),
+            ))),
+            Ident::nosp("c")
+        ))
     );
 
     parse_expr_test!(
         parse_fn_call,
         "foo()",
-        Expr::FnCall(FnCall::nosp(Item::nosp(vec![Ident::nosp("foo")]), vec![]))
+        Expr::FnCall(FnCall::nosp(Expr::Ident(Ident::nosp("foo")), vec![]))
     );
 
     parse_expr_test!(
         parse_fn_call_arg,
         "foo(a)",
         Expr::FnCall(FnCall::nosp(
-            Item::nosp(vec![Ident::nosp("foo")]),
-            vec![Expr::Item(Item::nosp(vec![Ident::nosp("a")]))],
+            Expr::Ident(Ident::nosp("foo")),
+            vec![Expr::Ident(Ident::nosp("a"))],
         ))
     );
 
     parse_expr_test!(
         parse_fn_call_args,
         "foo(a, b, c)",
-        Expr::FnCall(FnCall::nosp(
-            Item::nosp(vec![Ident::nosp("foo")]),
+        FnCall::nosp(
+            Ident::nosp("foo").into(),
             vec![
-                Expr::Item(Item::nosp(vec![Ident::nosp("a")])),
-                Expr::Item(Item::nosp(vec![Ident::nosp("b")])),
-                Expr::Item(Item::nosp(vec![Ident::nosp("c")]))
+                Ident::nosp("a").into(),
+                Ident::nosp("b").into(),
+                Ident::nosp("c").into()
             ],
-        ))
+        )
+        .into()
     );
 
     parse_expr_test!(
         parse_print_call,
         "core.print(a, b)",
-        Expr::FnCall(FnCall::nosp(
-            Item::nosp(vec![Ident::nosp("core"), Ident::nosp("print")]),
-            vec![
-                Expr::Item(Item::nosp(vec![Ident::nosp("a")])),
-                Expr::Item(Item::nosp(vec![Ident::nosp("b")])),
-            ],
-        ))
+        FnCall::nosp(
+            Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print")).into(),
+            vec![Ident::nosp("a").into(), Ident::nosp("b").into()],
+        )
+        .into()
     );
 
     parse_expr_test!(
         parse_print_hello_world,
         "core.print(\"hello world\")",
         Expr::FnCall(FnCall::nosp(
-            Item::nosp(vec![Ident::nosp("core",), Ident::nosp("print",)],),
-            vec![Expr::StringLiteral(StringLiteral::nosp("hello world"))],
+            Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print")).into(),
+            vec![StringLiteral::nosp("hello world").into()],
         ))
     );
 
@@ -210,5 +266,21 @@ mod tests {
             Block::nosp(vec![]),
             Some(ElseCondition::nosp(Block::nosp(vec![])))
         ))
+    );
+
+    parse_expr_test!(
+        parse_fn_dot,
+        "foo().a",
+        Dot::nosp(
+            Some(FnCall::nosp(Expr::Ident(Ident::nosp("foo")), vec![]).into()),
+            Ident::nosp("a")
+        )
+        .into()
+    );
+
+    parse_expr_test!(
+        parse_string_dot,
+        "\"hi\".foo",
+        Dot::nosp(Some(StringLiteral::nosp("hi").into()), Ident::nosp("foo")).into()
     );
 }

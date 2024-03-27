@@ -1,15 +1,15 @@
 use crate::{
     ast::{
-        block::Block, declare::Declare, expr::Expr, function_call::FnCall, function_def::FnDef,
-        if_condition::IfCondition, item::Item, return_stmt::Return, script::Script,
-        statement::Statement, statement_list::StatementList, Ast,
+        block::Block, declare::Declare, dot::Dot, expr::Expr, function_call::FnCall,
+        function_def::FnDef, ident::Ident, if_condition::IfCondition, return_stmt::Return,
+        script::Script, statement::Statement, statement_list::StatementList, Ast,
     },
     error::RainError,
 };
 
 use super::{
     executor::{BaseExecutor, Executor, ScriptExecutor},
-    types::{self, function::Function, record::Record, RainType, RainValue},
+    types::{function::Function, record::Record, RainType, RainValue},
     ExecCF, ExecError,
 };
 
@@ -64,7 +64,8 @@ impl Execution for Statement<'static> {
 impl Execution for Expr<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         match self {
-            Self::Item(item) => item.execute(executor),
+            Self::Ident(ident) => ident.execute(executor),
+            Self::Dot(dot) => dot.execute(executor),
             Self::FnCall(fn_call) => fn_call.execute(executor),
             Self::BoolLiteral(inner) => Ok(RainValue::Bool(inner.value)),
             Self::StringLiteral(inner) => Ok(RainValue::String((inner.value).into())),
@@ -84,16 +85,56 @@ impl Execution for FnDef<'static> {
     }
 }
 
+impl Execution for Ident<'static> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+        executor
+            .resolve(self.name)
+            .ok_or(ExecCF::RainError(RainError::new(
+                ExecError::UnknownItem(self.name.to_string()),
+                self.span,
+            )))
+    }
+}
+
+impl Execution for Dot<'static> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+        let Some(left) = &self.left else {
+            return Err(RainError::new(
+                ExecError::Roadmap("context aware dot expressions are roadmapped"),
+                self.dot_token,
+            )
+            .into());
+        };
+        let left_value = left.execute(executor)?;
+        let RainValue::Record(record) = left_value else {
+            return Err(RainError::new(
+                ExecError::UnexpectedType {
+                    expected: &[RainType::Record],
+                    actual: left_value.as_type(),
+                },
+                left.span(),
+            )
+            .into());
+        };
+        record
+            .get(self.right.name)
+            .ok_or(ExecCF::RainError(RainError::new(
+                ExecError::UnknownItem(self.right.name.to_string()),
+                self.right.span(),
+            )))
+    }
+}
+
 impl Execution for FnCall<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
-        let fn_value = self.item.execute(executor)?;
+        let fn_value = self.expr.execute(executor)?;
         let RainValue::Function(func) = fn_value else {
             return Err(RainError::new(
                 ExecError::UnexpectedType {
-                    expected: &[types::RainType::Function],
+                    expected: &[RainType::Function],
                     actual: fn_value.as_type(),
                 },
-                self.item.span,
+                self.expr.span(),
             )
             .into());
         };
@@ -117,33 +158,33 @@ impl Execution for Declare<'static> {
     }
 }
 
-impl Execution for Item<'static> {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
-        let (top_level, rest) = self.idents.split_first().unwrap();
-        let mut record = executor.resolve(top_level).ok_or(RainError::new(
-            ExecError::UnknownVariable(top_level.name.to_owned()),
-            top_level.span,
-        ))?;
-        for ident in rest {
-            record = record
-                .as_record()
-                .map_err(|typ| {
-                    RainError::new(
-                        ExecError::UnexpectedType {
-                            expected: &[types::RainType::Record],
-                            actual: typ,
-                        },
-                        ident.span,
-                    )
-                })?
-                .get(ident.name)
-                .ok_or_else(|| {
-                    RainError::new(ExecError::UnknownItem(String::from(ident.name)), ident.span)
-                })?;
-        }
-        Ok(record.to_owned())
-    }
-}
+// impl Execution for Item<'static> {
+//     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+//         let (top_level, rest) = self.idents.split_first().unwrap();
+//         let mut record = executor.resolve(top_level).ok_or(RainError::new(
+//             ExecError::UnknownVariable(top_level.name.to_owned()),
+//             top_level.span,
+//         ))?;
+//         for ident in rest {
+//             record = record
+//                 .as_record()
+//                 .map_err(|typ| {
+//                     RainError::new(
+//                         ExecError::UnexpectedType {
+//                             expected: &[types::RainType::Record],
+//                             actual: typ,
+//                         },
+//                         ident.span,
+//                     )
+//                 })?
+//                 .get(ident.name)
+//                 .ok_or_else(|| {
+//                     RainError::new(ExecError::UnknownItem(String::from(ident.name)), ident.span)
+//                 })?;
+//         }
+//         Ok(record.to_owned())
+//     }
+// }
 
 impl Execution for Return<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {

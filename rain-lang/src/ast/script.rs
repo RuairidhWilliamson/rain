@@ -31,7 +31,7 @@ impl Ast for Script<'_> {
 #[cfg(test)]
 mod tests {
     use crate::ast::{
-        declare::Declare, expr::Expr, function_call::FnCall, ident::Ident, item::Item,
+        declare::Declare, dot::Dot, expr::Expr, function_call::FnCall, ident::Ident,
         statement::Statement, string_literal::StringLiteral,
     };
 
@@ -51,20 +51,20 @@ mod tests {
             script,
             Script::nosp(StatementList::nosp(vec![
                 Statement::Expr(Expr::FnCall(FnCall::nosp(
-                    Item::nosp(vec![Ident::nosp("core",), Ident::nosp("print")]),
-                    vec![Expr::StringLiteral(StringLiteral::nosp("hello world"))],
+                    Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print")).into(),
+                    vec![StringLiteral::nosp("hello world").into()],
                 ))),
                 Statement::LetDeclare(Declare::nosp(
                     Ident::nosp("msg"),
-                    Expr::StringLiteral(StringLiteral::nosp("okie"))
+                    StringLiteral::nosp("okie").into(),
                 )),
                 Statement::Expr(Expr::FnCall(FnCall::nosp(
-                    Item::nosp(vec![Ident::nosp("core",), Ident::nosp("print")]),
-                    vec![Expr::Item(Item::nosp(vec![Ident::nosp("msg")]))],
+                    Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print")).into(),
+                    vec![Ident::nosp("msg").into()],
                 ))),
                 Statement::Expr(Expr::FnCall(FnCall::nosp(
-                    Item::nosp(vec![Ident::nosp("core"), Ident::nosp("print")]),
-                    vec![Expr::StringLiteral(StringLiteral::nosp("goodbye"))],
+                    Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print")).into(),
+                    vec![StringLiteral::nosp("goodbye").into()],
                 )))
             ]))
         );

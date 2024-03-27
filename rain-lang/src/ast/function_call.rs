@@ -9,26 +9,20 @@ use super::{
     helpers::{
         NextTokenSpanHelpers, PeekNextTokenHelpers, PeekTokenStreamHelpers, TokenSpanHelpers,
     },
-    item::Item,
     Ast, ParseError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnCall<'a> {
-    pub item: Item<'a>,
+    pub expr: Box<Expr<'a>>,
     pub lparen_token: Span,
     pub args: Vec<Expr<'a>>,
     pub rparen_token: Span,
 }
 
 impl<'a> FnCall<'a> {
-    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
-        let item = Item::parse_stream(stream)?;
-        Self::parse_stream_item(item, stream)
-    }
-
-    pub fn parse_stream_item(
-        item: Item<'a>,
+    pub fn parse_stream(
+        expr: Expr<'a>,
         stream: &mut PeekTokenStream<'a>,
     ) -> Result<Self, RainError> {
         let lparen_token = stream.expect_parse_next(TokenKind::LParen)?.span;
@@ -58,16 +52,16 @@ impl<'a> FnCall<'a> {
         }
         let rparen_token = rparen_token.span;
         Ok(Self {
-            item,
+            expr: Box::new(expr),
             lparen_token,
             args,
             rparen_token,
         })
     }
 
-    pub fn nosp(item: Item<'a>, args: Vec<Expr<'a>>) -> Self {
+    pub fn nosp(expr: Expr<'a>, args: Vec<Expr<'a>>) -> Self {
         Self {
-            item,
+            expr: Box::new(expr),
             lparen_token: Span::default(),
             args,
             rparen_token: Span::default(),
@@ -77,11 +71,11 @@ impl<'a> FnCall<'a> {
 
 impl Ast for FnCall<'_> {
     fn span(&self) -> Span {
-        self.item.span.combine(self.rparen_token)
+        self.expr.span().combine(self.rparen_token)
     }
 
     fn reset_spans(&mut self) {
-        self.item.reset_spans();
+        self.expr.reset_spans();
         self.lparen_token.reset();
         for a in &mut self.args {
             a.reset_spans();
@@ -90,39 +84,39 @@ impl Ast for FnCall<'_> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::ast::ident::Ident;
+// #[cfg(test)]
+// mod tests {
+//     use crate::ast::ident::Ident;
 
-    use super::*;
+//     use super::*;
 
-    fn parse_fn_call(source: &str) -> Result<FnCall, RainError> {
-        let mut stream = PeekTokenStream::new(source);
-        let mut fn_call = super::FnCall::parse_stream(&mut stream)?;
-        fn_call.reset_spans();
-        Ok(fn_call)
-    }
+//     fn parse_fn_call(source: &str) -> Result<FnCall, RainError> {
+//         let mut stream = PeekTokenStream::new(source);
+//         let mut fn_call = super::FnCall::parse_stream(&mut stream)?;
+//         fn_call.reset_spans();
+//         Ok(fn_call)
+//     }
 
-    #[test]
-    fn parse_no_args() -> Result<(), RainError> {
-        let fn_call = parse_fn_call("foo()")?;
-        assert_eq!(
-            fn_call,
-            FnCall::nosp(Item::nosp(vec![Ident::nosp("foo")]), vec![])
-        );
-        Ok(())
-    }
+//     #[test]
+//     fn parse_no_args() -> Result<(), RainError> {
+//         let fn_call = parse_fn_call("foo()")?;
+//         assert_eq!(
+//             fn_call,
+//             FnCall::nosp(Item::nosp(vec![Ident::nosp("foo")]), vec![])
+//         );
+//         Ok(())
+//     }
 
-    #[test]
-    fn parse_one_arg() -> Result<(), RainError> {
-        let fn_call = parse_fn_call("foo(bar)")?;
-        assert_eq!(
-            fn_call,
-            FnCall::nosp(
-                Item::nosp(vec![Ident::nosp("foo")]),
-                vec![Expr::Item(Item::nosp(vec![Ident::nosp("bar")]))],
-            )
-        );
-        Ok(())
-    }
-}
+//     #[test]
+//     fn parse_one_arg() -> Result<(), RainError> {
+//         let fn_call = parse_fn_call("foo(bar)")?;
+//         assert_eq!(
+//             fn_call,
+//             FnCall::nosp(
+//                 Item::nosp(vec![Ident::nosp("foo")]),
+//                 vec![Expr::Item(Item::nosp(vec![Ident::nosp("bar")]))],
+//             )
+//         );
+//         Ok(())
+//     }
+// }

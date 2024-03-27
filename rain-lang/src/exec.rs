@@ -17,6 +17,7 @@ pub enum ExecError {
         expected: usize,
         actual: usize,
     },
+    Roadmap(&'static str),
 }
 
 impl std::fmt::Display for ExecError {
