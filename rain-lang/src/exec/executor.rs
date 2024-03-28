@@ -7,7 +7,7 @@ use super::{
 
 #[derive(Debug, Default)]
 pub struct ExecutorBuilder {
-    pub current_directory: PathBuf,
+    pub workspace_directory: PathBuf,
     pub core_handler: Option<Box<dyn CoreHandler>>,
     pub std_lib: Option<Record>,
     pub options: super::ExecuteOptions,
@@ -15,7 +15,7 @@ pub struct ExecutorBuilder {
 
 impl ExecutorBuilder {
     pub fn build(self) -> BaseExecutor {
-        let current_directory = self.current_directory;
+        let workspace_directory = self.workspace_directory;
         let core_handler = self
             .core_handler
             .unwrap_or_else(|| Box::new(super::corelib::DefaultCoreHandler));
@@ -31,7 +31,7 @@ impl ExecutorBuilder {
         ]);
 
         BaseExecutor {
-            current_directory,
+            workspace_directory,
             core_handler,
             base_record,
             options,
@@ -41,7 +41,7 @@ impl ExecutorBuilder {
 
 #[derive(Debug)]
 pub struct BaseExecutor {
-    pub current_directory: PathBuf,
+    pub workspace_directory: PathBuf,
     pub core_handler: Box<dyn CoreHandler>,
     pub base_record: super::types::record::Record,
     pub options: super::ExecuteOptions,
@@ -67,13 +67,6 @@ impl BaseExecutor {
 }
 
 impl ScriptExecutor {
-    pub fn new(base: &BaseExecutor) -> Self {
-        Self {
-            current_directory: base.current_directory.clone(),
-            global_record: super::types::record::Record::default(),
-        }
-    }
-
     pub fn resolve(&self, name: &str) -> Option<RainValue> {
         self.global_record.get(name)
     }

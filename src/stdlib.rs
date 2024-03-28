@@ -58,12 +58,16 @@ fn execute_run(
         )
         .into());
     };
-    let mut cmd = std::process::Command::new(program.as_ref());
+    let mut cmd = std::process::Command::new(program.absolute());
     cmd.current_dir(executor.current_directory());
     for a in args {
         match a {
             RainValue::String(a) => cmd.arg(a.as_ref()),
-            RainValue::Path(p) => cmd.arg(p.as_ref()),
+            RainValue::Path(p) => cmd.arg(
+                p.absolute()
+                    .strip_prefix(executor.current_directory())
+                    .unwrap(),
+            ),
             _ => {
                 return Err(RainError::new(
                     ExecError::UnexpectedType {
@@ -92,7 +96,7 @@ fn execute_download(
 }
 
 fn execute_path(
-    _executor: &mut Executor,
+    executor: &mut Executor,
     args: &[RainValue],
     fn_call: Option<&FnCall<'_>>,
 ) -> Result<RainValue, ExecCF> {
@@ -116,5 +120,10 @@ fn execute_path(
         )
         .into());
     };
-    Ok(RainValue::Path(Rc::new(PathBuf::from_str(s).unwrap())))
+    Ok(RainValue::Path(Rc::new(
+        rain_lang::exec::types::path::Path {
+            path: PathBuf::from_str(s).unwrap(),
+            current_directory: executor.current_directory().to_path_buf(),
+        },
+    )))
 }

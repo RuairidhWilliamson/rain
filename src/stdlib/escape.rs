@@ -23,7 +23,7 @@ pub fn std_escape_lib() -> Record {
 }
 
 fn execute_bin(
-    _executor: &mut Executor,
+    executor: &mut Executor,
     args: &[RainValue],
     fn_call: Option<&FnCall<'_>>,
 ) -> Result<RainValue, ExecCF> {
@@ -48,7 +48,12 @@ fn execute_bin(
         .into());
     };
     let path = find_bin_in_path(name).unwrap();
-    Ok(RainValue::Path(Rc::new(path)))
+    Ok(RainValue::Path(Rc::new(
+        rain_lang::exec::types::path::Path {
+            path,
+            current_directory: executor.current_directory().to_path_buf(),
+        },
+    )))
 }
 
 fn find_bin_in_path(name: &str) -> Option<PathBuf> {

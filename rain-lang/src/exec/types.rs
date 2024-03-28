@@ -1,6 +1,7 @@
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 pub mod function;
+pub mod path;
 pub mod record;
 
 #[derive(Debug, Clone, enum_kinds::EnumKind)]
@@ -10,7 +11,7 @@ pub enum RainValue {
     Lazy,
     Bool(bool),
     String(Rc<str>),
-    Path(Rc<PathBuf>),
+    Path(Rc<path::Path>),
     Record(record::Record),
     List(Rc<[RainValue]>),
     Function(function::Function),

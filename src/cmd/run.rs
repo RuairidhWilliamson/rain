@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    process::ExitCode,
+    process::{Command, ExitCode},
 };
 
 use clap::Args;
@@ -8,7 +8,7 @@ use rain_lang::{
     ast::script::Script,
     exec::{
         executor::{Executor, ScriptExecutor},
-        types::RainValue,
+        types::{record::Record, RainValue},
         ExecCF,
     },
     source::Source,
@@ -28,7 +28,7 @@ pub struct RunCommand {
 }
 
 impl RunCommand {
-    pub fn run(self) -> ExitCode {
+    pub fn run(self, workspace_root: &Path) -> ExitCode {
         let path = self.path.as_deref().unwrap_or(Path::new("."));
         let source = match Source::new(path) {
             Ok(source) => source,
@@ -37,7 +37,7 @@ impl RunCommand {
                 return ExitCode::FAILURE;
             }
         };
-        match self.run_inner(&source) {
+        match self.run_inner(&source, workspace_root) {
             Ok(()) => ExitCode::SUCCESS,
             Err(ExecCF::Return(_)) => unreachable!("return control flow is caught earlier"),
             Err(ExecCF::RuntimeError(err)) => err.display(),
@@ -45,7 +45,7 @@ impl RunCommand {
         }
     }
 
-    fn run_inner(self, source: &Source) -> Result<(), ExecCF> {
+    fn run_inner(self, source: &Source, workspace_root: &Path) -> Result<(), ExecCF> {
         // TODO: We should properly track the lifetime of the source code
         let s = Into::<String>::into(&source.source).leak();
         let mut token_stream = rain_lang::tokens::peek_stream::PeekTokenStream::new(s);
@@ -53,13 +53,16 @@ impl RunCommand {
         let script = Script::parse_stream(&mut token_stream)?;
         let options = rain_lang::exec::ExecuteOptions { sealed: false };
         let mut base_executor = rain_lang::exec::executor::ExecutorBuilder {
-            current_directory: source.path.directory().unwrap().to_path_buf(),
+            workspace_directory: workspace_root.to_path_buf(),
             std_lib: Some(crate::stdlib::std_lib()),
             options,
             ..Default::default()
         }
         .build();
-        let mut script_executor = ScriptExecutor::new(&base_executor);
+        let mut script_executor = ScriptExecutor {
+            current_directory: source.path.directory().unwrap().to_path_buf(),
+            global_record: Record::default(),
+        };
         let mut executor = Executor::new(&mut base_executor, &mut script_executor);
         rain_lang::exec::execution::Execution::execute(&script, &mut executor)?;
         if let Some(target) = &self.target {
@@ -71,11 +74,26 @@ impl RunCommand {
             let output = func.call(&mut executor, &[], None)?;
             if self.execute_output {
                 println!("{output:?}");
-                todo!()
+                self.execute_output(output);
             }
         } else {
             eprintln!("Specify a target: {}", script_executor.global_record);
         }
         Ok(())
+    }
+
+    fn execute_output(&self, output: RainValue) -> ExitCode {
+        let RainValue::Path(p) = output else {
+            eprintln!(
+                "Output is the wrong type expected path, got {:?}",
+                output.as_type()
+            );
+            return ExitCode::FAILURE;
+        };
+        if Command::new(p.absolute()).status().unwrap().success() {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        }
     }
 }

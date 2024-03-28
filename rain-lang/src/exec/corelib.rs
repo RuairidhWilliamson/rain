@@ -115,7 +115,7 @@ fn execute_import(
         )
         .into());
     };
-    let script_path = executor.current_directory().join(p.as_ref());
+    let script_path = p.absolute();
     tracing::info!("importing {script_path:?}");
     // TODO: Don't leak this properly track the lifetime
     let source = std::fs::read_to_string(&script_path)
@@ -124,8 +124,10 @@ fn execute_import(
         .leak();
     let mut token_stream = crate::tokens::peek_stream::PeekTokenStream::new(source);
     let script = crate::ast::script::Script::parse_stream(&mut token_stream)?;
-    let mut new_script_executor = ScriptExecutor::new(executor.base_executor);
-    new_script_executor.current_directory = script_path.parent().unwrap().to_path_buf();
+    let mut new_script_executor = ScriptExecutor {
+        global_record: Record::default(),
+        current_directory: script_path.parent().unwrap().to_path_buf(),
+    };
     let mut new_executor = Executor::new(executor.base_executor, &mut new_script_executor);
     Execution::execute(&script, &mut new_executor)?;
     Ok(new_script_executor.global_record.into())

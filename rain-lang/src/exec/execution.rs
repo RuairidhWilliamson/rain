@@ -8,20 +8,10 @@ use crate::{
 };
 
 use super::{
-    executor::{BaseExecutor, Executor, ScriptExecutor},
-    types::{function::Function, record::Record, RainType, RainValue},
+    executor::Executor,
+    types::{function::Function, RainType, RainValue},
     ExecCF, ExecError,
 };
-
-pub fn exec_script(
-    script: &Script<'static>,
-    base_executor: &mut BaseExecutor,
-) -> Result<Record, ExecCF> {
-    let mut script_executor = ScriptExecutor::new(base_executor);
-    let mut executor = Executor::new(base_executor, &mut script_executor);
-    script.statements.execute(&mut executor)?;
-    Ok(script_executor.global_record)
-}
 
 pub trait Execution {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF>;
@@ -157,34 +147,6 @@ impl Execution for Declare<'static> {
         Ok(RainValue::Void)
     }
 }
-
-// impl Execution for Item<'static> {
-//     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
-//         let (top_level, rest) = self.idents.split_first().unwrap();
-//         let mut record = executor.resolve(top_level).ok_or(RainError::new(
-//             ExecError::UnknownVariable(top_level.name.to_owned()),
-//             top_level.span,
-//         ))?;
-//         for ident in rest {
-//             record = record
-//                 .as_record()
-//                 .map_err(|typ| {
-//                     RainError::new(
-//                         ExecError::UnexpectedType {
-//                             expected: &[types::RainType::Record],
-//                             actual: typ,
-//                         },
-//                         ident.span,
-//                     )
-//                 })?
-//                 .get(ident.name)
-//                 .ok_or_else(|| {
-//                     RainError::new(ExecError::UnknownItem(String::from(ident.name)), ident.span)
-//                 })?;
-//         }
-//         Ok(record.to_owned())
-//     }
-// }
 
 impl Execution for Return<'static> {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {

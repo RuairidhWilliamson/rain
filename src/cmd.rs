@@ -1,7 +1,10 @@
 mod debug;
 mod run;
 
-use std::{path::PathBuf, process::ExitCode};
+use std::{
+    path::{Path, PathBuf},
+    process::ExitCode,
+};
 
 use clap::{Parser, Subcommand};
 
@@ -27,10 +30,16 @@ pub enum RainCommand {
 
 impl Cli {
     pub fn run(self) -> ExitCode {
+        let workspace_root = self.root.unwrap_or_else(|| Self::find_workspace_root());
         match self.command {
-            RainCommand::Run(command) => command.run(),
+            RainCommand::Run(command) => command.run(&workspace_root),
             RainCommand::Debug { command } => command.run(),
         }
+    }
+
+    fn find_workspace_root() -> PathBuf {
+        let p = Path::new(".");
+        p.to_path_buf()
     }
 }
 

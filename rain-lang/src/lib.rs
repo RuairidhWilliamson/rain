@@ -1,4 +1,8 @@
-use exec::{executor::BaseExecutor, ExecCF};
+use exec::{
+    execution::Execution,
+    executor::{BaseExecutor, Executor, ScriptExecutor},
+    ExecCF,
+};
 
 pub mod ast;
 pub mod error;
@@ -26,6 +30,11 @@ fn run_inner(source: &source::Source, e: &mut BaseExecutor) -> Result<(), ExecCF
     let mut token_stream = tokens::peek_stream::PeekTokenStream::new(s);
     let script: ast::script::Script<'static> =
         ast::script::Script::parse_stream(&mut token_stream)?;
-    exec::execution::exec_script(&script, e)?;
+    let mut script_executor = ScriptExecutor {
+        global_record: exec::types::record::Record::default(),
+        current_directory: source.path.directory().unwrap().to_path_buf(),
+    };
+    let mut executor = Executor::new(e, &mut script_executor);
+    script.statements.execute(&mut executor)?;
     Ok(())
 }
