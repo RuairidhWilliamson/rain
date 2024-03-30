@@ -28,8 +28,8 @@ pub struct RunCommand {
 }
 
 impl RunCommand {
-    pub fn run(self, workspace_root: &Path) -> ExitCode {
-        let path = self.path.as_deref().unwrap_or(Path::new("."));
+    pub fn run(self, workspace_root: &Path, _config: &crate::config::Config) -> ExitCode {
+        let path = self.path.as_deref().unwrap_or_else(|| Path::new("."));
         let source = match Source::new(path) {
             Ok(source) => source,
             Err(err) => {

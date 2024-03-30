@@ -39,14 +39,14 @@ impl From<record::Record> for RainValue {
 impl std::fmt::Display for RainValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RainValue::Void => f.write_str("Void"),
-            RainValue::Lazy => f.write_str("Lazy"),
-            RainValue::Bool(b) => b.fmt(f),
-            RainValue::String(s) => s.fmt(f),
-            RainValue::Path(p) => std::fmt::Debug::fmt(&p, f),
-            RainValue::Record(r) => r.fmt(f),
-            RainValue::List(_) => f.write_str("List"),
-            RainValue::Function(func) => func.fmt(f),
+            Self::Void => f.write_str("Void"),
+            Self::Lazy => f.write_str("Lazy"),
+            Self::Bool(b) => b.fmt(f),
+            Self::String(s) => s.fmt(f),
+            Self::Path(p) => std::fmt::Debug::fmt(&p, f),
+            Self::Record(r) => r.fmt(f),
+            Self::List(_) => f.write_str("List"),
+            Self::Function(func) => func.fmt(f),
         }
     }
 }

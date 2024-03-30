@@ -32,7 +32,7 @@ impl From<&str> for Source {
     fn from(source: &str) -> Self {
         Self {
             path: SourcePath::Evaluated {
-                directory: std::env::current_dir().unwrap(),
+                directory: std::env::current_dir().expect("get current directory"),
             },
             source: source.into(),
         }
@@ -48,8 +48,8 @@ pub enum SourcePath {
 impl SourcePath {
     pub fn directory(&self) -> Option<&Path> {
         match self {
-            SourcePath::FilePath { path } => path.parent(),
-            SourcePath::Evaluated { directory } => Some(directory.as_path()),
+            Self::FilePath { path } => path.parent(),
+            Self::Evaluated { directory } => Some(directory.as_path()),
         }
     }
 }
@@ -57,8 +57,8 @@ impl SourcePath {
 impl std::fmt::Display for SourcePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SourcePath::FilePath { path } => path.display().fmt(f),
-            SourcePath::Evaluated { directory } => {
+            Self::FilePath { path } => path.display().fmt(f),
+            Self::Evaluated { directory } => {
                 f.write_fmt(format_args!("{}/<evaluated>", directory.display()))
             }
         }

@@ -1,7 +1,9 @@
 [package]
 name = "rain-lang"
+description = "Rain language implementation"
 version.workspace = true
 edition.workspace = true
+publish = false
 
 [lints]
 workspace = true

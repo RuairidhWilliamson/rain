@@ -1,3 +1,4 @@
+mod config;
 mod debug;
 mod run;
 
@@ -22,6 +23,10 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum RainCommand {
     Run(run::RunCommand),
+    Config {
+        #[command(subcommand)]
+        command: config::ConfigCommand,
+    },
     Debug {
         #[command(subcommand)]
         command: debug::DebugCommand,
@@ -30,9 +35,11 @@ pub enum RainCommand {
 
 impl Cli {
     pub fn run(self) -> ExitCode {
-        let workspace_root = self.root.unwrap_or_else(|| Self::find_workspace_root());
+        let workspace_root = self.root.unwrap_or_else(Self::find_workspace_root);
+        let config = crate::config::load(&workspace_root);
         match self.command {
-            RainCommand::Run(command) => command.run(&workspace_root),
+            RainCommand::Run(command) => command.run(&workspace_root, &config),
+            RainCommand::Config { command } => command.run(&workspace_root, &config),
             RainCommand::Debug { command } => command.run(),
         }
     }

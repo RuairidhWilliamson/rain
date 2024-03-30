@@ -13,7 +13,7 @@ pub enum DebugCommand {
 impl DebugCommand {
     pub fn run(self) -> ExitCode {
         match self {
-            DebugCommand::PrintAst { script } => Self::print_ast(script),
+            Self::PrintAst { script } => Self::print_ast(script),
         }
     }
 

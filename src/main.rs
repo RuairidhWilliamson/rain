@@ -1,4 +1,5 @@
 mod cmd;
+mod config;
 mod error_display;
 mod stdlib;
 

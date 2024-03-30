@@ -16,7 +16,9 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 # unwrap_used = "warn"
-# nursery = "warn"
+nursery = "warn"
+cargo = "warn"
+missing_const_for_fn = "allow"
 
 [package]
 name = "rain"
@@ -27,6 +29,9 @@ authors = ["Ruairidh Williamson"]
 readme = "readme.md"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 rain-lang = { path = "rain-lang" }
 
@@ -35,3 +40,6 @@ tracing.workspace = true
 clap = { version = "4.5", features = ["derive"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 owo-colors = "4.0.0"
+dirs = "5.0.1"
+serde = { version = "1.0.197", features = ["derive"] }
+toml = "0.8.12"

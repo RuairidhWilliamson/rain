@@ -1,0 +1,20 @@
+allowed-duplicate-crates = [
+  # Enum kinds depends on syn@1 whereas most other macros use syn@2
+  # Enum kinds is basically unmaintained so might be best to fork it or find something better
+  "syn",
+  # This is because dirs > redox_users depends on libredox which is quite old now and depends on both version of bitflags
+  "bitflags",
+  # Regex shenanigans
+  "regex-automata",
+  "regex-syntax",
+  # Bunch of windows crates
+  "windows-sys",
+  "windows-targets",
+  "windows_aarch64_gnullvm",
+  "windows_aarch64_msvc",
+  "windows_i686_gnu",
+  "windows_i686_msvc",
+  "windows_x86_64_msvc",
+  "windows_x86_64_gnu",
+  "windows_x86_64_gnullvm",
+]
