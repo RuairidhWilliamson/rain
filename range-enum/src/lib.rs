@@ -51,23 +51,23 @@ impl<T> From<core::ops::RangeToInclusive<T>> for AnyRange<T> {
 impl<T> RangeBounds<T> for AnyRange<T> {
     fn start_bound(&self) -> core::ops::Bound<&T> {
         match self {
-            AnyRange::Range(value) => value.start_bound(),
-            AnyRange::RangeFrom(value) => value.start_bound(),
-            AnyRange::RangeFull(value) => value.start_bound(),
-            AnyRange::RangeInclusive(value) => value.start_bound(),
-            AnyRange::RangeTo(value) => value.start_bound(),
-            AnyRange::RangeToInclusive(value) => value.start_bound(),
+            Self::Range(value) => value.start_bound(),
+            Self::RangeFrom(value) => value.start_bound(),
+            Self::RangeFull(value) => value.start_bound(),
+            Self::RangeInclusive(value) => value.start_bound(),
+            Self::RangeTo(value) => value.start_bound(),
+            Self::RangeToInclusive(value) => value.start_bound(),
         }
     }
 
     fn end_bound(&self) -> core::ops::Bound<&T> {
         match self {
-            AnyRange::Range(value) => value.end_bound(),
-            AnyRange::RangeFrom(value) => value.end_bound(),
-            AnyRange::RangeFull(value) => value.end_bound(),
-            AnyRange::RangeInclusive(value) => value.end_bound(),
-            AnyRange::RangeTo(value) => value.end_bound(),
-            AnyRange::RangeToInclusive(value) => value.end_bound(),
+            Self::Range(value) => value.end_bound(),
+            Self::RangeFrom(value) => value.end_bound(),
+            Self::RangeFull(value) => value.end_bound(),
+            Self::RangeInclusive(value) => value.end_bound(),
+            Self::RangeTo(value) => value.end_bound(),
+            Self::RangeToInclusive(value) => value.end_bound(),
         }
     }
 }

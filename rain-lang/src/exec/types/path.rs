@@ -7,7 +7,16 @@ pub struct Path {
 }
 
 impl Path {
-    pub fn absolute(&self) -> PathBuf {
+    pub fn relative_workspace(&self) -> PathBuf {
         self.current_directory.join(&self.path)
+    }
+
+    pub fn absolute(&self, executor: &mut crate::exec::executor::Executor) -> PathBuf {
+        executor
+            .base_executor
+            .workspace_directory
+            .join(self.relative_workspace())
+            .canonicalize()
+            .unwrap()
     }
 }

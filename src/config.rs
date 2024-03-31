@@ -53,4 +53,8 @@ impl Config {
     pub fn exec_directory(&self) -> PathBuf {
         self.cache_directory.join("exec")
     }
+
+    pub fn out_directory(&self) -> PathBuf {
+        self.cache_directory.join("out")
+    }
 }

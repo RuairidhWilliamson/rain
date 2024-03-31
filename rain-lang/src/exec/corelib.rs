@@ -42,6 +42,10 @@ pub fn core_lib() -> Record {
             String::from("path"),
             RainValue::Function(Function::new_external(execute_path)),
         ),
+        (
+            String::from("file"),
+            RainValue::Function(Function::new_external(execute_file)),
+        ),
     ])
 }
 
@@ -122,7 +126,7 @@ fn execute_import(
         )
         .into());
     };
-    let script_path = p.absolute();
+    let script_path = p.relative_workspace();
     tracing::info!("importing {script_path:?}");
     // TODO: Don't leak this, properly track the lifetime
     let source = std::fs::read_to_string(&script_path).unwrap().leak();
@@ -165,5 +169,36 @@ fn execute_path(
     Ok(RainValue::Path(Rc::new(Path {
         path: PathBuf::from_str(s).unwrap(),
         current_directory: executor.current_directory().to_path_buf(),
+    })))
+}
+
+fn execute_file(
+    executor: &mut Executor,
+    args: &[RainValue],
+    fn_call: Option<&FnCall<'_>>,
+) -> Result<RainValue, ExecCF> {
+    let [a] = args else {
+        return Err(RainError::new(
+            ExecError::IncorrectArgCount {
+                expected: (1..=1).into(),
+                actual: args.len(),
+            },
+            fn_call.unwrap().span(),
+        )
+        .into());
+    };
+    let RainValue::Path(s) = a else {
+        return Err(RainError::new(
+            ExecError::UnexpectedType {
+                expected: &[RainType::Path],
+                actual: a.as_type(),
+            },
+            fn_call.unwrap().span(),
+        )
+        .into());
+    };
+    Ok(RainValue::File(Rc::new(super::types::file::File {
+        kind: super::types::file::FileKind::Source,
+        path: s.absolute(executor),
     })))
 }

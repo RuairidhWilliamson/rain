@@ -1,9 +1,11 @@
 [package]
 name = "range-enum"
+description = "Simple range enum that allows any core::ops::Range to be used"
 version.workspace = true
 edition.workspace = true
-
-[dependencies]
+publish = false
 
 [lints]
 workspace = true
+
+[dependencies]

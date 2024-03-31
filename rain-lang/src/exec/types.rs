@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+pub mod file;
 pub mod function;
 pub mod path;
 pub mod record;
@@ -12,6 +13,7 @@ pub enum RainValue {
     Bool(bool),
     String(Rc<str>),
     Path(Rc<path::Path>),
+    File(Rc<file::File>),
     Record(record::Record),
     List(Rc<[RainValue]>),
     Function(function::Function),
@@ -44,6 +46,7 @@ impl std::fmt::Display for RainValue {
             Self::Bool(b) => b.fmt(f),
             Self::String(s) => s.fmt(f),
             Self::Path(p) => std::fmt::Debug::fmt(&p, f),
+            Self::File(file) => std::fmt::Debug::fmt(&file, f),
             Self::Record(r) => r.fmt(f),
             Self::List(_) => f.write_str("List"),
             Self::Function(func) => func.fmt(f),

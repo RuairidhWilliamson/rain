@@ -2,5 +2,9 @@ fn build(src, out) {
     let clang = std.escape.bin("clang")
     let b = std.run(clang, src, "-o", out)
     core.print(b)
-    out
+    if b.success {
+    } else {
+        core.error("build failed")
+    }
+    std.generated(b, out)
 }

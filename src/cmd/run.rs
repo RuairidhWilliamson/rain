@@ -88,14 +88,14 @@ impl RunCommand {
     }
 
     fn execute_output(&self, output: RainValue) -> ExitCode {
-        let RainValue::Path(p) = output else {
+        let RainValue::File(p) = output else {
             eprintln!(
-                "Output is the wrong type expected path, got {:?}",
+                "Output is the wrong type expected file, got {:?}",
                 output.as_type()
             );
             return ExitCode::FAILURE;
         };
-        if Command::new(p.absolute()).status().unwrap().success() {
+        if Command::new(&p.path).status().unwrap().success() {
             ExitCode::SUCCESS
         } else {
             ExitCode::FAILURE

@@ -1,6 +1,6 @@
 mod escape;
 
-use std::path::Path;
+use std::rc::Rc;
 
 use rain_lang::ast::function_call::FnCall;
 use rain_lang::ast::Ast;
@@ -14,6 +14,10 @@ pub fn new_stdlib(config: &'static crate::config::Config) -> Record {
     let stdlib = Box::leak(Box::new(Stdlib { config }));
     Record::new([
         (String::from("run"), define_function(stdlib, Stdlib::run)),
+        (
+            String::from("generated"),
+            define_function(stdlib, Stdlib::generated),
+        ),
         (
             String::from("download"),
             define_function(stdlib, Stdlib::download),
@@ -63,10 +67,10 @@ impl Stdlib {
             )
             .into());
         };
-        let RainValue::Path(program) = program else {
+        let RainValue::File(program) = program else {
             return Err(RainError::new(
                 ExecError::UnexpectedType {
-                    expected: &[RainType::Path],
+                    expected: &[RainType::File],
                     actual: program.as_type(),
                 },
                 fn_call.unwrap().span(),
@@ -74,25 +78,27 @@ impl Stdlib {
             .into());
         };
 
-        let mut program_path = program.absolute();
-        program_path = program_path
-            .strip_prefix(executor.current_directory())
-            .map(|p| p.to_path_buf())
-            .unwrap_or(program_path);
-        if program_path.is_relative() {
-            program_path = Path::new(".").join(program_path);
-        }
+        let id: String = uuid::Uuid::new_v4().to_string();
+        let exec_directory = self.config.exec_directory().join(&id);
+        std::fs::create_dir_all(&exec_directory).unwrap();
 
-        let mut cmd = std::process::Command::new(&program_path);
-        cmd.current_dir(executor.current_directory());
+        let mut cmd = std::process::Command::new(&program.path);
+        cmd.current_dir(&exec_directory);
         for a in args {
             match a {
                 RainValue::String(a) => cmd.arg(a.as_ref()),
-                RainValue::Path(p) => cmd.arg(
-                    p.absolute()
-                        .strip_prefix(executor.current_directory())
-                        .unwrap(),
-                ),
+                RainValue::Path(p) => cmd.arg(p.relative_workspace()),
+                RainValue::File(f) => {
+                    let path = &f.path;
+                    let workspace_relative_path = path
+                        .strip_prefix(&executor.base_executor.workspace_directory)
+                        .unwrap();
+                    let exec_path = exec_directory.join(workspace_relative_path);
+                    tracing::info!("Copying {path:?} to {:?}", exec_path);
+                    std::fs::create_dir_all(exec_path.parent().unwrap()).unwrap();
+                    std::fs::copy(path, &exec_path).unwrap();
+                    cmd.arg(workspace_relative_path)
+                }
                 _ => {
                     return Err(RainError::new(
                         ExecError::UnexpectedType {
@@ -108,8 +114,66 @@ impl Stdlib {
         tracing::info!("std.run {cmd:?}");
         let status = cmd.status().unwrap();
 
-        let out = Record::new([(String::from("success"), RainValue::Bool(status.success()))]);
+        let out = Record::new([
+            (String::from("id"), RainValue::String(id.as_str().into())),
+            (String::from("success"), RainValue::Bool(status.success())),
+        ]);
         Ok(RainValue::Record(out))
+    }
+
+    fn generated(
+        &self,
+        _executor: &mut Executor,
+        args: &[RainValue],
+        fn_call: Option<&FnCall<'_>>,
+    ) -> Result<RainValue, ExecCF> {
+        let [run, path] = args else {
+            return Err(RainError::new(
+                ExecError::IncorrectArgCount {
+                    expected: (2..=2).into(),
+                    actual: args.len(),
+                },
+                fn_call.unwrap().span(),
+            )
+            .into());
+        };
+
+        let RainValue::Record(run) = run else {
+            return Err(RainError::new(
+                ExecError::UnexpectedType {
+                    expected: &[RainType::Record],
+                    actual: run.as_type(),
+                },
+                fn_call.unwrap().span(),
+            )
+            .into());
+        };
+        let RainValue::Path(path) = path else {
+            return Err(RainError::new(
+                ExecError::UnexpectedType {
+                    expected: &[RainType::Path],
+                    actual: path.as_type(),
+                },
+                fn_call.unwrap().span(),
+            )
+            .into());
+        };
+
+        let Some(RainValue::String(id)) = run.get("id") else {
+            panic!("id not set");
+        };
+        let exec_directory = self.config.exec_directory().join(id.as_ref());
+        let p = exec_directory.join(path.relative_workspace());
+        let new_path = self.config.out_directory().join(path.relative_workspace());
+        tracing::info!("output copying {p:?} to {new_path:?}");
+        std::fs::create_dir_all(new_path.parent().unwrap()).unwrap();
+        std::fs::copy(p, &new_path).unwrap();
+        Ok(RainValue::File(Rc::new(
+            rain_lang::exec::types::file::File {
+                kind: rain_lang::exec::types::file::FileKind::Generated,
+                path: new_path,
+            },
+        )))
     }
 
     fn download(

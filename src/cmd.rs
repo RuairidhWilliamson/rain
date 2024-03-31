@@ -35,11 +35,16 @@ pub enum RainCommand {
 
 impl Cli {
     pub fn run(self) -> ExitCode {
-        let workspace_root = self.root.unwrap_or_else(Self::find_workspace_root);
+        let workspace_root = self
+            .root
+            .unwrap_or_else(Self::find_workspace_root)
+            .canonicalize()
+            .unwrap();
+        tracing::info!("Workspace root {workspace_root:?}");
         let config = Box::leak(Box::new(crate::config::load(&workspace_root)));
         match self.command {
             RainCommand::Run(command) => command.run(&workspace_root, config),
-            RainCommand::Config { command } => command.run(&workspace_root, &config),
+            RainCommand::Config { command } => command.run(&workspace_root, config),
             RainCommand::Debug { command } => command.run(),
         }
     }

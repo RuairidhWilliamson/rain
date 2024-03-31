@@ -2,10 +2,5 @@ lazy cc = core.import(core.path("./ctools.rain"))
 
 fn build() {
     let out = core.path("./foo")
-    return cc.build(core.path("./main.c"), out)
-}
-
-fn run() {
-    let out = build()
-    std.run(out)
+    return cc.build(core.file(core.path("./main.c")), out)
 }

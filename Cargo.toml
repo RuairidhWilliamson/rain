@@ -1,8 +1,9 @@
 [workspace]
 members = [
   ".",
-  "rain-lang"
-, "range-enum"]
+  "rain-lang",
+  "range-enum",
+]
 
 [workspace.package]
 version = "0.0.0"
@@ -46,3 +47,4 @@ owo-colors = "4.0.0"
 dirs = "5.0.1"
 serde = { version = "1.0.197", features = ["derive"] }
 toml = "0.8.12"
+uuid = { version = "1.8.0", features = ["v4"] }
