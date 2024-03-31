@@ -315,10 +315,14 @@ name = "rain-lang"
 version = "0.0.0"
 dependencies = [
  "enum-kinds",
- "thiserror",
+ "range-enum",
  "tracing",
  "unicode-width",
 ]
+
+[[package]]
+name = "range-enum"
+version = "0.0.0"
 
 [[package]]
 name = "redox_syscall"

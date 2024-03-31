@@ -56,7 +56,7 @@ impl Stdlib {
         let Some((program, args)) = args.split_first() else {
             return Err(RainError::new(
                 ExecError::IncorrectArgCount {
-                    expected: 1,
+                    expected: (1..).into(),
                     actual: 0,
                 },
                 fn_call.unwrap().span(),

@@ -30,7 +30,7 @@ fn execute_bin(
     let [arg] = args else {
         return Err(RainError::new(
             ExecError::IncorrectArgCount {
-                expected: 1,
+                expected: (1..=1).into(),
                 actual: args.len(),
             },
             fn_call.unwrap().span(),

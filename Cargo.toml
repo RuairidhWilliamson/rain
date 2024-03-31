@@ -2,7 +2,7 @@
 members = [
   ".",
   "rain-lang"
-]
+, "range-enum"]
 
 [workspace.package]
 version = "0.0.0"

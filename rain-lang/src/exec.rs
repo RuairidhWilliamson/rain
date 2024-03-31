@@ -15,7 +15,7 @@ pub enum ExecError {
         actual: types::RainType,
     },
     IncorrectArgCount {
-        expected: usize,
+        expected: range_enum::AnyRange<usize>,
         actual: usize,
     },
     Roadmap(&'static str),

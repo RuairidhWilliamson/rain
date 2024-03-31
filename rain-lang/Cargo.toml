@@ -12,5 +12,5 @@ workspace = true
 tracing.workspace = true
 
 enum-kinds = "0.5"
-thiserror = "1.0"
 unicode-width = "0.1"
+range-enum = { path = "../range-enum" }

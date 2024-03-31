@@ -77,7 +77,7 @@ fn execute_error(
     let [a] = args else {
         return Err(RainError::new(
             ExecError::IncorrectArgCount {
-                expected: 1,
+                expected: (1..=1).into(),
                 actual: args.len(),
             },
             fn_call.unwrap().span(),
@@ -105,7 +105,7 @@ fn execute_import(
     let [a] = args else {
         return Err(RainError::new(
             ExecError::IncorrectArgCount {
-                expected: 1,
+                expected: (1..=1).into(),
                 actual: args.len(),
             },
             fn_call.unwrap().span(),
@@ -145,7 +145,7 @@ fn execute_path(
     let [a] = args else {
         return Err(RainError::new(
             ExecError::IncorrectArgCount {
-                expected: 1,
+                expected: (1..=1).into(),
                 actual: args.len(),
             },
             fn_call.unwrap().span(),
