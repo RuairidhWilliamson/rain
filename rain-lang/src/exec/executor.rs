@@ -8,32 +8,25 @@ use super::{
 #[derive(Debug, Default)]
 pub struct ExecutorBuilder {
     pub workspace_directory: PathBuf,
-    pub core_handler: Option<Box<dyn CoreHandler>>,
-    pub std_lib: Option<Record>,
+    pub corelib_handler: Option<Box<dyn CoreHandler>>,
+    pub stdlib: Option<Record>,
     pub options: super::ExecuteOptions,
 }
 
 impl ExecutorBuilder {
     pub fn build(self) -> BaseExecutor {
         let workspace_directory = self.workspace_directory;
-        let core_handler = self
-            .core_handler
+        let corelib_handler = self
+            .corelib_handler
             .unwrap_or_else(|| Box::new(super::corelib::DefaultCoreHandler));
+        let stdlib = self.stdlib.map(RainValue::Record);
         let options = self.options;
-        let base_record = super::types::record::Record::new([
-            (String::from("core"), core_lib().into()),
-            (
-                String::from("std"),
-                self.std_lib
-                    .map(|s| s.into())
-                    .unwrap_or(super::types::RainValue::Void),
-            ),
-        ]);
 
         BaseExecutor {
             workspace_directory,
-            core_handler,
-            base_record,
+            corelib: core_lib().into(),
+            core_handler: corelib_handler,
+            stdlib,
             options,
         }
     }
@@ -42,8 +35,9 @@ impl ExecutorBuilder {
 #[derive(Debug)]
 pub struct BaseExecutor {
     pub workspace_directory: PathBuf,
+    pub corelib: RainValue,
     pub core_handler: Box<dyn CoreHandler>,
-    pub base_record: super::types::record::Record,
+    pub stdlib: Option<RainValue>,
     pub options: super::ExecuteOptions,
 }
 
@@ -62,11 +56,22 @@ pub struct Executor<'a> {
 
 impl BaseExecutor {
     pub fn resolve(&self, name: &str) -> Option<RainValue> {
-        self.base_record.get(name)
+        match name {
+            "core" => Some(self.corelib.clone()),
+            "std" => self.stdlib.as_ref().cloned(),
+            _ => None,
+        }
     }
 }
 
 impl ScriptExecutor {
+    pub fn new(current_directory: &Path) -> Self {
+        Self {
+            current_directory: current_directory.to_path_buf(),
+            global_record: Record::default(),
+        }
+    }
+
     pub fn resolve(&self, name: &str) -> Option<RainValue> {
         self.global_record.get(name)
     }

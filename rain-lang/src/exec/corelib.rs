@@ -1,6 +1,9 @@
+use std::{path::PathBuf, rc::Rc, str::FromStr};
+
 use crate::{
     ast::{function_call::FnCall, Ast},
     error::RainError,
+    exec::types::path::Path,
 };
 
 use super::{
@@ -34,6 +37,10 @@ pub fn core_lib() -> Record {
         (
             String::from("import"),
             RainValue::Function(Function::new_external(execute_import)),
+        ),
+        (
+            String::from("path"),
+            RainValue::Function(Function::new_external(execute_path)),
         ),
     ])
 }
@@ -128,4 +135,35 @@ fn execute_import(
     let mut new_executor = Executor::new(executor.base_executor, &mut new_script_executor);
     Execution::execute(&script, &mut new_executor)?;
     Ok(new_script_executor.global_record.into())
+}
+
+fn execute_path(
+    executor: &mut Executor,
+    args: &[RainValue],
+    fn_call: Option<&FnCall<'_>>,
+) -> Result<RainValue, ExecCF> {
+    let [a] = args else {
+        return Err(RainError::new(
+            ExecError::IncorrectArgCount {
+                expected: 1,
+                actual: args.len(),
+            },
+            fn_call.unwrap().span(),
+        )
+        .into());
+    };
+    let RainValue::String(s) = a else {
+        return Err(RainError::new(
+            ExecError::UnexpectedType {
+                expected: &[RainType::String],
+                actual: a.as_type(),
+            },
+            fn_call.unwrap().span(),
+        )
+        .into());
+    };
+    Ok(RainValue::Path(Rc::new(Path {
+        path: PathBuf::from_str(s).unwrap(),
+        current_directory: executor.current_directory().to_path_buf(),
+    })))
 }

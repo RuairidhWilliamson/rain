@@ -29,6 +29,9 @@ authors = ["Ruairidh Williamson"]
 readme = "readme.md"
 publish = false
 
+[profile.release]
+lto = true
+
 [lints]
 workspace = true
 

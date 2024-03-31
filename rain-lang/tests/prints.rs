@@ -26,7 +26,7 @@ macro_rules! script_prints_test {
                 output: buffer.clone(),
             });
             let mut executor_builder = ExecutorBuilder {
-                core_handler: Some(ch),
+                corelib_handler: Some(ch),
                 ..ExecutorBuilder::default()
             }
             .build();

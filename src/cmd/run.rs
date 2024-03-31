@@ -14,7 +14,7 @@ use rain_lang::{
     source::Source,
 };
 
-use crate::error_display::ErrorDisplay;
+use crate::{config::Config, error_display::ErrorDisplay};
 
 #[derive(Args)]
 pub struct RunCommand {
@@ -28,7 +28,7 @@ pub struct RunCommand {
 }
 
 impl RunCommand {
-    pub fn run(self, workspace_root: &Path, _config: &crate::config::Config) -> ExitCode {
+    pub fn run(self, workspace_root: &Path, config: &'static crate::config::Config) -> ExitCode {
         let path = self.path.as_deref().unwrap_or_else(|| Path::new("."));
         let source = match Source::new(path) {
             Ok(source) => source,
@@ -37,7 +37,7 @@ impl RunCommand {
                 return ExitCode::FAILURE;
             }
         };
-        match self.run_inner(&source, workspace_root) {
+        match self.run_inner(&source, workspace_root, config) {
             Ok(()) => ExitCode::SUCCESS,
             Err(ExecCF::Return(_)) => unreachable!("return control flow is caught earlier"),
             Err(ExecCF::RuntimeError(err)) => err.display(),
@@ -45,7 +45,12 @@ impl RunCommand {
         }
     }
 
-    fn run_inner(self, source: &Source, workspace_root: &Path) -> Result<(), ExecCF> {
+    fn run_inner(
+        self,
+        source: &Source,
+        workspace_root: &Path,
+        config: &'static Config,
+    ) -> Result<(), ExecCF> {
         // TODO: We should properly track the lifetime of the source code
         let s = Into::<String>::into(&source.source).leak();
         let mut token_stream = rain_lang::tokens::peek_stream::PeekTokenStream::new(s);
@@ -54,7 +59,7 @@ impl RunCommand {
         let options = rain_lang::exec::ExecuteOptions { sealed: false };
         let mut base_executor = rain_lang::exec::executor::ExecutorBuilder {
             workspace_directory: workspace_root.to_path_buf(),
-            std_lib: Some(crate::stdlib::std_lib()),
+            stdlib: Some(crate::stdlib::new_stdlib(config)),
             options,
             ..Default::default()
         }

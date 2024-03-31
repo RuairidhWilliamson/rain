@@ -3,6 +3,7 @@ use crate::{error::RainError, span::Span};
 pub mod corelib;
 pub mod execution;
 pub mod executor;
+pub mod external;
 pub mod types;
 
 #[derive(Debug, Clone)]

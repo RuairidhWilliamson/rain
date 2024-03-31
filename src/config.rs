@@ -48,3 +48,9 @@ impl Default for Config {
         }
     }
 }
+
+impl Config {
+    pub fn exec_directory(&self) -> PathBuf {
+        self.cache_directory.join("exec")
+    }
+}
