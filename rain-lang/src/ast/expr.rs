@@ -10,60 +10,60 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Expr<'a> {
-    Ident(Ident<'a>),
-    Dot(Dot<'a>),
-    FnCall(FnCall<'a>),
+pub enum Expr {
+    Ident(Ident),
+    Dot(Dot),
+    FnCall(FnCall),
     BoolLiteral(BoolLiteral),
     StringLiteral(StringLiteral),
-    IfCondition(IfCondition<'a>),
-    Match(Match<'a>),
+    IfCondition(IfCondition),
+    Match(Match),
 }
 
-impl<'a> From<Ident<'a>> for Expr<'a> {
-    fn from(inner: Ident<'a>) -> Self {
+impl From<Ident> for Expr {
+    fn from(inner: Ident) -> Self {
         Self::Ident(inner)
     }
 }
 
-impl<'a> From<Dot<'a>> for Expr<'a> {
-    fn from(inner: Dot<'a>) -> Self {
+impl From<Dot> for Expr {
+    fn from(inner: Dot) -> Self {
         Self::Dot(inner)
     }
 }
 
-impl<'a> From<FnCall<'a>> for Expr<'a> {
-    fn from(inner: FnCall<'a>) -> Self {
+impl From<FnCall> for Expr {
+    fn from(inner: FnCall) -> Self {
         Self::FnCall(inner)
     }
 }
 
-impl<'a> From<BoolLiteral> for Expr<'a> {
+impl From<BoolLiteral> for Expr {
     fn from(inner: BoolLiteral) -> Self {
         Self::BoolLiteral(inner)
     }
 }
 
-impl<'a> From<StringLiteral> for Expr<'a> {
+impl From<StringLiteral> for Expr {
     fn from(inner: StringLiteral) -> Self {
         Self::StringLiteral(inner)
     }
 }
 
-impl<'a> From<IfCondition<'a>> for Expr<'a> {
-    fn from(inner: IfCondition<'a>) -> Self {
+impl From<IfCondition> for Expr {
+    fn from(inner: IfCondition) -> Self {
         Self::IfCondition(inner)
     }
 }
 
-impl<'a> From<Match<'a>> for Expr<'a> {
-    fn from(inner: Match<'a>) -> Self {
+impl From<Match> for Expr {
+    fn from(inner: Match) -> Self {
         Self::Match(inner)
     }
 }
 
-impl<'a> Expr<'a> {
-    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+impl Expr {
+    pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let peeking = stream.peek()?;
         let first_token_span = match peeking.value() {
             NextTokenSpan::Next(token_span) => token_span,
@@ -128,7 +128,7 @@ impl<'a> Expr<'a> {
     }
 }
 
-impl Ast for Expr<'_> {
+impl Ast for Expr {
     fn span(&self) -> Span {
         match self {
             Expr::Ident(inner) => inner.span(),
@@ -156,10 +156,7 @@ impl Ast for Expr<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        ast::{block::Block, ident::Ident, if_condition::ElseCondition},
-        span::Span,
-    };
+    use crate::ast::{block::Block, ident::Ident, if_condition::ElseCondition};
 
     use super::*;
 
@@ -182,14 +179,8 @@ mod tests {
         parse_item,
         "core.print",
         Expr::Dot(Dot::nosp(
-            Some(Expr::Ident(Ident {
-                name: "core",
-                span: Span::default()
-            })),
-            Ident {
-                name: "print",
-                span: Span::default()
-            },
+            Some(Expr::Ident(Ident::nosp("core"))),
+            Ident::nosp("print"),
         ),)
     );
 

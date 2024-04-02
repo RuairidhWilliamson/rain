@@ -7,19 +7,19 @@ use crate::{
 use super::{expr::Expr, helpers::PeekTokenStreamHelpers, Ast};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Return<'a> {
+pub struct Return {
     pub return_token: Span,
-    pub expr: Expr<'a>,
+    pub expr: Expr,
 }
 
-impl<'a> Return<'a> {
-    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+impl Return {
+    pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let return_token = stream.expect_parse_next(TokenKind::Return)?.span;
         let expr = Expr::parse_stream(stream)?;
         Ok(Self { return_token, expr })
     }
 
-    pub fn nosp(expr: Expr<'a>) -> Self {
+    pub fn nosp(expr: Expr) -> Self {
         Self {
             return_token: Span::default(),
             expr,
@@ -27,7 +27,7 @@ impl<'a> Return<'a> {
     }
 }
 
-impl Ast for Return<'_> {
+impl Ast for Return {
     fn span(&self) -> Span {
         self.return_token.combine(self.expr.span())
     }

@@ -3,6 +3,7 @@ use std::rc::Rc;
 use crate::{
     ast::{function_call::FnCall, function_def::FnDef},
     exec::{execution::Execution, executor::Executor, ExecCF},
+    source::Source,
 };
 
 use super::{record::Record, RainValue};
@@ -13,9 +14,9 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(fn_def: FnDef<'static>) -> Self {
+    pub fn new(source: Source, fn_def: FnDef) -> Self {
         Self {
-            implementation: Rc::new(FunctionImpl::Local(fn_def)),
+            implementation: Rc::new(FunctionImpl::Local(source, fn_def)),
         }
     }
 
@@ -29,7 +30,7 @@ impl Function {
         &self,
         executor: &mut Executor,
         args: &[RainValue],
-        fn_call: Option<&FnCall<'_>>,
+        fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
         self.implementation.call(executor, args, fn_call)
     }
@@ -42,23 +43,23 @@ impl std::fmt::Display for Function {
 }
 
 pub trait ExternalFnPtr:
-    Fn(&mut Executor, &[RainValue], Option<&FnCall<'_>>) -> Result<RainValue, ExecCF>
+    Fn(&mut Executor, &[RainValue], Option<&FnCall>) -> Result<RainValue, ExecCF>
 {
 }
 impl<F> ExternalFnPtr for F where
-    F: Fn(&mut Executor, &[RainValue], Option<&FnCall<'_>>) -> Result<RainValue, ExecCF>
+    F: Fn(&mut Executor, &[RainValue], Option<&FnCall>) -> Result<RainValue, ExecCF>
 {
 }
 
 enum FunctionImpl {
-    Local(FnDef<'static>),
+    Local(Source, FnDef),
     External(Box<dyn ExternalFnPtr>),
 }
 
 impl std::fmt::Debug for FunctionImpl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Local(_) => f.write_str("LocalFunctionImpl"),
+            Self::Local(_, _) => f.write_str("LocalFunctionImpl"),
             Self::External(_) => f.write_str("ExternalFunctionImpl"),
         }
     }
@@ -69,16 +70,16 @@ impl FunctionImpl {
         &self,
         executor: &mut Executor,
         args: &[RainValue],
-        fn_call: Option<&FnCall<'_>>,
+        fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
         match self {
-            Self::Local(fn_def) => {
+            Self::Local(source, fn_def) => {
                 let local_record = Record::new(
                     fn_def
                         .args
                         .iter()
                         .zip(args)
-                        .map(|(k, v)| (String::from(k.name.name), v.clone())),
+                        .map(|(k, v)| (String::from(&k.name.name), v.clone())),
                 );
                 let mut executor = Executor {
                     base_executor: executor.base_executor,
@@ -87,6 +88,7 @@ impl FunctionImpl {
                 };
                 match fn_def.block.execute(&mut executor) {
                     Err(ExecCF::Return(v)) => Ok(v),
+                    Err(ExecCF::RainError(err)) => Err(err.resolve(source.clone()).into()),
                     v => v,
                 }
             }

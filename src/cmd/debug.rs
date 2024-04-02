@@ -30,7 +30,7 @@ impl DebugCommand {
 
         let script = match Script::parse_stream(&mut token_stream) {
             Ok(script) => script,
-            Err(err) => return err.resolve(&source).display(),
+            Err(err) => return err.resolve(source).display(),
         };
         println!("{script:#?}");
         ExitCode::SUCCESS

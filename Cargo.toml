@@ -11,15 +11,17 @@ edition = "2021"
 
 [workspace.dependencies]
 tracing = "0.1"
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
-# unwrap_used = "warn"
 nursery = "warn"
 cargo = "warn"
 missing_const_for_fn = "allow"
+# unwrap_used = "warn"
 
 [package]
 name = "rain"
@@ -40,11 +42,11 @@ workspace = true
 rain-lang = { path = "rain-lang" }
 
 tracing.workspace = true
+clap.workspace = true
+serde.workspace = true
 
-clap = { version = "4.5", features = ["derive"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 owo-colors = "4.0.0"
 dirs = "5.0.1"
-serde = { version = "1.0.197", features = ["derive"] }
 toml = "0.8.12"
 uuid = { version = "1.8.0", features = ["v4"] }

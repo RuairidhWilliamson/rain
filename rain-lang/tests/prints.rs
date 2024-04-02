@@ -31,7 +31,7 @@ macro_rules! script_prints_test {
             }
             .build();
             let source = rain_lang::source::Source::from($source);
-            if let Err(err) = rain_lang::run(&source, &mut executor_builder) {
+            if let Err(err) = rain_lang::run(source, &mut executor_builder) {
                 panic!("{err}");
             }
             assert_eq!(buffer.borrow().as_str(), $expected);

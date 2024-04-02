@@ -9,14 +9,14 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Block<'a> {
+pub struct Block {
     pub lbrace_token: Span,
-    pub stmts: StatementList<'a>,
+    pub stmts: StatementList,
     pub rbrace_token: Span,
 }
 
-impl<'a> Block<'a> {
-    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+impl Block {
+    pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let lbrace_token = stream.expect_parse_next(TokenKind::LBrace)?.span;
         let stmts = StatementList::parse_stream(stream)?;
         let rbrace_token = stream.expect_parse_next(TokenKind::RBrace)?.span;
@@ -27,7 +27,7 @@ impl<'a> Block<'a> {
         })
     }
 
-    pub fn nosp(stmts: Vec<Statement<'a>>) -> Self {
+    pub fn nosp(stmts: Vec<Statement>) -> Self {
         Self {
             lbrace_token: Span::default(),
             stmts: StatementList::nosp(stmts),
@@ -36,7 +36,7 @@ impl<'a> Block<'a> {
     }
 }
 
-impl Ast for Block<'_> {
+impl Ast for Block {
     fn span(&self) -> Span {
         self.lbrace_token.combine(self.rbrace_token)
     }

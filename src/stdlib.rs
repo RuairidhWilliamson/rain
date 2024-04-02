@@ -31,16 +31,11 @@ pub fn new_stdlib(config: &'static crate::config::Config) -> Record {
 
 fn define_function(
     stdlib: &'static Stdlib,
-    func: impl Fn(
-            &Stdlib,
-            &mut Executor<'_>,
-            &[RainValue],
-            Option<&FnCall<'_>>,
-        ) -> Result<RainValue, ExecCF>
+    func: impl Fn(&Stdlib, &mut Executor<'_>, &[RainValue], Option<&FnCall>) -> Result<RainValue, ExecCF>
         + 'static,
 ) -> RainValue {
     RainValue::Function(Function::new_external(
-        move |executor: &mut Executor<'_>, args: &[RainValue], fn_call: Option<&FnCall<'_>>| {
+        move |executor: &mut Executor<'_>, args: &[RainValue], fn_call: Option<&FnCall>| {
             func(stdlib, executor, args, fn_call)
         },
     ))
@@ -55,7 +50,7 @@ impl Stdlib {
         &self,
         executor: &mut Executor,
         args: &[RainValue],
-        fn_call: Option<&FnCall<'_>>,
+        fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
         let Some((program, args)) = args.split_first() else {
             return Err(RainError::new(
@@ -125,7 +120,7 @@ impl Stdlib {
         &self,
         _executor: &mut Executor,
         args: &[RainValue],
-        fn_call: Option<&FnCall<'_>>,
+        fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
         let [run, path] = args else {
             return Err(RainError::new(
@@ -180,7 +175,7 @@ impl Stdlib {
         &self,
         _executor: &mut Executor,
         _args: &[RainValue],
-        _fn_call: Option<&FnCall<'_>>,
+        _fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
         todo!("implement std.download")
     }

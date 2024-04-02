@@ -3,22 +3,22 @@ use crate::{error::RainError, span::Span, tokens::peek_stream::PeekTokenStream};
 use super::{statement_list::StatementList, Ast};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Script<'a> {
-    pub statements: StatementList<'a>,
+pub struct Script {
+    pub statements: StatementList,
 }
 
-impl<'a> Script<'a> {
-    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+impl Script {
+    pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let statements = StatementList::parse_stream(stream)?;
         Ok(Self { statements })
     }
 
-    pub fn nosp(statements: StatementList<'a>) -> Self {
+    pub fn nosp(statements: StatementList) -> Self {
         Self { statements }
     }
 }
 
-impl Ast for Script<'_> {
+impl Ast for Script {
     fn span(&self) -> Span {
         todo!()
     }

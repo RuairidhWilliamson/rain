@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use crate::source::Source;
+
 use super::{
     corelib::{core_lib, CoreHandler},
     types::{record::Record, RainValue},
@@ -45,6 +47,7 @@ pub struct BaseExecutor {
 pub struct ScriptExecutor {
     pub current_directory: PathBuf,
     pub global_record: super::types::record::Record,
+    pub source: Source,
 }
 
 #[derive(Debug)]
@@ -65,10 +68,11 @@ impl BaseExecutor {
 }
 
 impl ScriptExecutor {
-    pub fn new(current_directory: &Path) -> Self {
+    pub fn new(current_directory: &Path, source: Source) -> Self {
         Self {
             current_directory: current_directory.to_path_buf(),
             global_record: Record::default(),
+            source,
         }
     }
 

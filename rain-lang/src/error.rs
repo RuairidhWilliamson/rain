@@ -46,7 +46,7 @@ impl RainError {
         }
     }
 
-    pub fn resolve(self, source: &Source) -> ResolvedError {
+    pub fn resolve(self, source: Source) -> ResolvedError {
         ResolvedError { source, err: self }
     }
 }
@@ -61,13 +61,13 @@ impl std::fmt::Display for RainErrorKind {
     }
 }
 
-#[derive(Debug)]
-pub struct ResolvedError<'a> {
-    pub source: &'a Source,
+#[derive(Debug, Clone)]
+pub struct ResolvedError {
+    pub source: Source,
     pub err: RainError,
 }
 
-impl std::fmt::Display for ResolvedError<'_> {
+impl std::fmt::Display for ResolvedError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let span = self.err.span;
         let path = &self.source.path;

@@ -12,17 +12,17 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FnDef<'a> {
+pub struct FnDef {
     pub fn_token: Span,
-    pub name: Ident<'a>,
+    pub name: Ident,
     pub lparen_token: Span,
-    pub args: Vec<FnDefArg<'a>>,
+    pub args: Vec<FnDefArg>,
     pub rparen_token: Span,
-    pub block: Block<'a>,
+    pub block: Block,
 }
 
-impl<'a> FnDef<'a> {
-    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+impl FnDef {
+    pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let fn_token = stream.expect_parse_next(TokenKind::Fn)?.span;
         let name = Ident::parse(stream.expect_parse_next(TokenKind::Ident)?)?;
         let lparen_token = stream.expect_parse_next(TokenKind::LParen)?.span;
@@ -61,7 +61,7 @@ impl<'a> FnDef<'a> {
         })
     }
 
-    pub fn nosp(name: Ident<'a>, args: Vec<FnDefArg<'a>>, block: Block<'a>) -> Self {
+    pub fn nosp(name: Ident, args: Vec<FnDefArg>, block: Block) -> Self {
         Self {
             fn_token: Span::default(),
             name,
@@ -73,7 +73,7 @@ impl<'a> FnDef<'a> {
     }
 }
 
-impl Ast for FnDef<'_> {
+impl Ast for FnDef {
     fn span(&self) -> Span {
         self.fn_token.combine(self.block.span())
     }
@@ -91,17 +91,17 @@ impl Ast for FnDef<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FnDefArg<'a> {
-    pub name: Ident<'a>,
+pub struct FnDefArg {
+    pub name: Ident,
 }
 
-impl<'a> FnDefArg<'a> {
-    pub fn nosp(name: Ident<'a>) -> Self {
+impl FnDefArg {
+    pub fn nosp(name: Ident) -> Self {
         Self { name }
     }
 }
 
-impl Ast for FnDefArg<'_> {
+impl Ast for FnDefArg {
     fn span(&self) -> Span {
         self.name.span
     }

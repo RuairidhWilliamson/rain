@@ -1,9 +1,12 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 #[derive(Debug, Clone)]
 pub struct Source {
     pub path: SourcePath,
-    pub source: String,
+    pub source: Rc<str>,
 }
 
 impl Source {
@@ -13,13 +16,15 @@ impl Source {
         if metadata.is_dir() {
             let new_path = path.join("main.rain");
             tracing::debug!("{path:?} is a directory using {new_path:?}");
+            let source = std::fs::read_to_string(&new_path)?;
             Ok(Self {
-                source: std::fs::read_to_string(&new_path)?,
+                source: source.into(),
                 path: SourcePath::FilePath { path: new_path },
             })
         } else {
+            let source = std::io::read_to_string(f)?;
             Ok(Self {
-                source: std::io::read_to_string(f)?,
+                source: source.into(),
                 path: SourcePath::FilePath {
                     path: path.to_path_buf(),
                 },

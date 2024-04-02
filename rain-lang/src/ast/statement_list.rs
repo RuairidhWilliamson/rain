@@ -7,12 +7,12 @@ use crate::{
 use super::{statement::Statement, Ast};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StatementList<'a> {
-    pub statements: Vec<Statement<'a>>,
+pub struct StatementList {
+    pub statements: Vec<Statement>,
 }
 
-impl<'a> StatementList<'a> {
-    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+impl StatementList {
+    pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let mut statements = Vec::new();
         loop {
             let peeking = stream.peek()?;
@@ -30,12 +30,12 @@ impl<'a> StatementList<'a> {
         Ok(Self { statements })
     }
 
-    pub fn nosp(statements: Vec<Statement<'a>>) -> Self {
+    pub fn nosp(statements: Vec<Statement>) -> Self {
         Self { statements }
     }
 }
 
-impl Ast for StatementList<'_> {
+impl Ast for StatementList {
     fn span(&self) -> Span {
         todo!()
     }

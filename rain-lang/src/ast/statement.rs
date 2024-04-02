@@ -10,16 +10,16 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Statement<'a> {
-    Expr(Expr<'a>),
-    LetDeclare(Declare<'a>),
-    LazyDeclare(Declare<'a>),
-    FnDef(FnDef<'a>),
-    Return(Return<'a>),
+pub enum Statement {
+    Expr(Expr),
+    LetDeclare(Declare),
+    LazyDeclare(Declare),
+    FnDef(FnDef),
+    Return(Return),
 }
 
-impl<'a> Statement<'a> {
-    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+impl Statement {
+    pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let peeking = stream.peek()?;
         let peeking_token = peeking.expect_not_end(ParseError::ExpectedStmt)?;
         match TokenKind::from(&peeking_token.token) {
@@ -32,7 +32,7 @@ impl<'a> Statement<'a> {
     }
 }
 
-impl Ast for Statement<'_> {
+impl Ast for Statement {
     fn span(&self) -> Span {
         match self {
             Statement::Expr(inner) => inner.span(),

@@ -7,7 +7,7 @@ pub trait ErrorDisplay {
     fn display(self) -> ExitCode;
 }
 
-impl ErrorDisplay for ResolvedError<'_> {
+impl ErrorDisplay for ResolvedError {
     fn display(self) -> ExitCode {
         let ResolvedError { source, err } = self;
         let extract = err.span.extract(&source.source);
@@ -22,7 +22,7 @@ impl ErrorDisplay for ResolvedError<'_> {
 
 impl ErrorDisplay for RuntimeError {
     fn display(self) -> ExitCode {
-        eprintln!("{}: {}", "runtime error".bold().red(), self.msg.bold());
+        eprintln!("{}: {}", "rain script error".bold().red(), self.msg.bold());
         ExitCode::FAILURE
     }
 }

@@ -25,7 +25,7 @@ pub fn std_escape_lib() -> Record {
 fn execute_bin(
     _executor: &mut Executor,
     args: &[RainValue],
-    fn_call: Option<&FnCall<'_>>,
+    fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
     let [arg] = args else {
         return Err(RainError::new(

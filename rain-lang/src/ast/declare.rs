@@ -12,25 +12,25 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Declare<'a> {
+pub struct Declare {
     pub token: Span,
-    pub name: Ident<'a>,
+    pub name: Ident,
     pub equals_token: Span,
-    pub value: Expr<'a>,
+    pub value: Expr,
 }
 
-impl<'a> Declare<'a> {
-    pub fn parse_stream_let(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+impl Declare {
+    pub fn parse_stream_let(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let token = stream.parse_next()?.expect_next(TokenKind::Let)?;
         Self::parse_stream(token.span, stream)
     }
 
-    pub fn parse_stream_lazy(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+    pub fn parse_stream_lazy(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let token = stream.parse_next()?.expect_next(TokenKind::Lazy)?;
         Self::parse_stream(token.span, stream)
     }
 
-    fn parse_stream(token: Span, stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+    fn parse_stream(token: Span, stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let ident_token = stream.expect_parse_next(TokenKind::Ident)?;
         let name = Ident::parse(ident_token)?;
         let equals_token = stream.expect_parse_next(TokenKind::Equals)?.span;
@@ -43,7 +43,7 @@ impl<'a> Declare<'a> {
         })
     }
 
-    pub fn nosp(name: Ident<'a>, value: Expr<'a>) -> Self {
+    pub fn nosp(name: Ident, value: Expr) -> Self {
         Self {
             token: Span::default(),
             name,
@@ -53,7 +53,7 @@ impl<'a> Declare<'a> {
     }
 }
 
-impl Ast for Declare<'_> {
+impl Ast for Declare {
     fn span(&self) -> Span {
         self.token.combine(self.value.span())
     }

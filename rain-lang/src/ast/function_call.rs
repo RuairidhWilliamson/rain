@@ -13,21 +13,18 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FnCall<'a> {
-    pub expr: Box<Expr<'a>>,
+pub struct FnCall {
+    pub expr: Box<Expr>,
     pub lparen_token: Span,
-    pub args: Vec<Expr<'a>>,
+    pub args: Vec<Expr>,
     pub rparen_token: Span,
 }
 
-impl<'a> FnCall<'a> {
-    pub fn parse_stream(
-        expr: Expr<'a>,
-        stream: &mut PeekTokenStream<'a>,
-    ) -> Result<Self, RainError> {
+impl FnCall {
+    pub fn parse_stream(expr: Expr, stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let lparen_token = stream.expect_parse_next(TokenKind::LParen)?.span;
         let mut args = Vec::default();
-        let rparen_token: TokenSpan<'a>;
+        let rparen_token: TokenSpan;
         loop {
             let peeking = stream.peek()?;
             if peeking
@@ -59,7 +56,7 @@ impl<'a> FnCall<'a> {
         })
     }
 
-    pub fn nosp(expr: Expr<'a>, args: Vec<Expr<'a>>) -> Self {
+    pub fn nosp(expr: Expr, args: Vec<Expr>) -> Self {
         Self {
             expr: Box::new(expr),
             lparen_token: Span::default(),
@@ -69,7 +66,7 @@ impl<'a> FnCall<'a> {
     }
 }
 
-impl Ast for FnCall<'_> {
+impl Ast for FnCall {
     fn span(&self) -> Span {
         self.expr.span().combine(self.rparen_token)
     }

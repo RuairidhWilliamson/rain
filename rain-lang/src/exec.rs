@@ -1,4 +1,7 @@
-use crate::{error::RainError, span::Span};
+use crate::{
+    error::{RainError, ResolvedError},
+    span::Span,
+};
 
 pub mod corelib;
 pub mod execution;
@@ -40,6 +43,7 @@ pub enum ExecCF {
     Return(types::RainValue),
     RuntimeError(RuntimeError),
     RainError(RainError),
+    ResolvedRainError(ResolvedError),
 }
 
 impl From<RuntimeError> for ExecCF {
@@ -51,6 +55,21 @@ impl From<RuntimeError> for ExecCF {
 impl From<RainError> for ExecCF {
     fn from(err: RainError) -> Self {
         Self::RainError(err)
+    }
+}
+
+impl From<ResolvedError> for ExecCF {
+    fn from(err: ResolvedError) -> Self {
+        Self::ResolvedRainError(err)
+    }
+}
+
+impl ExecCF {
+    pub fn map_resolve(self, f: impl FnOnce(RainError) -> Self) -> Self {
+        match self {
+            ExecCF::RainError(err) => f(err),
+            other => other,
+        }
     }
 }
 

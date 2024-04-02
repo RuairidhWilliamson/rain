@@ -8,15 +8,15 @@ use crate::{
 use super::{expr::Expr, helpers::PeekTokenStreamHelpers, Ast};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IfCondition<'a> {
+pub struct IfCondition {
     pub if_token: Span,
-    pub condition: Box<Expr<'a>>,
-    pub then_block: Block<'a>,
-    pub else_condition: Option<ElseCondition<'a>>,
+    pub condition: Box<Expr>,
+    pub then_block: Block,
+    pub else_condition: Option<ElseCondition>,
 }
 
-impl<'a> IfCondition<'a> {
-    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+impl IfCondition {
+    pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let if_token = stream.expect_parse_next(TokenKind::If)?.span;
         let condition = Box::new(Expr::parse_stream(stream)?);
         let then_block = Block::parse_stream(stream)?;
@@ -37,11 +37,7 @@ impl<'a> IfCondition<'a> {
         })
     }
 
-    pub fn nosp(
-        condition: Expr<'a>,
-        then_block: Block<'a>,
-        else_condition: Option<ElseCondition<'a>>,
-    ) -> Self {
+    pub fn nosp(condition: Expr, then_block: Block, else_condition: Option<ElseCondition>) -> Self {
         Self {
             if_token: Span::default(),
             condition: Box::new(condition),
@@ -51,7 +47,7 @@ impl<'a> IfCondition<'a> {
     }
 }
 
-impl Ast for IfCondition<'_> {
+impl Ast for IfCondition {
     fn span(&self) -> Span {
         let last = self
             .else_condition
@@ -72,13 +68,13 @@ impl Ast for IfCondition<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ElseCondition<'a> {
+pub struct ElseCondition {
     pub else_token: Span,
-    pub block: Block<'a>,
+    pub block: Block,
 }
 
-impl<'a> ElseCondition<'a> {
-    pub fn parse_stream(stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+impl ElseCondition {
+    pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let else_token = stream.expect_parse_next(TokenKind::Else)?.span;
         let else_block = Block::parse_stream(stream)?;
         Ok(Self {
@@ -87,7 +83,7 @@ impl<'a> ElseCondition<'a> {
         })
     }
 
-    pub fn nosp(block: Block<'a>) -> Self {
+    pub fn nosp(block: Block) -> Self {
         Self {
             else_token: Span::default(),
             block,
@@ -95,7 +91,7 @@ impl<'a> ElseCondition<'a> {
     }
 }
 
-impl Ast for ElseCondition<'_> {
+impl Ast for ElseCondition {
     fn span(&self) -> Span {
         self.else_token.combine(self.block.span())
     }

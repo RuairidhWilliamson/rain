@@ -7,16 +7,16 @@ use crate::{
 use super::{expr::Expr, helpers::PeekTokenStreamHelpers, ident::Ident, Ast};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Dot<'a> {
-    pub left: Option<Box<Expr<'a>>>,
+pub struct Dot {
+    pub left: Option<Box<Expr>>,
     pub dot_token: Span,
-    pub right: Ident<'a>,
+    pub right: Ident,
 }
 
-impl<'a> Dot<'a> {
+impl Dot {
     pub fn parse_stream(
-        left: Option<Expr<'a>>,
-        stream: &mut PeekTokenStream<'a>,
+        left: Option<Expr>,
+        stream: &mut PeekTokenStream,
     ) -> Result<Self, RainError> {
         let dot_token = stream.expect_parse_next(TokenKind::Dot)?.span;
         let right = Ident::parse(stream.expect_parse_next(TokenKind::Ident)?)?;
@@ -27,7 +27,7 @@ impl<'a> Dot<'a> {
         })
     }
 
-    pub fn nosp(left: Option<Expr<'a>>, right: Ident<'a>) -> Self {
+    pub fn nosp(left: Option<Expr>, right: Ident) -> Self {
         Self {
             left: left.map(Box::new),
             dot_token: Span::default(),
@@ -36,7 +36,7 @@ impl<'a> Dot<'a> {
     }
 }
 
-impl Ast for Dot<'_> {
+impl Ast for Dot {
     fn span(&self) -> Span {
         self.left
             .as_ref()

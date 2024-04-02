@@ -7,13 +7,13 @@ use crate::{
 use super::{Ast, ParseError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Ident<'a> {
-    pub name: &'a str,
+pub struct Ident {
+    pub name: String,
     pub span: Span,
 }
 
-impl<'a> Ident<'a> {
-    pub fn parse(token: TokenSpan<'a>) -> Result<Self, RainError> {
+impl Ident {
+    pub fn parse(token: TokenSpan<'_>) -> Result<Self, RainError> {
         let Token::Ident(name) = token.token else {
             return Err(RainError::new(
                 ParseError::Expected(TokenKind::Ident),
@@ -21,21 +21,21 @@ impl<'a> Ident<'a> {
             ));
         };
         Ok(Self {
-            name,
+            name: String::from(name),
             span: token.span,
         })
     }
 
     // Creates an Ident with a default span
-    pub fn nosp(name: &'a str) -> Self {
+    pub fn nosp(name: &str) -> Self {
         Self {
-            name,
+            name: String::from(name),
             span: Span::default(),
         }
     }
 }
 
-impl Ast for Ident<'_> {
+impl Ast for Ident {
     fn span(&self) -> Span {
         self.span
     }

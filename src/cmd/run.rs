@@ -7,11 +7,12 @@ use clap::Args;
 use rain_lang::{
     ast::script::Script,
     exec::{
-        executor::{Executor, ScriptExecutor},
-        types::{record::Record, RainValue},
-        ExecCF,
+        executor::{Executor, ExecutorBuilder, ScriptExecutor},
+        types::RainValue,
+        ExecCF, ExecuteOptions,
     },
     source::Source,
+    tokens::peek_stream::PeekTokenStream,
 };
 
 use crate::{config::Config, error_display::ErrorDisplay};
@@ -41,7 +42,8 @@ impl RunCommand {
             Ok(()) => ExitCode::SUCCESS,
             Err(ExecCF::Return(_)) => unreachable!("return control flow is caught earlier"),
             Err(ExecCF::RuntimeError(err)) => err.display(),
-            Err(ExecCF::RainError(err)) => err.resolve(&source).display(),
+            Err(ExecCF::RainError(err)) => err.resolve(source).display(),
+            Err(ExecCF::ResolvedRainError(err)) => err.display(),
         }
     }
 
@@ -51,23 +53,18 @@ impl RunCommand {
         workspace_root: &Path,
         config: &'static Config,
     ) -> Result<(), ExecCF> {
-        // TODO: We should properly track the lifetime of the source code
-        let s = Into::<String>::into(&source.source).leak();
-        let mut token_stream = rain_lang::tokens::peek_stream::PeekTokenStream::new(s);
-
+        let mut token_stream = PeekTokenStream::new(&source.source);
         let script = Script::parse_stream(&mut token_stream)?;
-        let options = rain_lang::exec::ExecuteOptions { sealed: false };
-        let mut base_executor = rain_lang::exec::executor::ExecutorBuilder {
+        let options = ExecuteOptions { sealed: false };
+        let mut base_executor = ExecutorBuilder {
             workspace_directory: workspace_root.to_path_buf(),
             stdlib: Some(crate::stdlib::new_stdlib(config)),
             options,
             ..Default::default()
         }
         .build();
-        let mut script_executor = ScriptExecutor {
-            current_directory: source.path.directory().unwrap().to_path_buf(),
-            global_record: Record::default(),
-        };
+        let mut script_executor =
+            ScriptExecutor::new(source.path.directory().unwrap(), source.clone());
         let mut executor = Executor::new(&mut base_executor, &mut script_executor);
         rain_lang::exec::execution::Execution::execute(&script, &mut executor)?;
         if let Some(target) = &self.target {

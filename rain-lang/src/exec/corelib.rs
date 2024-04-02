@@ -1,9 +1,11 @@
 use std::{path::PathBuf, rc::Rc, str::FromStr};
 
 use crate::{
-    ast::{function_call::FnCall, Ast},
+    ast::{function_call::FnCall, script::Script, Ast},
     error::RainError,
     exec::types::path::Path,
+    source::Source,
+    tokens::peek_stream::PeekTokenStream,
 };
 
 use super::{
@@ -52,7 +54,7 @@ pub fn core_lib() -> Record {
 fn execute_print(
     executor: &mut Executor,
     args: &[RainValue],
-    _fn_call: Option<&FnCall<'_>>,
+    _fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
     struct Args<'a>(&'a [RainValue]);
     impl std::fmt::Display for Args<'_> {
@@ -76,7 +78,7 @@ fn execute_print(
 fn execute_error(
     _executor: &mut Executor,
     args: &[RainValue],
-    fn_call: Option<&FnCall<'_>>,
+    fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
     let [a] = args else {
         return Err(RainError::new(
@@ -104,7 +106,7 @@ fn execute_error(
 fn execute_import(
     executor: &mut Executor,
     args: &[RainValue],
-    fn_call: Option<&FnCall<'_>>,
+    fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
     let [a] = args else {
         return Err(RainError::new(
@@ -128,23 +130,22 @@ fn execute_import(
     };
     let script_path = p.relative_workspace();
     tracing::info!("importing {script_path:?}");
-    // TODO: Don't leak this, properly track the lifetime
-    let source = std::fs::read_to_string(&script_path).unwrap().leak();
-    let mut token_stream = crate::tokens::peek_stream::PeekTokenStream::new(source);
-    let script = crate::ast::script::Script::parse_stream(&mut token_stream)?;
-    let mut new_script_executor = ScriptExecutor {
-        global_record: Record::default(),
-        current_directory: script_path.parent().unwrap().to_path_buf(),
-    };
+    let source = Source::new(&script_path).unwrap();
+    let mut token_stream = PeekTokenStream::new(&source.source);
+    let script =
+        Script::parse_stream(&mut token_stream).map_err(|err| err.resolve(source.clone()))?;
+    let mut new_script_executor =
+        ScriptExecutor::new(script_path.parent().unwrap(), source.clone());
     let mut new_executor = Executor::new(executor.base_executor, &mut new_script_executor);
-    Execution::execute(&script, &mut new_executor)?;
+    Execution::execute(&script, &mut new_executor)
+        .map_err(|err| err.map_resolve(|err| err.resolve(source).into()))?;
     Ok(new_script_executor.global_record.into())
 }
 
 fn execute_path(
     executor: &mut Executor,
     args: &[RainValue],
-    fn_call: Option<&FnCall<'_>>,
+    fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
     let [a] = args else {
         return Err(RainError::new(
@@ -175,7 +176,7 @@ fn execute_path(
 fn execute_file(
     executor: &mut Executor,
     args: &[RainValue],
-    fn_call: Option<&FnCall<'_>>,
+    fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
     let [a] = args else {
         return Err(RainError::new(

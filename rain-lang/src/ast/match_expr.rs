@@ -3,17 +3,17 @@ use crate::{error::RainError, span::Span, tokens::peek_stream::PeekTokenStream};
 use super::{expr::Expr, Ast};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Match<'a> {
-    expr: Box<Expr<'a>>,
+pub struct Match {
+    expr: Box<Expr>,
 }
 
-impl<'a> Match<'a> {
-    pub fn parse_stream(_stream: &mut PeekTokenStream<'a>) -> Result<Self, RainError> {
+impl Match {
+    pub fn parse_stream(_stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         todo!()
     }
 }
 
-impl Ast for Match<'_> {
+impl Ast for Match {
     fn span(&self) -> Span {
         todo!()
     }

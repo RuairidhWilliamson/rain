@@ -14,22 +14,22 @@ use super::{
 };
 
 pub trait Execution {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF>;
+    fn execute<'a>(&'a self, executor: &mut Executor) -> Result<RainValue, ExecCF>;
 }
 
-impl Execution for Script<'static> {
+impl Execution for Script {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         self.statements.execute(executor)
     }
 }
 
-impl Execution for Block<'static> {
+impl Execution for Block {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         self.stmts.execute(executor)
     }
 }
 
-impl Execution for StatementList<'static> {
+impl Execution for StatementList {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let mut out = RainValue::Void;
         for stmt in &self.statements {
@@ -39,7 +39,7 @@ impl Execution for StatementList<'static> {
     }
 }
 
-impl Execution for Statement<'static> {
+impl Execution for Statement {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         match self {
             Self::Expr(expr) => expr.execute(executor),
@@ -51,7 +51,7 @@ impl Execution for Statement<'static> {
     }
 }
 
-impl Execution for Expr<'static> {
+impl Execution for Expr {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         match self {
             Self::Ident(ident) => ident.execute(executor),
@@ -65,20 +65,21 @@ impl Execution for Expr<'static> {
     }
 }
 
-impl Execution for FnDef<'static> {
+impl Execution for FnDef {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+        let source = executor.script_executor.source.clone();
         executor.global_record().insert(
             self.name.name.to_owned(),
-            RainValue::Function(Function::new(self.clone())),
+            RainValue::Function(Function::new(source, self.clone())),
         );
         Ok(RainValue::Void)
     }
 }
 
-impl Execution for Ident<'static> {
+impl Execution for Ident {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         executor
-            .resolve(self.name)
+            .resolve(&self.name)
             .ok_or(ExecCF::RainError(RainError::new(
                 ExecError::UnknownItem(self.name.to_string()),
                 self.span,
@@ -86,7 +87,7 @@ impl Execution for Ident<'static> {
     }
 }
 
-impl Execution for Dot<'static> {
+impl Execution for Dot {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let Some(left) = &self.left else {
             return Err(RainError::new(
@@ -107,7 +108,7 @@ impl Execution for Dot<'static> {
             .into());
         };
         record
-            .get(self.right.name)
+            .get(&self.right.name)
             .ok_or(ExecCF::RainError(RainError::new(
                 ExecError::UnknownItem(self.right.name.to_string()),
                 self.right.span(),
@@ -115,7 +116,7 @@ impl Execution for Dot<'static> {
     }
 }
 
-impl Execution for FnCall<'static> {
+impl Execution for FnCall {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let fn_value = self.expr.execute(executor)?;
         let RainValue::Function(func) = fn_value else {
@@ -138,7 +139,7 @@ impl Execution for FnCall<'static> {
     }
 }
 
-impl Execution for Declare<'static> {
+impl Execution for Declare {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let value = self.value.execute(executor)?;
         executor
@@ -148,14 +149,14 @@ impl Execution for Declare<'static> {
     }
 }
 
-impl Execution for Return<'static> {
+impl Execution for Return {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let value = self.expr.execute(executor)?;
         Err(ExecCF::Return(value))
     }
 }
 
-impl Execution for IfCondition<'static> {
+impl Execution for IfCondition {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let condition_value = self.condition.execute(executor)?;
         let RainValue::Bool(v) = condition_value else {

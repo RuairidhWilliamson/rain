@@ -15,7 +15,7 @@ fn run_all_test_scripts() {
         }
         let mut executor = ExecutorBuilder::default().build();
         let source = Source::new(&path).unwrap();
-        if let Err(err) = rain_lang::run(&source, &mut executor) {
+        if let Err(err) = rain_lang::run(source, &mut executor) {
             eprintln!("{err:#}");
             error_count += 1;
         }
