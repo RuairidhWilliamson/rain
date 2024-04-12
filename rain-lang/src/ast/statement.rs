@@ -35,21 +35,21 @@ impl Statement {
 impl Ast for Statement {
     fn span(&self) -> Span {
         match self {
-            Statement::Expr(inner) => inner.span(),
-            Statement::LetDeclare(inner) => inner.span(),
-            Statement::LazyDeclare(inner) => inner.span(),
-            Statement::FnDef(inner) => inner.span(),
-            Statement::Return(inner) => inner.span(),
+            Self::Expr(inner) => inner.span(),
+            Self::LetDeclare(inner) => inner.span(),
+            Self::LazyDeclare(inner) => inner.span(),
+            Self::FnDef(inner) => inner.span(),
+            Self::Return(inner) => inner.span(),
         }
     }
 
     fn reset_spans(&mut self) {
         match self {
-            Statement::Expr(inner) => inner.reset_spans(),
-            Statement::LetDeclare(inner) => inner.reset_spans(),
-            Statement::LazyDeclare(inner) => inner.reset_spans(),
-            Statement::FnDef(inner) => inner.reset_spans(),
-            Statement::Return(inner) => inner.reset_spans(),
+            Self::Expr(inner) => inner.reset_spans(),
+            Self::LetDeclare(inner) => inner.reset_spans(),
+            Self::LazyDeclare(inner) => inner.reset_spans(),
+            Self::FnDef(inner) => inner.reset_spans(),
+            Self::Return(inner) => inner.reset_spans(),
         }
     }
 }

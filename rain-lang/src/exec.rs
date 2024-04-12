@@ -43,7 +43,8 @@ pub enum ExecCF {
     Return(types::RainValue),
     RuntimeError(RuntimeError),
     RainError(RainError),
-    ResolvedRainError(ResolvedError),
+    // Box error to reduce sizeof ExecCF
+    ResolvedRainError(Box<ResolvedError>),
 }
 
 impl From<RuntimeError> for ExecCF {
@@ -60,14 +61,14 @@ impl From<RainError> for ExecCF {
 
 impl From<ResolvedError> for ExecCF {
     fn from(err: ResolvedError) -> Self {
-        Self::ResolvedRainError(err)
+        Self::ResolvedRainError(Box::new(err))
     }
 }
 
 impl ExecCF {
     pub fn map_resolve(self, f: impl FnOnce(RainError) -> Self) -> Self {
         match self {
-            ExecCF::RainError(err) => f(err),
+            Self::RainError(err) => f(err),
             other => other,
         }
     }

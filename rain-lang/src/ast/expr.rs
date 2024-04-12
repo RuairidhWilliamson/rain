@@ -1,7 +1,7 @@
 use super::{
     bool_literal::BoolLiteral, dot::Dot, function_call::FnCall, helpers::NextTokenSpanHelpers,
-    ident::Ident, if_condition::IfCondition, match_expr::Match, string_literal::StringLiteral, Ast,
-    ParseError,
+    ident::Ident, if_condition::IfCondition, list_literal::ListLiteral, match_expr::Match,
+    string_literal::StringLiteral, Ast, ParseError,
 };
 use crate::{
     error::RainError,
@@ -16,6 +16,7 @@ pub enum Expr {
     FnCall(FnCall),
     BoolLiteral(BoolLiteral),
     StringLiteral(StringLiteral),
+    ListLiteral(ListLiteral),
     IfCondition(IfCondition),
     Match(Match),
 }
@@ -50,6 +51,12 @@ impl From<StringLiteral> for Expr {
     }
 }
 
+impl From<ListLiteral> for Expr {
+    fn from(inner: ListLiteral) -> Self {
+        Self::ListLiteral(inner)
+    }
+}
+
 impl From<IfCondition> for Expr {
     fn from(inner: IfCondition) -> Self {
         Self::IfCondition(inner)
@@ -77,14 +84,14 @@ impl Expr {
                     .consume()
                     .expect_next(crate::tokens::TokenKind::TrueLiteral)?
                     .span;
-                Expr::BoolLiteral(BoolLiteral { value: true, span })
+                Self::BoolLiteral(BoolLiteral { value: true, span })
             }
             Token::FalseLiteral => {
                 let span = peeking
                     .consume()
                     .expect_next(crate::tokens::TokenKind::FalseLiteral)?
                     .span;
-                Expr::BoolLiteral(BoolLiteral { value: false, span })
+                Self::BoolLiteral(BoolLiteral { value: false, span })
             }
             Token::DoubleQuoteLiteral(_) => {
                 let TokenSpan {
@@ -96,12 +103,13 @@ impl Expr {
                 else {
                     unreachable!("we already have checked this is a double quote literal");
                 };
-                Expr::StringLiteral(StringLiteral { value, span })
+                Self::StringLiteral(StringLiteral { value, span })
             }
-            Token::If => Expr::IfCondition(IfCondition::parse_stream(stream)?),
-            Token::Match => Expr::Match(Match::parse_stream(stream)?),
-            Token::Dot => Expr::Dot(Dot::parse_stream(None, stream)?),
-            Token::Ident(_) => Expr::Ident(Ident::parse(
+            Token::LBracket => Self::ListLiteral(ListLiteral::parse_stream(stream)?),
+            Token::If => Self::IfCondition(IfCondition::parse_stream(stream)?),
+            Token::Match => Self::Match(Match::parse_stream(stream)?),
+            Token::Dot => Self::Dot(Dot::parse_stream(None, stream)?),
+            Token::Ident(_) => Self::Ident(Ident::parse(
                 peeking.consume().expect_next(TokenKind::Ident)?,
             )?),
             _ => {
@@ -120,8 +128,8 @@ impl Expr {
             };
             let kind = token_span.token.kind();
             expr = match kind {
-                TokenKind::Dot => Expr::Dot(Dot::parse_stream(Some(expr), stream)?),
-                TokenKind::LParen => Expr::FnCall(FnCall::parse_stream(expr, stream)?),
+                TokenKind::Dot => Self::Dot(Dot::parse_stream(Some(expr), stream)?),
+                TokenKind::LParen => Self::FnCall(FnCall::parse_stream(expr, stream)?),
                 _ => return Ok(expr),
             };
         }
@@ -131,25 +139,27 @@ impl Expr {
 impl Ast for Expr {
     fn span(&self) -> Span {
         match self {
-            Expr::Ident(inner) => inner.span(),
-            Expr::Dot(inner) => inner.span(),
-            Expr::FnCall(inner) => inner.span(),
-            Expr::BoolLiteral(inner) => inner.span(),
-            Expr::StringLiteral(inner) => inner.span(),
-            Expr::IfCondition(inner) => inner.span(),
-            Expr::Match(inner) => inner.span(),
+            Self::Ident(inner) => inner.span(),
+            Self::Dot(inner) => inner.span(),
+            Self::FnCall(inner) => inner.span(),
+            Self::BoolLiteral(inner) => inner.span(),
+            Self::StringLiteral(inner) => inner.span(),
+            Self::ListLiteral(inner) => inner.span(),
+            Self::IfCondition(inner) => inner.span(),
+            Self::Match(inner) => inner.span(),
         }
     }
 
     fn reset_spans(&mut self) {
         match self {
-            Expr::Ident(inner) => inner.reset_spans(),
-            Expr::Dot(inner) => inner.reset_spans(),
-            Expr::FnCall(inner) => inner.reset_spans(),
-            Expr::BoolLiteral(inner) => inner.reset_spans(),
-            Expr::StringLiteral(inner) => inner.reset_spans(),
-            Expr::IfCondition(inner) => inner.reset_spans(),
-            Expr::Match(inner) => inner.reset_spans(),
+            Self::Ident(inner) => inner.reset_spans(),
+            Self::Dot(inner) => inner.reset_spans(),
+            Self::FnCall(inner) => inner.reset_spans(),
+            Self::BoolLiteral(inner) => inner.reset_spans(),
+            Self::StringLiteral(inner) => inner.reset_spans(),
+            Self::ListLiteral(inner) => inner.reset_spans(),
+            Self::IfCondition(inner) => inner.reset_spans(),
+            Self::Match(inner) => inner.reset_spans(),
         }
     }
 }
@@ -278,5 +288,23 @@ mod tests {
         parse_string_dot,
         "\"hi\".foo",
         Dot::nosp(Some(StringLiteral::nosp("hi").into()), Ident::nosp("foo")).into()
+    );
+
+    parse_expr_test!(
+        parse_empty_array_literal,
+        "[]",
+        ListLiteral::nosp(vec![]).into()
+    );
+
+    parse_expr_test!(
+        parse_multi_array_literal,
+        "[\"hi\", true, foo(), [a]]",
+        ListLiteral::nosp(vec![
+            StringLiteral::nosp("hi").into(),
+            BoolLiteral::nosp(true).into(),
+            FnCall::nosp(Expr::Ident(Ident::nosp("foo")), vec![]).into(),
+            ListLiteral::nosp(vec![Ident::nosp("a").into()]).into(),
+        ])
+        .into()
     );
 }

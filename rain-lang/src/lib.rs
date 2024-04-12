@@ -12,12 +12,12 @@ pub mod span;
 pub mod tokens;
 mod utils;
 
-pub fn run(source: source::Source, e: &mut BaseExecutor) -> Result<(), error::ResolvedError> {
+pub fn run(source: source::Source, e: &mut BaseExecutor) -> Result<(), Box<error::ResolvedError>> {
     match run_inner(&source, e) {
         Ok(()) => Ok(()),
         Err(ExecCF::Return(_)) => todo!(),
         Err(ExecCF::RuntimeError(_)) => todo!(),
-        Err(ExecCF::RainError(err)) => Err(err.resolve(source)),
+        Err(ExecCF::RainError(err)) => Err(Box::new(err.resolve(source))),
         Err(ExecCF::ResolvedRainError(err)) => Err(err),
     }
 }

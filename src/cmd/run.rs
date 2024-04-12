@@ -74,8 +74,8 @@ impl RunCommand {
             };
             let mut executor = Executor::new(&mut base_executor, &mut script_executor);
             let output = func.call(&mut executor, &[], None)?;
+            println!("{output:?}");
             if self.execute_output {
-                println!("{output:?}");
                 self.execute_output(output);
             }
         } else {

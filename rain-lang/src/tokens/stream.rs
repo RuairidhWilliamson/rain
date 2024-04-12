@@ -52,6 +52,8 @@ impl<'a> TokenStream<'a> {
                 b')' => Ok(self.increment(Token::RParen)),
                 b'{' => Ok(self.increment(Token::LBrace)),
                 b'}' => Ok(self.increment(Token::RBrace)),
+                b'[' => Ok(self.increment(Token::LBracket)),
+                b']' => Ok(self.increment(Token::RBracket)),
                 b'"' => Ok(self.double_quotes()),
                 b'a'..=b'z' | b'A'..=b'Z' | b'_' => Ok(self.ident()),
                 b' ' => {

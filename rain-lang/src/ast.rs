@@ -11,6 +11,7 @@ pub mod function_call;
 pub mod function_def;
 pub mod ident;
 pub mod if_condition;
+pub mod list_literal;
 pub mod match_expr;
 pub mod return_stmt;
 pub mod script;

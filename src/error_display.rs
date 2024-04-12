@@ -9,7 +9,7 @@ pub trait ErrorDisplay {
 
 impl ErrorDisplay for ResolvedError {
     fn display(self) -> ExitCode {
-        let ResolvedError { source, err } = self;
+        let Self { source, err } = self;
         let extract = err.span.extract(&source.source);
         let lineno = err.span.start.line + 1;
         eprintln!("{}: {}", "error".bold().red(), err.kind.bold());
