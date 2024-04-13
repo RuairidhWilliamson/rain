@@ -7,6 +7,7 @@ use crate::error_display::ErrorDisplay;
 
 #[derive(Subcommand)]
 pub enum DebugCommand {
+    /// Parses and prints the AST for a rain script
     PrintAst { script: PathBuf },
 }
 

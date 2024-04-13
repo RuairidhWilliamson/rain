@@ -17,21 +17,26 @@ pub struct Cli {
     #[command(subcommand)]
     command: RainCommand,
 
+    /// Root directory of the current project, defaults to the current working directory
     #[arg(long)]
     root: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
 pub enum RainCommand {
+    /// Run a rain target
     Run(run::RunCommand),
+    /// Configure rain
     Config {
         #[command(subcommand)]
         command: config::ConfigCommand,
     },
+    /// Debug rain
     Debug {
         #[command(subcommand)]
         command: debug::DebugCommand,
     },
+    /// Clean rain's cache directory
     Clean(clean::CleanCommand),
 }
 

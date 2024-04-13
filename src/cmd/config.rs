@@ -6,7 +6,9 @@ use crate::config::{config_search_paths, Config};
 
 #[derive(Subcommand)]
 pub enum ConfigCommand {
+    /// Show the evaluated config
     Show,
+    /// Show the paths where config files are searched for
     Paths,
 }
 
