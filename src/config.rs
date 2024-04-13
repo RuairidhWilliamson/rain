@@ -84,21 +84,22 @@ impl UnvalidatedConfig {
             .count()
             == 0
         {
-            tracing::info!("Cache directory is empty, creating rain_marker");
             // If the cache directory is empty this is a valid cache directory but we should create the rain marker
+            tracing::info!("Cache directory is empty, creating rain_marker");
             std::fs::write(&marker_path, MARKER_CONTENTS).map_err(ValidateError::IOError)?;
         }
         let marker =
             std::fs::read_to_string(&marker_path).map_err(ValidateError::RainMarkerMissing)?;
         if marker == MARKER_CONTENTS {
+            tracing::debug!("validated marker contents");
             Ok(())
         } else {
+            // If the rain_marker file's contents do not match what we expect this is an error
             tracing::error!(
                 expected = MARKER_CONTENTS,
                 actual = marker,
                 "marker contents do not match expected",
             );
-            // If the rain_marker file's contents do not match what we expect this is an error
             Err(ValidateError::RainMarkerContentsUnexpected)
         }
     }
