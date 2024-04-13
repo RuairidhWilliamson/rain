@@ -2,6 +2,7 @@ use crate::span::{Place, Span};
 
 use super::{NextTokenSpan, Token, TokenError, TokenSpan};
 
+#[derive(Debug)]
 pub struct TokenStream<'a> {
     source: &'a str,
     raw_source: &'a [u8],

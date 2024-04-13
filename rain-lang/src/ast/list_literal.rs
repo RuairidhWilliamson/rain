@@ -6,9 +6,7 @@ use crate::{
 
 use super::{
     expr::Expr,
-    helpers::{
-        NextTokenSpanHelpers, PeekNextTokenHelpers, PeekTokenStreamHelpers, TokenSpanHelpers,
-    },
+    helpers::{NextTokenSpanHelpers, PeekTokenStreamHelpers, TokenSpanHelpers},
     Ast, ParseError,
 };
 
@@ -27,7 +25,8 @@ impl ListLiteral {
         loop {
             let peeking = stream.peek()?;
             if peeking
-                .expect_not_end(ParseError::Expected(TokenKind::RBracket))?
+                .value()
+                .ref_expect_not_end(ParseError::Expected(TokenKind::RBracket))?
                 .token
                 == Token::RBracket
             {

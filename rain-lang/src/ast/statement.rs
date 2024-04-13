@@ -5,7 +5,7 @@ use crate::{
 };
 
 use super::{
-    declare::Declare, expr::Expr, function_def::FnDef, helpers::PeekNextTokenHelpers,
+    declare::Declare, expr::Expr, function_def::FnDef, helpers::NextTokenSpanHelpers,
     return_stmt::Return, Ast, ParseError,
 };
 
@@ -21,7 +21,9 @@ pub enum Statement {
 impl Statement {
     pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let peeking = stream.peek()?;
-        let peeking_token = peeking.expect_not_end(ParseError::ExpectedStmt)?;
+        let peeking_token = peeking
+            .value()
+            .ref_expect_not_end(ParseError::ExpectedStmt)?;
         match TokenKind::from(&peeking_token.token) {
             TokenKind::Let => Ok(Self::LetDeclare(Declare::parse_stream_let(stream)?)),
             TokenKind::Lazy => Ok(Self::LazyDeclare(Declare::parse_stream_lazy(stream)?)),

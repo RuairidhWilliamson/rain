@@ -56,6 +56,7 @@ impl TokenSpan<'_> {
     }
 }
 
+#[derive(Debug)]
 pub enum NextTokenSpan<'a> {
     Next(TokenSpan<'a>),
     End(Span),

@@ -166,7 +166,9 @@ impl Ast for Expr {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::{block::Block, ident::Ident, if_condition::ElseCondition};
+    use crate::ast::{
+        block::Block, function_call::FnCallArg, ident::Ident, if_condition::ElseCondition,
+    };
 
     use super::*;
 
@@ -217,7 +219,7 @@ mod tests {
         "foo(a)",
         Expr::FnCall(FnCall::nosp(
             Expr::Ident(Ident::nosp("foo")),
-            vec![Expr::Ident(Ident::nosp("a"))],
+            vec![FnCallArg::nosp(None, Expr::Ident(Ident::nosp("a")))],
         ))
     );
 
@@ -227,9 +229,9 @@ mod tests {
         FnCall::nosp(
             Ident::nosp("foo").into(),
             vec![
-                Ident::nosp("a").into(),
-                Ident::nosp("b").into(),
-                Ident::nosp("c").into()
+                FnCallArg::nosp(None, Ident::nosp("a").into()),
+                FnCallArg::nosp(None, Ident::nosp("b").into()),
+                FnCallArg::nosp(None, Ident::nosp("c").into()),
             ],
         )
         .into()
@@ -240,7 +242,10 @@ mod tests {
         "core.print(a, b)",
         FnCall::nosp(
             Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print")).into(),
-            vec![Ident::nosp("a").into(), Ident::nosp("b").into()],
+            vec![
+                FnCallArg::nosp(None, Ident::nosp("a").into()),
+                FnCallArg::nosp(None, Ident::nosp("b").into())
+            ],
         )
         .into()
     );
@@ -250,7 +255,10 @@ mod tests {
         "core.print(\"hello world\")",
         Expr::FnCall(FnCall::nosp(
             Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print")).into(),
-            vec![StringLiteral::nosp("hello world").into()],
+            vec![FnCallArg::nosp(
+                None,
+                StringLiteral::nosp("hello world").into()
+            )],
         ))
     );
 
@@ -305,6 +313,19 @@ mod tests {
             FnCall::nosp(Expr::Ident(Ident::nosp("foo")), vec![]).into(),
             ListLiteral::nosp(vec![Ident::nosp("a").into()]).into(),
         ])
+        .into()
+    );
+
+    parse_expr_test!(
+        parse_named_arg,
+        "foo(a, b = c)",
+        FnCall::nosp(
+            Ident::nosp("foo").into(),
+            vec![
+                FnCallArg::nosp(None, Ident::nosp("a").into()),
+                FnCallArg::nosp(Some(Ident::nosp("b")), Ident::nosp("c").into())
+            ]
+        )
         .into()
     );
 }

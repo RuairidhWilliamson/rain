@@ -1,9 +1,6 @@
 use crate::{
     error::RainError,
-    tokens::{
-        peek_stream::{PeekNextTokenSpan, PeekTokenStream},
-        NextTokenSpan, TokenKind, TokenSpan,
-    },
+    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, TokenKind, TokenSpan},
 };
 
 use super::ParseError;
@@ -20,20 +17,8 @@ impl<'a> PeekTokenStreamHelpers<'a> for PeekTokenStream<'a> {
     }
 }
 
-pub trait PeekNextTokenHelpers<'a> {
-    fn expect_not_end(&self, err: ParseError) -> Result<&TokenSpan<'a>, RainError>;
-}
-
-impl<'a> PeekNextTokenHelpers<'a> for PeekNextTokenSpan<'a, '_> {
-    fn expect_not_end(&self, err: ParseError) -> Result<&TokenSpan<'a>, RainError> {
-        match self.value() {
-            NextTokenSpan::Next(token) => Ok(token),
-            NextTokenSpan::End(span) => Err(RainError::new(err, *span)),
-        }
-    }
-}
-
 pub trait NextTokenSpanHelpers<'a> {
+    fn ref_expect_not_end<'b>(&'b self, err: ParseError) -> Result<&'b TokenSpan<'a>, RainError>;
     fn expect_not_end(self, err: ParseError) -> Result<TokenSpan<'a>, RainError>;
     fn expect_next(self, token_kind: TokenKind) -> Result<TokenSpan<'a>, RainError>;
     fn expect_next_any(self, token_kinds: &'static [TokenKind])
@@ -41,6 +26,13 @@ pub trait NextTokenSpanHelpers<'a> {
 }
 
 impl<'a> NextTokenSpanHelpers<'a> for NextTokenSpan<'a> {
+    fn ref_expect_not_end<'b>(&'b self, err: ParseError) -> Result<&'b TokenSpan<'a>, RainError> {
+        match self {
+            NextTokenSpan::Next(token) => Ok(token),
+            NextTokenSpan::End(span) => Err(RainError::new(err, *span)),
+        }
+    }
+
     fn expect_not_end(self, err: ParseError) -> Result<TokenSpan<'a>, RainError> {
         match self {
             NextTokenSpan::Next(token) => Ok(token),

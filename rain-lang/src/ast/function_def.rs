@@ -6,7 +6,7 @@ use crate::{
 
 use super::{
     block::Block,
-    helpers::{NextTokenSpanHelpers, PeekNextTokenHelpers, PeekTokenStreamHelpers},
+    helpers::{NextTokenSpanHelpers, PeekTokenStreamHelpers},
     ident::Ident,
     Ast, ParseError,
 };
@@ -30,8 +30,9 @@ impl FnDef {
         let rparen_token: Span;
         loop {
             let peeking = stream.peek()?;
-            let peeking_token_span =
-                peeking.expect_not_end(ParseError::Expected(TokenKind::RParen))?;
+            let peeking_token_span = peeking
+                .value()
+                .ref_expect_not_end(ParseError::Expected(TokenKind::RParen))?;
             if peeking_token_span.token == Token::RParen {
                 rparen_token = peeking.consume().expect_next(TokenKind::RParen)?.span;
                 break;
@@ -41,8 +42,9 @@ impl FnDef {
                 args.push(FnDefArg { name: ident });
             }
             let peeking = stream.peek()?;
-            let peeking_token_span =
-                peeking.expect_not_end(ParseError::Expected(TokenKind::RParen))?;
+            let peeking_token_span = peeking
+                .value()
+                .ref_expect_not_end(ParseError::Expected(TokenKind::RParen))?;
             if peeking_token_span.token == Token::RParen {
                 rparen_token = peeking.consume().expect_next(TokenKind::RParen)?.span;
                 break;

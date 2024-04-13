@@ -6,9 +6,8 @@ use crate::{
 
 use super::{
     expr::Expr,
-    helpers::{
-        NextTokenSpanHelpers, PeekNextTokenHelpers, PeekTokenStreamHelpers, TokenSpanHelpers,
-    },
+    helpers::{NextTokenSpanHelpers, PeekTokenStreamHelpers, TokenSpanHelpers},
+    ident::Ident,
     Ast, ParseError,
 };
 
@@ -16,7 +15,7 @@ use super::{
 pub struct FnCall {
     pub expr: Box<Expr>,
     pub lparen_token: Span,
-    pub args: Vec<Expr>,
+    pub args: Vec<FnCallArg>,
     pub rparen_token: Span,
 }
 
@@ -28,15 +27,40 @@ impl FnCall {
         loop {
             let peeking = stream.peek()?;
             if peeking
-                .expect_not_end(ParseError::Expected(TokenKind::RParen))?
+                .value()
+                .ref_expect_not_end(ParseError::Expected(TokenKind::RParen))?
                 .token
                 == Token::RParen
             {
                 rparen_token = peeking.consume().expect_next(TokenKind::RParen)?;
                 break;
             }
-            let expr = Expr::parse_stream(stream)?;
-            args.push(expr);
+            if peeking
+                .value()
+                .ref_expect_not_end(ParseError::Expected(TokenKind::Ident))?
+                .token
+                .kind()
+                == TokenKind::Ident
+            {
+                let peeking = stream.peek_many(2)?;
+                if peeking
+                    .get(1)
+                    .ref_expect_not_end(ParseError::Expected(TokenKind::RParen))?
+                    .token
+                    == Token::Equals
+                {
+                    let name = Some(Ident::parse(stream.expect_parse_next(TokenKind::Ident)?)?);
+                    stream.expect_parse_next(TokenKind::Equals)?;
+                    let value = Expr::parse_stream(stream)?;
+                    args.push(FnCallArg { name, value });
+                } else {
+                    let value = Expr::parse_stream(stream)?;
+                    args.push(FnCallArg { name: None, value });
+                }
+            } else {
+                let value = Expr::parse_stream(stream)?;
+                args.push(FnCallArg { name: None, value });
+            }
             let next_token = stream
                 .parse_next()?
                 .expect_not_end(ParseError::Expected(TokenKind::RParen))?;
@@ -56,7 +80,7 @@ impl FnCall {
         })
     }
 
-    pub fn nosp(expr: Expr, args: Vec<Expr>) -> Self {
+    pub fn nosp(expr: Expr, args: Vec<FnCallArg>) -> Self {
         Self {
             expr: Box::new(expr),
             lparen_token: Span::default(),
@@ -81,39 +105,27 @@ impl Ast for FnCall {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::ast::ident::Ident;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FnCallArg {
+    pub name: Option<Ident>,
+    pub value: Expr,
+}
 
-//     use super::*;
+impl FnCallArg {
+    pub fn nosp(name: Option<Ident>, value: Expr) -> Self {
+        Self { name, value }
+    }
+}
 
-//     fn parse_fn_call(source: &str) -> Result<FnCall, RainError> {
-//         let mut stream = PeekTokenStream::new(source);
-//         let mut fn_call = super::FnCall::parse_stream(&mut stream)?;
-//         fn_call.reset_spans();
-//         Ok(fn_call)
-//     }
+impl Ast for FnCallArg {
+    fn span(&self) -> Span {
+        self.value.span()
+    }
 
-//     #[test]
-//     fn parse_no_args() -> Result<(), RainError> {
-//         let fn_call = parse_fn_call("foo()")?;
-//         assert_eq!(
-//             fn_call,
-//             FnCall::nosp(Item::nosp(vec![Ident::nosp("foo")]), vec![])
-//         );
-//         Ok(())
-//     }
-
-//     #[test]
-//     fn parse_one_arg() -> Result<(), RainError> {
-//         let fn_call = parse_fn_call("foo(bar)")?;
-//         assert_eq!(
-//             fn_call,
-//             FnCall::nosp(
-//                 Item::nosp(vec![Ident::nosp("foo")]),
-//                 vec![Expr::Item(Item::nosp(vec![Ident::nosp("bar")]))],
-//             )
-//         );
-//         Ok(())
-//     }
-// }
+    fn reset_spans(&mut self) {
+        if let Some(n) = &mut self.name {
+            n.reset_spans();
+        }
+        self.value.reset_spans();
+    }
+}
