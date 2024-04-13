@@ -1,3 +1,4 @@
+mod clean;
 mod config;
 mod debug;
 mod run;
@@ -31,6 +32,7 @@ pub enum RainCommand {
         #[command(subcommand)]
         command: debug::DebugCommand,
     },
+    Clean(clean::CleanCommand),
 }
 
 impl Cli {
@@ -41,11 +43,19 @@ impl Cli {
             .canonicalize()
             .unwrap();
         tracing::info!("Workspace root {workspace_root:?}");
-        let config = Box::leak(Box::new(crate::config::load(&workspace_root)));
+
+        let config = match crate::config::load(&workspace_root).validate() {
+            Ok(config) => Box::leak(Box::new(config)),
+            Err(err) => {
+                eprintln!("validate config error: {err:#}");
+                return ExitCode::FAILURE;
+            }
+        };
         match self.command {
             RainCommand::Run(command) => command.run(&workspace_root, config),
             RainCommand::Config { command } => command.run(&workspace_root, config),
             RainCommand::Debug { command } => command.run(),
+            RainCommand::Clean(command) => command.run(&workspace_root, config),
         }
     }
 
