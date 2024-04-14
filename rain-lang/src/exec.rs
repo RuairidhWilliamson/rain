@@ -20,6 +20,7 @@ pub enum ExecError {
         expected: range_enum::AnyRange<usize>,
         actual: usize,
     },
+    ReturnOutsideFunction,
     Roadmap(&'static str),
 }
 
@@ -39,7 +40,7 @@ pub struct ExecuteOptions {
 /// Returned during execution to control the flow of execution
 #[derive(Debug, Clone)]
 pub enum ExecCF {
-    Return(types::RainValue),
+    Return(types::RainValue, Span),
     RuntimeError(RuntimeError),
     RainError(RainError),
     // Box error to reduce sizeof ExecCF

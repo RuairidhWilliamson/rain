@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 tracing.workspace = true
+thiserror.workspace = true
 
 enum-kinds = "0.5"
 unicode-width = "0.1"

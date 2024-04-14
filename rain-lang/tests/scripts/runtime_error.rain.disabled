@@ -1,0 +1,1 @@
+core.error("this is a runtime error")

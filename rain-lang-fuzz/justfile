@@ -1,0 +1,8 @@
+build:
+    cargo afl build
+
+fuzz: build
+    AFL_SKIP_CPUFREQ=1 cargo afl fuzz -i in -o out ~/.cargo/target/debug/rain-lang-fuzz
+
+run:
+    cat out/default/crashes/id:000000,* | cargo afl run rain-lang-fuzz

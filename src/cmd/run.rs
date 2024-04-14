@@ -40,7 +40,7 @@ impl RunCommand {
         };
         match self.run_inner(&source, workspace_root, config) {
             Ok(()) => ExitCode::SUCCESS,
-            Err(ExecCF::Return(_)) => unreachable!("return control flow is caught earlier"),
+            Err(ExecCF::Return(_, _)) => unreachable!("return control flow is caught earlier"),
             Err(ExecCF::RuntimeError(err)) => err.display(),
             Err(ExecCF::RainError(err)) => err.resolve(source).display(),
             Err(ExecCF::ResolvedRainError(err)) => err.display(),

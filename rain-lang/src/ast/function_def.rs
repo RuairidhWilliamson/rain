@@ -30,16 +30,25 @@ impl FnDef {
         let rparen_token: Span;
         loop {
             let peeking = stream.peek()?;
-            let peeking_token_span = peeking
-                .value()
-                .ref_expect_not_end(ParseError::Expected(TokenKind::RParen))?;
-            if peeking_token_span.token == Token::RParen {
-                rparen_token = peeking.consume().expect_next(TokenKind::RParen)?.span;
-                break;
-            }
-            if TokenKind::from(&peeking_token_span.token) == TokenKind::Ident {
-                let ident = Ident::parse(peeking.consume().expect_next(TokenKind::Ident)?)?;
-                args.push(FnDefArg { name: ident });
+            let token_span = peeking
+                .consume()
+                .expect_not_end(ParseError::Expected(TokenKind::RParen))?;
+            match token_span.token.kind() {
+                TokenKind::RParen => {
+                    rparen_token = token_span.span;
+                    break;
+                }
+                TokenKind::Ident => {
+                    args.push(FnDefArg {
+                        name: Ident::parse(token_span)?,
+                    });
+                }
+                _ => {
+                    return Err(RainError::new(
+                        ParseError::ExpectedAny(&[TokenKind::Ident, TokenKind::RParen]),
+                        token_span.span,
+                    ));
+                }
             }
             let peeking = stream.peek()?;
             let peeking_token_span = peeking

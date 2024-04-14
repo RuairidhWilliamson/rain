@@ -1,0 +1,14 @@
+[package]
+name = "rain-lang-fuzz"
+version.workspace = true
+edition.workspace = true
+publish = false
+description = "Fuzz the rain-lang crate"
+
+[lints]
+workspace = true
+
+[dependencies]
+afl = "0.15"
+arbitrary = "1.3"
+rain-lang = { path = "../rain-lang" }

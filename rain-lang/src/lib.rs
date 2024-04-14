@@ -12,13 +12,23 @@ pub mod span;
 pub mod tokens;
 mod utils;
 
-pub fn run(source: source::Source, e: &mut BaseExecutor) -> Result<(), Box<error::ResolvedError>> {
+#[derive(Debug, thiserror::Error)]
+pub enum RunError {
+    #[error("runtime error: {0:?}")]
+    RuntimeError(exec::RuntimeError),
+    #[error("{0}")]
+    ResolvedRainError(error::ResolvedError),
+}
+
+pub fn run(source: source::Source, e: &mut BaseExecutor) -> Result<(), RunError> {
     match run_inner(&source, e) {
         Ok(()) => Ok(()),
-        Err(ExecCF::Return(_)) => todo!(),
-        Err(ExecCF::RuntimeError(_)) => todo!(),
-        Err(ExecCF::RainError(err)) => Err(Box::new(err.resolve(source))),
-        Err(ExecCF::ResolvedRainError(err)) => Err(err),
+        Err(ExecCF::Return(_, span)) => Err(RunError::ResolvedRainError(
+            error::RainError::new(exec::ExecError::ReturnOutsideFunction, span).resolve(source),
+        )),
+        Err(ExecCF::RuntimeError(err)) => Err(RunError::RuntimeError(err)),
+        Err(ExecCF::RainError(err)) => Err(RunError::ResolvedRainError(err.resolve(source))),
+        Err(ExecCF::ResolvedRainError(err)) => Err(RunError::ResolvedRainError(*err)),
     }
 }
 

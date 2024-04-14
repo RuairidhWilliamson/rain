@@ -64,13 +64,19 @@ pub enum NextTokenSpan<'a> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TokenError {
-    pub char: Option<char>,
+    pub kind: TokenErrorKind,
     pub place: Place,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TokenErrorKind {
+    UnknownCharacter(char),
+    UnclosedDoubleQuote,
 }
 
 impl std::fmt::Display for TokenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self.char, f)
+        std::fmt::Debug::fmt(&self.kind, f)
     }
 }
 

@@ -55,7 +55,7 @@ impl<'a> TokenStream<'a> {
                 b'}' => Ok(self.increment(Token::RBrace)),
                 b'[' => Ok(self.increment(Token::LBracket)),
                 b']' => Ok(self.increment(Token::RBracket)),
-                b'"' => Ok(self.double_quotes()),
+                b'"' => self.double_quotes(),
                 b'a'..=b'z' | b'A'..=b'Z' | b'_' => Ok(self.ident()),
                 b' ' => {
                     self.index += 1;
@@ -69,7 +69,9 @@ impl<'a> TokenStream<'a> {
                 }
                 c if !c.is_ascii() => Ok(self.ident()),
                 c => Err(TokenError {
-                    char: char::from_u32(*c as u32),
+                    kind: super::TokenErrorKind::UnknownCharacter(
+                        char::from_u32(*c as u32).unwrap(),
+                    ),
                     place: Place {
                         index: self.index,
                         line: self.line,
@@ -190,7 +192,7 @@ impl<'a> TokenStream<'a> {
         NextTokenSpan::Next(TokenSpan { token, span })
     }
 
-    fn double_quotes(&mut self) -> NextTokenSpan<'a> {
+    fn double_quotes(&mut self) -> Result<NextTokenSpan<'a>, TokenError> {
         let start = Place {
             index: self.index,
             line: self.line,
@@ -218,10 +220,10 @@ impl<'a> TokenStream<'a> {
                         line: self.line,
                         column: self.column,
                     };
-                    return NextTokenSpan::Next(TokenSpan {
+                    return Ok(NextTokenSpan::Next(TokenSpan {
                         token: Token::DoubleQuoteLiteral(String::from_utf8(contents).unwrap()),
                         span: Span { start, end },
-                    });
+                    }));
                 }
                 b'\n' => {
                     self.line += 1;
@@ -237,6 +239,9 @@ impl<'a> TokenStream<'a> {
                 }
             }
         }
-        panic!("error missing closing double quote")
+        Err(TokenError {
+            kind: super::TokenErrorKind::UnclosedDoubleQuote,
+            place: start,
+        })
     }
 }

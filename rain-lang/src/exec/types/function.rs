@@ -96,7 +96,7 @@ impl FunctionImpl {
                     local_record,
                 };
                 match fn_def.block.execute(&mut executor) {
-                    Err(ExecCF::Return(v)) => Ok(v),
+                    Err(ExecCF::Return(v, _)) => Ok(v),
                     Err(ExecCF::RainError(err)) => Err(err.resolve(source.clone()).into()),
                     v => v,
                 }

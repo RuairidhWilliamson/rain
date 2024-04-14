@@ -62,7 +62,7 @@ impl Execution for Expr {
             Self::StringLiteral(inner) => Ok(RainValue::String(inner.value.as_str().into())),
             Self::ListLiteral(array) => array.execute(executor),
             Self::IfCondition(inner) => inner.execute(executor),
-            Self::Match(_) => todo!(),
+            Self::Match(_) => todo!("implement match expression execution"),
         }
     }
 }
@@ -154,7 +154,7 @@ impl Execution for Declare {
 impl Execution for Return {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let value = self.expr.execute(executor)?;
-        Err(ExecCF::Return(value))
+        Err(ExecCF::Return(value, self.span()))
     }
 }
 
