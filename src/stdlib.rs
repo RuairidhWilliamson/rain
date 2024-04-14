@@ -6,6 +6,7 @@ use rain_lang::ast::function_call::FnCall;
 use rain_lang::ast::Ast;
 use rain_lang::error::RainError;
 use rain_lang::exec::executor::Executor;
+use rain_lang::exec::types::function::FunctionArguments;
 use rain_lang::exec::types::RainType;
 use rain_lang::exec::types::{function::Function, record::Record, RainValue};
 use rain_lang::exec::{ExecCF, ExecError};
@@ -31,11 +32,16 @@ pub fn new_stdlib(config: &'static crate::config::Config) -> Record {
 
 fn define_function(
     stdlib: &'static Stdlib,
-    func: impl Fn(&Stdlib, &mut Executor<'_>, &[RainValue], Option<&FnCall>) -> Result<RainValue, ExecCF>
+    func: impl Fn(
+            &Stdlib,
+            &mut Executor<'_>,
+            &FunctionArguments,
+            Option<&FnCall>,
+        ) -> Result<RainValue, ExecCF>
         + 'static,
 ) -> RainValue {
     RainValue::Function(Function::new_external(
-        move |executor: &mut Executor<'_>, args: &[RainValue], fn_call: Option<&FnCall>| {
+        move |executor: &mut Executor<'_>, args: &FunctionArguments, fn_call: Option<&FnCall>| {
             func(stdlib, executor, args, fn_call)
         },
     ))
@@ -49,7 +55,7 @@ impl Stdlib {
     fn run(
         &self,
         executor: &mut Executor,
-        args: &[RainValue],
+        args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
         let Some((program, args)) = args.split_first() else {
@@ -62,11 +68,11 @@ impl Stdlib {
             )
             .into());
         };
-        let RainValue::File(program) = program else {
+        let (_, RainValue::File(program)) = program else {
             return Err(RainError::new(
                 ExecError::UnexpectedType {
                     expected: &[RainType::File],
-                    actual: program.as_type(),
+                    actual: program.1.as_type(),
                 },
                 fn_call.unwrap().span(),
             )
@@ -81,9 +87,9 @@ impl Stdlib {
         cmd.current_dir(&exec_directory);
         for a in args {
             match a {
-                RainValue::String(a) => cmd.arg(a.as_ref()),
-                RainValue::Path(p) => cmd.arg(p.relative_workspace()),
-                RainValue::File(f) => {
+                (_, RainValue::String(a)) => cmd.arg(a.as_ref()),
+                (_, RainValue::Path(p)) => cmd.arg(p.relative_workspace()),
+                (_, RainValue::File(f)) => {
                     let path = &f.path;
                     let workspace_relative_path = path
                         .strip_prefix(&executor.base_executor.workspace_directory)
@@ -98,7 +104,7 @@ impl Stdlib {
                     return Err(RainError::new(
                         ExecError::UnexpectedType {
                             expected: &[RainType::String],
-                            actual: a.as_type(),
+                            actual: a.1.as_type(),
                         },
                         fn_call.unwrap().span(),
                     )
@@ -119,7 +125,7 @@ impl Stdlib {
     fn generated(
         &self,
         _executor: &mut Executor,
-        args: &[RainValue],
+        args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
         let [run, path] = args else {
@@ -133,21 +139,21 @@ impl Stdlib {
             .into());
         };
 
-        let RainValue::Record(run) = run else {
+        let (_, RainValue::Record(run)) = run else {
             return Err(RainError::new(
                 ExecError::UnexpectedType {
                     expected: &[RainType::Record],
-                    actual: run.as_type(),
+                    actual: run.1.as_type(),
                 },
                 fn_call.unwrap().span(),
             )
             .into());
         };
-        let RainValue::Path(path) = path else {
+        let (_, RainValue::Path(path)) = path else {
             return Err(RainError::new(
                 ExecError::UnexpectedType {
                     expected: &[RainType::Path],
-                    actual: path.as_type(),
+                    actual: path.1.as_type(),
                 },
                 fn_call.unwrap().span(),
             )
@@ -174,7 +180,7 @@ impl Stdlib {
     fn download(
         &self,
         _executor: &mut Executor,
-        _args: &[RainValue],
+        _args: &FunctionArguments,
         _fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
         todo!("implement std.download")

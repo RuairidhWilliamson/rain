@@ -8,7 +8,11 @@ use rain_lang::{
     error::RainError,
     exec::{
         executor::Executor,
-        types::{function::Function, record::Record, RainType, RainValue},
+        types::{
+            function::{Function, FunctionArguments},
+            record::Record,
+            RainType, RainValue,
+        },
         ExecCF, ExecError,
     },
 };
@@ -24,7 +28,7 @@ pub fn std_escape_lib() -> Record {
 
 fn execute_bin(
     _executor: &mut Executor,
-    args: &[RainValue],
+    args: &FunctionArguments,
     fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
     let [arg] = args else {
@@ -37,11 +41,11 @@ fn execute_bin(
         )
         .into());
     };
-    let RainValue::String(name) = arg else {
+    let (_, RainValue::String(name)) = arg else {
         return Err(RainError::new(
             ExecError::UnexpectedType {
                 expected: &[RainType::String],
-                actual: arg.as_type(),
+                actual: arg.1.as_type(),
             },
             fn_call.unwrap().span(),
         )

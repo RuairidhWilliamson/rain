@@ -135,8 +135,8 @@ impl Execution for FnCall {
         let args = self
             .args
             .iter()
-            .map(|a| a.value.execute(executor))
-            .collect::<Result<Vec<RainValue>, ExecCF>>()?;
+            .map(|a| a.value.execute(executor).map(|v| (&a.name, v)))
+            .collect::<Result<Vec<(&Option<Ident>, RainValue)>, ExecCF>>()?;
         func.call(executor, &args, Some(self))
     }
 }

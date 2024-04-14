@@ -1,12 +1,14 @@
 use std::rc::Rc;
 
 use crate::{
-    ast::{function_call::FnCall, function_def::FnDef},
+    ast::{function_call::FnCall, function_def::FnDef, ident::Ident},
     exec::{execution::Execution, executor::Executor, ExecCF},
     source::Source,
 };
 
 use super::{record::Record, RainValue};
+
+pub type FunctionArguments<'a> = [(&'a Option<Ident>, RainValue)];
 
 #[derive(Debug, Clone)]
 pub struct Function {
@@ -29,7 +31,7 @@ impl Function {
     pub fn call(
         &self,
         executor: &mut Executor,
-        args: &[RainValue],
+        args: &[(&Option<Ident>, RainValue)],
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
         self.implementation.call(executor, args, fn_call)
@@ -43,11 +45,11 @@ impl std::fmt::Display for Function {
 }
 
 pub trait ExternalFnPtr:
-    Fn(&mut Executor, &[RainValue], Option<&FnCall>) -> Result<RainValue, ExecCF>
+    Fn(&mut Executor, &FunctionArguments, Option<&FnCall>) -> Result<RainValue, ExecCF>
 {
 }
 impl<F> ExternalFnPtr for F where
-    F: Fn(&mut Executor, &[RainValue], Option<&FnCall>) -> Result<RainValue, ExecCF>
+    F: Fn(&mut Executor, &FunctionArguments, Option<&FnCall>) -> Result<RainValue, ExecCF>
 {
 }
 
@@ -69,18 +71,31 @@ impl FunctionImpl {
     fn call(
         &self,
         executor: &mut Executor,
-        args: &[RainValue],
+        args: &[(&Option<Ident>, RainValue)],
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
         match self {
             Self::Local(source, fn_def) => {
-                let local_record = Record::new(
-                    fn_def
-                        .args
-                        .iter()
-                        .zip(args)
-                        .map(|(k, v)| (String::from(&k.name.name), v.clone())),
-                );
+                let named_args = args
+                    .iter()
+                    .filter_map(|(n, v)| n.as_ref().map(|n| (n, v)))
+                    .filter(|(n, _)| {
+                        fn_def
+                            .args
+                            .iter()
+                            .find(|a| &a.name.name == &n.name)
+                            .is_some()
+                    })
+                    .map(|(n, v)| dbg!((n.name.clone(), v.clone())));
+
+                let positionals = fn_def
+                    .args
+                    .iter()
+                    .zip(args.iter().filter(|(n, _)| n.is_none()))
+                    .map(|(k, (_n, v))| (k.name.name.clone(), v.clone()));
+
+                let locals = named_args.chain(positionals);
+                let local_record = Record::new(locals);
                 let mut executor = Executor {
                     base_executor: executor.base_executor,
                     script_executor: executor.script_executor,

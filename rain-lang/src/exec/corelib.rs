@@ -11,7 +11,11 @@ use crate::{
 use super::{
     execution::Execution,
     executor::{Executor, ScriptExecutor},
-    types::{function::Function, record::Record, RainType, RainValue},
+    types::{
+        function::{Function, FunctionArguments},
+        record::Record,
+        RainType, RainValue,
+    },
     ExecCF, ExecError, RuntimeError,
 };
 
@@ -53,19 +57,19 @@ pub fn core_lib() -> Record {
 
 fn execute_print(
     executor: &mut Executor,
-    args: &[RainValue],
+    args: &FunctionArguments,
     _fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
-    struct Args<'a>(&'a [RainValue]);
+    struct Args<'a>(&'a FunctionArguments<'a>);
     impl std::fmt::Display for Args<'_> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let Some((first, rest)) = self.0.split_first() else {
+            let Some(((_, first), rest)) = self.0.split_first() else {
                 return Ok(());
             };
             first.fmt(f)?;
-            for a in rest {
-                a.fmt(f)?;
+            for (_, a) in rest {
                 f.write_str(" ")?;
+                a.fmt(f)?;
             }
             Ok(())
         }
@@ -77,7 +81,7 @@ fn execute_print(
 
 fn execute_error(
     _executor: &mut Executor,
-    args: &[RainValue],
+    args: &FunctionArguments,
     fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
     let [a] = args else {
@@ -90,11 +94,11 @@ fn execute_error(
         )
         .into());
     };
-    let RainValue::String(s) = a else {
+    let (_, RainValue::String(s)) = a else {
         return Err(RainError::new(
             ExecError::UnexpectedType {
                 expected: &[RainType::String],
-                actual: a.as_type(),
+                actual: a.1.as_type(),
             },
             fn_call.unwrap().args[0].span(),
         )
@@ -105,7 +109,7 @@ fn execute_error(
 
 fn execute_import(
     executor: &mut Executor,
-    args: &[RainValue],
+    args: &FunctionArguments,
     fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
     let [a] = args else {
@@ -118,11 +122,11 @@ fn execute_import(
         )
         .into());
     };
-    let RainValue::Path(p) = a else {
+    let (_, RainValue::Path(p)) = a else {
         return Err(RainError::new(
             ExecError::UnexpectedType {
                 expected: &[RainType::String],
-                actual: a.as_type(),
+                actual: a.1.as_type(),
             },
             fn_call.unwrap().args[0].span(),
         )
@@ -144,7 +148,7 @@ fn execute_import(
 
 fn execute_path(
     executor: &mut Executor,
-    args: &[RainValue],
+    args: &FunctionArguments,
     fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
     let [a] = args else {
@@ -157,11 +161,11 @@ fn execute_path(
         )
         .into());
     };
-    let RainValue::String(s) = a else {
+    let (_, RainValue::String(s)) = a else {
         return Err(RainError::new(
             ExecError::UnexpectedType {
                 expected: &[RainType::String],
-                actual: a.as_type(),
+                actual: a.1.as_type(),
             },
             fn_call.unwrap().span(),
         )
@@ -175,7 +179,7 @@ fn execute_path(
 
 fn execute_file(
     executor: &mut Executor,
-    args: &[RainValue],
+    args: &FunctionArguments,
     fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
     let [a] = args else {
@@ -188,11 +192,11 @@ fn execute_file(
         )
         .into());
     };
-    let RainValue::Path(s) = a else {
+    let (_, RainValue::Path(s)) = a else {
         return Err(RainError::new(
             ExecError::UnexpectedType {
                 expected: &[RainType::Path],
-                actual: a.as_type(),
+                actual: a.1.as_type(),
             },
             fn_call.unwrap().span(),
         )

@@ -102,3 +102,15 @@ script_prints_test!(
     ",
     "about to return\n"
 );
+
+script_prints_test!(
+    named_function_args,
+    "
+        fn foo(a, b) {
+            core.print(\"a is\", a)
+            core.print(\"b is\", b)
+        }
+        foo(b = true, a = false)
+    ",
+    "a is false\nb is true\n"
+);
