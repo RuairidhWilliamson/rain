@@ -62,7 +62,7 @@ pub enum NextTokenSpan<'a> {
     End(Span),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TokenError {
     pub char: Option<char>,
     pub place: Place,

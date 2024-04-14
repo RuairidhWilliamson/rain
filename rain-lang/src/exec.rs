@@ -9,9 +9,8 @@ pub mod executor;
 pub mod external;
 pub mod types;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExecError {
-    UnknownVariable(String),
     UnknownItem(String),
     UnexpectedType {
         expected: &'static [types::RainType],

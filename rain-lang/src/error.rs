@@ -1,6 +1,6 @@
 use crate::{source::Source, span::Span};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RainError {
     pub kind: RainErrorKind,
     pub span: Span,
@@ -13,7 +13,20 @@ impl From<crate::tokens::TokenError> for RainError {
     }
 }
 
-#[derive(Debug, Clone)]
+impl RainError {
+    pub fn new<E: Into<RainErrorKind>>(kind: E, span: Span) -> Self {
+        Self {
+            kind: kind.into(),
+            span,
+        }
+    }
+
+    pub fn resolve(self, source: Source) -> ResolvedError {
+        ResolvedError { source, err: self }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RainErrorKind {
     TokenError(crate::tokens::TokenError),
     ParseError(crate::ast::ParseError),
@@ -35,19 +48,6 @@ impl From<crate::ast::ParseError> for RainErrorKind {
 impl From<crate::exec::ExecError> for RainErrorKind {
     fn from(err: crate::exec::ExecError) -> Self {
         Self::ExecError(err)
-    }
-}
-
-impl RainError {
-    pub fn new<E: Into<RainErrorKind>>(kind: E, span: Span) -> Self {
-        Self {
-            kind: kind.into(),
-            span,
-        }
-    }
-
-    pub fn resolve(self, source: Source) -> ResolvedError {
-        ResolvedError { source, err: self }
     }
 }
 
