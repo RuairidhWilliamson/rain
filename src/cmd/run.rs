@@ -55,7 +55,7 @@ impl RunCommand {
     ) -> Result<(), ExecCF> {
         let mut token_stream = PeekTokenStream::new(&source.source);
         let script = Script::parse_stream(&mut token_stream)?;
-        let options = ExecuteOptions { sealed: false };
+        let options = ExecuteOptions::default();
         let mut base_executor = ExecutorBuilder {
             workspace_directory: workspace_root.to_path_buf(),
             stdlib: Some(crate::stdlib::new_stdlib(config)),

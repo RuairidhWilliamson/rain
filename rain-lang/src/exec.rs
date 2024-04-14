@@ -21,6 +21,7 @@ pub enum ExecError {
         actual: usize,
     },
     ReturnOutsideFunction,
+    CallDepthLimit,
     Roadmap(&'static str),
 }
 
@@ -30,9 +31,19 @@ impl std::fmt::Display for ExecError {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct ExecuteOptions {
     pub sealed: bool,
+    pub call_depth_limit: usize,
+}
+
+impl Default for ExecuteOptions {
+    fn default() -> Self {
+        Self {
+            sealed: false,
+            call_depth_limit: 32,
+        }
+    }
 }
 
 /// Control flow rain value

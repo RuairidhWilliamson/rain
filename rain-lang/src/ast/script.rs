@@ -20,7 +20,7 @@ impl Script {
 
 impl Ast for Script {
     fn span(&self) -> Span {
-        todo!()
+        todo!("script span")
     }
 
     fn reset_spans(&mut self) {

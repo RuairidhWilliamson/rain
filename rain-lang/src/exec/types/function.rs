@@ -1,8 +1,9 @@
 use std::rc::Rc;
 
 use crate::{
-    ast::{function_call::FnCall, function_def::FnDef, ident::Ident},
-    exec::{execution::Execution, executor::Executor, ExecCF},
+    ast::{function_call::FnCall, function_def::FnDef, ident::Ident, Ast},
+    error::RainError,
+    exec::{execution::Execution, executor::Executor, ExecCF, ExecError},
     source::Source,
 };
 
@@ -76,6 +77,12 @@ impl FunctionImpl {
     ) -> Result<RainValue, ExecCF> {
         match self {
             Self::Local(source, fn_def) => {
+                if executor.call_depth > executor.base_executor.options.call_depth_limit {
+                    return Err(ExecCF::RainError(RainError::new(
+                        ExecError::CallDepthLimit,
+                        fn_call.unwrap().span(),
+                    )));
+                }
                 let named_args = args
                     .iter()
                     .filter_map(|(n, v)| n.as_ref().map(|n| (n, v)))
@@ -94,6 +101,7 @@ impl FunctionImpl {
                     base_executor: executor.base_executor,
                     script_executor: executor.script_executor,
                     local_record,
+                    call_depth: executor.call_depth + 1,
                 };
                 match fn_def.block.execute(&mut executor) {
                     Err(ExecCF::Return(v, _)) => Ok(v),

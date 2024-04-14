@@ -55,6 +55,7 @@ pub struct Executor<'a> {
     pub base_executor: &'a mut BaseExecutor,
     pub script_executor: &'a mut ScriptExecutor,
     pub local_record: super::types::record::Record,
+    pub call_depth: usize,
 }
 
 impl BaseExecutor {
@@ -90,6 +91,7 @@ impl<'a> Executor<'a> {
             base_executor,
             script_executor,
             local_record: super::types::record::Record::default(),
+            call_depth: 0,
         }
     }
 

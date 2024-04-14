@@ -132,3 +132,23 @@ script_errors_test!(
         ),
     )
 );
+
+script_errors_test!(
+    infinite_recursion,
+    "fn foo() { foo() }\nfoo()",
+    RainError::new(
+        ExecError::CallDepthLimit,
+        Span::new(
+            Place {
+                index: 11,
+                line: 0,
+                column: 11,
+            },
+            Place {
+                index: 16,
+                line: 0,
+                column: 16,
+            },
+        ),
+    )
+);

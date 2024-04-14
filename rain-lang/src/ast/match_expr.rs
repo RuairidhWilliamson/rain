@@ -9,13 +9,13 @@ pub struct Match {
 
 impl Match {
     pub fn parse_stream(_stream: &mut PeekTokenStream) -> Result<Self, RainError> {
-        todo!()
+        todo!("parse match expr")
     }
 }
 
 impl Ast for Match {
     fn span(&self) -> Span {
-        todo!()
+        todo!("match span")
     }
 
     fn reset_spans(&mut self) {
