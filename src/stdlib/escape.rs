@@ -8,6 +8,7 @@ use rain_lang::{
     error::RainError,
     exec::{
         executor::Executor,
+        external::extract_arg,
         types::{
             function::{Function, FunctionArguments},
             record::Record,
@@ -18,12 +19,16 @@ use rain_lang::{
 };
 
 pub fn std_escape_lib() -> Record {
-    let mut std_escape_lib = Record::default();
-    std_escape_lib.insert(
-        String::from("bin"),
-        RainValue::Function(Function::new_external(execute_bin)),
-    );
-    std_escape_lib
+    Record::new([
+        (
+            String::from("bin"),
+            RainValue::Function(Function::new_external(execute_bin)),
+        ),
+        (
+            String::from("run"),
+            RainValue::Function(Function::new_external(execute_run)),
+        ),
+    ])
 }
 
 fn execute_bin(
@@ -76,4 +81,69 @@ fn find_bin_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
             None
         }
     })
+}
+
+fn execute_run(
+    executor: &mut Executor,
+    args: &FunctionArguments,
+    fn_call: Option<&FnCall>,
+) -> Result<RainValue, ExecCF> {
+    let program = extract_arg(args, "program", None, fn_call)?;
+    let RainValue::File(program) = program else {
+        return Err(RainError::new(
+            ExecError::UnexpectedType {
+                expected: &[RainType::File],
+                actual: program.as_type(),
+            },
+            fn_call.unwrap().span(),
+        )
+        .into());
+    };
+    let program_args = extract_arg(args, "args", None, fn_call)?;
+    let RainValue::List(program_args) = program_args else {
+        return Err(RainError::new(
+            ExecError::UnexpectedType {
+                expected: &[RainType::List],
+                actual: program_args.as_type(),
+            },
+            fn_call.unwrap().span(),
+        )
+        .into());
+    };
+    let mut cmd = std::process::Command::new(&program.path);
+    cmd.current_dir(&executor.base_executor.workspace_directory);
+    for a in program_args.iter() {
+        match a {
+            RainValue::String(a) => cmd.arg(a.as_ref()),
+            RainValue::Path(p) => cmd.arg(p.relative_workspace()),
+            RainValue::File(f) => {
+                let path = &f.path;
+                let workspace_relative_path = path
+                    .strip_prefix(&executor.base_executor.workspace_directory)
+                    .unwrap();
+                let exec_path = executor
+                    .base_executor
+                    .workspace_directory
+                    .join(workspace_relative_path);
+                tracing::info!("Copying {path:?} to {:?}", exec_path);
+                std::fs::create_dir_all(exec_path.parent().unwrap()).unwrap();
+                std::fs::copy(path, &exec_path).unwrap();
+                cmd.arg(workspace_relative_path)
+            }
+            _ => {
+                return Err(RainError::new(
+                    ExecError::UnexpectedType {
+                        expected: &[RainType::String, RainType::Path, RainType::File],
+                        actual: a.as_type(),
+                    },
+                    fn_call.unwrap().span(),
+                )
+                .into());
+            }
+        };
+    }
+    tracing::info!("std.escape.run {cmd:?}");
+    let status = cmd.status().unwrap();
+    let out = Record::new([(String::from("success"), RainValue::Bool(status.success()))]);
+    Ok(RainValue::Record(out))
 }

@@ -2,22 +2,22 @@ let cargo = std.escape.bin("cargo")
 
 fn check() {
 	core.print("Checking...")
-	let out = std.run(cargo, "clippy", "--workspace", "--", "--deny", "warnings")
+	let out = std.escape.run(program = cargo, args = ["clippy", "--workspace", "--", "--deny", "warnings"])
 	if out.success {
 	} else {
 		core.error("Clippy Failed")
 	}
-	let out = std.run(cargo, "fmt", "--check")
+	let out = std.escape.run(program = cargo, args = ["fmt", "--check"])
 	if out.success {
 	} else {
 		core.error("Fmt Check Failed")
 	}
-	let out = std.run(cargo, "test", "--workspace")
+	let out = std.escape.run(program = cargo, args = ["test", "--workspace"])
 	if out.success {
 	} else {
 		core.error("Tests Failed")
 	}
-	let out = std.run(cargo, "outdated", "--workspace")
+	let out = std.escape.run(program = cargo, args = ["outdated", "--workspace"])
 	if out.success {
 	} else {
 		core.error("Outdated Failed")

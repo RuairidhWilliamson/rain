@@ -22,6 +22,9 @@ pub enum ExecError {
     },
     ReturnOutsideFunction,
     CallDepthLimit,
+    MissingArg {
+        arg_name: String,
+    },
     Roadmap(&'static str),
 }
 

@@ -6,6 +6,7 @@ use rain_lang::ast::function_call::FnCall;
 use rain_lang::ast::Ast;
 use rain_lang::error::RainError;
 use rain_lang::exec::executor::Executor;
+use rain_lang::exec::external::extract_arg;
 use rain_lang::exec::types::function::FunctionArguments;
 use rain_lang::exec::types::RainType;
 use rain_lang::exec::types::{function::Function, record::Record, RainValue};
@@ -58,21 +59,34 @@ impl Stdlib {
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
-        let Some((program, args)) = args.split_first() else {
+        let program = extract_arg(args, "program", None, fn_call)?;
+        let RainValue::File(program) = program else {
             return Err(RainError::new(
-                ExecError::IncorrectArgCount {
-                    expected: (1..).into(),
-                    actual: 0,
+                ExecError::UnexpectedType {
+                    expected: &[RainType::File],
+                    actual: program.as_type(),
                 },
                 fn_call.unwrap().span(),
             )
             .into());
         };
-        let (_, RainValue::File(program)) = program else {
+        let program_args = extract_arg(args, "args", None, fn_call)?;
+        let RainValue::List(program_args) = program_args else {
             return Err(RainError::new(
                 ExecError::UnexpectedType {
-                    expected: &[RainType::File],
-                    actual: program.1.as_type(),
+                    expected: &[RainType::List],
+                    actual: program_args.as_type(),
+                },
+                fn_call.unwrap().span(),
+            )
+            .into());
+        };
+        let extra_files = extract_arg(args, "extras", None, fn_call)?;
+        let RainValue::List(extra_files) = extra_files else {
+            return Err(RainError::new(
+                ExecError::UnexpectedType {
+                    expected: &[RainType::List],
+                    actual: extra_files.as_type(),
                 },
                 fn_call.unwrap().span(),
             )
@@ -85,11 +99,11 @@ impl Stdlib {
 
         let mut cmd = std::process::Command::new(&program.path);
         cmd.current_dir(&exec_directory);
-        for a in args {
+        for a in program_args.iter() {
             match a {
-                (_, RainValue::String(a)) => cmd.arg(a.as_ref()),
-                (_, RainValue::Path(p)) => cmd.arg(p.relative_workspace()),
-                (_, RainValue::File(f)) => {
+                RainValue::String(a) => cmd.arg(a.as_ref()),
+                RainValue::Path(p) => cmd.arg(p.relative_workspace()),
+                RainValue::File(f) => {
                     let path = &f.path;
                     let workspace_relative_path = path
                         .strip_prefix(&executor.base_executor.workspace_directory)
@@ -103,14 +117,38 @@ impl Stdlib {
                 _ => {
                     return Err(RainError::new(
                         ExecError::UnexpectedType {
-                            expected: &[RainType::String],
-                            actual: a.1.as_type(),
+                            expected: &[RainType::String, RainType::Path, RainType::File],
+                            actual: a.as_type(),
                         },
                         fn_call.unwrap().span(),
                     )
                     .into());
                 }
             };
+        }
+        for a in extra_files.iter() {
+            match a {
+                RainValue::File(f) => {
+                    let path = &f.path;
+                    let workspace_relative_path = path
+                        .strip_prefix(&executor.base_executor.workspace_directory)
+                        .unwrap();
+                    let exec_path = exec_directory.join(workspace_relative_path);
+                    tracing::info!("Copying {path:?} to {:?}", exec_path);
+                    std::fs::create_dir_all(exec_path.parent().unwrap()).unwrap();
+                    std::fs::copy(path, &exec_path).unwrap();
+                }
+                _ => {
+                    return Err(RainError::new(
+                        ExecError::UnexpectedType {
+                            expected: &[RainType::File],
+                            actual: a.as_type(),
+                        },
+                        fn_call.unwrap().span(),
+                    )
+                    .into())
+                }
+            }
         }
         tracing::info!("std.run {cmd:?}");
         let status = cmd.status().unwrap();
