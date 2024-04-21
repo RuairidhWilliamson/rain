@@ -2,6 +2,7 @@ use std::{cell::RefCell, fmt::Write, rc::Rc};
 
 use rain_lang::exec::corelib::CoreHandler;
 use rain_lang::exec::executor::ExecutorBuilder;
+use rain_lang::path::Workspace;
 
 #[derive(Debug)]
 struct BufferCoreHandler {
@@ -25,12 +26,17 @@ macro_rules! script_prints_test {
             let ch = Box::new(BufferCoreHandler {
                 output: buffer.clone(),
             });
+            let workspace = Workspace::new_local_cwd().unwrap();
             let mut executor_builder = ExecutorBuilder {
                 corelib_handler: Some(ch),
                 ..ExecutorBuilder::default()
             }
-            .build();
-            let source = rain_lang::source::Source::from($source);
+            .build(workspace);
+            let workspace = Workspace::Local(std::env::current_dir().unwrap());
+            let source = rain_lang::source::Source::new_evaluated(
+                workspace.new_path("."),
+                String::from($source),
+            );
             if let Err(err) = rain_lang::run(source, &mut executor_builder) {
                 panic!("{err}");
             }

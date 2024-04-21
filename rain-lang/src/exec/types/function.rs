@@ -4,6 +4,7 @@ use crate::{
     ast::{function_call::FnCall, function_def::FnDef, ident::Ident, Ast},
     error::RainError,
     exec::{execution::Execution, executor::Executor, ExecCF, ExecError},
+    leaf::LeafSet,
     source::Source,
 };
 
@@ -102,6 +103,7 @@ impl FunctionImpl {
                     script_executor: executor.script_executor,
                     local_record,
                     call_depth: executor.call_depth + 1,
+                    leaves: LeafSet::default(),
                 };
                 match fn_def.block.execute(&mut executor) {
                     Err(ExecCF::Return(v, _)) => Ok(v),

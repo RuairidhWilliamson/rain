@@ -1,10 +1,11 @@
 use std::ffi::OsStr;
 
-use rain_lang::{exec::executor::ExecutorBuilder, source::Source};
+use rain_lang::{exec::executor::ExecutorBuilder, path::Workspace, source::Source};
 
 #[test]
 fn run_all_test_scripts() {
     let test_scripts_dir = std::fs::read_dir("tests/scripts").unwrap();
+    let workspace = Workspace::Local("tests/scripts".into());
     let mut error_count = 0;
     test_scripts_dir.for_each(|test_script| {
         let test_script = test_script.unwrap();
@@ -13,8 +14,9 @@ fn run_all_test_scripts() {
             eprintln!("skipping {}", path.display());
             return;
         }
-        let mut executor = ExecutorBuilder::default().build();
-        let source = Source::new(&path).unwrap();
+        let mut executor = ExecutorBuilder::default().build(workspace.clone());
+        let source =
+            Source::new(&workspace.new_path(path.strip_prefix("tests/scripts").unwrap())).unwrap();
         if let Err(err) = rain_lang::run(source, &mut executor) {
             eprintln!("{err:#}");
             error_count += 1;

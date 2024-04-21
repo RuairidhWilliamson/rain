@@ -9,6 +9,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
+use rain_lang::{config::set_global_config, path::Workspace};
 
 /// Rain build system command line interface
 #[derive(Parser)]
@@ -42,25 +43,28 @@ pub enum RainCommand {
 
 impl Cli {
     pub fn run(self) -> ExitCode {
-        let workspace_root = self
+        let root_workspace_directory = self
             .root
             .unwrap_or_else(Self::find_workspace_root)
             .canonicalize()
             .unwrap();
-        tracing::info!("Workspace root {workspace_root:?}");
 
-        let config = match crate::config::load(&workspace_root).validate() {
-            Ok(config) => Box::leak(Box::new(config)),
+        match rain_lang::config::load(&root_workspace_directory).validate() {
+            Ok(config) => set_global_config(config),
             Err(err) => {
                 eprintln!("validate config error: {err:#}");
                 return ExitCode::FAILURE;
             }
         };
+
+        let root_workspace = Workspace::Local(root_workspace_directory.clone());
+        tracing::info!("Workspace root {root_workspace:?}");
+
         match self.command {
-            RainCommand::Run(command) => command.run(&workspace_root, config),
-            RainCommand::Config { command } => command.run(&workspace_root, config),
+            RainCommand::Run(command) => command.run(&root_workspace),
+            RainCommand::Config { command } => command.run(&root_workspace_directory),
             RainCommand::Debug { command } => command.run(),
-            RainCommand::Clean(command) => command.run(&workspace_root, config),
+            RainCommand::Clean(command) => command.run(&root_workspace),
         }
     }
 

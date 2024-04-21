@@ -1,26 +1,46 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 
 use serde::{Deserialize, Serialize};
 
-pub fn config_search_paths(workspace_root: &Path) -> impl Iterator<Item = PathBuf> {
+static CONFIG: Mutex<Option<&'static Config>> = Mutex::new(None);
+
+pub fn global_config() -> &'static Config {
+    CONFIG.lock().unwrap().expect("CONFIG not set")
+}
+
+pub fn set_global_config(config: Config) {
+    let mut guard = CONFIG.lock().unwrap();
+    if guard.is_some() {
+        panic!("CONFIG is already set");
+    }
+    *guard = Some(Box::leak(Box::new(config)));
+}
+
+pub fn config_search_paths(root_workspace_directory: &Path) -> impl Iterator<Item = PathBuf> {
     [
         dirs::config_dir()
             .expect("config directory")
             .join("rain.toml"),
-        workspace_root.join("rain.toml"),
+        root_workspace_directory.join("rain.toml"),
     ]
     .into_iter()
 }
 
-pub fn load(workspace_root: &Path) -> UnvalidatedConfig {
-    config_search_paths(workspace_root).fold(UnvalidatedConfig::default(), |resolved, path| {
-        // Try opening the config file but if we can't just ignore it
-        let Ok(contents) = std::fs::read_to_string(path) else {
-            return resolved;
-        };
-        let config: UnresolvedConfig = toml::de::from_str(&contents).unwrap();
-        config.merge(resolved)
-    })
+pub fn load(root_workspace_directory: &Path) -> UnvalidatedConfig {
+    config_search_paths(root_workspace_directory).fold(
+        UnvalidatedConfig::default(),
+        |resolved, path| {
+            // Try opening the config file but if we can't just ignore it
+            let Ok(contents) = std::fs::read_to_string(path) else {
+                return resolved;
+            };
+            let config: UnresolvedConfig = toml::de::from_str(&contents).unwrap();
+            config.merge(resolved)
+        },
+    )
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
@@ -113,6 +133,10 @@ pub struct Config {
 impl Config {
     pub fn exec_directory(&self) -> PathBuf {
         self.cache_directory.join("exec")
+    }
+
+    pub fn generated_directory(&self) -> PathBuf {
+        self.cache_directory.join("generated")
     }
 
     pub fn out_directory(&self) -> PathBuf {

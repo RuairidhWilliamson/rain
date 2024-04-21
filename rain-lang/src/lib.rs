@@ -5,12 +5,15 @@ use exec::{
 };
 
 pub mod ast;
+pub mod config;
 pub mod error;
 pub mod exec;
+pub mod leaf;
+pub mod path;
 pub mod source;
 pub mod span;
 pub mod tokens;
-mod utils;
+pub mod utils;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunError {
@@ -35,7 +38,7 @@ pub fn run(source: source::Source, e: &mut BaseExecutor) -> Result<(), RunError>
 fn run_inner(source: &source::Source, e: &mut BaseExecutor) -> Result<(), ExecCF> {
     let mut token_stream = tokens::peek_stream::PeekTokenStream::new(&source.source);
     let script: ast::script::Script = ast::script::Script::parse_stream(&mut token_stream)?;
-    let mut script_executor = ScriptExecutor::new(source.path.directory().unwrap(), source.clone());
+    let mut script_executor = ScriptExecutor::new(source.clone());
     let mut executor = Executor::new(e, &mut script_executor);
     script.statements.execute(&mut executor)?;
     Ok(())

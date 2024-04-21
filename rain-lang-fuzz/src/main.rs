@@ -1,5 +1,5 @@
 use afl::fuzz;
-use rain_lang::exec::executor::ExecutorBuilder;
+use rain_lang::{exec::executor::ExecutorBuilder, path::Workspace};
 
 fn main() {
     fuzz!(|data: &str| {
@@ -8,8 +8,10 @@ fn main() {
 }
 
 fn run(data: &str) {
-    let mut executor = ExecutorBuilder::default().build();
-    let source = rain_lang::source::Source::from(data);
+    let workspace = Workspace::new_local_cwd().unwrap();
+    let mut executor = ExecutorBuilder::default().build(workspace);
+    let workspace = Workspace::Local(std::env::current_dir().unwrap());
+    let source = rain_lang::source::Source::new_evaluated(workspace.new_path("."), data.to_owned());
     eprintln!("{data}");
     let _ = rain_lang::run(source, &mut executor);
 }

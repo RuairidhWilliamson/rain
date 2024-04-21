@@ -3,6 +3,7 @@ use rain_lang::error::RainError;
 use rain_lang::error::ResolvedError;
 use rain_lang::exec::executor::ExecutorBuilder;
 use rain_lang::exec::ExecError;
+use rain_lang::path::Workspace;
 use rain_lang::span::{Place, Span};
 use rain_lang::tokens::{TokenError, TokenKind};
 use rain_lang::RunError;
@@ -11,8 +12,13 @@ macro_rules! script_errors_test {
     ($name:ident, $source:expr, $expected:expr) => {
         #[test]
         fn $name() {
-            let mut executor_builder = ExecutorBuilder::default().build();
-            let source = rain_lang::source::Source::from($source);
+            let workspace = Workspace::new_local_cwd().unwrap();
+            let mut executor_builder = ExecutorBuilder::default().build(workspace);
+            let workspace = Workspace::Local(std::env::current_dir().unwrap());
+            let source = rain_lang::source::Source::new_evaluated(
+                workspace.new_path("."),
+                String::from($source),
+            );
             match rain_lang::run(source, &mut executor_builder) {
                 Ok(_) => panic!("expected error"),
                 Err(RunError::ResolvedRainError(ResolvedError { err, .. })) => {

@@ -1,6 +1,7 @@
 use std::{path::Path, process::ExitCode};
 
 use clap::Args;
+use rain_lang::{config::global_config, path::Workspace};
 
 #[derive(Args)]
 pub struct CleanCommand {
@@ -9,13 +10,13 @@ pub struct CleanCommand {
 }
 
 impl CleanCommand {
-    pub fn run(self, _workspace_root: &Path, config: &'static crate::config::Config) -> ExitCode {
-        let global_cache_size = Self::calc_size(&config.cache_directory).unwrap();
+    pub fn run(self, _root_workspace: &Workspace) -> ExitCode {
+        let global_cache_size = Self::calc_size(&global_config().cache_directory).unwrap();
         eprintln!("Will delete all files in:");
         eprintln!(
             "  {:.1} MiB {}",
             global_cache_size as f32 / 1024.0 / 1024.0,
-            config.cache_directory.display()
+            global_config().cache_directory.display()
         );
         if !self.confirm {
             match dialoguer::Confirm::new()
@@ -33,7 +34,8 @@ impl CleanCommand {
         } else {
             tracing::info!("Clean confirm bypassed");
         }
-        std::fs::remove_dir_all(&config.cache_directory).unwrap();
+        std::fs::remove_dir_all(&global_config().cache_directory).unwrap();
+        tracing::info!("Removed recursively {:?}", global_config().cache_directory);
         ExitCode::SUCCESS
     }
 

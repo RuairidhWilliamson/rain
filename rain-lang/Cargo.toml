@@ -11,7 +11,11 @@ workspace = true
 [dependencies]
 tracing.workspace = true
 thiserror.workspace = true
+uuid.workspace = true
+serde.workspace = true
+toml.workspace = true
 
 enum-kinds = "0.5"
 unicode-width = "0.1"
 range-enum = { path = "../range-enum" }
+dirs = "5.0"

@@ -1,7 +1,7 @@
 use std::{path::PathBuf, process::ExitCode};
 
 use clap::Subcommand;
-use rain_lang::{ast::script::Script, source::Source};
+use rain_lang::{ast::script::Script, path::Workspace, source::Source};
 
 use crate::error_display::ErrorDisplay;
 
@@ -19,7 +19,8 @@ impl DebugCommand {
     }
 
     fn print_ast(path: PathBuf) -> ExitCode {
-        let source = match Source::new(&path) {
+        let workspace = Workspace::Local(".".into());
+        let source = match Source::new(&workspace.new_path(&path)) {
             Ok(source) => source,
             Err(err) => {
                 eprintln!("Could not open file at path {:?}: {err:#}", path);

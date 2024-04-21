@@ -1,3 +1,8 @@
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
+
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug)]
@@ -21,4 +26,12 @@ impl Padding {
     pub fn pad_with_char(&self, c: char, tab_size: usize) -> String {
         c.to_string().repeat(self.spaces + self.tabs * tab_size)
     }
+}
+
+pub fn copy_create_dirs(src: &Path, dst: &Path) -> std::io::Result<()> {
+    let dst_resolved: PathBuf = dst.iter().filter(|&p| p != OsStr::new(".")).collect();
+    tracing::info!("copying {src:?} to {dst:?} resolved as {dst_resolved:?}");
+    std::fs::create_dir_all(dst_resolved.parent().unwrap())?;
+    std::fs::copy(src, dst_resolved)?;
+    Ok(())
 }

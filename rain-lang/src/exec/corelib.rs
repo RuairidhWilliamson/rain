@@ -1,9 +1,8 @@
-use std::{path::PathBuf, rc::Rc, str::FromStr};
+use std::rc::Rc;
 
 use crate::{
     ast::{function_call::FnCall, script::Script, Ast},
     error::RainError,
-    exec::types::path::Path,
     source::Source,
     tokens::peek_stream::PeekTokenStream,
 };
@@ -122,7 +121,7 @@ fn execute_import(
         )
         .into());
     };
-    let (_, RainValue::Path(p)) = a else {
+    let (_, RainValue::Path(script_path)) = a else {
         return Err(RainError::new(
             ExecError::UnexpectedType {
                 expected: &[RainType::String],
@@ -132,14 +131,19 @@ fn execute_import(
         )
         .into());
     };
-    let script_path = p.relative_workspace();
-    tracing::info!("importing {script_path:?}");
-    let source = Source::new(&script_path).unwrap();
+    let script_file = executor
+        .script_executor
+        .source
+        .path
+        .directory()
+        .unwrap()
+        .join(script_path.as_ref());
+    tracing::info!("importing {script_file}");
+    let source = Source::new(&script_file).unwrap();
     let mut token_stream = PeekTokenStream::new(&source.source);
     let script =
         Script::parse_stream(&mut token_stream).map_err(|err| err.resolve(source.clone()))?;
-    let mut new_script_executor =
-        ScriptExecutor::new(script_path.parent().unwrap(), source.clone());
+    let mut new_script_executor = ScriptExecutor::new(source.clone());
     let mut new_executor = Executor::new(executor.base_executor, &mut new_script_executor);
     Execution::execute(&script, &mut new_executor)
         .map_err(|err| err.map_resolve(|err| err.resolve(source).into()))?;
@@ -147,7 +151,7 @@ fn execute_import(
 }
 
 fn execute_path(
-    executor: &mut Executor,
+    _executor: &mut Executor,
     args: &FunctionArguments,
     fn_call: Option<&FnCall>,
 ) -> Result<RainValue, ExecCF> {
@@ -171,10 +175,7 @@ fn execute_path(
         )
         .into());
     };
-    Ok(RainValue::Path(Rc::new(Path {
-        path: PathBuf::from_str(s).unwrap(),
-        current_directory: executor.current_directory().to_path_buf(),
-    })))
+    Ok(RainValue::Path(s.clone()))
 }
 
 fn execute_file(
@@ -202,8 +203,12 @@ fn execute_file(
         )
         .into());
     };
-    Ok(RainValue::File(Rc::new(super::types::file::File {
-        kind: super::types::file::FileKind::Source,
-        path: s.absolute(executor),
-    })))
+    let file = executor
+        .script_executor
+        .source
+        .path
+        .directory()
+        .unwrap()
+        .join(s.as_ref());
+    Ok(RainValue::File(Rc::new(file)))
 }

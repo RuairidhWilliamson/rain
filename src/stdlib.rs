@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use rain_lang::ast::function_call::FnCall;
 use rain_lang::ast::Ast;
+use rain_lang::config::global_config;
 use rain_lang::error::RainError;
 use rain_lang::exec::executor::Executor;
 use rain_lang::exec::external::extract_arg;
@@ -11,9 +12,13 @@ use rain_lang::exec::types::function::FunctionArguments;
 use rain_lang::exec::types::RainType;
 use rain_lang::exec::types::{function::Function, record::Record, RainValue};
 use rain_lang::exec::{ExecCF, ExecError};
+use rain_lang::path::RainPath;
+use rain_lang::utils::copy_create_dirs;
 
-pub fn new_stdlib(config: &'static crate::config::Config) -> Record {
-    let stdlib = Box::leak(Box::new(Stdlib { config }));
+pub fn new_stdlib() -> Record {
+    let stdlib = Box::leak(Box::new(Stdlib {
+        config: global_config(),
+    }));
     Record::new([
         (String::from("run"), define_function(stdlib, Stdlib::run)),
         (
@@ -49,13 +54,13 @@ fn define_function(
 }
 
 struct Stdlib {
-    config: &'static crate::config::Config,
+    config: &'static rain_lang::config::Config,
 }
 
 impl Stdlib {
     fn run(
         &self,
-        executor: &mut Executor,
+        _executor: &mut Executor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -97,21 +102,17 @@ impl Stdlib {
         let exec_directory = self.config.exec_directory().join(&id);
         std::fs::create_dir_all(&exec_directory).unwrap();
 
-        let mut cmd = std::process::Command::new(&program.path);
+        let mut cmd = std::process::Command::new(program.resolve());
         cmd.current_dir(&exec_directory);
         for a in program_args.iter() {
             match a {
                 RainValue::String(a) => cmd.arg(a.as_ref()),
-                RainValue::Path(p) => cmd.arg(p.relative_workspace()),
+                RainValue::Path(p) => cmd.arg(p.as_ref()),
                 RainValue::File(f) => {
-                    let path = &f.path;
-                    let workspace_relative_path = path
-                        .strip_prefix(&executor.base_executor.workspace_directory)
-                        .unwrap();
+                    let path = &f.resolve();
+                    let workspace_relative_path = f.workspace_relative_directory();
                     let exec_path = exec_directory.join(workspace_relative_path);
-                    tracing::info!("Copying {path:?} to {:?}", exec_path);
-                    std::fs::create_dir_all(exec_path.parent().unwrap()).unwrap();
-                    std::fs::copy(path, &exec_path).unwrap();
+                    copy_create_dirs(path, &exec_path).unwrap();
                     cmd.arg(workspace_relative_path)
                 }
                 _ => {
@@ -129,14 +130,10 @@ impl Stdlib {
         for a in extra_files.iter() {
             match a {
                 RainValue::File(f) => {
-                    let path = &f.path;
-                    let workspace_relative_path = path
-                        .strip_prefix(&executor.base_executor.workspace_directory)
-                        .unwrap();
+                    let path = &f.resolve();
+                    let workspace_relative_path = f.workspace_relative_directory();
                     let exec_path = exec_directory.join(workspace_relative_path);
-                    tracing::info!("Copying {path:?} to {:?}", exec_path);
-                    std::fs::create_dir_all(exec_path.parent().unwrap()).unwrap();
-                    std::fs::copy(path, &exec_path).unwrap();
+                    copy_create_dirs(path, &exec_path).unwrap();
                 }
                 _ => {
                     return Err(RainError::new(
@@ -202,17 +199,10 @@ impl Stdlib {
             panic!("id not set");
         };
         let exec_directory = self.config.exec_directory().join(id.as_ref());
-        let p = exec_directory.join(path.relative_workspace());
-        let new_path = self.config.out_directory().join(path.relative_workspace());
-        tracing::info!("output copying {p:?} to {new_path:?}");
-        std::fs::create_dir_all(new_path.parent().unwrap()).unwrap();
-        std::fs::copy(p, &new_path).unwrap();
-        Ok(RainValue::File(Rc::new(
-            rain_lang::exec::types::file::File {
-                kind: rain_lang::exec::types::file::FileKind::Generated,
-                path: new_path,
-            },
-        )))
+        let p = exec_directory.join(path.as_ref());
+        let new_path = RainPath::generated(uuid::Uuid::new_v4(), path.as_ref().into());
+        copy_create_dirs(&p, &new_path.resolve()).unwrap();
+        Ok(RainValue::File(Rc::new(new_path)))
     }
 
     fn download(

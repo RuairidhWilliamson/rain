@@ -16,6 +16,7 @@ use rain_lang::{
         },
         ExecCF, ExecError,
     },
+    path::RainPath,
 };
 
 pub fn std_escape_lib() -> Record {
@@ -56,13 +57,8 @@ fn execute_bin(
         )
         .into());
     };
-    let path = find_bin_in_path(name).unwrap();
-    Ok(RainValue::File(Rc::new(
-        rain_lang::exec::types::file::File {
-            kind: rain_lang::exec::types::file::FileKind::Escaped,
-            path,
-        },
-    )))
+    let path = RainPath::escaped(find_bin_in_path(name).unwrap());
+    Ok(RainValue::File(Rc::new(path)))
 }
 
 fn find_bin_in_path(name: &str) -> Option<PathBuf> {
@@ -110,25 +106,22 @@ fn execute_run(
         )
         .into());
     };
-    let mut cmd = std::process::Command::new(&program.path);
-    cmd.current_dir(&executor.base_executor.workspace_directory);
+    let mut cmd = std::process::Command::new(program.resolve());
+    cmd.current_dir(&executor.base_executor.root_workspace.resolve());
     for a in program_args.iter() {
         match a {
             RainValue::String(a) => cmd.arg(a.as_ref()),
-            RainValue::Path(p) => cmd.arg(p.relative_workspace()),
+            RainValue::Path(p) => cmd.arg(p.as_ref()),
             RainValue::File(f) => {
-                let path = &f.path;
-                let workspace_relative_path = path
-                    .strip_prefix(&executor.base_executor.workspace_directory)
-                    .unwrap();
+                let path = f.resolve();
                 let exec_path = executor
                     .base_executor
-                    .workspace_directory
-                    .join(workspace_relative_path);
+                    .root_workspace
+                    .new_path(f.workspace_relative_directory());
                 tracing::info!("Copying {path:?} to {:?}", exec_path);
-                std::fs::create_dir_all(exec_path.parent().unwrap()).unwrap();
-                std::fs::copy(path, &exec_path).unwrap();
-                cmd.arg(workspace_relative_path)
+                std::fs::create_dir_all(exec_path.parent().unwrap().resolve()).unwrap();
+                std::fs::copy(path, &exec_path.resolve()).unwrap();
+                cmd.arg(f.workspace_relative_directory())
             }
             _ => {
                 return Err(RainError::new(

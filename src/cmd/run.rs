@@ -7,15 +7,17 @@ use clap::Args;
 use rain_lang::{
     ast::script::Script,
     exec::{
+        execution::Execution,
         executor::{Executor, ExecutorBuilder, ScriptExecutor},
         types::RainValue,
         ExecCF, ExecuteOptions,
     },
+    path::Workspace,
     source::Source,
     tokens::peek_stream::PeekTokenStream,
 };
 
-use crate::{config::Config, error_display::ErrorDisplay};
+use crate::error_display::ErrorDisplay;
 
 #[derive(Args)]
 pub struct RunCommand {
@@ -29,16 +31,16 @@ pub struct RunCommand {
 }
 
 impl RunCommand {
-    pub fn run(self, workspace_root: &Path, config: &'static crate::config::Config) -> ExitCode {
+    pub fn run(self, workspace: &Workspace) -> ExitCode {
         let path = self.path.as_deref().unwrap_or_else(|| Path::new("."));
-        let source = match Source::new(path) {
+        let source = match Source::new(&workspace.new_path(path)) {
             Ok(source) => source,
             Err(err) => {
                 eprintln!("Could not open file at path {:?}: {err:#}", path);
                 return ExitCode::FAILURE;
             }
         };
-        match self.run_inner(&source, workspace_root, config) {
+        match self.run_inner(&source, workspace) {
             Ok(()) => ExitCode::SUCCESS,
             Err(ExecCF::Return(_, _)) => unreachable!("return control flow is caught earlier"),
             Err(ExecCF::RuntimeError(err)) => err.display(),
@@ -47,26 +49,20 @@ impl RunCommand {
         }
     }
 
-    fn run_inner(
-        self,
-        source: &Source,
-        workspace_root: &Path,
-        config: &'static Config,
-    ) -> Result<(), ExecCF> {
+    fn run_inner(self, source: &Source, workspace: &Workspace) -> Result<(), ExecCF> {
         let mut token_stream = PeekTokenStream::new(&source.source);
         let script = Script::parse_stream(&mut token_stream)?;
         let options = ExecuteOptions::default();
         let mut base_executor = ExecutorBuilder {
-            workspace_directory: workspace_root.to_path_buf(),
-            stdlib: Some(crate::stdlib::new_stdlib(config)),
+            stdlib: Some(crate::stdlib::new_stdlib()),
             options,
             ..Default::default()
         }
-        .build();
-        let mut script_executor =
-            ScriptExecutor::new(source.path.directory().unwrap(), source.clone());
+        .build(workspace.clone());
+        let mut script_executor = ScriptExecutor::new(source.clone());
         let mut executor = Executor::new(&mut base_executor, &mut script_executor);
-        rain_lang::exec::execution::Execution::execute(&script, &mut executor)?;
+        Execution::execute(&script, &mut executor)?;
+        eprintln!("Leaves {:#?}", executor.leaves);
         if let Some(target) = &self.target {
             let t = script_executor.global_record.get(target).unwrap();
             let RainValue::Function(func) = t else {
@@ -92,7 +88,7 @@ impl RunCommand {
             );
             return ExitCode::FAILURE;
         };
-        if Command::new(&p.path).status().unwrap().success() {
+        if Command::new(p.resolve()).status().unwrap().success() {
             ExitCode::SUCCESS
         } else {
             ExitCode::FAILURE

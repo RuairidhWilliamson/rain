@@ -1,8 +1,7 @@
 use std::{path::Path, process::ExitCode};
 
 use clap::Subcommand;
-
-use crate::config::{config_search_paths, Config};
+use rain_lang::config::global_config;
 
 #[derive(Subcommand)]
 pub enum ConfigCommand {
@@ -13,14 +12,14 @@ pub enum ConfigCommand {
 }
 
 impl ConfigCommand {
-    pub fn run(self, _workspace_root: &Path, config: &Config) -> ExitCode {
+    pub fn run(self, workspace_root_directory: &Path) -> ExitCode {
         match self {
             Self::Show => {
-                println!("{}", toml::to_string_pretty(config).unwrap());
+                println!("{}", toml::to_string_pretty(global_config()).unwrap());
                 ExitCode::SUCCESS
             }
             Self::Paths => {
-                for p in config_search_paths(_workspace_root) {
+                for p in rain_lang::config::config_search_paths(workspace_root_directory) {
                     println!("{}", p.display());
                 }
                 ExitCode::SUCCESS

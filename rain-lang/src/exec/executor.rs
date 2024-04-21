@@ -1,6 +1,4 @@
-use std::path::{Path, PathBuf};
-
-use crate::source::Source;
+use crate::{leaf::LeafSet, path::Workspace, source::Source};
 
 use super::{
     corelib::{core_lib, CoreHandler},
@@ -9,15 +7,13 @@ use super::{
 
 #[derive(Debug, Default)]
 pub struct ExecutorBuilder {
-    pub workspace_directory: PathBuf,
     pub corelib_handler: Option<Box<dyn CoreHandler>>,
     pub stdlib: Option<Record>,
     pub options: super::ExecuteOptions,
 }
 
 impl ExecutorBuilder {
-    pub fn build(self) -> BaseExecutor {
-        let workspace_directory = self.workspace_directory;
+    pub fn build(self, root_workspace: Workspace) -> BaseExecutor {
         let corelib_handler = self
             .corelib_handler
             .unwrap_or_else(|| Box::new(super::corelib::DefaultCoreHandler));
@@ -25,7 +21,7 @@ impl ExecutorBuilder {
         let options = self.options;
 
         BaseExecutor {
-            workspace_directory,
+            root_workspace,
             corelib: core_lib().into(),
             core_handler: corelib_handler,
             stdlib,
@@ -34,28 +30,31 @@ impl ExecutorBuilder {
     }
 }
 
+/// Base executor is held for the lifetime of a run
 #[derive(Debug)]
 pub struct BaseExecutor {
-    pub workspace_directory: PathBuf,
+    pub root_workspace: Workspace,
     pub corelib: RainValue,
     pub core_handler: Box<dyn CoreHandler>,
     pub stdlib: Option<RainValue>,
     pub options: super::ExecuteOptions,
 }
 
+/// ScriptExecutor is held for the lifetime of a script, a new ScriptExecutor is created for each core.import
 #[derive(Debug)]
 pub struct ScriptExecutor {
-    pub current_directory: PathBuf,
-    pub global_record: super::types::record::Record,
     pub source: Source,
+    pub global_record: super::types::record::Record,
 }
 
+/// Executor is held for the lifetime of a function call, a new Executor is created for each function call, except external function calls
 #[derive(Debug)]
 pub struct Executor<'a> {
     pub base_executor: &'a mut BaseExecutor,
     pub script_executor: &'a mut ScriptExecutor,
     pub local_record: super::types::record::Record,
     pub call_depth: usize,
+    pub leaves: LeafSet,
 }
 
 impl BaseExecutor {
@@ -69,9 +68,8 @@ impl BaseExecutor {
 }
 
 impl ScriptExecutor {
-    pub fn new(current_directory: &Path, source: Source) -> Self {
+    pub fn new(source: Source) -> Self {
         Self {
-            current_directory: current_directory.to_path_buf(),
             global_record: Record::default(),
             source,
         }
@@ -92,6 +90,7 @@ impl<'a> Executor<'a> {
             script_executor,
             local_record: super::types::record::Record::default(),
             call_depth: 0,
+            leaves: LeafSet::default(),
         }
     }
 
@@ -101,10 +100,6 @@ impl<'a> Executor<'a> {
 
     pub fn global_record(&mut self) -> &mut super::types::record::Record {
         &mut self.script_executor.global_record
-    }
-
-    pub fn current_directory(&self) -> &Path {
-        &self.script_executor.current_directory
     }
 
     pub fn resolve(&self, name: &str) -> Option<RainValue> {

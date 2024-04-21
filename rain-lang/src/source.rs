@@ -1,7 +1,6 @@
-use std::{
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::rc::Rc;
+
+use crate::path::{RainPath, RainPathScope};
 
 #[derive(Debug, Clone)]
 pub struct Source {
@@ -10,13 +9,13 @@ pub struct Source {
 }
 
 impl Source {
-    pub fn new(path: &Path) -> Result<Self, std::io::Error> {
-        let f = std::fs::File::open(path)?;
+    pub fn new(path: &RainPath) -> Result<Self, std::io::Error> {
+        let f = std::fs::File::open(path.resolve())?;
         let metadata = f.metadata()?;
         if metadata.is_dir() {
             let new_path = path.join("main.rain");
             tracing::debug!("{path:?} is a directory using {new_path:?}");
-            let source = std::fs::read_to_string(&new_path)?;
+            let source = std::fs::read_to_string(new_path.resolve())?;
             Ok(Self {
                 source: source.into(),
                 path: SourcePath::FilePath { path: new_path },
@@ -26,19 +25,15 @@ impl Source {
             Ok(Self {
                 source: source.into(),
                 path: SourcePath::FilePath {
-                    path: path.to_path_buf(),
+                    path: path.to_owned(),
                 },
             })
         }
     }
-}
 
-impl From<&str> for Source {
-    fn from(source: &str) -> Self {
+    pub fn new_evaluated(directory: RainPath, source: String) -> Self {
         Self {
-            path: SourcePath::Evaluated {
-                directory: std::env::current_dir().expect("get current directory"),
-            },
+            path: SourcePath::Evaluated { directory },
             source: source.into(),
         }
     }
@@ -46,15 +41,22 @@ impl From<&str> for Source {
 
 #[derive(Debug, Clone)]
 pub enum SourcePath {
-    FilePath { path: PathBuf },
-    Evaluated { directory: PathBuf },
+    FilePath { path: RainPath },
+    Evaluated { directory: RainPath },
 }
 
 impl SourcePath {
-    pub fn directory(&self) -> Option<&Path> {
+    pub fn scope(&self) -> &RainPathScope {
+        match self {
+            Self::FilePath { path } => path.scope(),
+            Self::Evaluated { directory } => directory.scope(),
+        }
+    }
+
+    pub fn directory(&self) -> Option<RainPath> {
         match self {
             Self::FilePath { path } => path.parent(),
-            Self::Evaluated { directory } => Some(directory.as_path()),
+            Self::Evaluated { directory } => Some(directory.clone()),
         }
     }
 }
@@ -62,10 +64,8 @@ impl SourcePath {
 impl std::fmt::Display for SourcePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::FilePath { path } => path.display().fmt(f),
-            Self::Evaluated { directory } => {
-                f.write_fmt(format_args!("{}/<evaluated>", directory.display()))
-            }
+            Self::FilePath { path } => path.fmt(f),
+            Self::Evaluated { directory } => f.write_fmt(format_args!("{directory}/<evaluated>")),
         }
     }
 }

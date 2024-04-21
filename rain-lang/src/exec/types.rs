@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
-pub mod file;
+use crate::path::RainPath;
+
 pub mod function;
-pub mod path;
 pub mod record;
 
 #[derive(Debug, Clone, enum_kinds::EnumKind)]
@@ -12,8 +12,8 @@ pub enum RainValue {
     Lazy,
     Bool(bool),
     String(Rc<str>),
-    Path(Rc<path::Path>),
-    File(Rc<file::File>),
+    Path(Rc<str>),
+    File(Rc<RainPath>),
     Record(record::Record),
     List(Rc<[RainValue]>),
     Function(function::Function),
