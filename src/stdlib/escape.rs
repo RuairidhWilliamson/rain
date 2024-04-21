@@ -17,6 +17,7 @@ use rain_lang::{
         ExecCF, ExecError,
     },
     path::RainPath,
+    utils::copy_create_dirs,
 };
 
 pub fn std_escape_lib() -> Record {
@@ -118,9 +119,7 @@ fn execute_run(
                     .base_executor
                     .root_workspace
                     .new_path(f.workspace_relative_directory());
-                tracing::info!("Copying {path:?} to {:?}", exec_path);
-                std::fs::create_dir_all(exec_path.parent().unwrap().resolve()).unwrap();
-                std::fs::copy(path, &exec_path.resolve()).unwrap();
+                copy_create_dirs(&path, &exec_path.resolve()).unwrap();
                 cmd.arg(f.workspace_relative_directory())
             }
             _ => {
