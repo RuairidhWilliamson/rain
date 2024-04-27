@@ -146,8 +146,11 @@ impl ExternalFn for EscapeRun {
             };
         }
         tracing::info!("std.escape.run {cmd:?}");
-        let status = cmd.status().unwrap();
-        let out = Record::new([(String::from("success"), RainValue::Bool(status.success()))]);
+        let output = cmd.output().unwrap();
+        let out = Record::new([(
+            String::from("success"),
+            RainValue::Bool(output.status.success()),
+        )]);
         Ok(RainValue::Record(out))
     }
 }

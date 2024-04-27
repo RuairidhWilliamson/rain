@@ -27,6 +27,9 @@ pub struct RunCommand {
     path: Option<PathBuf>,
 
     #[arg(long)]
+    show_leaves: bool,
+
+    #[arg(long)]
     execute_output: bool,
 }
 
@@ -69,7 +72,9 @@ impl RunCommand {
             };
             let mut executor = Executor::new(&mut base_executor, &mut script_executor);
             let output = func.call(&mut executor, &[], None)?;
-            eprintln!("{:?}", executor.leaves);
+            if self.show_leaves {
+                eprintln!("{:?}", executor.leaves);
+            }
             println!("{output:?}");
             if self.execute_output {
                 self.execute_output(output);

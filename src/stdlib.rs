@@ -91,6 +91,7 @@ impl ExternalFn for StdRun {
         executor.leaves.insert(Leaf::File(program.as_ref().clone()));
         let mut cmd = std::process::Command::new(program.resolve());
         cmd.current_dir(&exec_directory);
+        cmd.env_clear();
         for a in program_args.iter() {
             match a {
                 RainValue::String(a) => cmd.arg(a.as_ref()),
@@ -138,11 +139,14 @@ impl ExternalFn for StdRun {
             }
         }
         tracing::info!("std.run {cmd:?}");
-        let status = cmd.status().unwrap();
+        let output = cmd.output().unwrap();
 
         let out = Record::new([
             (String::from("id"), RainValue::String(id.as_str().into())),
-            (String::from("success"), RainValue::Bool(status.success())),
+            (
+                String::from("success"),
+                RainValue::Bool(output.status.success()),
+            ),
         ]);
         Ok(RainValue::Record(out))
     }
