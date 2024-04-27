@@ -24,9 +24,9 @@ impl Function {
         }
     }
 
-    pub fn new_external(fn_ptr: impl ExternalFnPtr + 'static) -> Self {
+    pub fn new_external(func: impl ExternalFn2 + 'static) -> Self {
         Self {
-            implementation: Rc::new(FunctionImpl::External(Box::new(fn_ptr))),
+            implementation: Rc::new(FunctionImpl::External(Box::new(func))),
         }
     }
 
@@ -46,18 +46,18 @@ impl std::fmt::Display for Function {
     }
 }
 
-pub trait ExternalFnPtr:
-    Fn(&mut Executor, &FunctionArguments, Option<&FnCall>) -> Result<RainValue, ExecCF>
-{
-}
-impl<F> ExternalFnPtr for F where
-    F: Fn(&mut Executor, &FunctionArguments, Option<&FnCall>) -> Result<RainValue, ExecCF>
-{
+pub trait ExternalFn2 {
+    fn call(
+        &self,
+        executor: &mut Executor,
+        args: &FunctionArguments,
+        call: Option<&FnCall>,
+    ) -> Result<RainValue, ExecCF>;
 }
 
 enum FunctionImpl {
     Local(Source, FnDef),
-    External(Box<dyn ExternalFnPtr>),
+    External(Box<dyn ExternalFn2>),
 }
 
 impl std::fmt::Debug for FunctionImpl {
@@ -113,7 +113,7 @@ impl FunctionImpl {
                 executor.leaves.insert_set(&new_executor.leaves);
                 out
             }
-            Self::External(func) => func(executor, args, fn_call),
+            Self::External(func) => func.call(executor, args, fn_call),
         }
     }
 }

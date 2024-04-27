@@ -4,11 +4,11 @@ use std::rc::Rc;
 
 use rain_lang::ast::function_call::FnCall;
 use rain_lang::ast::Ast;
-use rain_lang::config::global_config;
+use rain_lang::config::{global_config, Config};
 use rain_lang::error::RainError;
 use rain_lang::exec::executor::Executor;
 use rain_lang::exec::external::extract_arg;
-use rain_lang::exec::types::function::FunctionArguments;
+use rain_lang::exec::types::function::{ExternalFn2, FunctionArguments};
 use rain_lang::exec::types::RainType;
 use rain_lang::exec::types::{function::Function, record::Record, RainValue};
 use rain_lang::exec::{ExecCF, ExecError};
@@ -17,18 +17,19 @@ use rain_lang::path::RainPath;
 use rain_lang::utils::copy_create_dirs;
 
 pub fn new_stdlib() -> Record {
-    let stdlib = Box::leak(Box::new(Stdlib {
-        config: global_config(),
-    }));
+    let config = global_config();
     Record::new([
-        (String::from("run"), define_function(stdlib, Stdlib::run)),
+        (
+            String::from("run"),
+            RainValue::Function(Function::new_external(StdRun { config })),
+        ),
         (
             String::from("generated"),
-            define_function(stdlib, Stdlib::generated),
+            RainValue::Function(Function::new_external(StdGenerated { config })),
         ),
         (
             String::from("download"),
-            define_function(stdlib, Stdlib::download),
+            RainValue::Function(Function::new_external(StdDownload { config })),
         ),
         (
             String::from("escape"),
@@ -37,29 +38,12 @@ pub fn new_stdlib() -> Record {
     ])
 }
 
-fn define_function(
-    stdlib: &'static Stdlib,
-    func: impl Fn(
-            &Stdlib,
-            &mut Executor<'_>,
-            &FunctionArguments,
-            Option<&FnCall>,
-        ) -> Result<RainValue, ExecCF>
-        + 'static,
-) -> RainValue {
-    RainValue::Function(Function::new_external(
-        move |executor: &mut Executor<'_>, args: &FunctionArguments, fn_call: Option<&FnCall>| {
-            func(stdlib, executor, args, fn_call)
-        },
-    ))
-}
-
-struct Stdlib {
+struct StdRun {
     config: &'static rain_lang::config::Config,
 }
 
-impl Stdlib {
-    fn run(
+impl ExternalFn2 for StdRun {
+    fn call(
         &self,
         executor: &mut Executor,
         args: &FunctionArguments,
@@ -162,8 +146,14 @@ impl Stdlib {
         ]);
         Ok(RainValue::Record(out))
     }
+}
 
-    fn generated(
+struct StdGenerated {
+    config: &'static Config,
+}
+
+impl ExternalFn2 for StdGenerated {
+    fn call(
         &self,
         _executor: &mut Executor,
         args: &FunctionArguments,
@@ -210,12 +200,20 @@ impl Stdlib {
         copy_create_dirs(&p, &new_path.resolve()).unwrap();
         Ok(RainValue::File(Rc::new(new_path)))
     }
+}
 
-    fn download(
+struct StdDownload {
+    #[allow(dead_code)]
+    config: &'static Config,
+}
+
+impl ExternalFn2 for StdDownload {
+    #[allow(unused)]
+    fn call(
         &self,
-        _executor: &mut Executor,
-        _args: &FunctionArguments,
-        _fn_call: Option<&FnCall>,
+        executor: &mut Executor,
+        args: &FunctionArguments,
+        call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
         todo!("implement std.download")
     }
