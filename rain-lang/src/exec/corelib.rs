@@ -11,7 +11,7 @@ use super::{
     execution::Execution,
     executor::{Executor, ScriptExecutor},
     types::{
-        function::{ExternalFn2, Function, FunctionArguments},
+        function::{ExternalFn, Function, FunctionArguments},
         record::Record,
         RainType, RainValue,
     },
@@ -57,7 +57,7 @@ pub fn core_lib() -> Record {
 
 struct CorePrint;
 
-impl ExternalFn2 for CorePrint {
+impl ExternalFn for CorePrint {
     fn call(
         &self,
         executor: &mut Executor,
@@ -86,7 +86,7 @@ impl ExternalFn2 for CorePrint {
 
 struct CoreError;
 
-impl ExternalFn2 for CoreError {
+impl ExternalFn for CoreError {
     fn call(
         &self,
         _executor: &mut Executor,
@@ -119,7 +119,7 @@ impl ExternalFn2 for CoreError {
 
 struct CoreImport;
 
-impl ExternalFn2 for CoreImport {
+impl ExternalFn for CoreImport {
     fn call(
         &self,
         executor: &mut Executor,
@@ -170,7 +170,7 @@ impl ExternalFn2 for CoreImport {
 
 struct CorePath;
 
-impl ExternalFn2 for CorePath {
+impl ExternalFn for CorePath {
     fn call(
         &self,
         _executor: &mut Executor,
@@ -203,7 +203,7 @@ impl ExternalFn2 for CorePath {
 
 struct CoreFile;
 
-impl ExternalFn2 for CoreFile {
+impl ExternalFn for CoreFile {
     fn call(
         &self,
         executor: &mut Executor,

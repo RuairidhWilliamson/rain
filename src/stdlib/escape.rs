@@ -10,7 +10,7 @@ use rain_lang::{
         executor::Executor,
         external::extract_arg,
         types::{
-            function::{ExternalFn2, Function, FunctionArguments},
+            function::{ExternalFn, Function, FunctionArguments},
             record::Record,
             RainType, RainValue,
         },
@@ -36,7 +36,7 @@ pub fn std_escape_lib() -> Record {
 
 struct EscapeBin;
 
-impl ExternalFn2 for EscapeBin {
+impl ExternalFn for EscapeBin {
     fn call(
         &self,
         _executor: &mut Executor,
@@ -88,7 +88,7 @@ fn find_bin_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
 
 struct EscapeRun;
 
-impl ExternalFn2 for EscapeRun {
+impl ExternalFn for EscapeRun {
     fn call(
         &self,
         executor: &mut Executor,

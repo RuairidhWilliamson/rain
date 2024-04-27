@@ -24,7 +24,7 @@ impl Function {
         }
     }
 
-    pub fn new_external(func: impl ExternalFn2 + 'static) -> Self {
+    pub fn new_external(func: impl ExternalFn + 'static) -> Self {
         Self {
             implementation: Rc::new(FunctionImpl::External(Box::new(func))),
         }
@@ -46,7 +46,7 @@ impl std::fmt::Display for Function {
     }
 }
 
-pub trait ExternalFn2 {
+pub trait ExternalFn {
     fn call(
         &self,
         executor: &mut Executor,
@@ -57,7 +57,7 @@ pub trait ExternalFn2 {
 
 enum FunctionImpl {
     Local(Source, FnDef),
-    External(Box<dyn ExternalFn2>),
+    External(Box<dyn ExternalFn>),
 }
 
 impl std::fmt::Debug for FunctionImpl {
