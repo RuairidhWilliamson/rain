@@ -98,18 +98,20 @@ impl FunctionImpl {
 
                 let locals = named_args.chain(positionals);
                 let local_record = Record::new(locals);
-                let mut executor = Executor {
+                let mut new_executor = Executor {
                     base_executor: executor.base_executor,
                     script_executor: executor.script_executor,
                     local_record,
                     call_depth: executor.call_depth + 1,
                     leaves: LeafSet::default(),
                 };
-                match fn_def.block.execute(&mut executor) {
+                let out = match fn_def.block.execute(&mut new_executor) {
                     Err(ExecCF::Return(v, _)) => Ok(v),
                     Err(ExecCF::RainError(err)) => Err(err.resolve(source.clone()).into()),
                     v => v,
-                }
+                };
+                executor.leaves.insert_set(&new_executor.leaves);
+                out
             }
             Self::External(func) => func(executor, args, fn_call),
         }

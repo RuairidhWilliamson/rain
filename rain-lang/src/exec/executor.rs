@@ -49,6 +49,7 @@ pub struct ScriptExecutor {
 
 /// Executor is held for the lifetime of a function call, a new Executor is created for each function call, except external function calls
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct Executor<'a> {
     pub base_executor: &'a mut BaseExecutor,
     pub script_executor: &'a mut ScriptExecutor,

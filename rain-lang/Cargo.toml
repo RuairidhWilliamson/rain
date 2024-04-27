@@ -5,8 +5,17 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
-[lints]
-workspace = true
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+nursery = "warn"
+cargo = "warn"
+missing_const_for_fn = "allow"
+result_large_err = "allow"
+print_stdout = "warn"
+print_stderr = "warn"
+# unwrap_used = "warn"
 
 [dependencies]
 tracing.workspace = true

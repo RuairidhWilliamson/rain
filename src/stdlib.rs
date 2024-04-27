@@ -12,6 +12,7 @@ use rain_lang::exec::types::function::FunctionArguments;
 use rain_lang::exec::types::RainType;
 use rain_lang::exec::types::{function::Function, record::Record, RainValue};
 use rain_lang::exec::{ExecCF, ExecError};
+use rain_lang::leaf::Leaf;
 use rain_lang::path::RainPath;
 use rain_lang::utils::copy_create_dirs;
 
@@ -60,7 +61,7 @@ struct Stdlib {
 impl Stdlib {
     fn run(
         &self,
-        _executor: &mut Executor,
+        executor: &mut Executor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -97,11 +98,13 @@ impl Stdlib {
             )
             .into());
         };
+        tracing::info!("Run {program_args:?}");
 
         let id: String = uuid::Uuid::new_v4().to_string();
         let exec_directory = self.config.exec_directory().join(&id);
         std::fs::create_dir_all(&exec_directory).unwrap();
 
+        executor.leaves.insert(Leaf::File(program.as_ref().clone()));
         let mut cmd = std::process::Command::new(program.resolve());
         cmd.current_dir(&exec_directory);
         for a in program_args.iter() {
@@ -109,10 +112,12 @@ impl Stdlib {
                 RainValue::String(a) => cmd.arg(a.as_ref()),
                 RainValue::Path(p) => cmd.arg(p.as_ref()),
                 RainValue::File(f) => {
+                    executor.leaves.insert(Leaf::File(f.as_ref().clone()));
                     let path = &f.resolve();
                     let workspace_relative_path = f.workspace_relative_directory();
                     let exec_path = exec_directory.join(workspace_relative_path);
                     copy_create_dirs(path, &exec_path).unwrap();
+
                     cmd.arg(workspace_relative_path)
                 }
                 _ => {
@@ -130,6 +135,7 @@ impl Stdlib {
         for a in extra_files.iter() {
             match a {
                 RainValue::File(f) => {
+                    executor.leaves.insert(Leaf::File(f.as_ref().clone()));
                     let path = &f.resolve();
                     let workspace_relative_path = f.workspace_relative_directory();
                     let exec_path = exec_directory.join(workspace_relative_path);

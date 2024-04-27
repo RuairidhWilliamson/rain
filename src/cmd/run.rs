@@ -62,7 +62,6 @@ impl RunCommand {
         let mut script_executor = ScriptExecutor::new(source.clone());
         let mut executor = Executor::new(&mut base_executor, &mut script_executor);
         Execution::execute(&script, &mut executor)?;
-        eprintln!("Leaves {:#?}", executor.leaves);
         if let Some(target) = &self.target {
             let t = script_executor.global_record.get(target).unwrap();
             let RainValue::Function(func) = t else {
@@ -70,6 +69,7 @@ impl RunCommand {
             };
             let mut executor = Executor::new(&mut base_executor, &mut script_executor);
             let output = func.call(&mut executor, &[], None)?;
+            eprintln!("{:?}", executor.leaves);
             println!("{output:?}");
             if self.execute_output {
                 self.execute_output(output);

@@ -16,6 +16,7 @@ use rain_lang::{
         },
         ExecCF, ExecError,
     },
+    leaf::Leaf,
     path::RainPath,
     utils::copy_create_dirs,
 };
@@ -114,6 +115,7 @@ fn execute_run(
             RainValue::String(a) => cmd.arg(a.as_ref()),
             RainValue::Path(p) => cmd.arg(p.as_ref()),
             RainValue::File(f) => {
+                executor.leaves.insert(Leaf::File(f.as_ref().clone()));
                 let path = f.resolve();
                 let exec_path = executor
                     .base_executor

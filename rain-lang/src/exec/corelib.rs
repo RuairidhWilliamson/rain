@@ -19,6 +19,7 @@ use super::{
 };
 
 pub trait CoreHandler: std::fmt::Debug {
+    #[allow(clippy::print_stdout)]
     fn print(&mut self, s: std::fmt::Arguments) {
         println!("{s}");
     }
@@ -147,6 +148,8 @@ fn execute_import(
     let mut new_executor = Executor::new(executor.base_executor, &mut new_script_executor);
     Execution::execute(&script, &mut new_executor)
         .map_err(|err| err.map_resolve(|err| err.resolve(source).into()))?;
+    tracing::info!("corelib import leaves {:?}", new_executor.leaves);
+    executor.leaves.insert_set(&new_executor.leaves);
     Ok(new_script_executor.global_record.into())
 }
 

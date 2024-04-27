@@ -12,4 +12,10 @@ impl LeafSet {
             self.0.push(leaf);
         }
     }
+
+    pub fn insert_set(&mut self, set: &Self) {
+        for l in &set.0 {
+            self.0.push(l.clone())
+        }
+    }
 }
