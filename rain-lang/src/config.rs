@@ -8,11 +8,11 @@ use serde::{Deserialize, Serialize};
 static CONFIG: Mutex<Option<&'static Config>> = Mutex::new(None);
 
 pub fn global_config() -> &'static Config {
-    CONFIG.lock().unwrap().expect("CONFIG not set")
+    CONFIG.lock().expect("CONFIG lock").expect("CONFIG not set")
 }
 
 pub fn set_global_config(config: Config) {
-    let mut guard = CONFIG.lock().unwrap();
+    let mut guard = CONFIG.lock().expect("CONFIG lock");
     if guard.is_some() {
         panic!("CONFIG is already set");
     }

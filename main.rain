@@ -23,3 +23,12 @@ fn check() {
 		core.error("Outdated Failed")
 	}
 }
+
+fn install_locally() {
+	core.print("Installing...")
+	let out = std.escape.run(program = cargo, args = ["install", "--path", "."])
+	if out.success {
+	} else {
+		core.error("Install Failed")
+	}
+}

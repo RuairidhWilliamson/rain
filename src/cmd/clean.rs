@@ -11,7 +11,8 @@ pub struct CleanCommand {
 
 impl CleanCommand {
     pub fn run(self, _root_workspace: &Workspace) -> ExitCode {
-        let global_cache_size = Self::calc_size(&global_config().cache_directory).unwrap();
+        let global_cache_size =
+            Self::calc_size(&global_config().cache_directory).expect("read cache directory");
         eprintln!("Will delete all files in:");
         eprintln!(
             "  {:.1} MiB {}",
@@ -34,7 +35,7 @@ impl CleanCommand {
         } else {
             tracing::info!("Clean confirm bypassed");
         }
-        std::fs::remove_dir_all(&global_config().cache_directory).unwrap();
+        std::fs::remove_dir_all(&global_config().cache_directory).expect("remove cache directory");
         tracing::info!("Removed recursively {:?}", global_config().cache_directory);
         ExitCode::SUCCESS
     }

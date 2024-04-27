@@ -47,7 +47,7 @@ impl Cli {
             .root
             .unwrap_or_else(Self::find_workspace_root)
             .canonicalize()
-            .unwrap();
+            .expect("canonicalize root directory");
 
         match rain_lang::config::load(&root_workspace_directory).validate() {
             Ok(config) => set_global_config(config),

@@ -15,7 +15,10 @@ impl ConfigCommand {
     pub fn run(self, workspace_root_directory: &Path) -> ExitCode {
         match self {
             Self::Show => {
-                println!("{}", toml::to_string_pretty(global_config()).unwrap());
+                println!(
+                    "{}",
+                    toml::to_string_pretty(global_config()).expect("serialize toml")
+                );
                 ExitCode::SUCCESS
             }
             Self::Paths => {

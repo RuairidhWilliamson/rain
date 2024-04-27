@@ -117,6 +117,7 @@ impl ExternalFn for EscapeRun {
             )
             .into());
         };
+        executor.leaves.insert(Leaf::File(program.as_ref().clone()));
         let mut cmd = std::process::Command::new(program.resolve());
         cmd.current_dir(&executor.base_executor.root_workspace.resolve());
         for a in program_args.iter() {

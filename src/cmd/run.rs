@@ -66,7 +66,13 @@ impl RunCommand {
         let mut executor = Executor::new(&mut base_executor, &mut script_executor);
         Execution::execute(&script, &mut executor)?;
         if let Some(target) = &self.target {
-            let t = script_executor.global_record.get(target).unwrap();
+            let Some(t) = script_executor.global_record.get(target) else {
+                eprintln!(
+                    "Unknown target, choose one of: {}",
+                    script_executor.global_record
+                );
+                return Ok(());
+            };
             let RainValue::Function(func) = t else {
                 panic!("not a function");
             };
@@ -93,7 +99,11 @@ impl RunCommand {
             );
             return ExitCode::FAILURE;
         };
-        if Command::new(p.resolve()).status().unwrap().success() {
+        if Command::new(p.resolve())
+            .status()
+            .expect("execute output")
+            .success()
+        {
             ExitCode::SUCCESS
         } else {
             ExitCode::FAILURE
