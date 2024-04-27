@@ -17,7 +17,7 @@ fn check() {
 	} else {
 		core.error("Tests Failed")
 	}
-	let out = std.escape.run(program = cargo, args = ["outdated", "--workspace"])
+	let out = std.escape.run(program = cargo, args = ["outdated", "--workspace", "--exit-code", "1"])
 	if out.success {
 	} else {
 		core.error("Outdated Failed")
