@@ -5,6 +5,7 @@ use crate::{
         return_stmt::Return, script::Script, statement::Statement, statement_list::StatementList,
         Ast,
     },
+    cache::FunctionCallCacheKey,
     error::RainError,
 };
 
@@ -137,7 +138,17 @@ impl Execution for FnCall {
             .iter()
             .map(|a| a.value.execute(executor).map(|v| (&a.name, v)))
             .collect::<Result<Vec<(&Option<Ident>, RainValue)>, ExecCF>>()?;
-        func.call(executor, &args, Some(self))
+        let k = FunctionCallCacheKey {};
+        if let Some(v) = executor.base_executor.cache.get(&k) {
+            tracing::info!("cache hit");
+            return Ok(v);
+        }
+        tracing::info!("cache miss");
+        let v = func.call(executor, &args, Some(self));
+        if let Ok(v) = &v {
+            executor.base_executor.cache.put(k, v.clone());
+        }
+        v
     }
 }
 

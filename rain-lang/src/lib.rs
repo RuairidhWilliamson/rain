@@ -5,6 +5,7 @@ use exec::{
 };
 
 pub mod ast;
+pub mod cache;
 pub mod config;
 pub mod error;
 pub mod exec;

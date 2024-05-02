@@ -1,3 +1,4 @@
+pub mod cache;
 mod cmd;
 mod error_display;
 mod stdlib;

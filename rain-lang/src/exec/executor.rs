@@ -1,4 +1,4 @@
-use crate::{leaf::LeafSet, path::Workspace, source::Source};
+use crate::{cache::MemCache, leaf::LeafSet, path::Workspace, source::Source};
 
 use super::{
     corelib::{core_lib, CoreHandler},
@@ -7,6 +7,7 @@ use super::{
 
 #[derive(Debug, Default)]
 pub struct ExecutorBuilder {
+    pub cache: Option<Box<dyn crate::cache::Cache>>,
     pub corelib_handler: Option<Box<dyn CoreHandler>>,
     pub stdlib: Option<Record>,
     pub options: super::ExecuteOptions,
@@ -19,9 +20,11 @@ impl ExecutorBuilder {
             .unwrap_or_else(|| Box::new(super::corelib::DefaultCoreHandler));
         let stdlib = self.stdlib.map(RainValue::Record);
         let options = self.options;
+        let cache = self.cache.unwrap_or_else(|| Box::new(MemCache::default()));
 
         BaseExecutor {
             root_workspace,
+            cache,
             corelib: core_lib().into(),
             core_handler: corelib_handler,
             stdlib,
@@ -35,6 +38,7 @@ impl ExecutorBuilder {
 pub struct BaseExecutor {
     pub root_workspace: Workspace,
     pub corelib: RainValue,
+    pub cache: Box<dyn crate::cache::Cache>,
     pub core_handler: Box<dyn CoreHandler>,
     pub stdlib: Option<RainValue>,
     pub options: super::ExecuteOptions,

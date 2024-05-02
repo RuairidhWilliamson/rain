@@ -4,3 +4,8 @@ fn build() {
     let out = core.path("foo")
     return cc.build(core.file(core.path("main.c")), out)
 }
+
+fn call_twice() {
+    let b1 = build()
+    let b2 = build()
+}
