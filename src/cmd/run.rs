@@ -107,6 +107,7 @@ impl RunCommand {
             );
             return ExitCode::FAILURE;
         };
+        eprintln!("=== Executing output ===");
         if Command::new(p.resolve())
             .status()
             .expect("execute output")

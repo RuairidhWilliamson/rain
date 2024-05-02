@@ -19,9 +19,9 @@ use super::{
 };
 
 pub trait CoreHandler: std::fmt::Debug {
-    #[allow(clippy::print_stdout)]
+    #[allow(clippy::print_stderr)]
     fn print(&mut self, s: std::fmt::Arguments) {
-        println!("{s}");
+        eprintln!("{s}");
     }
 }
 
