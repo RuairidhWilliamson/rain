@@ -31,3 +31,13 @@ impl Record {
         self.0.borrow().get(k).cloned()
     }
 }
+
+impl IntoIterator for Record {
+    type Item = (String, RainValue);
+
+    type IntoIter = std::collections::hash_map::IntoIter<String, RainValue>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.take().into_iter()
+    }
+}
