@@ -140,13 +140,21 @@ impl ExternalFn for StdRun {
         }
         tracing::info!("std.run {cmd:?}");
         let output = cmd.output().unwrap();
-
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        let exit_code = output
+            .status
+            .code()
+            .map_or_else(|| RainValue::Void, |code| RainValue::Int(code as isize));
         let out = Record::new([
             (String::from("id"), RainValue::String(id.as_str().into())),
+            (String::from("exit_code"), exit_code),
             (
                 String::from("success"),
                 RainValue::Bool(output.status.success()),
             ),
+            (String::from("stdout"), stdout.into()),
+            (String::from("stderr"), stderr.into()),
         ]);
         Ok(RainValue::Record(out))
     }
