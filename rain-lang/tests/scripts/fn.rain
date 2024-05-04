@@ -3,5 +3,7 @@ fn foo() {
 	return "foo"
 }
 
-let f = foo()
-core.print(f)
+fn main() {
+	let f = foo()
+	core.print(f)
+}

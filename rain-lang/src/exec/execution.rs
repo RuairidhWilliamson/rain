@@ -1,9 +1,9 @@
 use crate::{
     ast::{
-        block::Block, declare::Declare, dot::Dot, expr::Expr, function_call::FnCall,
-        function_def::FnDef, ident::Ident, if_condition::IfCondition, list_literal::ListLiteral,
-        return_stmt::Return, script::Script, statement::Statement, statement_list::StatementList,
-        unary_prefix_operator::UnaryPrefixOperator, Ast,
+        block::Block, dot::Dot, expr::Expr, function_call::FnCall, function_def::FnDef,
+        ident::Ident, if_condition::IfCondition, let_declare::LetDeclare,
+        list_literal::ListLiteral, return_stmt::Return, script::Script, statement::Statement,
+        statement_list::StatementList, unary_prefix_operator::UnaryPrefixOperator, Ast,
     },
     error::RainError,
 };
@@ -143,7 +143,7 @@ impl Execution for FnCall {
     }
 }
 
-impl Execution for Declare {
+impl Execution for LetDeclare {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let value = self.value.execute(executor)?;
         executor

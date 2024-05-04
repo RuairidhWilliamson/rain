@@ -31,11 +31,11 @@ impl Ast for Script {
 #[cfg(test)]
 mod tests {
     use crate::ast::{
-        declare::Declare,
         dot::Dot,
         expr::Expr,
         function_call::{FnCall, FnCallArg},
         ident::Ident,
+        let_declare::LetDeclare,
         statement::Statement,
         string_literal::StringLiteral,
     };
@@ -62,7 +62,7 @@ mod tests {
                         StringLiteral::nosp("hello world").into()
                     )],
                 ))),
-                Statement::LetDeclare(Declare::nosp(
+                Statement::LetDeclare(LetDeclare::nosp(
                     None,
                     Ident::nosp("msg"),
                     StringLiteral::nosp("okie").into(),

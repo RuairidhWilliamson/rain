@@ -13,7 +13,7 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Declare {
+pub struct LetDeclare {
     pub visibility: Option<VisibilitySpecifier>,
     pub token: Span,
     pub name: Ident,
@@ -21,7 +21,7 @@ pub struct Declare {
     pub value: Expr,
 }
 
-impl Declare {
+impl LetDeclare {
     pub fn parse_stream_let(
         visibility: Option<VisibilitySpecifier>,
         stream: &mut PeekTokenStream,
@@ -67,7 +67,7 @@ impl Declare {
     }
 }
 
-impl Ast for Declare {
+impl Ast for LetDeclare {
     fn span(&self) -> Span {
         self.token.combine(self.value.span())
     }

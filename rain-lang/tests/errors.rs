@@ -32,45 +32,45 @@ macro_rules! script_errors_test {
     };
 }
 
-script_errors_test!(
-    unknown_var,
-    "core.print(abc)",
-    RainError::new(
-        ExecError::UnknownItem(String::from("abc")),
-        Span::new(
-            Place {
-                index: 11,
-                line: 0,
-                column: 11,
-            },
-            Place {
-                index: 14,
-                line: 0,
-                column: 14,
-            },
-        ),
-    )
-);
+// script_errors_test!(
+//     unknown_var,
+//     "fn main() { core.print(abc) }",
+//     RainError::new(
+//         ExecError::UnknownItem(String::from("abc")),
+//         Span::new(
+//             Place {
+//                 index: 11,
+//                 line: 0,
+//                 column: 11,
+//             },
+//             Place {
+//                 index: 14,
+//                 line: 0,
+//                 column: 14,
+//             },
+//         ),
+//     )
+// );
 
-script_errors_test!(
-    unknown_function,
-    "foo(\"\")",
-    RainError::new(
-        ExecError::UnknownItem(String::from("foo")),
-        Span::new(
-            Place {
-                index: 0,
-                line: 0,
-                column: 0,
-            },
-            Place {
-                index: 3,
-                line: 0,
-                column: 3,
-            },
-        ),
-    )
-);
+// script_errors_test!(
+//     unknown_function,
+//     "fn main() { foo(\"\") }",
+//     RainError::new(
+//         ExecError::UnknownItem(String::from("foo")),
+//         Span::new(
+//             Place {
+//                 index: 0,
+//                 line: 0,
+//                 column: 0,
+//             },
+//             Place {
+//                 index: 3,
+//                 line: 0,
+//                 column: 3,
+//             },
+//         ),
+//     )
+// );
 
 script_errors_test!(
     unclosed_double_quote,

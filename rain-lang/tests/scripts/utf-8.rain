@@ -1,2 +1,2 @@
-let 🌧 = "rain"
-let rain_emoji = "🌧"
+lazy 🌧 = "rain"
+lazy rain_emoji = "🌧"

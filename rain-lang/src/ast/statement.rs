@@ -5,15 +5,15 @@ use crate::{
 };
 
 use super::{
-    declare::Declare, expr::Expr, function_def::FnDef, helpers::NextTokenSpanHelpers,
+    expr::Expr, function_def::FnDef, helpers::NextTokenSpanHelpers, let_declare::LetDeclare,
     return_stmt::Return, visibility_specifier::VisibilitySpecifier, Ast, ParseError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Statement {
     Expr(Expr),
-    LetDeclare(Declare),
-    LazyDeclare(Declare),
+    LetDeclare(LetDeclare),
+    LazyDeclare(LetDeclare),
     FnDef(FnDef),
     Return(Return),
 }
@@ -25,8 +25,12 @@ impl Statement {
             .value()
             .ref_expect_not_end(ParseError::ExpectedStmt)?;
         match TokenKind::from(&peeking_token.token) {
-            TokenKind::Let => Ok(Self::LetDeclare(Declare::parse_stream_let(None, stream)?)),
-            TokenKind::Lazy => Ok(Self::LazyDeclare(Declare::parse_stream_lazy(None, stream)?)),
+            TokenKind::Let => Ok(Self::LetDeclare(LetDeclare::parse_stream_let(
+                None, stream,
+            )?)),
+            TokenKind::Lazy => Ok(Self::LazyDeclare(LetDeclare::parse_stream_lazy(
+                None, stream,
+            )?)),
             TokenKind::Fn => Ok(Self::FnDef(FnDef::parse_stream(None, stream)?)),
             TokenKind::Return => Ok(Self::Return(Return::parse_stream(stream)?)),
             TokenKind::Pub => {
@@ -41,11 +45,11 @@ impl Statement {
                             TokenKind::Fn,
                         ]))?;
                 match TokenKind::from(&peeking_token.token) {
-                    TokenKind::Let => Ok(Self::LetDeclare(Declare::parse_stream_let(
+                    TokenKind::Let => Ok(Self::LetDeclare(LetDeclare::parse_stream_let(
                         Some(visibility),
                         stream,
                     )?)),
-                    TokenKind::Lazy => Ok(Self::LazyDeclare(Declare::parse_stream_lazy(
+                    TokenKind::Lazy => Ok(Self::LazyDeclare(LetDeclare::parse_stream_lazy(
                         Some(visibility),
                         stream,
                     )?)),
@@ -112,7 +116,7 @@ mod tests {
     parse_statement_test!(
         parse_declare,
         "let a = b",
-        Statement::LetDeclare(Declare::nosp(
+        Statement::LetDeclare(LetDeclare::nosp(
             None,
             Ident::nosp("a"),
             Expr::Ident(Ident::nosp("b")),
@@ -122,7 +126,7 @@ mod tests {
     parse_statement_test!(
         parse_utf8_declare,
         "let 🌧 = \"rain\"",
-        Statement::LetDeclare(Declare::nosp(
+        Statement::LetDeclare(LetDeclare::nosp(
             None,
             Ident::nosp("🌧"),
             Expr::StringLiteral(StringLiteral::nosp("rain"))
@@ -164,7 +168,7 @@ mod tests {
     parse_statement_test!(
         parse_lazy,
         "lazy a = b",
-        Statement::LazyDeclare(Declare::nosp(
+        Statement::LazyDeclare(LetDeclare::nosp(
             None,
             Ident::nosp("a"),
             Ident::nosp("b").into()
@@ -174,7 +178,7 @@ mod tests {
     parse_statement_test!(
         parse_pub_lazy,
         "pub lazy a = b",
-        Statement::LazyDeclare(Declare::nosp(
+        Statement::LazyDeclare(LetDeclare::nosp(
             Some(VisibilitySpecifier::nosp()),
             Ident::nosp("a"),
             Ident::nosp("b").into()
@@ -184,7 +188,7 @@ mod tests {
     parse_statement_test!(
         parse_pub_let,
         "pub let b = a",
-        Statement::LetDeclare(Declare::nosp(
+        Statement::LetDeclare(LetDeclare::nosp(
             Some(VisibilitySpecifier::nosp()),
             Ident::nosp("b"),
             Ident::nosp("a").into()

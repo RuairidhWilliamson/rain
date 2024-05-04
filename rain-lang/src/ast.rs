@@ -4,13 +4,13 @@ mod helpers;
 
 pub mod block;
 pub mod bool_literal;
-pub mod declare;
 pub mod dot;
 pub mod expr;
 pub mod function_call;
 pub mod function_def;
 pub mod ident;
 pub mod if_condition;
+pub mod let_declare;
 pub mod list_literal;
 pub mod match_expr;
 pub mod return_stmt;

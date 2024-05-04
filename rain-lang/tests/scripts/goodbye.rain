@@ -1,3 +1,5 @@
-core.print("Hello World")
-# We can do some cool stuff in between here
-core.print("Goodbye") # yay
+fn main() {
+	core.print("Hello World")
+	# We can do some cool stuff in between here
+	core.print("Goodbye") # yay
+}
