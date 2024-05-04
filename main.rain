@@ -13,15 +13,17 @@ fn escape_run(program, args) {
 	}
 }
 
-fn check() {
+# Runs all the checks
+pub fn check() {
 	core.print("Checking...")
-	escape_run(program = cargo, args = ["clippy", "--workspace", "--", "--deny", "warnings"])
+	escape_run(program = cargo, args = ["clippy", "--workspace", "--color", "always", "--", "--deny", "warnings"])
 	escape_run(program = cargo, args = ["fmt", "--check"])
 	escape_run(program = cargo, args = ["test", "--workspace"])
 	escape_run(program = cargo, args = ["outdated", "--workspace", "--exit-code", "1"])
 }
 
-fn install_locally() {
+# Installs rain locally in cargo bin
+pub fn install_locally() {
 	check()
 	core.print("Installing...")
 	escape_run(program = cargo, args = ["install", "--path", "."])

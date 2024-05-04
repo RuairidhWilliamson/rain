@@ -19,6 +19,7 @@ pub mod statement;
 pub mod statement_list;
 pub mod string_literal;
 pub mod unary_prefix_operator;
+pub mod visibility_specifier;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseError {

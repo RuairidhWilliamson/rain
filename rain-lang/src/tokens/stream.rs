@@ -185,6 +185,7 @@ impl<'a> TokenStream<'a> {
             "else" => Token::Else,
             "fn" => Token::Fn,
             "return" => Token::Return,
+            "pub" => Token::Pub,
             "match" => Token::Match,
             "true" => Token::TrueLiteral,
             "false" => Token::FalseLiteral,

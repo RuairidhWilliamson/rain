@@ -8,11 +8,13 @@ use super::{
     block::Block,
     helpers::{NextTokenSpanHelpers, PeekTokenStreamHelpers},
     ident::Ident,
+    visibility_specifier::VisibilitySpecifier,
     Ast, ParseError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnDef {
+    pub visibility: Option<VisibilitySpecifier>,
     pub fn_token: Span,
     pub name: Ident,
     pub lparen_token: Span,
@@ -22,7 +24,10 @@ pub struct FnDef {
 }
 
 impl FnDef {
-    pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
+    pub fn parse_stream(
+        visibility: Option<VisibilitySpecifier>,
+        stream: &mut PeekTokenStream,
+    ) -> Result<Self, RainError> {
         let fn_token = stream.expect_parse_next(TokenKind::Fn)?.span;
         let name = Ident::parse(stream.expect_parse_next(TokenKind::Ident)?)?;
         let lparen_token = stream.expect_parse_next(TokenKind::LParen)?.span;
@@ -63,6 +68,7 @@ impl FnDef {
         }
         let block = Block::parse_stream(stream)?;
         Ok(Self {
+            visibility,
             fn_token,
             name,
             lparen_token,
@@ -72,8 +78,14 @@ impl FnDef {
         })
     }
 
-    pub fn nosp(name: Ident, args: Vec<FnDefArg>, block: Block) -> Self {
+    pub fn nosp(
+        visibility: Option<VisibilitySpecifier>,
+        name: Ident,
+        args: Vec<FnDefArg>,
+        block: Block,
+    ) -> Self {
         Self {
+            visibility,
             fn_token: Span::default(),
             name,
             lparen_token: Span::default(),
@@ -90,6 +102,9 @@ impl Ast for FnDef {
     }
 
     fn reset_spans(&mut self) {
+        for v in &mut self.visibility {
+            v.reset_spans();
+        }
         self.fn_token.reset();
         self.name.reset_spans();
         self.lparen_token.reset();
@@ -130,7 +145,7 @@ mod tests {
 
     fn parse_fn_def(source: &str) -> Result<FnDef, RainError> {
         let mut stream = PeekTokenStream::new(source);
-        let mut fn_def = super::FnDef::parse_stream(&mut stream)?;
+        let mut fn_def = super::FnDef::parse_stream(None, &mut stream)?;
         fn_def.reset_spans();
         Ok(fn_def)
     }
@@ -140,7 +155,7 @@ mod tests {
         let fn_def = parse_fn_def("fn foo() {}")?;
         assert_eq!(
             fn_def,
-            FnDef::nosp(Ident::nosp("foo"), vec![], Block::nosp(vec![])),
+            FnDef::nosp(None, Ident::nosp("foo"), vec![], Block::nosp(vec![])),
         );
         Ok(())
     }
@@ -151,6 +166,7 @@ mod tests {
         assert_eq!(
             fn_def,
             FnDef::nosp(
+                None,
                 Ident::nosp("foo"),
                 vec![FnDefArg::nosp(Ident::nosp("a"))],
                 Block::nosp(vec![])

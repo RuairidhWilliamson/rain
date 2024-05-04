@@ -63,6 +63,7 @@ mod tests {
                     )],
                 ))),
                 Statement::LetDeclare(Declare::nosp(
+                    None,
                     Ident::nosp("msg"),
                     StringLiteral::nosp("okie").into(),
                 )),

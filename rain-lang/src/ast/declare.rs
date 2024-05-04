@@ -8,11 +8,13 @@ use super::{
     expr::Expr,
     helpers::{NextTokenSpanHelpers, PeekTokenStreamHelpers},
     ident::Ident,
+    visibility_specifier::VisibilitySpecifier,
     Ast,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Declare {
+    pub visibility: Option<VisibilitySpecifier>,
     pub token: Span,
     pub name: Ident,
     pub equals_token: Span,
@@ -20,22 +22,33 @@ pub struct Declare {
 }
 
 impl Declare {
-    pub fn parse_stream_let(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
+    pub fn parse_stream_let(
+        visibility: Option<VisibilitySpecifier>,
+        stream: &mut PeekTokenStream,
+    ) -> Result<Self, RainError> {
         let token = stream.parse_next()?.expect_next(TokenKind::Let)?;
-        Self::parse_stream(token.span, stream)
+        Self::parse_stream(visibility, token.span, stream)
     }
 
-    pub fn parse_stream_lazy(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
+    pub fn parse_stream_lazy(
+        visibility: Option<VisibilitySpecifier>,
+        stream: &mut PeekTokenStream,
+    ) -> Result<Self, RainError> {
         let token = stream.parse_next()?.expect_next(TokenKind::Lazy)?;
-        Self::parse_stream(token.span, stream)
+        Self::parse_stream(visibility, token.span, stream)
     }
 
-    fn parse_stream(token: Span, stream: &mut PeekTokenStream) -> Result<Self, RainError> {
+    fn parse_stream(
+        visibility: Option<VisibilitySpecifier>,
+        token: Span,
+        stream: &mut PeekTokenStream,
+    ) -> Result<Self, RainError> {
         let ident_token = stream.expect_parse_next(TokenKind::Ident)?;
         let name = Ident::parse(ident_token)?;
         let equals_token = stream.expect_parse_next(TokenKind::Equals)?.span;
         let value = Expr::parse_stream(stream)?;
         Ok(Self {
+            visibility,
             token,
             name,
             equals_token,
@@ -43,8 +56,9 @@ impl Declare {
         })
     }
 
-    pub fn nosp(name: Ident, value: Expr) -> Self {
+    pub fn nosp(visibility: Option<VisibilitySpecifier>, name: Ident, value: Expr) -> Self {
         Self {
+            visibility,
             token: Span::default(),
             name,
             equals_token: Span::default(),
@@ -59,6 +73,9 @@ impl Ast for Declare {
     }
 
     fn reset_spans(&mut self) {
+        for v in &mut self.visibility {
+            v.reset_spans();
+        }
         self.token.reset();
         self.name.reset_spans();
         self.equals_token.reset();

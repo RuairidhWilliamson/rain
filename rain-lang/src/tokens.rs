@@ -15,6 +15,7 @@ pub enum Token<'a> {
     If,           // if
     Else,         // else
     Fn,           // fn
+    Pub,          // pub
     Return,       // return
     Match,        // match
     TrueLiteral,  // true
