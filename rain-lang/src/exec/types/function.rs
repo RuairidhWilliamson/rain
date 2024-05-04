@@ -2,13 +2,14 @@ use std::rc::Rc;
 
 use crate::{
     ast::{function_call::FnCall, function_def::FnDef, ident::Ident, Ast},
+    cache::{CacheEntry, FunctionCallCacheKey},
     error::RainError,
     exec::{execution::Execution, executor::Executor, ExecCF, ExecError},
     leaf::LeafSet,
     source::Source,
 };
 
-use super::{record::Record, RainValue};
+use super::RainValue;
 
 pub type FunctionArguments<'a> = [(&'a Option<Ident>, RainValue)];
 
@@ -95,9 +96,16 @@ impl FunctionImpl {
                     .iter()
                     .zip(args.iter().filter(|(n, _)| n.is_none()))
                     .map(|(k, (_n, v))| (k.name.name.clone(), v.clone()));
+                let k = FunctionCallCacheKey::default();
+                if let Some(v) = executor.base_executor.cache.get(&k) {
+                    tracing::info!("cache hit");
+                    executor.leaves.insert_set(&v.leaves);
+                    return Ok(v.value);
+                }
+                tracing::info!("cache miss");
 
                 let locals = named_args.chain(positionals);
-                let local_record = Record::new(locals);
+                let local_record = locals.collect();
                 let mut new_executor = Executor {
                     base_executor: executor.base_executor,
                     script_executor: executor.script_executor,
@@ -110,7 +118,17 @@ impl FunctionImpl {
                     Err(ExecCF::RainError(err)) => Err(err.resolve(source.clone()).into()),
                     v => v,
                 };
-                executor.leaves.insert_set(&new_executor.leaves);
+                let leaves = new_executor.leaves;
+                executor.leaves.insert_set(&leaves);
+                if let Ok(v) = &out {
+                    executor.base_executor.cache.put(
+                        k,
+                        CacheEntry {
+                            value: v.clone(),
+                            leaves,
+                        },
+                    );
+                }
                 out
             }
             Self::External(func) => func.call(executor, args, fn_call),

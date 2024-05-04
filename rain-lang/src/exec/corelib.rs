@@ -55,6 +55,7 @@ pub fn core_lib() -> Record {
     ])
 }
 
+#[derive(PartialEq, Eq)]
 struct CorePrint;
 
 impl ExternalFn for CorePrint {
@@ -84,6 +85,7 @@ impl ExternalFn for CorePrint {
     }
 }
 
+#[derive(PartialEq, Eq)]
 struct CoreError;
 
 impl ExternalFn for CoreError {
@@ -117,6 +119,7 @@ impl ExternalFn for CoreError {
     }
 }
 
+#[derive(PartialEq, Eq)]
 struct CoreImport;
 
 impl ExternalFn for CoreImport {
@@ -164,10 +167,12 @@ impl ExternalFn for CoreImport {
             .map_err(|err| err.map_resolve(|err| err.resolve(source).into()))?;
         tracing::info!("corelib import leaves {:?}", new_executor.leaves);
         executor.leaves.insert_set(&new_executor.leaves);
-        Ok(new_script_executor.global_record.into())
+        let record: Record = new_script_executor.global_record.into();
+        Ok(record.into())
     }
 }
 
+#[derive(PartialEq, Eq)]
 struct CorePath;
 
 impl ExternalFn for CorePath {
@@ -201,6 +206,7 @@ impl ExternalFn for CorePath {
     }
 }
 
+#[derive(PartialEq, Eq)]
 struct CoreFile;
 
 impl ExternalFn for CoreFile {

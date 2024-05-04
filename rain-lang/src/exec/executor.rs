@@ -1,3 +1,5 @@
+use ordered_hash_map::OrderedHashMap;
+
 use crate::{cache::MemCache, leaf::LeafSet, path::Workspace, source::Source};
 
 use super::{
@@ -20,7 +22,7 @@ impl ExecutorBuilder {
             .unwrap_or_else(|| Box::new(super::corelib::DefaultCoreHandler));
         let stdlib = self.stdlib.map(RainValue::Record);
         let options = self.options;
-        let cache = self.cache.unwrap_or_else(|| Box::new(MemCache::default()));
+        let cache = self.cache.unwrap_or_else(|| Box::<MemCache>::default());
 
         BaseExecutor {
             root_workspace,
@@ -48,7 +50,7 @@ pub struct BaseExecutor {
 #[derive(Debug)]
 pub struct ScriptExecutor {
     pub source: Source,
-    pub global_record: super::types::record::Record,
+    pub global_record: OrderedHashMap<String, RainValue>,
 }
 
 /// Executor is held for the lifetime of a function call, a new Executor is created for each function call, except external function calls
@@ -57,16 +59,16 @@ pub struct ScriptExecutor {
 pub struct Executor<'a> {
     pub base_executor: &'a mut BaseExecutor,
     pub script_executor: &'a mut ScriptExecutor,
-    pub local_record: super::types::record::Record,
+    pub local_record: OrderedHashMap<String, RainValue>,
     pub call_depth: usize,
     pub leaves: LeafSet,
 }
 
 impl BaseExecutor {
-    pub fn resolve(&self, name: &str) -> Option<RainValue> {
+    pub fn resolve(&self, name: &str) -> Option<&RainValue> {
         match name {
-            "core" => Some(self.corelib.clone()),
-            "std" => self.stdlib.as_ref().cloned(),
+            "core" => Some(&self.corelib),
+            "std" => self.stdlib.as_ref(),
             _ => None,
         }
     }
@@ -75,12 +77,12 @@ impl BaseExecutor {
 impl ScriptExecutor {
     pub fn new(source: Source) -> Self {
         Self {
-            global_record: Record::default(),
+            global_record: OrderedHashMap::default(),
             source,
         }
     }
 
-    pub fn resolve(&self, name: &str) -> Option<RainValue> {
+    pub fn resolve(&self, name: &str) -> Option<&RainValue> {
         self.global_record.get(name)
     }
 }
@@ -93,7 +95,7 @@ impl<'a> Executor<'a> {
         Self {
             base_executor,
             script_executor,
-            local_record: super::types::record::Record::default(),
+            local_record: OrderedHashMap::default(),
             call_depth: 0,
             leaves: LeafSet::default(),
         }
@@ -103,11 +105,11 @@ impl<'a> Executor<'a> {
         &mut self.base_executor.core_handler
     }
 
-    pub fn global_record(&mut self) -> &mut super::types::record::Record {
+    pub fn global_record(&mut self) -> &mut OrderedHashMap<String, RainValue> {
         &mut self.script_executor.global_record
     }
 
-    pub fn resolve(&self, name: &str) -> Option<RainValue> {
+    pub fn resolve(&self, name: &str) -> Option<&RainValue> {
         self.local_record
             .get(name)
             .or_else(|| self.script_executor.resolve(name))

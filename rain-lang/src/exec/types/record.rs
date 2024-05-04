@@ -1,15 +1,16 @@
-use std::{cell::RefCell, collections::HashMap, ops::Deref, rc::Rc};
+use std::{ops::Deref, rc::Rc};
+
+use ordered_hash_map::OrderedHashMap;
 
 use super::RainValue;
 
 #[derive(Debug, Clone, Default)]
-pub struct Record(Rc<RefCell<HashMap<String, RainValue>>>);
+pub struct Record(Rc<OrderedHashMap<String, RainValue>>);
 
 impl std::fmt::Display for Record {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let guard = self.0.borrow();
         f.write_str("{ ")?;
-        guard
+        self.0
             .deref()
             .iter()
             .try_for_each(|(k, v)| f.write_fmt(format_args!("{k}: {v}, ")))?;
@@ -20,24 +21,26 @@ impl std::fmt::Display for Record {
 impl Record {
     pub fn new(kv: impl IntoIterator<Item = (String, RainValue)>) -> Self {
         let m = kv.into_iter().collect();
-        Self(Rc::new(RefCell::new(m)))
-    }
-
-    pub fn insert(&mut self, k: String, v: RainValue) {
-        self.0.borrow_mut().insert(k, v);
+        Self(Rc::new(m))
     }
 
     pub fn get(&self, k: &str) -> Option<RainValue> {
-        self.0.borrow().get(k).cloned()
+        self.0.get(k).cloned()
     }
 }
 
 impl IntoIterator for Record {
     type Item = (String, RainValue);
 
-    type IntoIter = std::collections::hash_map::IntoIter<String, RainValue>;
+    type IntoIter = ordered_hash_map::ordered_map::IntoIter<String, RainValue>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.take().into_iter()
+        self.0.deref().clone().into_iter()
+    }
+}
+
+impl From<OrderedHashMap<String, RainValue>> for Record {
+    fn from(map: OrderedHashMap<String, RainValue>) -> Self {
+        Self(Rc::new(map))
     }
 }

@@ -5,7 +5,6 @@ use crate::{
         return_stmt::Return, script::Script, statement::Statement, statement_list::StatementList,
         Ast,
     },
-    cache::FunctionCallCacheKey,
     error::RainError,
 };
 
@@ -83,6 +82,7 @@ impl Execution for Ident {
     fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         executor
             .resolve(&self.name)
+            .cloned()
             .ok_or(ExecCF::RainError(RainError::new(
                 ExecError::UnknownItem(self.name.to_string()),
                 self.span,
@@ -138,17 +138,7 @@ impl Execution for FnCall {
             .iter()
             .map(|a| a.value.execute(executor).map(|v| (&a.name, v)))
             .collect::<Result<Vec<(&Option<Ident>, RainValue)>, ExecCF>>()?;
-        let k = FunctionCallCacheKey {};
-        if let Some(v) = executor.base_executor.cache.get(&k) {
-            tracing::info!("cache hit");
-            return Ok(v);
-        }
-        tracing::info!("cache miss");
-        let v = func.call(executor, &args, Some(self));
-        if let Ok(v) = &v {
-            executor.base_executor.cache.put(k, v.clone());
-        }
-        v
+        func.call(executor, &args, Some(self))
     }
 }
 

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct RainPath {
     /// Scope of the rain path
     scope: RainPathScope,
@@ -70,7 +70,7 @@ impl RainPath {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum RainPathScope {
     Escaped,
     Workspace(Workspace),
@@ -86,7 +86,7 @@ impl RainPathScope {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Workspace {
     Local(PathBuf),
     Remote(RemoteWorkspace),
@@ -112,7 +112,7 @@ impl Workspace {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum RemoteWorkspace {
     Git(GitWorkspace),
 }
@@ -123,13 +123,13 @@ impl RemoteWorkspace {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct GitWorkspace {
     pub remote: String,
     pub reference: GitRef,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum GitRef {
     Commit(String),
     Tag(String),

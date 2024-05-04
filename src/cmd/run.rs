@@ -9,7 +9,7 @@ use rain_lang::{
     exec::{
         execution::Execution,
         executor::{Executor, ExecutorBuilder, ScriptExecutor},
-        types::{record::Record, RainValue},
+        types::RainValue,
         ExecCF, ExecuteOptions,
     },
     path::Workspace,
@@ -66,9 +66,9 @@ impl RunCommand {
         let mut executor = Executor::new(&mut base_executor, &mut script_executor);
         Execution::execute(&script, &mut executor)?;
         if let Some(target) = &self.target {
-            let Some(t) = script_executor.global_record.get(target) else {
+            let Some(t) = script_executor.global_record.get(target).cloned() else {
                 eprintln!("Unknown target, specify a target:",);
-                self.print_targets(script_executor.global_record);
+                self.print_targets(script_executor.global_record.clone());
                 return Ok(());
             };
             let RainValue::Function(func) = t else {
@@ -90,8 +90,8 @@ impl RunCommand {
         Ok(())
     }
 
-    fn print_targets(&self, record: Record) {
-        let mut records: Vec<(String, RainValue)> = record.into_iter().collect();
+    fn print_targets(&self, iter: impl IntoIterator<Item = (String, RainValue)>) {
+        let mut records: Vec<(String, RainValue)> = iter.into_iter().collect();
         records.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
         for (k, v) in records {
             let t = v.as_type();

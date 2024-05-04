@@ -25,6 +25,7 @@ fn check() {
 }
 
 fn install_locally() {
+	check()
 	core.print("Installing...")
 	let out = std.escape.run(program = cargo, args = ["install", "--path", "."])
 	if out.success {

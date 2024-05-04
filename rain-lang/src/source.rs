@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::path::{RainPath, RainPathScope};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Source {
     pub path: SourcePath,
     pub source: Rc<str>,
@@ -39,7 +39,7 @@ impl Source {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SourcePath {
     FilePath { path: RainPath },
     Evaluated { directory: RainPath },
