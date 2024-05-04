@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::path::RainPath;
+use crate::{ast::script::Script, path::RainPath};
 
 pub mod function;
 pub mod record;
@@ -18,6 +18,7 @@ pub enum RainValue {
     Record(record::Record),
     List(Rc<[RainValue]>),
     Function(function::Function),
+    Script(Rc<Script>),
 }
 
 impl RainValue {
@@ -64,6 +65,7 @@ impl std::fmt::Display for RainValue {
             Self::Record(r) => r.fmt(f),
             Self::List(_) => f.write_str("List"),
             Self::Function(func) => func.fmt(f),
+            Self::Script(_) => f.write_str("Script"),
         }
     }
 }

@@ -28,6 +28,7 @@ pub enum ParseError {
     Expected(TokenKind),
     ExpectedAny(&'static [TokenKind]),
     ExpectedStmt,
+    DuplicateDeclare(Span),
 }
 
 impl std::fmt::Display for ParseError {

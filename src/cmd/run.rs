@@ -5,11 +5,10 @@ use std::{
 
 use clap::Args;
 use rain_lang::{
-    ast::script::Script,
+    ast::script::{Declaration, Script},
     exec::{
-        execution::Execution,
-        executor::{Executor, ExecutorBuilder, ScriptExecutor},
-        types::RainValue,
+        executor::{ExecutorBuilder, FunctionExecutor, ScriptExecutor},
+        types::{function::Function, RainValue},
         ExecCF, ExecuteOptions,
     },
     path::Workspace,
@@ -55,27 +54,26 @@ impl RunCommand {
     fn run_inner(self, source: &Source, workspace: &Workspace) -> Result<(), ExecCF> {
         let mut token_stream = PeekTokenStream::new(&source.source);
         let script = Script::parse_stream(&mut token_stream)?;
-        let options = ExecuteOptions::default();
-        let mut base_executor = ExecutorBuilder {
-            stdlib: Some(crate::stdlib::new_stdlib()),
-            options,
-            ..Default::default()
-        }
-        .build(workspace.clone());
-        let mut script_executor = ScriptExecutor::new(source.clone());
-        let mut executor = Executor::new(&mut base_executor, &mut script_executor);
-        Execution::execute(&script, &mut executor)?;
         if let Some(target) = &self.target {
-            let Some(t) = script_executor.global_record.get(target).cloned() else {
+            let Some(t) = script.get(target).cloned() else {
                 eprintln!("Unknown target, specify a target:",);
-                self.print_targets(script_executor.global_record.clone());
+                self.print_targets(script.declarations.clone());
                 return Ok(());
             };
-            let RainValue::Function(func) = t else {
+            let Declaration::FnDeclare(func) = t else {
                 panic!("not a function");
             };
-            let mut executor = Executor::new(&mut base_executor, &mut script_executor);
-            let output = func.call(&mut executor, &[], None)?;
+            let options = ExecuteOptions::default();
+            let mut base_executor = ExecutorBuilder {
+                stdlib: Some(crate::stdlib::new_stdlib()),
+                options,
+                ..Default::default()
+            }
+            .build(workspace.clone());
+            let mut script_executor = ScriptExecutor::new(source.clone(), script.clone());
+            let mut executor = FunctionExecutor::new(&mut base_executor, &mut script_executor);
+            let output =
+                Function::new(source.clone(), func.clone()).call(&mut executor, &[], None)?;
             if self.show_leaves {
                 eprintln!("{:?}", executor.leaves);
             }
@@ -85,17 +83,22 @@ impl RunCommand {
             }
         } else {
             eprintln!("Specify a target:");
-            self.print_targets(script_executor.global_record)
+            self.print_targets(script.declarations)
         }
         Ok(())
     }
 
-    fn print_targets(&self, iter: impl IntoIterator<Item = (String, RainValue)>) {
-        let mut records: Vec<(String, RainValue)> = iter.into_iter().collect();
+    fn print_targets(&self, iter: impl IntoIterator<Item = (String, Declaration)>) {
+        let mut records: Vec<(String, Declaration)> = iter.into_iter().collect();
         records.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
-        for (k, v) in records {
-            let t = v.as_type();
-            eprintln!("{k}: {t:?}");
+        for (k, d) in records {
+            let Declaration::FnDeclare(d) = d else {
+                continue;
+            };
+            if d.visibility.is_none() {
+                continue;
+            }
+            eprintln!("{k}");
         }
     }
 

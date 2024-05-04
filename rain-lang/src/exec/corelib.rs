@@ -8,8 +8,7 @@ use crate::{
 };
 
 use super::{
-    execution::Execution,
-    executor::{Executor, ScriptExecutor},
+    executor::FunctionExecutor,
     types::{
         function::{ExternalFn, Function, FunctionArguments},
         record::Record,
@@ -61,7 +60,7 @@ struct CorePrint;
 impl ExternalFn for CorePrint {
     fn call(
         &self,
-        executor: &mut Executor,
+        executor: &mut FunctionExecutor,
         args: &FunctionArguments,
         _fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -91,7 +90,7 @@ struct CoreError;
 impl ExternalFn for CoreError {
     fn call(
         &self,
-        _executor: &mut Executor,
+        _executor: &mut FunctionExecutor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -125,7 +124,7 @@ struct CoreImport;
 impl ExternalFn for CoreImport {
     fn call(
         &self,
-        executor: &mut Executor,
+        executor: &mut FunctionExecutor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -161,14 +160,7 @@ impl ExternalFn for CoreImport {
         let mut token_stream = PeekTokenStream::new(&source.source);
         let script =
             Script::parse_stream(&mut token_stream).map_err(|err| err.resolve(source.clone()))?;
-        let mut new_script_executor = ScriptExecutor::new(source.clone());
-        let mut new_executor = Executor::new(executor.base_executor, &mut new_script_executor);
-        Execution::execute(&script, &mut new_executor)
-            .map_err(|err| err.map_resolve(|err| err.resolve(source).into()))?;
-        tracing::info!("corelib import leaves {:?}", new_executor.leaves);
-        executor.leaves.insert_set(&new_executor.leaves);
-        let record: Record = new_script_executor.global_record.into();
-        Ok(record.into())
+        Ok(RainValue::Script(Rc::new(script)))
     }
 }
 
@@ -178,7 +170,7 @@ struct CorePath;
 impl ExternalFn for CorePath {
     fn call(
         &self,
-        _executor: &mut Executor,
+        _executor: &mut FunctionExecutor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -212,7 +204,7 @@ struct CoreFile;
 impl ExternalFn for CoreFile {
     fn call(
         &self,
-        executor: &mut Executor,
+        executor: &mut FunctionExecutor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {

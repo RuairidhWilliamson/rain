@@ -4,7 +4,7 @@ use crate::{
     ast::{function_call::FnCall, function_def::FnDef, ident::Ident, Ast},
     cache::{CacheEntry, FunctionCallCacheKey},
     error::RainError,
-    exec::{execution::Execution, executor::Executor, ExecCF, ExecError},
+    exec::{execution::Execution, executor::FunctionExecutor, ExecCF, ExecError},
     leaf::LeafSet,
     source::Source,
 };
@@ -33,7 +33,7 @@ impl Function {
 
     pub fn call(
         &self,
-        executor: &mut Executor,
+        executor: &mut FunctionExecutor,
         args: &[(&Option<Ident>, RainValue)],
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -50,7 +50,7 @@ impl std::fmt::Display for Function {
 pub trait ExternalFn {
     fn call(
         &self,
-        executor: &mut Executor,
+        executor: &mut FunctionExecutor,
         args: &FunctionArguments,
         call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF>;
@@ -73,7 +73,7 @@ impl std::fmt::Debug for FunctionImpl {
 impl FunctionImpl {
     fn call(
         &self,
-        executor: &mut Executor,
+        executor: &mut FunctionExecutor,
         args: &[(&Option<Ident>, RainValue)],
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -106,7 +106,7 @@ impl FunctionImpl {
 
                 let locals = named_args.chain(positionals);
                 let local_record = locals.collect();
-                let mut new_executor = Executor {
+                let mut new_executor = FunctionExecutor {
                     base_executor: executor.base_executor,
                     script_executor: executor.script_executor,
                     local_record,

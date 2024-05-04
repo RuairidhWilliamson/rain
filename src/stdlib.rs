@@ -6,7 +6,7 @@ use rain_lang::ast::function_call::FnCall;
 use rain_lang::ast::Ast;
 use rain_lang::config::{global_config, Config};
 use rain_lang::error::RainError;
-use rain_lang::exec::executor::Executor;
+use rain_lang::exec::executor::FunctionExecutor;
 use rain_lang::exec::external::extract_arg;
 use rain_lang::exec::types::function::{ExternalFn, FunctionArguments};
 use rain_lang::exec::types::RainType;
@@ -45,7 +45,7 @@ struct StdRun {
 impl ExternalFn for StdRun {
     fn call(
         &self,
-        executor: &mut Executor,
+        executor: &mut FunctionExecutor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -167,7 +167,7 @@ struct StdGenerated {
 impl ExternalFn for StdGenerated {
     fn call(
         &self,
-        _executor: &mut Executor,
+        _executor: &mut FunctionExecutor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -223,7 +223,7 @@ impl ExternalFn for StdDownload {
     #[allow(unused)]
     fn call(
         &self,
-        executor: &mut Executor,
+        executor: &mut FunctionExecutor,
         args: &FunctionArguments,
         call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {

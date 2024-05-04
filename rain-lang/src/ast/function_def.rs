@@ -94,6 +94,10 @@ impl FnDef {
             block,
         }
     }
+
+    pub fn name(&self) -> String {
+        self.name.name.clone()
+    }
 }
 
 impl Ast for FnDef {

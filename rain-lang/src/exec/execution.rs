@@ -1,37 +1,31 @@
 use crate::{
     ast::{
-        block::Block, dot::Dot, expr::Expr, function_call::FnCall, function_def::FnDef,
-        ident::Ident, if_condition::IfCondition, let_declare::LetDeclare,
-        list_literal::ListLiteral, return_stmt::Return, script::Script, statement::Statement,
-        statement_list::StatementList, unary_prefix_operator::UnaryPrefixOperator, Ast,
+        block::Block, dot::Dot, expr::Expr, function_call::FnCall, ident::Ident,
+        if_condition::IfCondition, let_declare::LetDeclare, list_literal::ListLiteral,
+        return_stmt::Return, statement::Statement, statement_list::StatementList,
+        unary_prefix_operator::UnaryPrefixOperator, Ast,
     },
     error::RainError,
 };
 
 use super::{
-    executor::Executor,
-    types::{function::Function, RainType, RainValue},
+    executor::FunctionExecutor,
+    types::{RainType, RainValue},
     ExecCF, ExecError,
 };
 
 pub trait Execution {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF>;
-}
-
-impl Execution for Script {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
-        self.statements.execute(executor)
-    }
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF>;
 }
 
 impl Execution for Block {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         self.stmts.execute(executor)
     }
 }
 
 impl Execution for StatementList {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         let mut out = RainValue::Void;
         for stmt in &self.statements {
             out = stmt.execute(executor)?;
@@ -41,19 +35,18 @@ impl Execution for StatementList {
 }
 
 impl Execution for Statement {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         match self {
             Self::Expr(expr) => expr.execute(executor),
             Self::LetDeclare(declare) => declare.execute(executor),
             Self::LazyDeclare(declare) => declare.execute(executor),
-            Self::FnDef(fndef) => fndef.execute(executor),
             Self::Return(ret) => ret.execute(executor),
         }
     }
 }
 
 impl Execution for Expr {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         match self {
             Self::Ident(ident) => ident.execute(executor),
             Self::Dot(dot) => dot.execute(executor),
@@ -68,19 +61,8 @@ impl Execution for Expr {
     }
 }
 
-impl Execution for FnDef {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
-        let source = executor.script_executor.source.clone();
-        executor.global_record().insert(
-            self.name.name.to_owned(),
-            RainValue::Function(Function::new(source, self.clone())),
-        );
-        Ok(RainValue::Void)
-    }
-}
-
 impl Execution for Ident {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         executor
             .resolve(&self.name)
             .cloned()
@@ -92,7 +74,7 @@ impl Execution for Ident {
 }
 
 impl Execution for Dot {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         let Some(left) = &self.left else {
             return Err(RainError::new(
                 ExecError::Roadmap("context aware dot expressions are roadmapped"),
@@ -121,7 +103,7 @@ impl Execution for Dot {
 }
 
 impl Execution for FnCall {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         let fn_value = self.expr.execute(executor)?;
         let RainValue::Function(func) = fn_value else {
             return Err(RainError::new(
@@ -144,24 +126,24 @@ impl Execution for FnCall {
 }
 
 impl Execution for LetDeclare {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         let value = self.value.execute(executor)?;
         executor
-            .global_record()
+            .local_record
             .insert(self.name.name.to_owned(), value);
         Ok(RainValue::Void)
     }
 }
 
 impl Execution for Return {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         let value = self.expr.execute(executor)?;
         Err(ExecCF::Return(value, self.span()))
     }
 }
 
 impl Execution for IfCondition {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         let condition_value = self.condition.execute(executor)?;
         let RainValue::Bool(v) = condition_value else {
             return Err(RainError::new(
@@ -184,7 +166,7 @@ impl Execution for IfCondition {
 }
 
 impl Execution for ListLiteral {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         let elements = self
             .elements
             .iter()
@@ -195,7 +177,7 @@ impl Execution for ListLiteral {
 }
 
 impl Execution for UnaryPrefixOperator {
-    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
         match self.expr.execute(executor) {
             Ok(RainValue::Bool(b)) => Ok(RainValue::Bool(!b)),
             x => x,

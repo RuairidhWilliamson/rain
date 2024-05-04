@@ -1,8 +1,10 @@
 use exec::{
-    execution::Execution,
-    executor::{BaseExecutor, Executor, ScriptExecutor},
+    executor::{BaseExecutor, FunctionExecutor, ScriptExecutor},
+    types::function::Function,
     ExecCF,
 };
+
+use crate::ast::script::Declaration;
 
 pub mod ast;
 pub mod cache;
@@ -39,8 +41,12 @@ pub fn run(source: source::Source, e: &mut BaseExecutor) -> Result<(), RunError>
 fn run_inner(source: &source::Source, e: &mut BaseExecutor) -> Result<(), ExecCF> {
     let mut token_stream = tokens::peek_stream::PeekTokenStream::new(&source.source);
     let script: ast::script::Script = ast::script::Script::parse_stream(&mut token_stream)?;
-    let mut script_executor = ScriptExecutor::new(source.clone());
-    let mut executor = Executor::new(e, &mut script_executor);
-    script.statements.execute(&mut executor)?;
+    let mut script_executor = ScriptExecutor::new(source.clone(), script.clone());
+    let mut executor = FunctionExecutor::new(e, &mut script_executor);
+    let f = script.get("main").unwrap();
+    let Declaration::FnDeclare(func) = f else {
+        panic!("main is not a function");
+    };
+    Function::new(source.clone(), func.clone()).call(&mut executor, &[], None)?;
     Ok(())
 }

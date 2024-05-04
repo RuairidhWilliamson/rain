@@ -158,3 +158,34 @@ script_errors_test!(
         ),
     )
 );
+
+script_errors_test!(
+    same_fn_declare_name,
+    "fn foo() { }\nfn foo() { }",
+    RainError::new(
+        ParseError::DuplicateDeclare(Span::new(
+            Place {
+                index: 0,
+                line: 0,
+                column: 0,
+            },
+            Place {
+                index: 12,
+                line: 0,
+                column: 12,
+            },
+        )),
+        Span::new(
+            Place {
+                index: 13,
+                line: 1,
+                column: 0,
+            },
+            Place {
+                index: 25,
+                line: 1,
+                column: 12,
+            },
+        ),
+    )
+);

@@ -65,6 +65,10 @@ impl LetDeclare {
             value,
         }
     }
+
+    pub fn name(&self) -> String {
+        self.name.name.clone()
+    }
 }
 
 impl Ast for LetDeclare {

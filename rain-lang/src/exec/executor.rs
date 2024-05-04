@@ -1,10 +1,18 @@
+use std::collections::HashMap;
+
 use ordered_hash_map::OrderedHashMap;
 
-use crate::{cache::MemCache, leaf::LeafSet, path::Workspace, source::Source};
+use crate::{
+    ast::script::{Declaration, Script},
+    cache::MemCache,
+    leaf::LeafSet,
+    path::Workspace,
+    source::Source,
+};
 
 use super::{
     corelib::{core_lib, CoreHandler},
-    types::{record::Record, RainValue},
+    types::{function::Function, record::Record, RainValue},
 };
 
 #[derive(Debug, Default)]
@@ -50,13 +58,14 @@ pub struct BaseExecutor {
 #[derive(Debug)]
 pub struct ScriptExecutor {
     pub source: Source,
-    pub global_record: OrderedHashMap<String, RainValue>,
+    pub script: Script,
+    evaluated: HashMap<String, RainValue>,
 }
 
 /// Executor is held for the lifetime of a function call, a new Executor is created for each function call, except external function calls
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct Executor<'a> {
+pub struct FunctionExecutor<'a> {
     pub base_executor: &'a mut BaseExecutor,
     pub script_executor: &'a mut ScriptExecutor,
     pub local_record: OrderedHashMap<String, RainValue>,
@@ -75,19 +84,33 @@ impl BaseExecutor {
 }
 
 impl ScriptExecutor {
-    pub fn new(source: Source) -> Self {
+    pub fn new(source: Source, script: Script) -> Self {
         Self {
-            global_record: OrderedHashMap::default(),
             source,
+            script,
+            evaluated: HashMap::default(),
         }
     }
 
-    pub fn resolve(&self, name: &str) -> Option<&RainValue> {
-        self.global_record.get(name)
+    pub fn resolve(&mut self, name: &str) -> Option<&RainValue> {
+        let declare = self.script.get(name)?;
+        Some(
+            self.evaluated
+                .entry(name.to_owned())
+                .or_insert_with(|| match declare {
+                    Declaration::LetDeclare(d) => todo!("{d:?}"),
+                    Declaration::LazyDeclare(d) => {
+                        todo!("{d:?}");
+                    }
+                    Declaration::FnDeclare(d) => {
+                        RainValue::Function(Function::new(self.source.clone(), d.clone()))
+                    }
+                }),
+        )
     }
 }
 
-impl<'a> Executor<'a> {
+impl<'a> FunctionExecutor<'a> {
     pub fn new(
         base_executor: &'a mut BaseExecutor,
         script_executor: &'a mut ScriptExecutor,
@@ -105,11 +128,7 @@ impl<'a> Executor<'a> {
         &mut self.base_executor.core_handler
     }
 
-    pub fn global_record(&mut self) -> &mut OrderedHashMap<String, RainValue> {
-        &mut self.script_executor.global_record
-    }
-
-    pub fn resolve(&self, name: &str) -> Option<&RainValue> {
+    pub fn resolve(&mut self, name: &str) -> Option<&RainValue> {
         self.local_record
             .get(name)
             .or_else(|| self.script_executor.resolve(name))
