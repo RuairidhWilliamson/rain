@@ -1,7 +1,7 @@
 use super::{
     bool_literal::BoolLiteral, dot::Dot, function_call::FnCall, helpers::NextTokenSpanHelpers,
     ident::Ident, if_condition::IfCondition, list_literal::ListLiteral, match_expr::Match,
-    string_literal::StringLiteral, Ast, ParseError,
+    string_literal::StringLiteral, unary_prefix_operator::UnaryPrefixOperator, Ast, ParseError,
 };
 use crate::{
     error::RainError,
@@ -19,6 +19,7 @@ pub enum Expr {
     ListLiteral(ListLiteral),
     IfCondition(IfCondition),
     Match(Match),
+    UnaryPrefixOperator(UnaryPrefixOperator),
 }
 
 impl From<Ident> for Expr {
@@ -109,14 +110,18 @@ impl Expr {
             Token::If => Self::IfCondition(IfCondition::parse_stream(stream)?),
             Token::Match => Self::Match(Match::parse_stream(stream)?),
             Token::Dot => Self::Dot(Dot::parse_stream(None, stream)?),
+            Token::Exclamation => {
+                Self::UnaryPrefixOperator(UnaryPrefixOperator::parse_stream(stream)?)
+            }
             Token::Ident(_) => Self::Ident(Ident::parse(
                 peeking.consume().expect_next(TokenKind::Ident)?,
             )?),
             _ => {
+                tracing::error!("unexpected tokens {:?}", first_token_span);
                 return Err(RainError::new(
                     ParseError::UnexpectedTokens,
                     first_token_span.span,
-                ))
+                ));
             }
         };
         // After the initial expression we can also add .<ident> or make a function call
@@ -147,6 +152,7 @@ impl Ast for Expr {
             Self::ListLiteral(inner) => inner.span(),
             Self::IfCondition(inner) => inner.span(),
             Self::Match(inner) => inner.span(),
+            Self::UnaryPrefixOperator(inner) => inner.span(),
         }
     }
 
@@ -160,6 +166,7 @@ impl Ast for Expr {
             Self::ListLiteral(inner) => inner.reset_spans(),
             Self::IfCondition(inner) => inner.reset_spans(),
             Self::Match(inner) => inner.reset_spans(),
+            Self::UnaryPrefixOperator(inner) => inner.reset_spans(),
         }
     }
 }

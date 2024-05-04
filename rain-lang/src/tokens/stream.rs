@@ -48,6 +48,7 @@ impl<'a> TokenStream<'a> {
                 b'=' => Ok(self.increment(Token::Equals)),
                 b',' => Ok(self.increment(Token::Comma)),
                 b':' => Ok(self.increment(Token::Colon)),
+                b'!' => Ok(self.increment(Token::Exclamation)),
                 b'\\' => Ok(self.increment(Token::Backslash)),
                 b'(' => Ok(self.increment(Token::LParen)),
                 b')' => Ok(self.increment(Token::RParen)),

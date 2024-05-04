@@ -1,35 +1,28 @@
 let cargo = std.escape.bin("cargo")
 
+fn escape_run(program, args) {
+	let out = std.escape.run(program = program, args = args)
+	if !out.success {
+		core.print("=== STDOUT ===")
+		core.print(out.stdout)
+		core.print("==============")
+		core.print("=== STDERR ===")
+		core.print(out.stderr)
+		core.print("==============")
+		core.error("Command failed")
+	}
+}
+
 fn check() {
 	core.print("Checking...")
-	let out = std.escape.run(program = cargo, args = ["clippy", "--workspace", "--", "--deny", "warnings"])
-	if out.success {
-	} else {
-		core.error("Clippy Failed")
-	}
-	let out = std.escape.run(program = cargo, args = ["fmt", "--check"])
-	if out.success {
-	} else {
-		core.error("Fmt Check Failed")
-	}
-	let out = std.escape.run(program = cargo, args = ["test", "--workspace"])
-	if out.success {
-	} else {
-		core.error("Tests Failed")
-	}
-	let out = std.escape.run(program = cargo, args = ["outdated", "--workspace", "--exit-code", "1"])
-	if out.success {
-	} else {
-		core.error("Outdated Failed")
-	}
+	escape_run(program = cargo, args = ["clippy", "--workspace", "--", "--deny", "warnings"])
+	escape_run(program = cargo, args = ["fmt", "--check"])
+	escape_run(program = cargo, args = ["test", "--workspace"])
+	escape_run(program = cargo, args = ["outdated", "--workspace", "--exit-code", "1"])
 }
 
 fn install_locally() {
 	check()
 	core.print("Installing...")
-	let out = std.escape.run(program = cargo, args = ["install", "--path", "."])
-	if out.success {
-	} else {
-		core.error("Install Failed")
-	}
+	escape_run(program = cargo, args = ["install", "--path", "."])
 }

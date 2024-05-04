@@ -3,7 +3,7 @@ use crate::{
         block::Block, declare::Declare, dot::Dot, expr::Expr, function_call::FnCall,
         function_def::FnDef, ident::Ident, if_condition::IfCondition, list_literal::ListLiteral,
         return_stmt::Return, script::Script, statement::Statement, statement_list::StatementList,
-        Ast,
+        unary_prefix_operator::UnaryPrefixOperator, Ast,
     },
     error::RainError,
 };
@@ -62,6 +62,7 @@ impl Execution for Expr {
             Self::StringLiteral(inner) => Ok(RainValue::String(inner.value.as_str().into())),
             Self::ListLiteral(array) => array.execute(executor),
             Self::IfCondition(inner) => inner.execute(executor),
+            Self::UnaryPrefixOperator(inner) => inner.execute(executor),
             Self::Match(_) => todo!("implement match expression execution"),
         }
     }
@@ -190,5 +191,14 @@ impl Execution for ListLiteral {
             .map(|e| e.execute(executor))
             .collect::<Result<Vec<RainValue>, ExecCF>>()?;
         Ok(RainValue::List(elements.into()))
+    }
+}
+
+impl Execution for UnaryPrefixOperator {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
+        match self.expr.execute(executor) {
+            Ok(RainValue::Bool(b)) => Ok(RainValue::Bool(!b)),
+            x => x,
+        }
     }
 }

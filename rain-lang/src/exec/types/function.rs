@@ -89,7 +89,7 @@ impl FunctionImpl {
                     .iter()
                     .filter_map(|(n, v)| n.as_ref().map(|n| (n, v)))
                     .filter(|(n, _)| fn_def.args.iter().any(|a| a.name.name == n.name))
-                    .map(|(n, v)| dbg!((n.name.clone(), v.clone())));
+                    .map(|(n, v)| (n.name.clone(), v.clone()));
 
                 let positionals = fn_def
                     .args

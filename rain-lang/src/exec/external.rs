@@ -14,8 +14,8 @@ pub fn extract_arg(
     position: Option<usize>,
     fn_call: Option<&FnCall>,
 ) -> Result<RainValue, RainError> {
-    if position.is_some() {
-        todo!("implement positional arg extraction");
+    if let Some(p) = position {
+        todo!("implement positional arg extraction {p}");
     }
     let (_, v) = args
         .iter()

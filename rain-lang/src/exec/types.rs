@@ -38,6 +38,18 @@ impl From<record::Record> for RainValue {
     }
 }
 
+impl From<String> for RainValue {
+    fn from(value: String) -> Self {
+        Self::String(Rc::from(value))
+    }
+}
+
+impl From<bool> for RainValue {
+    fn from(value: bool) -> Self {
+        Self::Bool(value)
+    }
+}
+
 impl std::fmt::Display for RainValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

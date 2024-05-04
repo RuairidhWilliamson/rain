@@ -20,13 +20,14 @@ pub enum Token<'a> {
     TrueLiteral,  // true
     FalseLiteral, // false
 
-    Dot,       // .
-    Equals,    // =
-    Comma,     // ,
-    Colon,     // :
-    Slash,     // /
-    Tilde,     // ~
-    Backslash, // \
+    Dot,         // .
+    Equals,      // =
+    Comma,       // ,
+    Colon,       // :
+    Slash,       // /
+    Tilde,       // ~
+    Backslash,   // \
+    Exclamation, // !
 
     LParen,   // (
     RParen,   // )

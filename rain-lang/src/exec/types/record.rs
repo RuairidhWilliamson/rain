@@ -20,8 +20,7 @@ impl std::fmt::Display for Record {
 
 impl Record {
     pub fn new(kv: impl IntoIterator<Item = (String, RainValue)>) -> Self {
-        let m = kv.into_iter().collect();
-        Self(Rc::new(m))
+        Self(Rc::new(kv.into_iter().collect()))
     }
 
     pub fn get(&self, k: &str) -> Option<RainValue> {
