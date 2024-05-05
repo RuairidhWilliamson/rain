@@ -82,22 +82,32 @@ impl Execution for Dot {
             .into());
         };
         let left_value = left.execute(executor)?;
-        let RainValue::Record(record) = left_value else {
-            return Err(RainError::new(
-                ExecError::UnexpectedType {
-                    expected: &[RainType::Record],
-                    actual: left_value.as_type(),
-                },
-                left.span(),
-            )
-            .into());
-        };
-        record
-            .get(&self.right.name)
-            .ok_or(ExecCF::RainError(RainError::new(
-                ExecError::UnknownItem(self.right.name.to_string()),
+        match left_value {
+            RainValue::Record(record) => {
+                record
+                    .get(&self.right.name)
+                    .ok_or(ExecCF::RainError(RainError::new(
+                        ExecError::UnknownItem(self.right.name.to_string()),
+                        self.right.span(),
+                    )))
+            }
+            RainValue::Script(script) => script
+                .resolve(&self.right.name, executor.base_executor)
+                .ok_or(ExecCF::RainError(RainError::new(
+                ExecError::UnknownItem(self.right.name.clone()),
                 self.right.span(),
-            )))
+            )))?,
+            _ => {
+                return Err(RainError::new(
+                    ExecError::UnexpectedType {
+                        expected: &[RainType::Record, RainType::Script],
+                        actual: left_value.as_type(),
+                    },
+                    left.span(),
+                )
+                .into());
+            }
+        }
     }
 }
 
