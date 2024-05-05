@@ -5,9 +5,10 @@ use std::{
 
 use clap::Args;
 use rain_lang::{
-    ast::script::{Declaration, Script},
+    ast::{declaration::Declaration, script::Script},
     exec::{
-        executor::{ExecutorBuilder, FunctionExecutor, ScriptExecutor},
+        executor::{Executor, ExecutorBuilder},
+        script::ScriptExecutor,
         types::{function::Function, RainValue},
         ExecCF, ExecuteOptions,
     },
@@ -54,10 +55,11 @@ impl RunCommand {
     fn run_inner(self, source: &Source, workspace: &Workspace) -> Result<(), ExecCF> {
         let mut token_stream = PeekTokenStream::new(&source.source);
         let script = Script::parse_stream(&mut token_stream)?;
+        let script_executor = ScriptExecutor::new(script, source.clone())?;
         if let Some(target) = &self.target {
-            let Some(t) = script.get(target).cloned() else {
+            let Some(t) = script_executor.get(target).cloned() else {
                 eprintln!("Unknown target, specify a target:",);
-                self.print_targets(script.declarations.clone());
+                self.print_targets(&script_executor);
                 return Ok(());
             };
             let Declaration::FnDeclare(func) = t else {
@@ -70,10 +72,8 @@ impl RunCommand {
                 ..Default::default()
             }
             .build(workspace.clone());
-            let mut script_executor = ScriptExecutor::new(source.clone(), script.clone());
-            let mut executor = FunctionExecutor::new(&mut base_executor, &mut script_executor);
-            let output =
-                Function::new(source.clone(), func.clone()).call(&mut executor, &[], None)?;
+            let mut executor = Executor::new(&mut base_executor, &script_executor);
+            let output = Function::new(source.clone(), func).call(&mut executor, &[], None)?;
             if self.show_leaves {
                 eprintln!("{:?}", executor.leaves);
             }
@@ -83,13 +83,13 @@ impl RunCommand {
             }
         } else {
             eprintln!("Specify a target:");
-            self.print_targets(script.declarations)
+            self.print_targets(&script_executor)
         }
         Ok(())
     }
 
-    fn print_targets(&self, iter: impl IntoIterator<Item = (String, Declaration)>) {
-        let mut records: Vec<(String, Declaration)> = iter.into_iter().collect();
+    fn print_targets(&self, script: &ScriptExecutor) {
+        let mut records: Vec<(&String, &Declaration)> = script.into_iter().collect();
         records.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
         for (k, d) in records {
             let Declaration::FnDeclare(d) = d else {

@@ -28,7 +28,7 @@ macro_rules! script_prints_test {
             });
             let workspace = Workspace::new_local_cwd().unwrap();
             let mut executor_builder = ExecutorBuilder {
-                corelib_handler: Some(ch),
+                core_handler: Some(ch),
                 ..ExecutorBuilder::default()
             }
             .build(workspace);
@@ -45,16 +45,22 @@ macro_rules! script_prints_test {
     };
 }
 
-script_prints_test!(hello_world, "core.print(\"hello world\")", "hello world\n");
+script_prints_test!(
+    hello_world,
+    "fn main() { core.print(\"hello world\") }",
+    "hello world\n"
+);
 
 script_prints_test!(
     if_else,
     "
-        core.print(if true {
-            \"it was true\"
-        } else {
-            \"unreachable\"
-        })
+        fn main() {
+            core.print(if true {
+                \"it was true\"
+            } else {
+                \"unreachable\"
+            })
+        }
     ",
     "it was true\n"
 );
@@ -65,7 +71,10 @@ script_prints_test!(
         fn foo() {
             core.print(\"peeka boo\")
         }
-        foo()
+
+        fn main() {
+            foo()
+        }
     ",
     "peeka boo\n"
 );
@@ -78,7 +87,9 @@ script_prints_test!(
             return false
             core.print(\"unreachable\")
         }
-        foo()
+        fn main() {
+            foo()
+        }
     ",
     "about to return\n"
 );
@@ -89,7 +100,10 @@ script_prints_test!(
         fn wrap(a) {
             core.print(a)
         }
-        wrap(\"hello world\")
+
+        fn main() {
+            wrap(\"hello world\")
+        }
     ",
     "hello world\n"
 );
@@ -104,7 +118,10 @@ script_prints_test!(
             }
             core.print(\"unreachable\")
         }
-        foo()
+
+        fn main() {
+            foo()
+        }
     ",
     "about to return\n"
 );
@@ -116,7 +133,10 @@ script_prints_test!(
             core.print(\"a is\", a)
             core.print(\"b is\", b)
         }
-        foo(b = true, a = false)
+
+        fn main() {
+            foo(b = true, a = false)
+        }
     ",
     "a is false\nb is true\n"
 );

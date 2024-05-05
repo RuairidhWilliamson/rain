@@ -1,10 +1,12 @@
+use ast::declaration::Declaration;
+use error::RainError;
 use exec::{
-    executor::{BaseExecutor, FunctionExecutor, ScriptExecutor},
+    executor::{BaseExecutor, Executor},
+    script::ScriptExecutor,
     types::function::Function,
-    ExecCF,
+    ExecCF, ExecError,
 };
-
-use crate::ast::script::Declaration;
+use span::Span;
 
 pub mod ast;
 pub mod cache;
@@ -41,9 +43,12 @@ pub fn run(source: source::Source, e: &mut BaseExecutor) -> Result<(), RunError>
 fn run_inner(source: &source::Source, e: &mut BaseExecutor) -> Result<(), ExecCF> {
     let mut token_stream = tokens::peek_stream::PeekTokenStream::new(&source.source);
     let script: ast::script::Script = ast::script::Script::parse_stream(&mut token_stream)?;
-    let mut script_executor = ScriptExecutor::new(source.clone(), script.clone());
-    let mut executor = FunctionExecutor::new(e, &mut script_executor);
-    let f = script.get("main").unwrap();
+    let script_executor = ScriptExecutor::new(script, source.clone())?;
+    let run_target = String::from("main");
+    let f = script_executor
+        .get(&run_target)
+        .ok_or_else(|| RainError::new(ExecError::UnknownItem(run_target), Span::default()))?;
+    let mut executor = Executor::new(e, &script_executor);
     let Declaration::FnDeclare(func) = f else {
         panic!("main is not a function");
     };

@@ -7,6 +7,7 @@ pub mod corelib;
 pub mod execution;
 pub mod executor;
 pub mod external;
+pub mod script;
 pub mod types;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,6 +26,7 @@ pub enum ExecError {
     MissingArg {
         arg_name: String,
     },
+    DuplicateDeclare(Span),
     Roadmap(&'static str),
 }
 

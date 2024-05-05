@@ -4,6 +4,7 @@ mod helpers;
 
 pub mod block;
 pub mod bool_literal;
+pub mod declaration;
 pub mod dot;
 pub mod expr;
 pub mod function_call;
@@ -28,7 +29,6 @@ pub enum ParseError {
     Expected(TokenKind),
     ExpectedAny(&'static [TokenKind]),
     ExpectedStmt,
-    DuplicateDeclare(Span),
 }
 
 impl std::fmt::Display for ParseError {

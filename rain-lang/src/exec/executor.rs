@@ -1,32 +1,26 @@
-use std::collections::HashMap;
-
 use ordered_hash_map::OrderedHashMap;
 
-use crate::{
-    ast::script::{Declaration, Script},
-    cache::MemCache,
-    leaf::LeafSet,
-    path::Workspace,
-    source::Source,
-};
+use crate::{cache::MemCache, leaf::LeafSet, path::Workspace};
 
 use super::{
     corelib::{core_lib, CoreHandler},
-    types::{function::Function, record::Record, RainValue},
+    script::ScriptExecutor,
+    types::{record::Record, RainValue},
+    ExecCF,
 };
 
 #[derive(Debug, Default)]
 pub struct ExecutorBuilder {
     pub cache: Option<Box<dyn crate::cache::Cache>>,
-    pub corelib_handler: Option<Box<dyn CoreHandler>>,
+    pub core_handler: Option<Box<dyn CoreHandler>>,
     pub stdlib: Option<Record>,
     pub options: super::ExecuteOptions,
 }
 
 impl ExecutorBuilder {
     pub fn build(self, root_workspace: Workspace) -> BaseExecutor {
-        let corelib_handler = self
-            .corelib_handler
+        let core_handler = self
+            .core_handler
             .unwrap_or_else(|| Box::new(super::corelib::DefaultCoreHandler));
         let stdlib = self.stdlib.map(RainValue::Record);
         let options = self.options;
@@ -36,7 +30,7 @@ impl ExecutorBuilder {
             root_workspace,
             cache,
             corelib: core_lib().into(),
-            core_handler: corelib_handler,
+            core_handler,
             stdlib,
             options,
         }
@@ -54,20 +48,12 @@ pub struct BaseExecutor {
     pub options: super::ExecuteOptions,
 }
 
-/// ScriptExecutor is held for the lifetime of a script, a new ScriptExecutor is created for each core.import
-#[derive(Debug)]
-pub struct ScriptExecutor {
-    pub source: Source,
-    pub script: Script,
-    evaluated: HashMap<String, RainValue>,
-}
-
 /// Executor is held for the lifetime of a function call, a new Executor is created for each function call, except external function calls
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct FunctionExecutor<'a> {
+pub struct Executor<'a> {
     pub base_executor: &'a mut BaseExecutor,
-    pub script_executor: &'a mut ScriptExecutor,
+    pub script_executor: &'a ScriptExecutor,
     pub local_record: OrderedHashMap<String, RainValue>,
     pub call_depth: usize,
     pub leaves: LeafSet,
@@ -83,38 +69,8 @@ impl BaseExecutor {
     }
 }
 
-impl ScriptExecutor {
-    pub fn new(source: Source, script: Script) -> Self {
-        Self {
-            source,
-            script,
-            evaluated: HashMap::default(),
-        }
-    }
-
-    pub fn resolve(&mut self, name: &str) -> Option<&RainValue> {
-        let declare = self.script.get(name)?;
-        Some(
-            self.evaluated
-                .entry(name.to_owned())
-                .or_insert_with(|| match declare {
-                    Declaration::LetDeclare(d) => todo!("{d:?}"),
-                    Declaration::LazyDeclare(d) => {
-                        todo!("{d:?}");
-                    }
-                    Declaration::FnDeclare(d) => {
-                        RainValue::Function(Function::new(self.source.clone(), d.clone()))
-                    }
-                }),
-        )
-    }
-}
-
-impl<'a> FunctionExecutor<'a> {
-    pub fn new(
-        base_executor: &'a mut BaseExecutor,
-        script_executor: &'a mut ScriptExecutor,
-    ) -> Self {
+impl<'a> Executor<'a> {
+    pub fn new(base_executor: &'a mut BaseExecutor, script_executor: &'a ScriptExecutor) -> Self {
         Self {
             base_executor,
             script_executor,
@@ -128,10 +84,11 @@ impl<'a> FunctionExecutor<'a> {
         &mut self.base_executor.core_handler
     }
 
-    pub fn resolve(&mut self, name: &str) -> Option<&RainValue> {
+    pub fn resolve(&mut self, name: &str) -> Option<Result<RainValue, ExecCF>> {
         self.local_record
             .get(name)
-            .or_else(|| self.script_executor.resolve(name))
-            .or_else(|| self.base_executor.resolve(name))
+            .map(|v| Ok(v.clone()))
+            .or_else(|| self.script_executor.resolve(name, self.base_executor))
+            .or_else(|| self.base_executor.resolve(name).map(|v| Ok(v.clone())))
     }
 }

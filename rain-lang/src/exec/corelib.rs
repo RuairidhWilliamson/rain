@@ -3,12 +3,13 @@ use std::rc::Rc;
 use crate::{
     ast::{function_call::FnCall, script::Script, Ast},
     error::RainError,
+    exec::script::ScriptExecutor,
     source::Source,
     tokens::peek_stream::PeekTokenStream,
 };
 
 use super::{
-    executor::FunctionExecutor,
+    executor::Executor,
     types::{
         function::{ExternalFn, Function, FunctionArguments},
         record::Record,
@@ -60,7 +61,7 @@ struct CorePrint;
 impl ExternalFn for CorePrint {
     fn call(
         &self,
-        executor: &mut FunctionExecutor,
+        executor: &mut Executor,
         args: &FunctionArguments,
         _fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -90,7 +91,7 @@ struct CoreError;
 impl ExternalFn for CoreError {
     fn call(
         &self,
-        _executor: &mut FunctionExecutor,
+        _executor: &mut Executor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -124,7 +125,7 @@ struct CoreImport;
 impl ExternalFn for CoreImport {
     fn call(
         &self,
-        executor: &mut FunctionExecutor,
+        executor: &mut Executor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -150,7 +151,7 @@ impl ExternalFn for CoreImport {
         };
         let script_file = executor
             .script_executor
-            .source
+            .source()
             .path
             .directory()
             .unwrap()
@@ -160,7 +161,8 @@ impl ExternalFn for CoreImport {
         let mut token_stream = PeekTokenStream::new(&source.source);
         let script =
             Script::parse_stream(&mut token_stream).map_err(|err| err.resolve(source.clone()))?;
-        Ok(RainValue::Script(Rc::new(script)))
+        let script_executor = ScriptExecutor::new(script, source)?;
+        Ok(RainValue::Script(Rc::new(script_executor)))
     }
 }
 
@@ -170,7 +172,7 @@ struct CorePath;
 impl ExternalFn for CorePath {
     fn call(
         &self,
-        _executor: &mut FunctionExecutor,
+        _executor: &mut Executor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -204,7 +206,7 @@ struct CoreFile;
 impl ExternalFn for CoreFile {
     fn call(
         &self,
-        executor: &mut FunctionExecutor,
+        executor: &mut Executor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -230,7 +232,7 @@ impl ExternalFn for CoreFile {
         };
         let file = executor
             .script_executor
-            .source
+            .source()
             .path
             .directory()
             .unwrap()

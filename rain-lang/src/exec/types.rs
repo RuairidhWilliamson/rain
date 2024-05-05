@@ -1,6 +1,8 @@
 use std::rc::Rc;
 
-use crate::{ast::script::Script, path::RainPath};
+use crate::path::RainPath;
+
+use super::script::ScriptExecutor;
 
 pub mod function;
 pub mod record;
@@ -18,7 +20,7 @@ pub enum RainValue {
     Record(record::Record),
     List(Rc<[RainValue]>),
     Function(function::Function),
-    Script(Rc<Script>),
+    Script(Rc<ScriptExecutor>),
 }
 
 impl RainValue {

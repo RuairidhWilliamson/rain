@@ -32,45 +32,45 @@ macro_rules! script_errors_test {
     };
 }
 
-// script_errors_test!(
-//     unknown_var,
-//     "fn main() { core.print(abc) }",
-//     RainError::new(
-//         ExecError::UnknownItem(String::from("abc")),
-//         Span::new(
-//             Place {
-//                 index: 11,
-//                 line: 0,
-//                 column: 11,
-//             },
-//             Place {
-//                 index: 14,
-//                 line: 0,
-//                 column: 14,
-//             },
-//         ),
-//     )
-// );
+script_errors_test!(
+    unknown_var,
+    "fn main() { core.print(abc) }",
+    RainError::new(
+        ExecError::UnknownItem(String::from("abc")),
+        Span::new(
+            Place {
+                index: 23,
+                line: 0,
+                column: 23,
+            },
+            Place {
+                index: 26,
+                line: 0,
+                column: 26,
+            },
+        ),
+    )
+);
 
-// script_errors_test!(
-//     unknown_function,
-//     "fn main() { foo(\"\") }",
-//     RainError::new(
-//         ExecError::UnknownItem(String::from("foo")),
-//         Span::new(
-//             Place {
-//                 index: 0,
-//                 line: 0,
-//                 column: 0,
-//             },
-//             Place {
-//                 index: 3,
-//                 line: 0,
-//                 column: 3,
-//             },
-//         ),
-//     )
-// );
+script_errors_test!(
+    unknown_function,
+    "fn main() { foo(\"\") }",
+    RainError::new(
+        ExecError::UnknownItem(String::from("foo")),
+        Span::new(
+            Place {
+                index: 12,
+                line: 0,
+                column: 12,
+            },
+            Place {
+                index: 15,
+                line: 0,
+                column: 15,
+            },
+        ),
+    )
+);
 
 script_errors_test!(
     unclosed_double_quote,
@@ -120,40 +120,20 @@ script_errors_test!(
 );
 
 script_errors_test!(
-    top_level_return,
-    "return false",
-    RainError::new(
-        ExecError::ReturnOutsideFunction,
-        Span::new(
-            Place {
-                index: 0,
-                line: 0,
-                column: 0,
-            },
-            Place {
-                index: 11,
-                line: 0,
-                column: 11,
-            },
-        ),
-    )
-);
-
-script_errors_test!(
     infinite_recursion,
-    "fn foo() { foo() }\nfoo()",
+    "fn main() { main() }",
     RainError::new(
         ExecError::CallDepthLimit,
         Span::new(
             Place {
-                index: 11,
+                index: 12,
                 line: 0,
-                column: 11,
+                column: 12,
             },
             Place {
-                index: 16,
+                index: 18,
                 line: 0,
-                column: 16,
+                column: 18,
             },
         ),
     )
@@ -163,7 +143,7 @@ script_errors_test!(
     same_fn_declare_name,
     "fn foo() { }\nfn foo() { }",
     RainError::new(
-        ParseError::DuplicateDeclare(Span::new(
+        ExecError::DuplicateDeclare(Span::new(
             Place {
                 index: 0,
                 line: 0,

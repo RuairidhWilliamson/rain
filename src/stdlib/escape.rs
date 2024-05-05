@@ -7,7 +7,7 @@ use rain_lang::{
     ast::{function_call::FnCall, Ast},
     error::RainError,
     exec::{
-        executor::FunctionExecutor,
+        executor::Executor,
         external::extract_arg,
         types::{
             function::{ExternalFn, Function, FunctionArguments},
@@ -39,7 +39,7 @@ struct EscapeBin;
 impl ExternalFn for EscapeBin {
     fn call(
         &self,
-        _executor: &mut FunctionExecutor,
+        _executor: &mut Executor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {
@@ -91,7 +91,7 @@ struct EscapeRun;
 impl ExternalFn for EscapeRun {
     fn call(
         &self,
-        executor: &mut FunctionExecutor,
+        executor: &mut Executor,
         args: &FunctionArguments,
         fn_call: Option<&FnCall>,
     ) -> Result<RainValue, ExecCF> {

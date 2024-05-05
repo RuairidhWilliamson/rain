@@ -9,23 +9,23 @@ use crate::{
 };
 
 use super::{
-    executor::FunctionExecutor,
+    executor::Executor,
     types::{RainType, RainValue},
     ExecCF, ExecError,
 };
 
 pub trait Execution {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF>;
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF>;
 }
 
 impl Execution for Block {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         self.stmts.execute(executor)
     }
 }
 
 impl Execution for StatementList {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let mut out = RainValue::Void;
         for stmt in &self.statements {
             out = stmt.execute(executor)?;
@@ -35,7 +35,7 @@ impl Execution for StatementList {
 }
 
 impl Execution for Statement {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         match self {
             Self::Expr(expr) => expr.execute(executor),
             Self::LetDeclare(declare) => declare.execute(executor),
@@ -46,7 +46,7 @@ impl Execution for Statement {
 }
 
 impl Execution for Expr {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         match self {
             Self::Ident(ident) => ident.execute(executor),
             Self::Dot(dot) => dot.execute(executor),
@@ -62,19 +62,18 @@ impl Execution for Expr {
 }
 
 impl Execution for Ident {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         executor
             .resolve(&self.name)
-            .cloned()
             .ok_or(ExecCF::RainError(RainError::new(
                 ExecError::UnknownItem(self.name.to_string()),
                 self.span,
-            )))
+            )))?
     }
 }
 
 impl Execution for Dot {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let Some(left) = &self.left else {
             return Err(RainError::new(
                 ExecError::Roadmap("context aware dot expressions are roadmapped"),
@@ -103,7 +102,7 @@ impl Execution for Dot {
 }
 
 impl Execution for FnCall {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let fn_value = self.expr.execute(executor)?;
         let RainValue::Function(func) = fn_value else {
             return Err(RainError::new(
@@ -126,7 +125,7 @@ impl Execution for FnCall {
 }
 
 impl Execution for LetDeclare {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let value = self.value.execute(executor)?;
         executor
             .local_record
@@ -136,14 +135,14 @@ impl Execution for LetDeclare {
 }
 
 impl Execution for Return {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let value = self.expr.execute(executor)?;
         Err(ExecCF::Return(value, self.span()))
     }
 }
 
 impl Execution for IfCondition {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let condition_value = self.condition.execute(executor)?;
         let RainValue::Bool(v) = condition_value else {
             return Err(RainError::new(
@@ -166,7 +165,7 @@ impl Execution for IfCondition {
 }
 
 impl Execution for ListLiteral {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         let elements = self
             .elements
             .iter()
@@ -177,7 +176,7 @@ impl Execution for ListLiteral {
 }
 
 impl Execution for UnaryPrefixOperator {
-    fn execute(&self, executor: &mut FunctionExecutor) -> Result<RainValue, ExecCF> {
+    fn execute(&self, executor: &mut Executor) -> Result<RainValue, ExecCF> {
         match self.expr.execute(executor) {
             Ok(RainValue::Bool(b)) => Ok(RainValue::Bool(!b)),
             x => x,

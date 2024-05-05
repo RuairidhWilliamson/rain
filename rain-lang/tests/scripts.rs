@@ -11,14 +11,16 @@ fn run_all_test_scripts() {
         let test_script = test_script.unwrap();
         let path = test_script.path();
         if path.extension() != Some(OsStr::new("rain")) {
-            eprintln!("skipping {}", path.display());
+            eprintln!("--- skipping {}", path.display());
             return;
+        } else {
+            eprintln!("--- running {}", path.display());
         }
         let mut executor = ExecutorBuilder::default().build(workspace.clone());
         let source =
             Source::new(&workspace.new_path(path.strip_prefix("tests/scripts").unwrap())).unwrap();
         if let Err(err) = rain_lang::run(source, &mut executor) {
-            eprintln!("{err:#}");
+            eprintln!("=== error: {err:#}");
             error_count += 1;
         }
     });

@@ -1,3 +1,5 @@
 let msg = "Good afternoon"
 
-core.print(msg)
+fn main() {
+	core.print(msg)
+}

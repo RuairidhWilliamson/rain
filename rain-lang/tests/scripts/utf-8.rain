@@ -1,2 +1,4 @@
 lazy 🌧 = "rain"
 lazy rain_emoji = "🌧"
+
+fn main() {}
