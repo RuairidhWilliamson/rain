@@ -41,7 +41,7 @@ impl<'a> TokenStream<'a> {
             };
             return match c {
                 b'\n' => Ok(self.newline()),
-                b'#' => Ok(self.single_line_comment()),
+                b'#' => Ok(self.comment()),
                 b'/' => Ok(self.increment(Token::Slash)),
                 b'~' => Ok(self.increment(Token::Tilde)),
                 b'.' => Ok(self.increment(Token::Dot)),
@@ -125,11 +125,37 @@ impl<'a> TokenStream<'a> {
         NextTokenSpan::Next(token_span)
     }
 
-    fn single_line_comment(&mut self) -> NextTokenSpan<'a> {
-        for i in self.index..self.raw_source.len() {
-            if self.raw_source[i] == b'\n' {
-                self.index = i;
-                return self.newline();
+    fn comment(&mut self) -> NextTokenSpan<'a> {
+        let start = Place {
+            index: self.index,
+            line: self.line,
+            column: self.column,
+        };
+        let mut start_index = self.index + 1;
+        if self.raw_source[start_index] == b' ' {
+            start_index += 1;
+        }
+        for i in self.index + 1..self.raw_source.len() {
+            let c = self.raw_source[i];
+            match c {
+                b'\n' => {
+                    self.index = i;
+                    return NextTokenSpan::Next(TokenSpan {
+                        token: Token::Comment(&self.source[start_index..i]),
+                        span: Span::new(
+                            start,
+                            Place {
+                                index: i - 1,
+                                line: start.line,
+                                column: self.column - 1,
+                            },
+                        ),
+                    });
+                }
+                _ => {
+                    self.index = i;
+                    self.column += 1;
+                }
             }
         }
         NextTokenSpan::End(self.span())

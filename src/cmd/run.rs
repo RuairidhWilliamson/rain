@@ -4,6 +4,7 @@ use std::{
 };
 
 use clap::Args;
+use owo_colors::OwoColorize;
 use rain_lang::{
     ast::{declaration::Declaration, script::Script},
     exec::{
@@ -58,7 +59,7 @@ impl RunCommand {
         let script_executor = ScriptExecutor::new(script, source.clone())?;
         if let Some(target) = &self.target {
             let Some(t) = script_executor.get(target).cloned() else {
-                eprintln!("Unknown target, specify a target:",);
+                eprintln!("{}", "Unknown target, specify a target:".red());
                 self.print_targets(&script_executor);
                 return Ok(());
             };
@@ -82,7 +83,7 @@ impl RunCommand {
                 self.execute_output(output);
             }
         } else {
-            eprintln!("Specify a target:");
+            eprintln!("{}", "Specify a target:".red());
             self.print_targets(&script_executor)
         }
         Ok(())
@@ -98,7 +99,14 @@ impl RunCommand {
             if d.visibility.is_none() {
                 continue;
             }
-            eprintln!("{k}");
+            if !d.args.is_empty() {
+                continue;
+            }
+            if let Some(comment) = &d.comment {
+                eprintln!("{}: {}", k.magenta(), comment.blue());
+            } else {
+                eprintln!("{}", k.magenta());
+            }
         }
     }
 

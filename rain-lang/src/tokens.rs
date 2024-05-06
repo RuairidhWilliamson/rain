@@ -8,6 +8,7 @@ use crate::span::{Place, Span};
 pub enum Token<'a> {
     Ident(&'a str),             // abc
     DoubleQuoteLiteral(String), // "abc"
+    Comment(&'a str),           // # abc
 
     Void,         // void
     Lazy,         // lazy
@@ -214,6 +215,7 @@ mod tests {
                 Token::LParen,
                 Token::RParen,
                 Token::NewLine,
+                Token::Comment("This should not be tokens"),
                 Token::NewLine,
                 Token::Ident("core"),
                 Token::Dot,

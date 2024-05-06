@@ -17,7 +17,10 @@ pub enum Declaration {
 }
 
 impl Declaration {
-    pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
+    pub fn parse_stream(
+        comment: Option<String>,
+        stream: &mut PeekTokenStream,
+    ) -> Result<Self, RainError> {
         let peeking = stream.peek()?;
         let peeking_token = peeking
             .value()
@@ -29,7 +32,7 @@ impl Declaration {
             TokenKind::Lazy => Ok(Self::LazyDeclare(LetDeclare::parse_stream_lazy(
                 None, stream,
             )?)),
-            TokenKind::Fn => Ok(Self::FnDeclare(FnDef::parse_stream(None, stream)?)),
+            TokenKind::Fn => Ok(Self::FnDeclare(FnDef::parse_stream(comment, None, stream)?)),
             TokenKind::Pub => {
                 let visibility = VisibilitySpecifier::parse_stream(stream)?;
                 let peeking = stream.peek()?;
@@ -51,6 +54,7 @@ impl Declaration {
                         stream,
                     )?)),
                     TokenKind::Fn => Ok(Self::FnDeclare(FnDef::parse_stream(
+                        comment,
                         Some(visibility),
                         stream,
                     )?)),

@@ -1,7 +1,7 @@
 use crate::{
     error::RainError,
     span::Span,
-    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, TokenKind},
+    tokens::{peek_stream::PeekTokenStream, NextTokenSpan, Token, TokenSpan},
 };
 
 use super::{declaration::Declaration, Ast};
@@ -14,18 +14,41 @@ pub struct Script {
 impl Script {
     pub fn parse_stream(stream: &mut PeekTokenStream) -> Result<Self, RainError> {
         let mut declarations = Vec::new();
+        let mut comments = Vec::new();
+        let mut previous_new_line = false;
         loop {
             let peeking = stream.peek()?;
             let NextTokenSpan::Next(token) = peeking.value() else {
                 break;
             };
-            match TokenKind::from(&token.token) {
-                TokenKind::NewLine => {
+            match token.token {
+                Token::Comment(_) => {
+                    let NextTokenSpan::Next(TokenSpan {
+                        token: Token::Comment(c),
+                        ..
+                    }) = peeking.consume()
+                    else {
+                        unreachable!("we have already peeked");
+                    };
+                    comments.push(c);
+                    previous_new_line = false;
+                }
+                Token::NewLine => {
                     peeking.consume();
-                    continue;
+                    if previous_new_line {
+                        comments.clear();
+                    }
+                    previous_new_line = true;
                 }
                 _ => {
-                    declarations.push(Declaration::parse_stream(stream)?);
+                    let comment = if comments.is_empty() {
+                        None
+                    } else {
+                        Some(comments.join("\n"))
+                    };
+                    declarations.push(Declaration::parse_stream(comment, stream)?);
+                    comments.clear();
+                    previous_new_line = false;
                 }
             }
         }
@@ -67,11 +90,19 @@ mod tests {
 
     #[test]
     fn parse_script() {
-        let source = "fn main() {
-        core.print(\"hello world\")
-        let msg = \"okie\"
-        core.print(msg)
-        core.print(\"goodbye\")
+        let source = "
+        # Comment not associated with function
+
+        # Comment for a different function
+        fn foo() {}
+
+        # Multiline associated comment
+        # Main function
+        fn main() {
+            core.print(\"hello world\")
+            let msg = \"okie\"
+            core.print(msg)
+            core.print(\"goodbye\")
         }
         ";
         let mut token_stream = PeekTokenStream::new(source);
@@ -79,33 +110,46 @@ mod tests {
         script.reset_spans();
         assert_eq!(
             script,
-            Script::nosp(vec![Declaration::FnDeclare(FnDef::nosp(
-                None,
-                Ident::nosp("main"),
-                vec![],
-                Block::nosp(vec![
-                    Statement::Expr(Expr::FnCall(FnCall::nosp(
-                        Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print")).into(),
-                        vec![FnCallArg::nosp(
+            Script::nosp(vec![
+                Declaration::FnDeclare(FnDef::nosp(
+                    Some(String::from("Comment for a different function")),
+                    None,
+                    Ident::nosp("foo"),
+                    vec![],
+                    Block::nosp(vec![])
+                )),
+                Declaration::FnDeclare(FnDef::nosp(
+                    Some(String::from("Multiline associated comment\nMain function")),
+                    None,
+                    Ident::nosp("main"),
+                    vec![],
+                    Block::nosp(vec![
+                        Statement::Expr(Expr::FnCall(FnCall::nosp(
+                            Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print"))
+                                .into(),
+                            vec![FnCallArg::nosp(
+                                None,
+                                StringLiteral::nosp("hello world").into()
+                            )],
+                        ))),
+                        Statement::LetDeclare(LetDeclare::nosp(
                             None,
-                            StringLiteral::nosp("hello world").into()
-                        )],
-                    ))),
-                    Statement::LetDeclare(LetDeclare::nosp(
-                        None,
-                        Ident::nosp("msg"),
-                        StringLiteral::nosp("okie").into(),
-                    )),
-                    Statement::Expr(Expr::FnCall(FnCall::nosp(
-                        Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print")).into(),
-                        vec![FnCallArg::nosp(None, Ident::nosp("msg").into())],
-                    ))),
-                    Statement::Expr(Expr::FnCall(FnCall::nosp(
-                        Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print")).into(),
-                        vec![FnCallArg::nosp(None, StringLiteral::nosp("goodbye").into())],
-                    )))
-                ])
-            ))])
+                            Ident::nosp("msg"),
+                            StringLiteral::nosp("okie").into(),
+                        )),
+                        Statement::Expr(Expr::FnCall(FnCall::nosp(
+                            Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print"))
+                                .into(),
+                            vec![FnCallArg::nosp(None, Ident::nosp("msg").into())],
+                        ))),
+                        Statement::Expr(Expr::FnCall(FnCall::nosp(
+                            Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print"))
+                                .into(),
+                            vec![FnCallArg::nosp(None, StringLiteral::nosp("goodbye").into())],
+                        )))
+                    ])
+                ))
+            ])
         );
     }
 }

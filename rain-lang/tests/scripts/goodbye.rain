@@ -1,5 +1,6 @@
+# Main function
 fn main() {
-	core.print("Hello World")
+	core.print("Hello World") # Comment at the end of a line
 	# We can do some cool stuff in between here
 	core.print("Goodbye") # yay
 }

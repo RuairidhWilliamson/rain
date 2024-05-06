@@ -14,6 +14,7 @@ use super::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnDef {
+    pub comment: Option<String>,
     pub visibility: Option<VisibilitySpecifier>,
     pub fn_token: Span,
     pub name: Ident,
@@ -25,6 +26,7 @@ pub struct FnDef {
 
 impl FnDef {
     pub fn parse_stream(
+        comment: Option<String>,
         visibility: Option<VisibilitySpecifier>,
         stream: &mut PeekTokenStream,
     ) -> Result<Self, RainError> {
@@ -68,6 +70,7 @@ impl FnDef {
         }
         let block = Block::parse_stream(stream)?;
         Ok(Self {
+            comment,
             visibility,
             fn_token,
             name,
@@ -79,12 +82,14 @@ impl FnDef {
     }
 
     pub fn nosp(
+        comment: Option<String>,
         visibility: Option<VisibilitySpecifier>,
         name: Ident,
         args: Vec<FnDefArg>,
         block: Block,
     ) -> Self {
         Self {
+            comment,
             visibility,
             fn_token: Span::default(),
             name,
@@ -149,7 +154,7 @@ mod tests {
 
     fn parse_fn_def(source: &str) -> Result<FnDef, RainError> {
         let mut stream = PeekTokenStream::new(source);
-        let mut fn_def = super::FnDef::parse_stream(None, &mut stream)?;
+        let mut fn_def = super::FnDef::parse_stream(None, None, &mut stream)?;
         fn_def.reset_spans();
         Ok(fn_def)
     }
@@ -159,7 +164,7 @@ mod tests {
         let fn_def = parse_fn_def("fn foo() {}")?;
         assert_eq!(
             fn_def,
-            FnDef::nosp(None, Ident::nosp("foo"), vec![], Block::nosp(vec![])),
+            FnDef::nosp(None, None, Ident::nosp("foo"), vec![], Block::nosp(vec![])),
         );
         Ok(())
     }
@@ -170,6 +175,7 @@ mod tests {
         assert_eq!(
             fn_def,
             FnDef::nosp(
+                None,
                 None,
                 Ident::nosp("foo"),
                 vec![FnDefArg::nosp(Ident::nosp("a"))],

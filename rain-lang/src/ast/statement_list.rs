@@ -19,11 +19,15 @@ impl StatementList {
             let NextTokenSpan::Next(token) = peeking.value() else {
                 break;
             };
-            if token.token == Token::NewLine {
-                peeking.consume();
-                continue;
-            } else if token.token == Token::RBrace {
-                break;
+            match token.token {
+                Token::NewLine | Token::Comment(_) => {
+                    peeking.consume();
+                    continue;
+                }
+                Token::RBrace => {
+                    break;
+                }
+                _ => (),
             }
             statements.push(Statement::parse_stream(stream)?);
         }
