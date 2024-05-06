@@ -1,11 +1,7 @@
 use ast::declaration::Declaration;
 use error::RainError;
-use exec::{
-    executor::{BaseExecutor, Executor},
-    script::ScriptExecutor,
-    types::function::Function,
-    ExecCF, ExecError,
-};
+use exec::{types::function::Function, ExecCF, ExecError};
+use executor::{base::BaseExecutor, script::ScriptExecutor, Executor};
 use span::Span;
 
 pub mod ast;
@@ -13,6 +9,7 @@ pub mod cache;
 pub mod config;
 pub mod error;
 pub mod exec;
+pub mod executor;
 pub mod leaf;
 pub mod path;
 pub mod source;

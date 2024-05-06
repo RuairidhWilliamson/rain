@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 
-use rain_lang::{exec::executor::ExecutorBuilder, path::Workspace, source::Source};
+use rain_lang::{executor::builder::ExecutorBuilder, path::Workspace, source::Source};
 
 #[test]
 fn run_all_test_scripts() {

@@ -1,52 +1,17 @@
 use ordered_hash_map::OrderedHashMap;
 
-use crate::{cache::MemCache, leaf::LeafSet, path::Workspace};
-
-use super::{
-    corelib::{core_lib, CoreHandler},
-    script::ScriptExecutor,
-    types::{record::Record, RainValue},
-    ExecCF,
+use crate::{
+    exec::{corelib::CoreHandler, types::RainValue},
+    leaf::LeafSet,
 };
 
-#[derive(Debug, Default)]
-pub struct ExecutorBuilder {
-    pub cache: Option<Box<dyn crate::cache::Cache>>,
-    pub core_handler: Option<Box<dyn CoreHandler>>,
-    pub stdlib: Option<Record>,
-    pub options: super::ExecuteOptions,
-}
+use self::{base::BaseExecutor, script::ScriptExecutor};
 
-impl ExecutorBuilder {
-    pub fn build(self, root_workspace: Workspace) -> BaseExecutor {
-        let core_handler = self
-            .core_handler
-            .unwrap_or_else(|| Box::new(super::corelib::DefaultCoreHandler));
-        let stdlib = self.stdlib.map(RainValue::Record);
-        let options = self.options;
-        let cache = self.cache.unwrap_or_else(|| Box::<MemCache>::default());
+use super::ExecCF;
 
-        BaseExecutor {
-            root_workspace,
-            cache,
-            corelib: core_lib().into(),
-            core_handler,
-            stdlib,
-            options,
-        }
-    }
-}
-
-/// Base executor is held for the lifetime of a run
-#[derive(Debug)]
-pub struct BaseExecutor {
-    pub root_workspace: Workspace,
-    pub corelib: RainValue,
-    pub cache: Box<dyn crate::cache::Cache>,
-    pub core_handler: Box<dyn CoreHandler>,
-    pub stdlib: Option<RainValue>,
-    pub options: super::ExecuteOptions,
-}
+pub mod base;
+pub mod builder;
+pub mod script;
 
 /// Executor is held for the lifetime of a function call, a new Executor is created for each function call, except external function calls
 #[derive(Debug)]

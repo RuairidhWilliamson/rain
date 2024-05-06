@@ -7,7 +7,6 @@ use rain_lang::{
     ast::{function_call::FnCall, Ast},
     error::RainError,
     exec::{
-        executor::Executor,
         external::extract_arg,
         types::{
             function::{ExternalFn, Function, FunctionArguments},
@@ -16,6 +15,7 @@ use rain_lang::{
         },
         ExecCF, ExecError,
     },
+    executor::Executor,
     leaf::Leaf,
     path::RainPath,
     utils::copy_create_dirs,

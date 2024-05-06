@@ -3,13 +3,12 @@ use std::rc::Rc;
 use crate::{
     ast::{function_call::FnCall, script::Script, Ast},
     error::RainError,
-    exec::script::ScriptExecutor,
+    executor::{script::ScriptExecutor, Executor},
     source::Source,
     tokens::peek_stream::PeekTokenStream,
 };
 
 use super::{
-    executor::Executor,
     types::{
         function::{ExternalFn, Function, FunctionArguments},
         record::Record,

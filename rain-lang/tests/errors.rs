@@ -1,8 +1,8 @@
 use rain_lang::ast::ParseError;
 use rain_lang::error::RainError;
 use rain_lang::error::ResolvedError;
-use rain_lang::exec::executor::ExecutorBuilder;
 use rain_lang::exec::ExecError;
+use rain_lang::executor::builder::ExecutorBuilder;
 use rain_lang::path::Workspace;
 use rain_lang::span::{Place, Span};
 use rain_lang::tokens::{TokenError, TokenKind};

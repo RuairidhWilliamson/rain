@@ -3,14 +3,13 @@ use ordered_hash_map::OrderedHashMap;
 use crate::{
     ast::{declaration::Declaration, script::Script, Ast},
     error::RainError,
+    exec::{
+        execution::Execution,
+        types::{function::Function, RainValue},
+        ExecCF, ExecError,
+    },
+    executor::{base::BaseExecutor, Executor},
     source::Source,
-};
-
-use super::{
-    execution::Execution as _,
-    executor::{BaseExecutor, Executor},
-    types::{function::Function, RainValue},
-    ExecCF, ExecError,
 };
 
 #[derive(Debug)]

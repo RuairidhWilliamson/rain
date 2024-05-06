@@ -6,7 +6,8 @@ use crate::{
     ast::{function_call::FnCall, function_def::FnDef, ident::Ident, Ast},
     cache::CacheEntry,
     error::RainError,
-    exec::{execution::Execution, executor::Executor, ExecCF, ExecError},
+    exec::{execution::Execution, ExecCF, ExecError},
+    executor::Executor,
     leaf::LeafSet,
     source::Source,
 };

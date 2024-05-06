@@ -1,7 +1,7 @@
 use std::{cell::RefCell, fmt::Write, rc::Rc};
 
 use rain_lang::exec::corelib::CoreHandler;
-use rain_lang::exec::executor::ExecutorBuilder;
+use rain_lang::executor::builder::ExecutorBuilder;
 use rain_lang::path::Workspace;
 
 #[derive(Debug)]

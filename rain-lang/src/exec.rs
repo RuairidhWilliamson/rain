@@ -5,9 +5,7 @@ use crate::{
 
 pub mod corelib;
 pub mod execution;
-pub mod executor;
 pub mod external;
-pub mod script;
 pub mod types;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

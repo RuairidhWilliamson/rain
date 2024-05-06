@@ -1,8 +1,6 @@
 use std::rc::Rc;
 
-use crate::path::RainPath;
-
-use super::script::ScriptExecutor;
+use crate::{executor::script::ScriptExecutor, path::RainPath};
 
 pub mod function;
 pub mod record;

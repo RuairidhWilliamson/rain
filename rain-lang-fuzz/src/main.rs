@@ -1,5 +1,5 @@
 use afl::fuzz;
-use rain_lang::{exec::executor::ExecutorBuilder, path::Workspace};
+use rain_lang::{executor::builder::ExecutorBuilder, path::Workspace};
 
 fn main() {
     fuzz!(|data: &str| {

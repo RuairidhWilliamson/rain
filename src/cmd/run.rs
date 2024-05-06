@@ -8,11 +8,10 @@ use owo_colors::OwoColorize;
 use rain_lang::{
     ast::{declaration::Declaration, script::Script},
     exec::{
-        executor::{Executor, ExecutorBuilder},
-        script::ScriptExecutor,
         types::{function::Function, RainValue},
         ExecCF, ExecuteOptions,
     },
+    executor::{builder::ExecutorBuilder, script::ScriptExecutor, Executor},
     path::Workspace,
     source::Source,
     tokens::peek_stream::PeekTokenStream,
