@@ -78,7 +78,9 @@ impl RunCommand {
             if self.show_leaves {
                 eprintln!("{:?}", executor.leaves);
             }
-            println!("{output:?}");
+            if !matches!(output, RainValue::Void) {
+                println!("{output:?}");
+            }
             if self.execute_output {
                 self.execute_output(output);
             }
