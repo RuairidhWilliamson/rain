@@ -19,7 +19,7 @@ pub fn check() {
 	escape_run(program = cargo, args = ["clippy", "--workspace", "--color", "always", "--", "--deny", "warnings"])
 	escape_run(program = cargo, args = ["fmt", "--check"])
 	escape_run(program = cargo, args = ["test", "--workspace", "--color", "always"])
-	escape_run(program = cargo, args = ["outdated", "--workspace", "--exit-code", "1"])
+	escape_run(program = cargo, args = ["outdated", "--workspace", "--exit-code", "1", "--color", "always"])
 }
 
 # Installs rain locally in cargo bin

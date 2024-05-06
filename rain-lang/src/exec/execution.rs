@@ -97,16 +97,14 @@ impl Execution for Dot {
                 ExecError::UnknownItem(self.right.name.clone()),
                 self.right.span(),
             )))?,
-            _ => {
-                return Err(RainError::new(
-                    ExecError::UnexpectedType {
-                        expected: &[RainType::Record, RainType::Script],
-                        actual: left_value.as_type(),
-                    },
-                    left.span(),
-                )
-                .into());
-            }
+            _ => Err(RainError::new(
+                ExecError::UnexpectedType {
+                    expected: &[RainType::Record, RainType::Script],
+                    actual: left_value.as_type(),
+                },
+                left.span(),
+            )
+            .into()),
         }
     }
 }
