@@ -1,4 +1,5 @@
 let cargo = std.escape.bin("cargo")
+let tokei = std.escape.bin("tokei")
 
 fn escape_run(program, args) {
 	let out = std.escape.run(program = program, args = args)
@@ -15,11 +16,30 @@ fn escape_run(program, args) {
 
 # Runs all the checks
 pub fn check() {
-	core.print("Checking...")
+	clippy()
+	fmt()
+	tests()
+	outdated()
+}
+
+# Run clippy
+pub fn clippy() {
 	escape_run(program = cargo, args = ["clippy", "--workspace", "--color", "always", "--", "--deny", "warnings"])
+}
+
+# Run rustfmt check
+pub fn fmt() {
 	escape_run(program = cargo, args = ["fmt", "--check"])
+}
+
+# Run all tests
+pub fn tests() {
 	escape_run(program = cargo, args = ["test", "--workspace", "--color", "always"])
-	escape_run(program = cargo, args = ["outdated", "--workspace", "--exit-code", "1", "--color", "always"])
+}
+
+# Check for outdated dependencies
+pub fn outdated() {
+	escape_run(program = cargo, args = ["outdated", "--exit-code", "1", "--color", "always"])
 }
 
 # Installs rain locally in cargo bin
@@ -27,4 +47,10 @@ pub fn install_locally() {
 	check()
 	core.print("Installing...")
 	escape_run(program = cargo, args = ["install", "--path", "."])
+}
+
+# Prints info about language line numbers in the repo
+pub fn code_info() {
+	let out = std.escape.run(program = tokei, args = [])
+	core.print(out.stdout)
 }

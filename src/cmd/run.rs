@@ -91,9 +91,7 @@ impl RunCommand {
     }
 
     fn print_targets(&self, script: &ScriptExecutor) {
-        let mut records: Vec<(&String, &Declaration)> = script.into_iter().collect();
-        records.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
-        for (k, d) in records {
+        for (k, d) in script {
             let Declaration::FnDeclare(d) = d else {
                 continue;
             };
