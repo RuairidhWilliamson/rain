@@ -1,0 +1,13 @@
+let not_run = core.error("shouldn't be run")
+
+# Out of order let works because it is evaluated lazily
+let b = !a
+let a = false
+
+fn main() {
+	if b {
+		core.print("success")
+	} else {
+		core.error("unreachable")
+	}
+}
