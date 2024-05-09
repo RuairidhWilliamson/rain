@@ -6,7 +6,10 @@ use std::{
 use clap::Args;
 use owo_colors::OwoColorize;
 use rain_lang::{
-    ast::{declaration::Declaration, script::Script},
+    ast::{
+        declaration::{Declaration, InnerDeclaration},
+        script::Script,
+    },
     exec::{
         types::{function::Function, RainValue},
         ExecCF, ExecuteOptions,
@@ -62,7 +65,11 @@ impl RunCommand {
                 self.print_targets(&script_executor);
                 return Ok(());
             };
-            let Declaration::FnDeclare(func) = t else {
+            let Declaration {
+                inner: InnerDeclaration::Function(func),
+                ..
+            } = t
+            else {
                 panic!("not a function");
             };
             let options = ExecuteOptions::default();
@@ -92,13 +99,17 @@ impl RunCommand {
 
     fn print_targets(&self, script: &ScriptExecutor) {
         for (k, d) in script {
-            let Declaration::FnDeclare(d) = d else {
-                continue;
-            };
             if d.visibility.is_none() {
                 continue;
             }
-            if !d.args.is_empty() {
+            let Declaration {
+                inner: InnerDeclaration::Function(func),
+                ..
+            } = d
+            else {
+                continue;
+            };
+            if !func.args.is_empty() {
                 continue;
             }
             if let Some(comment) = &d.comment {

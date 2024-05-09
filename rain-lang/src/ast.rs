@@ -8,7 +8,6 @@ pub mod declaration;
 pub mod dot;
 pub mod expr;
 pub mod function_call;
-pub mod function_def;
 pub mod ident;
 pub mod if_condition;
 pub mod let_declare;

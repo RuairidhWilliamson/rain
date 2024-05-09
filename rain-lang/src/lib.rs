@@ -1,4 +1,4 @@
-use ast::declaration::Declaration;
+use ast::declaration::{Declaration, InnerDeclaration};
 use error::RainError;
 use exec::{types::function::Function, ExecCF, ExecError};
 use executor::{base::BaseExecutor, script::ScriptExecutor, Executor};
@@ -46,9 +46,13 @@ fn run_inner(source: &source::Source, e: &mut BaseExecutor) -> Result<(), ExecCF
         .get(&run_target)
         .ok_or_else(|| RainError::new(ExecError::UnknownItem(run_target), Span::default()))?;
     let mut executor = Executor::new(e, &script_executor);
-    let Declaration::FnDeclare(func) = f else {
+    let Declaration {
+        inner: InnerDeclaration::Function(f),
+        ..
+    } = f
+    else {
         panic!("main is not a function");
     };
-    Function::new(source.clone(), func.clone()).call(&mut executor, &[], None)?;
+    Function::new(source.clone(), f.clone()).call(&mut executor, &[], None)?;
     Ok(())
 }

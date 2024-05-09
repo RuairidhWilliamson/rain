@@ -46,7 +46,7 @@ impl Script {
                     } else {
                         Some(comments.join("\n"))
                     };
-                    declarations.push(Declaration::parse_stream(comment, stream)?);
+                    declarations.push(Declaration::parse_stream(comment, None, stream)?);
                     comments.clear();
                     previous_new_line = false;
                 }
@@ -76,10 +76,10 @@ impl Ast for Script {
 mod tests {
     use crate::ast::{
         block::Block,
+        declaration::{FunctionDeclaration, InnerDeclaration},
         dot::Dot,
         expr::Expr,
         function_call::{FnCall, FnCallArg},
-        function_def::FnDef,
         ident::Ident,
         let_declare::LetDeclare,
         statement::Statement,
@@ -111,44 +111,50 @@ mod tests {
         assert_eq!(
             script,
             Script::nosp(vec![
-                Declaration::FnDeclare(FnDef::nosp(
-                    Some(String::from("Comment for a different function")),
-                    None,
-                    Ident::nosp("foo"),
-                    vec![],
-                    Block::nosp(vec![])
-                )),
-                Declaration::FnDeclare(FnDef::nosp(
-                    Some(String::from("Multiline associated comment\nMain function")),
-                    None,
-                    Ident::nosp("main"),
-                    vec![],
-                    Block::nosp(vec![
-                        Statement::Expr(Expr::FnCall(FnCall::nosp(
-                            Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print"))
-                                .into(),
-                            vec![FnCallArg::nosp(
+                Declaration {
+                    comment: Some(String::from("Comment for a different function")),
+                    attributes: vec![],
+                    visibility: None,
+                    inner: InnerDeclaration::Function(FunctionDeclaration::nosp(
+                        Ident::nosp("foo"),
+                        vec![],
+                        Block::nosp(vec![])
+                    ))
+                },
+                Declaration {
+                    comment: Some(String::from("Multiline associated comment\nMain function")),
+                    attributes: vec![],
+                    visibility: None,
+                    inner: InnerDeclaration::Function(FunctionDeclaration::nosp(
+                        Ident::nosp("main"),
+                        vec![],
+                        Block::nosp(vec![
+                            Statement::Expr(Expr::FnCall(FnCall::nosp(
+                                Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print"))
+                                    .into(),
+                                vec![FnCallArg::nosp(
+                                    None,
+                                    StringLiteral::nosp("hello world").into()
+                                )],
+                            ))),
+                            Statement::LetDeclare(LetDeclare::nosp(
                                 None,
-                                StringLiteral::nosp("hello world").into()
-                            )],
-                        ))),
-                        Statement::LetDeclare(LetDeclare::nosp(
-                            None,
-                            Ident::nosp("msg"),
-                            StringLiteral::nosp("okie").into(),
-                        )),
-                        Statement::Expr(Expr::FnCall(FnCall::nosp(
-                            Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print"))
-                                .into(),
-                            vec![FnCallArg::nosp(None, Ident::nosp("msg").into())],
-                        ))),
-                        Statement::Expr(Expr::FnCall(FnCall::nosp(
-                            Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print"))
-                                .into(),
-                            vec![FnCallArg::nosp(None, StringLiteral::nosp("goodbye").into())],
-                        )))
-                    ])
-                ))
+                                Ident::nosp("msg"),
+                                StringLiteral::nosp("okie").into(),
+                            )),
+                            Statement::Expr(Expr::FnCall(FnCall::nosp(
+                                Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print"))
+                                    .into(),
+                                vec![FnCallArg::nosp(None, Ident::nosp("msg").into())],
+                            ))),
+                            Statement::Expr(Expr::FnCall(FnCall::nosp(
+                                Dot::nosp(Some(Ident::nosp("core").into()), Ident::nosp("print"))
+                                    .into(),
+                                vec![FnCallArg::nosp(None, StringLiteral::nosp("goodbye").into())],
+                            )))
+                        ]),
+                    ))
+                },
             ])
         );
     }

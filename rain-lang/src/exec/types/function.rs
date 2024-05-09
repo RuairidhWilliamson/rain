@@ -3,7 +3,7 @@ use std::rc::Rc;
 use ordered_hash_map::OrderedHashMap;
 
 use crate::{
-    ast::{function_call::FnCall, function_def::FnDef, ident::Ident, Ast},
+    ast::{declaration::FunctionDeclaration, function_call::FnCall, ident::Ident, Ast},
     cache::CacheEntry,
     error::RainError,
     exec::{execution::Execution, ExecCF, ExecError},
@@ -22,9 +22,9 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(source: Source, fn_def: FnDef) -> Self {
+    pub fn new(source: Source, function: FunctionDeclaration) -> Self {
         Self {
-            implementation: Rc::new(FunctionImpl::Local(source, fn_def)),
+            implementation: Rc::new(FunctionImpl::Local(source, function)),
         }
     }
 
@@ -60,7 +60,7 @@ pub trait ExternalFn {
 }
 
 enum FunctionImpl {
-    Local(Source, FnDef),
+    Local(Source, FunctionDeclaration),
     External(Box<dyn ExternalFn>),
 }
 

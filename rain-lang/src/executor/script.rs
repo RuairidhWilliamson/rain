@@ -1,7 +1,11 @@
 use ordered_hash_map::OrderedHashMap;
 
 use crate::{
-    ast::{declaration::Declaration, script::Script, Ast},
+    ast::{
+        declaration::{Declaration, InnerDeclaration},
+        script::Script,
+        Ast,
+    },
     error::RainError,
     exec::{
         execution::Execution,
@@ -22,14 +26,14 @@ impl ScriptExecutor {
     pub fn new(script: Script, source: Source) -> Result<Self, RainError> {
         let mut declarations = OrderedHashMap::<String, Declaration>::new();
         for d in script.declarations {
-            let name = d.name();
-            if let Some(old_d) = declarations.get(&name) {
+            let name = d.inner.name();
+            if let Some(old_d) = declarations.get(name) {
                 return Err(RainError::new(
                     ExecError::DuplicateDeclare(old_d.span()),
                     d.span(),
                 ));
             }
-            declarations.insert(name, d);
+            declarations.insert(name.to_owned(), d);
         }
         Ok(Self {
             declarations,
@@ -53,9 +57,18 @@ impl ScriptExecutor {
         let d = self.get(name)?;
         let mut executor = Executor::new(base_executor, self);
         Some(match d {
-            Declaration::LetDeclare(inner) => inner.value.execute(&mut executor),
-            Declaration::LazyDeclare(inner) => inner.value.execute(&mut executor),
-            Declaration::FnDeclare(function) => Ok(RainValue::Function(Function::new(
+            Declaration {
+                inner: InnerDeclaration::Let(inner),
+                ..
+            } => inner.value.execute(&mut executor),
+            Declaration {
+                inner: InnerDeclaration::Lazy(inner),
+                ..
+            } => inner.value.execute(&mut executor),
+            Declaration {
+                inner: InnerDeclaration::Function(function),
+                ..
+            } => Ok(RainValue::Function(Function::new(
                 self.source.clone(),
                 function.clone(),
             ))),
