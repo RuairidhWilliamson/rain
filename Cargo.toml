@@ -1,7 +1,8 @@
 [workspace]
 members = [
   ".",
-  "rain-lang", "rain-lang-fuzz",
+  "rain-lang",
+  "rain-lang-fuzz",
   "range-enum",
 ]
 

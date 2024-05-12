@@ -215,6 +215,7 @@ impl<'a> TokenStream<'a> {
             "match" => Token::Match,
             "true" => Token::TrueLiteral,
             "false" => Token::FalseLiteral,
+            "ctx" => Token::Ctx,
             _ => Token::Ident(name),
         };
         NextTokenSpan::Next(TokenSpan { token, span })

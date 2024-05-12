@@ -17,8 +17,8 @@ fn escape_run(program, args) {
 # Runs all the checks
 pub fn check() {
 	clippy()
-	fmt()
-	tests()
+	fmt_check()
+	test()
 	outdated()
 }
 
@@ -28,12 +28,12 @@ pub fn clippy() {
 }
 
 # Run rustfmt check
-pub fn fmt() {
+pub fn fmt_check() {
 	escape_run(program = cargo, args = ["fmt", "--check"])
 }
 
-# Run all tests
-pub fn tests() {
+# Run all test
+pub fn test() {
 	escape_run(program = cargo, args = ["test", "--workspace", "--color", "always"])
 }
 

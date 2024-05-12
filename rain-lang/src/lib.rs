@@ -53,6 +53,6 @@ fn run_inner(source: &source::Source, e: &mut BaseExecutor) -> Result<(), ExecCF
     else {
         panic!("main is not a function");
     };
-    Function::new(source.clone(), f.clone()).call(&mut executor, &[], None)?;
+    Function::new(script_executor.clone(), f.clone()).call(&mut executor, &[], None)?;
     Ok(())
 }

@@ -16,7 +16,7 @@ use crate::{
     source::Source,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ScriptExecutor {
     declarations: OrderedHashMap<String, Declaration>,
     source: Source,
@@ -69,7 +69,7 @@ impl ScriptExecutor {
                 inner: InnerDeclaration::Function(function),
                 ..
             } => Ok(RainValue::Function(Function::new(
-                self.source.clone(),
+                self.clone(),
                 function.clone(),
             ))),
         })

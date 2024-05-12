@@ -1,9 +1,17 @@
-lazy cc = core.import(core.path("./ctools.rain"))
+let cc = core.import(core.path("ctools.rain"))
 
 # Build foo
 pub fn build() {
-    let out = core.path("foo")
-    return cc.build(core.file(core.path("main.c")), out)
+    return cc.build(core.file(core.path("main.c")), core.path("foo"))
+}
+
+pub fn test_output() {
+    let b = build()
+    let out = std.run(program = b, args = [], extras = [])
+    # if !(out.stdout == "Hello world :)\nGood bye\n") {
+    #     core.print(out.stdout)
+    #     core.error("stdout did not match expected")
+    # }
 }
 
 pub fn call_twice() {

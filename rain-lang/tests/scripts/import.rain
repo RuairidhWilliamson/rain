@@ -1,0 +1,6 @@
+let lib = core.import(core.path("fn.rain"))
+
+fn main() {
+	core.print(lib.b)
+	lib.foo()
+}

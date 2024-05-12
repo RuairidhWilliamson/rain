@@ -7,9 +7,8 @@ use crate::{
     cache::CacheEntry,
     error::RainError,
     exec::{execution::Execution, ExecCF, ExecError},
-    executor::Executor,
+    executor::{script::ScriptExecutor, Executor},
     leaf::LeafSet,
-    source::Source,
 };
 
 use super::RainValue;
@@ -22,9 +21,9 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(source: Source, function: FunctionDeclaration) -> Self {
+    pub fn new(script_executor: ScriptExecutor, function: FunctionDeclaration) -> Self {
         Self {
-            implementation: Rc::new(FunctionImpl::Local(source, function)),
+            implementation: Rc::new(FunctionImpl::Local(script_executor, function)),
         }
     }
 
@@ -60,7 +59,7 @@ pub trait ExternalFn {
 }
 
 enum FunctionImpl {
-    Local(Source, FunctionDeclaration),
+    Local(ScriptExecutor, FunctionDeclaration),
     External(Box<dyn ExternalFn>),
 }
 
@@ -92,7 +91,7 @@ impl FunctionImpl {
             )));
         }
         let entry = match self {
-            Self::Local(source, fn_def) => {
+            Self::Local(script_executor, fn_def) => {
                 let named_args = args
                     .iter()
                     .filter_map(|(n, v)| n.as_ref().map(|n| (n, v)))
@@ -108,7 +107,7 @@ impl FunctionImpl {
                 let local_record = locals.collect();
                 let mut new_executor = Executor {
                     base_executor: executor.base_executor,
-                    script_executor: executor.script_executor,
+                    script_executor,
                     local_record,
                     call_depth: executor.call_depth + 1,
                     leaves: LeafSet::default(),
@@ -116,7 +115,9 @@ impl FunctionImpl {
                 let out = fn_def.block.execute(&mut new_executor);
                 let out = match out {
                     Err(ExecCF::Return(v, _)) => Ok(v),
-                    Err(ExecCF::RainError(err)) => Err(err.resolve(source.clone()).into()),
+                    Err(ExecCF::RainError(err)) => {
+                        Err(err.resolve(script_executor.source().clone()).into())
+                    }
                     v => v,
                 };
                 CacheEntry {

@@ -21,7 +21,6 @@ pub trait NextTokenSpanHelpers<'a> {
     fn ref_expect_not_end<'b>(&'b self, err: ParseError) -> Result<&'b TokenSpan<'a>, RainError>;
     fn expect_not_end(self, err: ParseError) -> Result<TokenSpan<'a>, RainError>;
     fn expect_next(self, token_kind: TokenKind) -> Result<TokenSpan<'a>, RainError>;
-    #[allow(dead_code)]
     fn expect_next_any(self, token_kinds: &'static [TokenKind])
         -> Result<TokenSpan<'a>, RainError>;
 }

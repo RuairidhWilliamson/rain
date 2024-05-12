@@ -1,6 +1,14 @@
-fn foo() {
-	core.print("foo bar")
+let a = "a"
+pub let b = a
+
+pub fn foo() {
+	core.print("foo")
+	bar()
 	return "foo"
+}
+
+fn bar() {
+	core.print("bar")
 }
 
 fn main() {

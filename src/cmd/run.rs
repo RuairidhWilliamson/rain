@@ -80,7 +80,8 @@ impl RunCommand {
             }
             .build(workspace.clone());
             let mut executor = Executor::new(&mut base_executor, &script_executor);
-            let output = Function::new(source.clone(), func).call(&mut executor, &[], None)?;
+            let output =
+                Function::new(script_executor.clone(), func).call(&mut executor, &[], None)?;
             if self.show_leaves {
                 eprintln!("{:?}", executor.leaves);
             }

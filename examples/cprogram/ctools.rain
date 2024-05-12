@@ -1,5 +1,6 @@
+let clang = std.escape.bin("clang")
+
 fn build(src, out) {
-    let clang = std.escape.bin("clang")
     let b = std.run(program = clang, args = [src, "-o", out], extras = [])
     core.print(b)
     if b.success {

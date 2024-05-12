@@ -21,6 +21,7 @@ pub enum Token<'a> {
     Match,        // match
     TrueLiteral,  // true
     FalseLiteral, // false
+    Ctx,          // ctx
 
     Dot,         // .
     Equals,      // =
