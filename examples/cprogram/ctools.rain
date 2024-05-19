@@ -2,7 +2,7 @@ let clang = std.escape.bin("clang")
 
 fn build(src, out) {
     let b = std.run(program = clang, args = [src, "-o", out], extras = [])
-    core.print(b)
+    # core.print(b)
     if b.success {
     } else {
         core.error("build failed")

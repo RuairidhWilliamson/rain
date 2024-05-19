@@ -4,7 +4,7 @@ use ordered_hash_map::OrderedHashMap;
 
 use super::RainValue;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Record(Rc<OrderedHashMap<String, RainValue>>);
 
 impl std::fmt::Display for Record {

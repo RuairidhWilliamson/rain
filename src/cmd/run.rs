@@ -24,6 +24,7 @@ use crate::error_display::ErrorDisplay;
 
 #[derive(Args)]
 pub struct RunCommand {
+    /// Target to run
     target: Option<String>,
 
     #[arg(long)]

@@ -5,7 +5,7 @@ use crate::{executor::script::ScriptExecutor, path::RainPath};
 pub mod function;
 pub mod record;
 
-#[derive(Debug, Clone, enum_kinds::EnumKind)]
+#[derive(Debug, Clone, enum_kinds::EnumKind, PartialEq, Eq)]
 #[enum_kind(RainType)]
 pub enum RainValue {
     Void,

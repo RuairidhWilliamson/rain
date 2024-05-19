@@ -56,6 +56,7 @@ impl Execution for Expr {
             Self::ListLiteral(array) => array.execute(executor),
             Self::IfCondition(inner) => inner.execute(executor),
             Self::UnaryPrefixOperator(inner) => inner.execute(executor),
+            Self::BinaryInfixOperator(_) => todo!("implement binary infix expression execution"),
             Self::Match(_) => todo!("implement match expression execution"),
         }
     }

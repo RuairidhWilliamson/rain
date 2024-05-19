@@ -239,7 +239,12 @@ impl<'a> TokenStream<'a> {
                 _ if escape => {
                     self.column += 1;
                     escape = false;
-                    contents.push(c);
+                    contents.push(match c {
+                        b'n' => b'\n',
+                        b't' => b'\t',
+                        b'r' => b'\r',
+                        c => c,
+                    });
                 }
                 b'"' => {
                     self.index = i + 1;

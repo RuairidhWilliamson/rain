@@ -51,6 +51,10 @@ pub fn core_lib() -> Record {
             String::from("file"),
             RainValue::Function(Function::new_external(CoreFile)),
         ),
+        (
+            String::from("eq"),
+            RainValue::Function(Function::new_external(CoreEq)),
+        ),
     ])
 }
 
@@ -237,5 +241,28 @@ impl ExternalFn for CoreFile {
             .unwrap()
             .join(s.as_ref());
         Ok(RainValue::File(Rc::new(file)))
+    }
+}
+
+#[derive(PartialEq, Eq)]
+struct CoreEq;
+
+impl ExternalFn for CoreEq {
+    fn call(
+        &self,
+        _executor: &mut Executor,
+        args: &FunctionArguments,
+        _call: Option<&FnCall>,
+    ) -> Result<RainValue, ExecCF> {
+        let [(_, head), ..] = args else {
+            return Ok(RainValue::Bool(true));
+        };
+        for (_, a) in &args[1..] {
+            if head != a {
+                dbg!(head, a);
+                return Ok(RainValue::Bool(false));
+            }
+        }
+        Ok(RainValue::Bool(true))
     }
 }

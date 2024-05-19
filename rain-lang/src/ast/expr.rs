@@ -1,7 +1,8 @@
 use super::{
-    bool_literal::BoolLiteral, dot::Dot, function_call::FnCall, helpers::NextTokenSpanHelpers,
-    ident::Ident, if_condition::IfCondition, list_literal::ListLiteral, match_expr::Match,
-    string_literal::StringLiteral, unary_prefix_operator::UnaryPrefixOperator, Ast, ParseError,
+    binary_infix_operator::BinaryInfixOperator, bool_literal::BoolLiteral, dot::Dot,
+    function_call::FnCall, helpers::NextTokenSpanHelpers, ident::Ident, if_condition::IfCondition,
+    list_literal::ListLiteral, match_expr::Match, string_literal::StringLiteral,
+    unary_prefix_operator::UnaryPrefixOperator, Ast, ParseError,
 };
 use crate::{
     error::RainError,
@@ -20,6 +21,7 @@ pub enum Expr {
     IfCondition(IfCondition),
     Match(Match),
     UnaryPrefixOperator(UnaryPrefixOperator),
+    BinaryInfixOperator(BinaryInfixOperator),
 }
 
 impl From<Ident> for Expr {
@@ -153,6 +155,7 @@ impl Ast for Expr {
             Self::IfCondition(inner) => inner.span(),
             Self::Match(inner) => inner.span(),
             Self::UnaryPrefixOperator(inner) => inner.span(),
+            Self::BinaryInfixOperator(inner) => inner.span(),
         }
     }
 
@@ -167,6 +170,7 @@ impl Ast for Expr {
             Self::IfCondition(inner) => inner.reset_spans(),
             Self::Match(inner) => inner.reset_spans(),
             Self::UnaryPrefixOperator(inner) => inner.reset_spans(),
+            Self::BinaryInfixOperator(inner) => inner.reset_spans(),
         }
     }
 }
@@ -335,4 +339,14 @@ mod tests {
         )
         .into()
     );
+
+    parse_expr_test!(
+        parse_string_literal,
+        "\"abc\\ndef\"",
+        StringLiteral::nosp("abc\ndef").into()
+    );
+
+    // parse_expr_test!(parse_extra_parens, "((a))", Ident::nosp("a").into());
+
+    // parse_expr_test!(parse_equals, "a == a", Ident::nosp("a").into());
 }

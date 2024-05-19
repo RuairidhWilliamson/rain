@@ -319,4 +319,16 @@ mod tests {
             .collect();
         assert_eq!(tokens, vec![Token::DoubleQuoteLiteral(String::from("ab"))],);
     }
+
+    #[test]
+    fn doublequote_newline_literal() {
+        let source = "\"a\\nb\"";
+        let tokens: Vec<Token> = TokenStream::new(source)
+            .map(|ts| ts.unwrap().token)
+            .collect();
+        assert_eq!(
+            tokens,
+            vec![Token::DoubleQuoteLiteral(String::from("a\nb"))],
+        );
+    }
 }

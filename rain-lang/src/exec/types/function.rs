@@ -15,7 +15,7 @@ use super::RainValue;
 
 pub type FunctionArguments<'a> = [(&'a Option<Ident>, RainValue)];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
     implementation: Rc<FunctionImpl>,
 }
@@ -62,6 +62,14 @@ enum FunctionImpl {
     Local(ScriptExecutor, FunctionDeclaration),
     External(Box<dyn ExternalFn>),
 }
+
+impl PartialEq for FunctionImpl {
+    fn eq(&self, _other: &Self) -> bool {
+        false
+    }
+}
+
+impl Eq for FunctionImpl {}
 
 impl std::fmt::Debug for FunctionImpl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -2,6 +2,7 @@ mod clean;
 mod config;
 mod debug;
 mod run;
+mod watch;
 
 use std::{
     path::{Path, PathBuf},
@@ -27,6 +28,8 @@ pub struct Cli {
 pub enum RainCommand {
     /// Run a rain target
     Run(run::RunCommand),
+    /// Keep running a rain target when a file system change is detected
+    Watch(watch::WatchCommand),
     /// Configure rain
     Config {
         #[command(subcommand)]
@@ -62,6 +65,7 @@ impl Cli {
 
         match self.command {
             RainCommand::Run(command) => command.run(&root_workspace),
+            RainCommand::Watch(command) => command.run(&root_workspace),
             RainCommand::Config { command } => command.run(&root_workspace_directory),
             RainCommand::Debug { command } => command.run(),
             RainCommand::Clean(command) => command.run(&root_workspace),

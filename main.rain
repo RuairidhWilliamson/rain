@@ -1,6 +1,8 @@
 let cargo = std.escape.bin("cargo")
 let tokei = std.escape.bin("tokei")
 
+let cprogram_examples = core.import(core.path("examples/cprogram/main.rain"))
+
 fn escape_run(program, args) {
 	let out = std.escape.run(program = program, args = args)
 	if !out.success {
@@ -20,6 +22,7 @@ pub fn check() {
 	fmt_check()
 	test()
 	outdated()
+	check_examples()
 }
 
 # Run clippy
@@ -40,6 +43,11 @@ pub fn test() {
 # Check for outdated dependencies
 pub fn outdated() {
 	escape_run(program = cargo, args = ["outdated", "--exit-code", "1", "--color", "always"])
+}
+
+# Run and check examples
+pub fn check_examples() {
+	cprogram_examples.test_output()
 }
 
 # Installs rain locally in cargo bin

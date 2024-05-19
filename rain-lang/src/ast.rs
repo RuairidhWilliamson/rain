@@ -2,6 +2,7 @@ use crate::{span::Span, tokens::TokenKind};
 
 mod helpers;
 
+pub mod binary_infix_operator;
 pub mod block;
 pub mod bool_literal;
 pub mod declaration;

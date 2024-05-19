@@ -16,7 +16,7 @@ use crate::{
     source::Source,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScriptExecutor {
     declarations: OrderedHashMap<String, Declaration>,
     source: Source,
