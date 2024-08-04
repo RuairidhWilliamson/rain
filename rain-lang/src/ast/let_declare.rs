@@ -77,7 +77,7 @@ impl Ast for LetDeclare {
     }
 
     fn reset_spans(&mut self) {
-        for v in &mut self.visibility {
+        if let Some(v) = &mut self.visibility {
             v.reset_spans();
         }
         self.token.reset();

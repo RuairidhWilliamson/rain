@@ -1,0 +1,6 @@
+let cprogram = core.import(cprogram)
+
+# Run and check examples
+pub fn check() {
+	cprogram_examples.test_output()
+}

@@ -11,6 +11,7 @@ pub mod error;
 pub mod exec;
 pub mod executor;
 pub mod leaf;
+pub mod manifest;
 pub mod path;
 pub mod source;
 pub mod span;

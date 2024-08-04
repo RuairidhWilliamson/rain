@@ -185,7 +185,7 @@ impl<'a> TokenStream<'a> {
                             column: self.column,
                         },
                     );
-                    return self.keyword_or_ident(&self.source[start.index..i], span);
+                    return Self::keyword_or_ident(&self.source[start.index..i], span);
                 }
             }
         }
@@ -199,10 +199,10 @@ impl<'a> TokenStream<'a> {
                 column: self.column - 1,
             },
         );
-        self.keyword_or_ident(&self.source[start.index..], span)
+        Self::keyword_or_ident(&self.source[start.index..], span)
     }
 
-    fn keyword_or_ident(&mut self, name: &'a str, span: Span) -> NextTokenSpan<'a> {
+    fn keyword_or_ident(name: &'a str, span: Span) -> NextTokenSpan<'a> {
         let token = match name {
             "void" => Token::Void,
             "lazy" => Token::Lazy,

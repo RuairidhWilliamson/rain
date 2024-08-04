@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     cache::MemCache,
     exec::{
@@ -12,6 +14,7 @@ use super::base::BaseExecutor;
 
 #[derive(Debug, Default)]
 pub struct ExecutorBuilder {
+    pub dependencies: HashMap<String, crate::manifest::Dependency>,
     pub cache: Option<Box<dyn crate::cache::Cache>>,
     pub core_handler: Option<Box<dyn CoreHandler>>,
     pub stdlib: Option<Record>,

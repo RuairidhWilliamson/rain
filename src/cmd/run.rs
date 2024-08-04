@@ -15,6 +15,7 @@ use rain_lang::{
         ExecCF, ExecuteOptions,
     },
     executor::{builder::ExecutorBuilder, script::ScriptExecutor, Executor},
+    manifest::Manifest,
     path::Workspace,
     source::Source,
     tokens::peek_stream::PeekTokenStream,
@@ -39,6 +40,7 @@ pub struct RunCommand {
 
 impl RunCommand {
     pub fn run(self, workspace: &Workspace) -> ExitCode {
+        let manifest = Self::resolve_manifest(workspace);
         let path = self.path.as_deref().unwrap_or_else(|| Path::new("."));
         let source = match Source::new(&workspace.new_path(path)) {
             Ok(source) => source,
@@ -47,7 +49,7 @@ impl RunCommand {
                 return ExitCode::FAILURE;
             }
         };
-        match self.run_inner(&source, workspace) {
+        match self.run_inner(&source, &manifest, workspace) {
             Ok(()) => ExitCode::SUCCESS,
             Err(ExecCF::Return(_, _)) => unreachable!("return control flow is caught earlier"),
             Err(ExecCF::RuntimeError(err)) => err.display(),
@@ -56,7 +58,16 @@ impl RunCommand {
         }
     }
 
-    fn run_inner(self, source: &Source, workspace: &Workspace) -> Result<(), ExecCF> {
+    fn resolve_manifest(workspace: &Workspace) -> Manifest {
+        Manifest::load(&workspace.resolve().join("rain.toml"))
+    }
+
+    fn run_inner(
+        self,
+        source: &Source,
+        manifest: &Manifest,
+        workspace: &Workspace,
+    ) -> Result<(), ExecCF> {
         let mut token_stream = PeekTokenStream::new(&source.source);
         let script = Script::parse_stream(&mut token_stream)?;
         let script_executor = ScriptExecutor::new(script, source.clone())?;
@@ -75,6 +86,7 @@ impl RunCommand {
             };
             let options = ExecuteOptions::default();
             let mut base_executor = ExecutorBuilder {
+                dependencies: manifest.dependencies.clone(),
                 stdlib: Some(crate::stdlib::new_stdlib()),
                 options,
                 ..Default::default()

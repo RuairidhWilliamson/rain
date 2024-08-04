@@ -95,7 +95,7 @@ impl Ast for Declaration {
             k.reset_spans();
             v.reset_spans();
         }
-        for v in &mut self.visibility {
+        if let Some(v) = &mut self.visibility {
             v.reset_spans();
         }
         self.inner.reset_spans();

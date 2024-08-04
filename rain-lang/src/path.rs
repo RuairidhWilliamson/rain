@@ -44,9 +44,13 @@ impl RainPath {
     }
 
     pub fn join(&self, path: impl AsRef<std::path::Path>) -> Self {
+        let mut path = self.path.join(path);
+        if path.starts_with("./") {
+            path = path.strip_prefix("./").unwrap().to_path_buf();
+        }
         Self {
             scope: self.scope.clone(),
-            path: self.path.join(path),
+            path,
         }
     }
 

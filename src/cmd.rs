@@ -48,9 +48,8 @@ impl Cli {
     pub fn run(self) -> ExitCode {
         let root_workspace_directory = self
             .root
-            .unwrap_or_else(Self::find_workspace_root)
-            .canonicalize()
-            .expect("canonicalize root directory");
+            .or_else(Self::find_root_workspace)
+            .expect("could not find root workspace");
 
         match rain_lang::config::load(&root_workspace_directory).validate() {
             Ok(config) => set_global_config(config),
@@ -72,9 +71,16 @@ impl Cli {
         }
     }
 
-    fn find_workspace_root() -> PathBuf {
-        let p = Path::new(".");
-        p.to_path_buf()
+    pub fn find_root_workspace() -> Option<PathBuf> {
+        let path = Path::new(".").canonicalize().unwrap();
+        let mut p = path.as_path();
+        loop {
+            let manifest_path = p.join("rain.toml");
+            if manifest_path.try_exists().unwrap() {
+                return Some(p.to_path_buf());
+            }
+            p = p.parent()?;
+        }
     }
 }
 

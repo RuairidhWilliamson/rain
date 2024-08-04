@@ -23,8 +23,9 @@ pub fn config_search_paths(root_workspace_directory: &Path) -> impl Iterator<Ite
     [
         dirs::config_dir()
             .expect("config directory")
-            .join("rain.toml"),
-        root_workspace_directory.join("rain.toml"),
+            .join("rain")
+            .join("config.toml"),
+        root_workspace_directory.join(".rain").join("config.toml"),
     ]
     .into_iter()
 }
