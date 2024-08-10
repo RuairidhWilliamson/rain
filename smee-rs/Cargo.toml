@@ -1,0 +1,24 @@
+[package]
+name = "smee-rs"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap = { workspace = true, optional = true }
+serde_json.workspace = true
+
+eventsource-client = "0.13.0"
+futures = "0.3.30"
+reqwest = "0.12.5"
+tokio = { version = "1.39.2", features = ["macros", "rt-multi-thread"], optional = true }
+url = "2.5.2"
+
+[[bin]]
+name = "smee-rs"
+required-features = ["clap", "tokio"]
