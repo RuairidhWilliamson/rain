@@ -3,54 +3,24 @@ source: lang/src/ast/test.rs
 expression: "parse_display_script(\"\n        let val = foo(3)\n        let val = foo(bar(4))\n        \")"
 ---
 Script(
- Declaration(
-  LetDeclare(
-   val
-   Expr(
-    FnCall(
-     Expr(
-      Ident(
-       foo
-      )
-     )
-     FnCallArgs(
-      Expr(
-       IntegerLiteral(
-        3
-       )
-      )
-     )
-    )
+ LetDeclare(
+  Ident(val)
+  FnCall(
+   Ident(foo)
+   FnCallArgs(
+    Number(3)
    )
   )
  )
- Declaration(
-  LetDeclare(
-   val
-   Expr(
+ LetDeclare(
+  Ident(val)
+  FnCall(
+   Ident(foo)
+   FnCallArgs(
     FnCall(
-     Expr(
-      Ident(
-       foo
-      )
-     )
+     Ident(bar)
      FnCallArgs(
-      Expr(
-       FnCall(
-        Expr(
-         Ident(
-          bar
-         )
-        )
-        FnCallArgs(
-         Expr(
-          IntegerLiteral(
-           4
-          )
-         )
-        )
-       )
-      )
+      Number(4)
      )
     )
    )

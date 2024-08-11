@@ -5,6 +5,11 @@ use super::Script;
 fn parse_display_script(src: &str) -> String {
     let mut stream = PeekTokenStream::new(src);
     let s = Script::parse(&mut stream).unwrap();
+    assert_eq!(
+        stream.parse_next().unwrap(),
+        None,
+        "input not fully consumed"
+    );
     display_ast(&s, src)
 }
 

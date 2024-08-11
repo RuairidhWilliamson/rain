@@ -2,14 +2,8 @@
 source: lang/src/ast/expr.rs
 expression: "parse_display_expr(\"foo()\")"
 ---
-Expr(
- FnCall(
-  Expr(
-   Ident(
-    foo
-   )
-  )
-  FnCallArgs(
-  )
+FnCall(
+ Ident(foo)
+ FnCallArgs(
  )
 )

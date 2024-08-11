@@ -1,0 +1,9 @@
+---
+source: lang/src/ast/expr.rs
+expression: "parse_display_expr(\"1 + 1\")"
+---
+BinaryOp(
+ Number(1)
+ Plus(+)
+ Number(1)
+)

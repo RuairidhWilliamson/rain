@@ -2,8 +2,4 @@
 source: lang/src/ast/expr.rs
 expression: "parse_display_expr(\"4\")"
 ---
-Expr(
- IntegerLiteral(
-  4
- )
-)
+Number(4)

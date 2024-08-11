@@ -3,27 +3,13 @@ source: lang/src/ast/test.rs
 expression: "parse_display_script(\"\n        fn main() {\n            print(\\\"Hello world\\\")\n        }\n        \")"
 ---
 Script(
- Declaration(
-  FnDeclare(
-   main
-   Block(
-    Statement(
-     Expr(
-      FnCall(
-       Expr(
-        Ident(
-         print
-        )
-       )
-       FnCallArgs(
-        Expr(
-         StringLiteral(
-          "Hello world"
-         )
-        )
-       )
-      )
-     )
+ FnDeclare(
+  Ident(main)
+  Block(
+   FnCall(
+    Ident(print)
+    FnCallArgs(
+     DoubleQuoteLiteral("Hello world")
     )
    )
   )

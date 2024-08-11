@@ -1,6 +1,6 @@
 use std::fmt::{Result, Write};
 
-use crate::span::LocalSpan;
+use crate::{span::LocalSpan, tokens::TokenLocalSpan};
 
 /// # Panics
 /// Panics if a formatter error occurs
@@ -32,6 +32,13 @@ impl<'b> AstFormatter<'b> {
         'b: 'a,
     {
         NodeBuilder::new(self, name)
+    }
+
+    pub fn node_single_child(&mut self, name: &str, child: &dyn AstDisplay) -> Result {
+        self.buf.write_str(name)?;
+        self.buf.write_char('(')?;
+        child.fmt(self)?;
+        self.buf.write_char(')')
     }
 
     fn write_indent(&mut self) -> Result {
@@ -92,5 +99,11 @@ impl<'a, 'b> NodeBuilder<'a, 'b> {
 impl AstDisplay for LocalSpan {
     fn fmt(&self, f: &mut AstFormatter<'_>) -> Result {
         f.buf.write_str(self.contents(f.src))
+    }
+}
+
+impl AstDisplay for TokenLocalSpan {
+    fn fmt(&self, f: &mut AstFormatter<'_>) -> Result {
+        f.node_single_child(&format!("{:?}", self.token), &self.span)
     }
 }

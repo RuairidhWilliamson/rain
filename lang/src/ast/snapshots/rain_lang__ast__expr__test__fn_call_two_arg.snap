@@ -2,24 +2,10 @@
 source: lang/src/ast/expr.rs
 expression: "parse_display_expr(\"foo(1, 2)\")"
 ---
-Expr(
- FnCall(
-  Expr(
-   Ident(
-    foo
-   )
-  )
-  FnCallArgs(
-   Expr(
-    IntegerLiteral(
-     1
-    )
-   )
-   Expr(
-    IntegerLiteral(
-     2
-    )
-   )
-  )
+FnCall(
+ Ident(foo)
+ FnCallArgs(
+  Number(1)
+  Number(2)
  )
 )

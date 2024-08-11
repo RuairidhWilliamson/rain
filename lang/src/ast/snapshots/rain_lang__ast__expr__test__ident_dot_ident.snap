@@ -1,0 +1,14 @@
+---
+source: lang/src/ast/expr.rs
+expression: "parse_display_expr(\"foo.bar\")"
+---
+Expr(
+ Dot(
+  Expr(
+   Ident(
+    foo
+   )
+  )
+  bar
+ )
+)

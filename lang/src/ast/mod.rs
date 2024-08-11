@@ -59,12 +59,11 @@ pub enum Declaration {
 
 impl display::AstDisplay for Declaration {
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
-        let mut builder = f.node("Declaration");
-        match self {
-            Self::LetDeclare(inner) => builder.child(inner),
-            Self::FnDeclare(inner) => builder.child(inner),
+        let inner: &dyn display::AstDisplay = match self {
+            Self::LetDeclare(inner) => inner,
+            Self::FnDeclare(inner) => inner,
         };
-        builder.finish()
+        inner.fmt(f)
     }
 }
 
@@ -82,17 +81,17 @@ impl From<FnDeclare> for Declaration {
 
 #[derive(Debug)]
 pub struct LetDeclare {
-    pub let_token: LocalSpan,
-    pub name: LocalSpan,
-    pub equals_token: LocalSpan,
+    pub let_token: TokenLocalSpan,
+    pub name: TokenLocalSpan,
+    pub equals_token: TokenLocalSpan,
     pub expr: expr::Expr,
 }
 
 impl LetDeclare {
     fn parse(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
-        let let_token = expect_token(stream.parse_next()?, &[Token::Let])?.span;
-        let name = expect_token(stream.parse_next()?, &[Token::Ident])?.span;
-        let equals_token = expect_token(stream.parse_next()?, &[Token::Equals])?.span;
+        let let_token = expect_token(stream.parse_next()?, &[Token::Let])?;
+        let name = expect_token(stream.parse_next()?, &[Token::Ident])?;
+        let equals_token = expect_token(stream.parse_next()?, &[Token::Equals])?;
         let expr = expr::Expr::parse(stream)?;
         Ok(Self {
             let_token,
@@ -114,20 +113,20 @@ impl display::AstDisplay for LetDeclare {
 
 #[derive(Debug)]
 pub struct FnDeclare {
-    pub fn_token: LocalSpan,
-    pub name: LocalSpan,
-    pub lparen_token: LocalSpan,
+    pub fn_token: TokenLocalSpan,
+    pub name: TokenLocalSpan,
+    pub lparen_token: TokenLocalSpan,
     // TODO: Args
-    pub rparen_token: LocalSpan,
+    pub rparen_token: TokenLocalSpan,
     pub block: Block,
 }
 
 impl FnDeclare {
     fn parse(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
-        let fn_token = expect_token(stream.parse_next()?, &[Token::Fn])?.span;
-        let name = expect_token(stream.parse_next()?, &[Token::Ident])?.span;
-        let lparen_token = expect_token(stream.parse_next()?, &[Token::LParen])?.span;
-        let rparen_token = expect_token(stream.parse_next()?, &[Token::RParen])?.span;
+        let fn_token = expect_token(stream.parse_next()?, &[Token::Fn])?;
+        let name = expect_token(stream.parse_next()?, &[Token::Ident])?;
+        let lparen_token = expect_token(stream.parse_next()?, &[Token::LParen])?;
+        let rparen_token = expect_token(stream.parse_next()?, &[Token::RParen])?;
         let block = Block::parse(stream)?;
         Ok(Self {
             fn_token,
@@ -203,11 +202,10 @@ impl Statement {
 
 impl display::AstDisplay for Statement {
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
-        let mut builder = f.node("Statement");
-        match self {
-            Self::Expr(inner) => builder.child(inner),
+        let inner: &dyn display::AstDisplay = match self {
+            Self::Expr(inner) => inner,
         };
-        builder.finish()
+        inner.fmt(f)
     }
 }
 

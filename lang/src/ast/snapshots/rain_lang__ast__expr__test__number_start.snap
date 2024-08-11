@@ -1,0 +1,15 @@
+---
+source: lang/src/ast/expr.rs
+expression: "parse_display_expr(\"1 * 2\")"
+---
+BinaryOp(
+ Number(
+  1
+ )
+ Star(
+  *
+ )
+ Number(
+  2
+ )
+)

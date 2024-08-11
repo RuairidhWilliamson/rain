@@ -1,26 +1,14 @@
 ---
 source: lang/src/ast/test.rs
-expression: "display_ast(&s, src)"
+expression: "parse_display_script(\"\n        let a = 4\n        let asjldf = \\\"asjldf\\\"\n        \")"
 ---
 Script(
- Declaration(
-  LetDeclare(
-   a
-   Expr(
-    IntegerLiteral(
-     4
-    )
-   )
-  )
+ LetDeclare(
+  Ident(a)
+  Number(4)
  )
- Declaration(
-  LetDeclare(
-   asjldf
-   Expr(
-    StringLiteral(
-     "asjldf"
-    )
-   )
-  )
+ LetDeclare(
+  Ident(asjldf)
+  DoubleQuoteLiteral("asjldf")
  )
 )

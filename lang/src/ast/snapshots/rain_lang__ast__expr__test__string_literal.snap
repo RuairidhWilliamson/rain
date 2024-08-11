@@ -2,8 +2,4 @@
 source: lang/src/ast/expr.rs
 expression: "parse_display_expr(\"\\\"asldjf\\\"\")"
 ---
-Expr(
- StringLiteral(
-  "asldjf"
- )
-)
+DoubleQuoteLiteral("asldjf")
