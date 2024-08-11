@@ -10,6 +10,12 @@ resolver = "2"
 lto = true
 panic = "abort"
 
+[profile.dev.package.insta]
+opt-level = 3
+
+[profile.dev.package.similar]
+opt-level = 3
+
 [workspace.package]
 version = "0.0.0"
 edition = "2021"

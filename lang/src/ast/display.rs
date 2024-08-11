@@ -62,14 +62,22 @@ impl<'a, 'b> NodeBuilder<'a, 'b> {
         }
     }
 
-    pub fn child(&mut self, child: &dyn AstDisplay) -> &mut Self {
+    fn child_fn(&mut self, f: impl FnOnce(&mut AstFormatter<'b>) -> Result) -> &mut Self {
         self.result = self.result.and_then(|()| {
             self.fmt.write_indent()?;
-            child.fmt(self.fmt)?;
-            self.fmt.buf.write_str(",\n")
+            f(self.fmt)?;
+            self.fmt.buf.write_str("\n")
         });
         self.has_children = true;
         self
+    }
+
+    pub fn child(&mut self, child: &dyn AstDisplay) -> &mut Self {
+        self.child_fn(|f| child.fmt(f))
+    }
+
+    pub fn named_child(&mut self, name: &str, child: &dyn AstDisplay) -> &mut Self {
+        self.child_fn(|f| f.node(name).child(child).finish())
     }
 
     pub fn finish(&mut self) -> Result {

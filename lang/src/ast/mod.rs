@@ -1,4 +1,5 @@
 pub mod display;
+pub mod expr;
 
 #[cfg(test)]
 mod test;
@@ -38,7 +39,12 @@ impl Script {
                 Token::Fn => {
                     declarations.push(FnDeclare::parse(stream)?.into());
                 }
-                _ => return Err(ParseError::ExpectedToken(&[Token::Fn], Some(peek))),
+                _ => {
+                    return Err(ParseError::ExpectedToken(
+                        &[Token::Fn, Token::Let],
+                        Some(peek),
+                    ))
+                }
             }
         }
         Ok(Self { declarations })
@@ -79,7 +85,7 @@ pub struct LetDeclare {
     pub let_token: LocalSpan,
     pub name: LocalSpan,
     pub equals_token: LocalSpan,
-    pub expr: Expr,
+    pub expr: expr::Expr,
 }
 
 impl LetDeclare {
@@ -87,7 +93,7 @@ impl LetDeclare {
         let let_token = expect_token(stream.parse_next()?, &[Token::Let])?.span;
         let name = expect_token(stream.parse_next()?, &[Token::Ident])?.span;
         let equals_token = expect_token(stream.parse_next()?, &[Token::Equals])?.span;
-        let expr = Expr::parse(stream)?;
+        let expr = expr::Expr::parse(stream)?;
         Ok(Self {
             let_token,
             name,
@@ -135,7 +141,10 @@ impl FnDeclare {
 
 impl display::AstDisplay for FnDeclare {
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
-        f.node("FnDeclare").child(&self.block).finish()
+        f.node("FnDeclare")
+            .child(&self.name)
+            .child(&self.block)
+            .finish()
     }
 }
 
@@ -183,12 +192,12 @@ impl display::AstDisplay for Block {
 
 #[derive(Debug)]
 pub enum Statement {
-    Expr(Expr),
+    Expr(expr::Expr),
 }
 
 impl Statement {
     fn parse(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
-        Expr::parse(stream).map(Self::Expr)
+        expr::Expr::parse(stream).map(Self::Expr)
     }
 }
 
@@ -199,75 +208,6 @@ impl display::AstDisplay for Statement {
             Self::Expr(inner) => builder.child(inner),
         };
         builder.finish()
-    }
-}
-
-#[derive(Debug)]
-pub enum Expr {
-    Ident(LocalSpan),
-    Dot(Dot),
-    FnCall(FnCall),
-    StringLiteral(LocalSpan),
-}
-
-impl Expr {
-    fn parse(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
-        let ident = expect_token(stream.parse_next()?, &[Token::Ident])?.span;
-        let lparen_token = expect_token(stream.parse_next()?, &[Token::LParen])?.span;
-        let string_literal = expect_token(stream.parse_next()?, &[Token::DoubleQuoteLiteral])?.span;
-        let rparen_token = expect_token(stream.parse_next()?, &[Token::RParen])?.span;
-        Ok(Self::FnCall(FnCall {
-            callee: Box::new(Self::Ident(ident)),
-            lparen_token,
-            args: vec![Self::StringLiteral(string_literal)],
-            rparen_token,
-        }))
-    }
-}
-
-impl display::AstDisplay for Expr {
-    fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
-        let mut builder = f.node("Expr");
-        match self {
-            Self::Ident(inner) | Self::StringLiteral(inner) => builder.child(inner),
-            Self::Dot(inner) => builder.child(inner),
-            Self::FnCall(inner) => builder.child(inner),
-        };
-        builder.finish()
-    }
-}
-
-#[derive(Debug)]
-pub struct FnCall {
-    pub callee: Box<Expr>,
-    pub lparen_token: LocalSpan,
-    pub args: Vec<Expr>,
-    pub rparen_token: LocalSpan,
-}
-
-impl display::AstDisplay for FnCall {
-    fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
-        let mut builder = f.node("FnCall");
-        builder.child(self.callee.as_ref());
-        for a in &self.args {
-            builder.child(a);
-        }
-        builder.finish()
-    }
-}
-
-#[derive(Debug)]
-pub struct Dot {
-    pub parent: Box<Expr>,
-    pub name: LocalSpan,
-}
-
-impl display::AstDisplay for Dot {
-    fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
-        f.node("Dot")
-            .child(self.parent.as_ref())
-            .child(&self.name)
-            .finish()
     }
 }
 

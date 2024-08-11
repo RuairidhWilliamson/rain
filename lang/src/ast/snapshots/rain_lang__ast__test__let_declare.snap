@@ -1,0 +1,26 @@
+---
+source: lang/src/ast/test.rs
+expression: "display_ast(&s, src)"
+---
+Script(
+ Declaration(
+  LetDeclare(
+   a
+   Expr(
+    IntegerLiteral(
+     4
+    )
+   )
+  )
+ )
+ Declaration(
+  LetDeclare(
+   asjldf
+   Expr(
+    StringLiteral(
+     "asjldf"
+    )
+   )
+  )
+ )
+)

@@ -2,14 +2,39 @@ use crate::{ast::display::display_ast, tokens::peek::PeekTokenStream};
 
 use super::Script;
 
+fn parse_display_script(src: &str) -> String {
+    let mut stream = PeekTokenStream::new(src);
+    let s = Script::parse(&mut stream).unwrap();
+    display_ast(&s, src)
+}
+
 #[test]
 fn hello_world() {
-    let src = "
+    insta::assert_snapshot!(parse_display_script(
+        "
         fn main() {
             print(\"Hello world\")
         }
-    ";
-    let mut stream = PeekTokenStream::new(src);
-    let s = Script::parse(&mut stream).unwrap();
-    insta::assert_snapshot!(display_ast(&s, src));
+        "
+    ));
+}
+
+#[test]
+fn let_declare() {
+    insta::assert_snapshot!(parse_display_script(
+        "
+        let a = 4
+        let asjldf = \"asjldf\"
+        "
+    ));
+}
+
+#[test]
+fn fn_call() {
+    insta::assert_snapshot!(parse_display_script(
+        "
+        let val = foo(3)
+        let val = foo(bar(4))
+        "
+    ));
 }

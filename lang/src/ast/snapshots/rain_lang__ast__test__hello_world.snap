@@ -1,24 +1,31 @@
 ---
 source: lang/src/ast/test.rs
-expression: "display_ast(&s, src)"
+expression: "parse_display_script(\"\n        fn main() {\n            print(\\\"Hello world\\\")\n        }\n        \")"
 ---
 Script(
  Declaration(
   FnDeclare(
+   main
    Block(
     Statement(
      Expr(
       FnCall(
        Expr(
-        print,
-       ),
-       Expr(
-        "Hello world",
-       ),
-      ),
-     ),
-    ),
-   ),
-  ),
- ),
+        Ident(
+         print
+        )
+       )
+       FnCallArgs(
+        Expr(
+         StringLiteral(
+          "Hello world"
+         )
+        )
+       )
+      )
+     )
+    )
+   )
+  )
+ )
 )
