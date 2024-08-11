@@ -1,5 +1,6 @@
 use crate::span::LocalSpan;
 
+pub mod peek;
 pub mod stream;
 #[cfg(test)]
 mod test;

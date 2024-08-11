@@ -1,0 +1,24 @@
+---
+source: lang/src/ast/test.rs
+expression: "display_ast(&s, src)"
+---
+Script(
+ Declaration(
+  FnDeclare(
+   Block(
+    Statement(
+     Expr(
+      FnCall(
+       Expr(
+        print,
+       ),
+       Expr(
+        "Hello world",
+       ),
+      ),
+     ),
+    ),
+   ),
+  ),
+ ),
+)

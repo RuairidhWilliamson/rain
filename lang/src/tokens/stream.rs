@@ -14,7 +14,7 @@ impl<'a> TokenStream<'a> {
 }
 
 impl TokenStream<'_> {
-    fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, TokenError> {
+    pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, TokenError> {
         loop {
             let Some(c) = self.source.as_bytes().get(self.index) else {
                 return Ok(None);

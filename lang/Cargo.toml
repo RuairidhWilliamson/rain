@@ -6,7 +6,8 @@ rust-version.workspace = true
 authors.workspace = true
 publish.workspace = true
 
-[dependencies]
+[dev-dependencies]
+insta = "1.39.0"
 
 [lints]
 workspace = true

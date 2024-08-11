@@ -15,4 +15,12 @@ impl LocalSpan {
     pub fn new(start: usize, end: usize) -> Self {
         Self { start, end }
     }
+
+    pub fn rng(&self) -> std::ops::Range<usize> {
+        self.start..self.end
+    }
+
+    pub fn contents<'a>(&self, src: &'a str) -> &'a str {
+        &src[self.rng()]
+    }
 }

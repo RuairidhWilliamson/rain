@@ -87,7 +87,7 @@ fn double_quote_literal() {
     assert!(str_tokens("\"hei\n\"").is_err());
     assert_tokens!("\"😀 普通话 abc普通话😀\"", Token::DoubleQuoteLiteral);
 
-    // TODO: Escape characters
+    // TODO: Escape characters in string literals
     // assert_tokens!("\"he\\\"i\"", Token::DoubleQuoteLiteral);
     // assert_tokens!("\"he\\ni\"", Token::DoubleQuoteLiteral);
     // assert_tokens!("\"he\\\ni\"", Token::DoubleQuoteLiteral);
