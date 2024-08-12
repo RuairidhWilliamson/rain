@@ -24,11 +24,6 @@ impl Expr {
     pub fn parse(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
         let mut output_stack: Vec<TokenLocalSpan> = Vec::new();
         let mut op_stack: Vec<TokenLocalSpan> = Vec::new();
-        let t = expect_token(
-            stream.parse_next()?,
-            &[Token::Ident, Token::Number, Token::DoubleQuoteLiteral],
-        )?;
-        output_stack.push(t);
         loop {
             let Some(t) = stream.peek()? else {
                 break;
@@ -38,9 +33,17 @@ impl Expr {
                     stream.parse_next()?;
                     output_stack.push(t);
                 }
-                Token::Plus | Token::Star => {
+                Token::Plus
+                | Token::Star
+                | Token::Subtract
+                | Token::Slash
+                | Token::Dot
+                | Token::LParen => {
                     stream.parse_next()?;
-                    if let Some(op) = op_stack.last() {
+                    while let Some(op) = op_stack.last() {
+                        if op.token == Token::LParen {
+                            break;
+                        }
                         if Self::operator_precedence(op.token) > Self::operator_precedence(t.token)
                             || Self::operator_precedence(op.token)
                                 == Self::operator_precedence(t.token)
@@ -53,15 +56,33 @@ impl Expr {
                                 unreachable!();
                             };
                             output_stack.push(op);
+                        } else {
+                            break;
                         }
                     }
                     op_stack.push(t);
+                }
+                Token::RParen => {
+                    stream.parse_next()?;
+                    loop {
+                        let Some(op) = op_stack.pop() else {
+                            dbg!(&output_stack);
+                            return Err(ParseError::UnclosedRParen(t));
+                        };
+                        if op.token == Token::LParen {
+                            break;
+                        }
+                        output_stack.push(op);
+                    }
                 }
                 _ => break,
             }
         }
         while let Some(op) = op_stack.pop() {
             output_stack.push(op);
+        }
+        if output_stack.is_empty() {
+            return Err(ParseError::ExpectedExpression(stream.peek()?));
         }
         Self::convert_output_stack(&mut output_stack)
     }
@@ -72,26 +93,34 @@ impl Expr {
             Token::Ident => Ok(Self::Ident(t)),
             Token::Number => Ok(Self::IntegerLiteral(t)),
             Token::DoubleQuoteLiteral => Ok(Self::StringLiteral(t)),
-            Token::Plus | Token::Star => {
+            Token::Plus | Token::Subtract | Token::Star | Token::Slash | Token::Dot => {
                 let right = Box::new(Self::convert_output_stack(output_stack)?);
                 let left = Box::new(Self::convert_output_stack(output_stack)?);
                 Ok(Self::BinaryOp(BinaryOp { left, op: t, right }))
             }
+            Token::LParen => Err(ParseError::UnclosedLParen(t)),
             _ => unreachable!("output stack contained {:?}", t),
         }
     }
 
     fn operator_precedence(t: Token) -> usize {
         match t {
+            Token::LParen => 5,
+            Token::Dot => 4,
             Token::Star | Token::Slash => 3,
-            Token::Plus | Token::Dash => 2,
+            Token::Plus | Token::Subtract => 2,
             _ => panic!("operator precedence not defined for {t:?}"),
         }
     }
 
     fn operator_associtivity(t: Token) -> Associativity {
         match t {
-            Token::Star | Token::Slash | Token::Plus | Token::Dash => Associativity::Left,
+            Token::Star
+            | Token::Slash
+            | Token::Plus
+            | Token::Subtract
+            | Token::Dot
+            | Token::LParen => Associativity::Left,
             _ => panic!("operator associativity not defined for {t:?}"),
         }
     }
@@ -301,34 +330,67 @@ mod test {
     }
 
     #[test]
-    fn number_star() {
+    fn number_multiply() {
         insta::assert_snapshot!(parse_display_expr("1 * 2"));
     }
 
     #[test]
-    fn number_star_left_associative() {
+    fn number_multiply_left_associative() {
         insta::assert_snapshot!(parse_display_expr("1 * 2 * 3"));
     }
 
     #[test]
-    fn number_star_add_precedence() {
+    fn number_multiply_add_precedence1() {
         insta::assert_snapshot!(parse_display_expr("5 * 2 + 3"));
     }
 
     #[test]
-    fn number_star_add_precedence() {
-        insta::assert_snapshot!(parse_display_expr("5 * 2 + 3"));
+    fn number_multiply_add_precedence2() {
+        insta::assert_snapshot!(parse_display_expr("5 + 2 * 3"));
     }
 
-    #[ignore]
+    #[test]
+    fn number_add_subtract_precedence() {
+        insta::assert_snapshot!(parse_display_expr("5 - 2 + 3 - 4"));
+    }
+
+    #[test]
+    fn number_add_subtract_multiply_precedence() {
+        insta::assert_snapshot!(parse_display_expr("5 * 2 + 3 - 4"));
+    }
+
+    #[test]
+    fn number_add_subtrace_multiply_divide_precedence() {
+        insta::assert_snapshot!(parse_display_expr("1 - 3 / 2 + 4 * 3"));
+    }
+
+    #[test]
+    fn ident_maths() {
+        insta::assert_snapshot!(parse_display_expr("a + b - c * d / e"));
+    }
+
     #[test]
     fn ident_dot_ident() {
         insta::assert_snapshot!(parse_display_expr("foo.bar"));
     }
 
-    #[ignore]
     #[test]
     fn ident_dot_ident_dot_ident() {
         insta::assert_snapshot!(parse_display_expr("foo.bar.baz"));
+    }
+
+    #[test]
+    fn ident_dot_maths() {
+        insta::assert_snapshot!(parse_display_expr("a.b.c + 3 * d.e"));
+    }
+
+    #[test]
+    fn maths_parens1() {
+        insta::assert_snapshot!(parse_display_expr("1 - (a + 3) * 4"));
+    }
+
+    #[test]
+    fn maths_parens2() {
+        insta::assert_snapshot!(parse_display_expr("(3 - b) * c"));
     }
 }

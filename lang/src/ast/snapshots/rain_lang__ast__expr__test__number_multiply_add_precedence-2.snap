@@ -1,0 +1,13 @@
+---
+source: lang/src/ast/expr.rs
+expression: "parse_display_expr(\"5 + 2 * 3\")"
+---
+BinaryOp(
+ Number(5)
+ Plus(+)
+ BinaryOp(
+  Number(2)
+  Star(*)
+  Number(3)
+ )
+)

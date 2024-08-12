@@ -17,7 +17,7 @@ pub enum Token {
     Dot,
     Star,
     Plus,
-    Dash,
+    Subtract,
     Equals,
     Comma,
     Colon,

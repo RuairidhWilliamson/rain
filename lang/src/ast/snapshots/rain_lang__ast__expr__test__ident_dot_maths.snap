@@ -1,0 +1,25 @@
+---
+source: lang/src/ast/expr.rs
+expression: "parse_display_expr(\"a.b.c + 3 * d.e\")"
+---
+BinaryOp(
+ BinaryOp(
+  BinaryOp(
+   Ident(a)
+   Dot(.)
+   Ident(b)
+  )
+  Dot(.)
+  Ident(c)
+ )
+ Plus(+)
+ BinaryOp(
+  Number(3)
+  Star(*)
+  BinaryOp(
+   Ident(d)
+   Dot(.)
+   Ident(e)
+  )
+ )
+)

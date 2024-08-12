@@ -213,6 +213,9 @@ impl display::AstDisplay for Statement {
 pub enum ParseError {
     TokenError(TokenError),
     ExpectedToken(&'static [Token], Option<TokenLocalSpan>),
+    UnclosedLParen(TokenLocalSpan),
+    UnclosedRParen(TokenLocalSpan),
+    ExpectedExpression(Option<TokenLocalSpan>),
 }
 
 impl From<TokenError> for ParseError {

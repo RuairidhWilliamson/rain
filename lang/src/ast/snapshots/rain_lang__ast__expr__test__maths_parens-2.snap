@@ -1,0 +1,13 @@
+---
+source: lang/src/ast/expr.rs
+expression: "parse_display_expr(\"(3 - b) * c\")"
+---
+BinaryOp(
+ BinaryOp(
+  Number(3)
+  Subtract(-)
+  Ident(b)
+ )
+ Star(*)
+ Ident(c)
+)

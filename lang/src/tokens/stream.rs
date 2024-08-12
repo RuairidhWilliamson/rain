@@ -23,7 +23,7 @@ impl TokenStream<'_> {
                 b'.' => self.inc(Token::Dot),
                 b'*' => self.inc(Token::Star),
                 b'+' => self.inc(Token::Plus),
-                b'-' => self.inc(Token::Dash),
+                b'-' => self.inc(Token::Subtract),
                 b'=' => self.inc(Token::Equals),
                 b',' => self.inc(Token::Comma),
                 b':' => self.inc(Token::Colon),

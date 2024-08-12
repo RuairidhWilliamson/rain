@@ -31,7 +31,7 @@ fn symbols() {
         Token::Dot,
         Token::Star,
         Token::Plus,
-        Token::Dash,
+        Token::Subtract,
         Token::Equals,
         Token::Comma,
         Token::Colon,
