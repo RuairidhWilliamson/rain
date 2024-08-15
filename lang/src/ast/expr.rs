@@ -3,7 +3,7 @@ use crate::{
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
 
-use super::ParseError;
+use super::{expect_token, ParseError};
 
 #[derive(PartialEq, Eq)]
 enum Associativity {
@@ -97,6 +97,11 @@ impl Expr {
             Token::Ident => Ok(Self::Ident(t)),
             Token::Number => Ok(Self::IntegerLiteral(t)),
             Token::DoubleQuoteLiteral => Ok(Self::StringLiteral(t)),
+            Token::LParen => {
+                let expr = Expr::parse(stream)?;
+                expect_token(stream.parse_next()?, &[Token::RParen])?;
+                Ok(expr)
+            }
             _ => Err(ParseError::ExpectedExpression(Some(t))),
         }
     }
@@ -110,7 +115,6 @@ impl Expr {
             stream.parse_next()?;
             let mut rhs = Self::parse_primary(stream)?;
             while let Some(next_op) = Self::check_op(stream.peek()?, op.precedence()) {
-                // stream.parse_next()?;
                 let next_precedence = op.precedence()
                     + if next_op.precedence() > op.precedence() {
                         1
@@ -308,13 +312,11 @@ mod test {
         insta::assert_snapshot!(parse_display_expr("a.b.c + 3 * d.e"));
     }
 
-    #[ignore]
     #[test]
     fn maths_parens1() {
         insta::assert_snapshot!(parse_display_expr("1 - (a + 3) * 4"));
     }
 
-    #[ignore]
     #[test]
     fn maths_parens2() {
         insta::assert_snapshot!(parse_display_expr("(3 - b) * c"));

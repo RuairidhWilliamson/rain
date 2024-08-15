@@ -4,14 +4,14 @@ expression: "parse_display_expr(\"1 - (a + 3) * 4\")"
 ---
 BinaryOp(
  Number(1)
- Subtract(-)
+ -
  BinaryOp(
   BinaryOp(
    Ident(a)
-   Plus(+)
+   +
    Number(3)
   )
-  Star(*)
+  *
   Number(4)
  )
 )
