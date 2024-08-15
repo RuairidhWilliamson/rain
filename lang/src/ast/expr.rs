@@ -57,11 +57,11 @@ impl BinaryOperatorKind {
 
     fn associativity(&self) -> Associativity {
         match self {
-            BinaryOperatorKind::Addition
-            | BinaryOperatorKind::Subtraction
-            | BinaryOperatorKind::Multiplication
-            | BinaryOperatorKind::Division
-            | BinaryOperatorKind::Dot => Associativity::Left,
+            Self::Addition
+            | Self::Subtraction
+            | Self::Multiplication
+            | Self::Division
+            | Self::Dot => Associativity::Left,
         }
     }
 
@@ -83,16 +83,8 @@ enum Operator {
 impl Operator {
     fn precedence(&self) -> usize {
         match self {
-            Operator::BinaryOperator(inner) => inner.precedence(),
-            Operator::FnCall => 40,
-        }
-    }
-
-    #[allow(dead_code)]
-    fn associativity(&self) -> Associativity {
-        match self {
-            Operator::BinaryOperator(inner) => inner.associativity(),
-            Operator::FnCall => Associativity::Left,
+            Self::BinaryOperator(inner) => inner.precedence(),
+            Self::FnCall => 40,
         }
     }
 }
@@ -121,7 +113,7 @@ impl Expr {
             Token::Number => Self::IntegerLiteral(t),
             Token::DoubleQuoteLiteral => Self::StringLiteral(t),
             Token::LParen => {
-                let expr = Expr::parse(stream)?;
+                let expr = Self::parse(stream)?;
                 expect_token(stream.parse_next()?, &[Token::RParen])?;
                 expr
             }
@@ -136,22 +128,15 @@ impl Expr {
         min_precedence: usize,
     ) -> Result<Self, ParseError> {
         while let Some(op) = Self::check_op(stream.peek()?, min_precedence) {
-            match op {
-                Operator::FnCall => {
-                    lhs = Self::FnCall(Self::parse_fn_call(stream, lhs)?);
-                    continue;
-                }
-                _ => {}
+            if matches!(op, Operator::FnCall) {
+                lhs = Self::FnCall(Self::parse_fn_call(stream, lhs)?);
+                continue;
             }
             stream.parse_next()?;
             let mut rhs = Self::parse_primary(stream)?;
             while let Some(next_op) = Self::check_op(stream.peek()?, op.precedence()) {
-                let next_precedence = op.precedence()
-                    + if next_op.precedence() > op.precedence() {
-                        1
-                    } else {
-                        0
-                    };
+                let next_precedence =
+                    op.precedence() + usize::from(next_op.precedence() > op.precedence());
                 rhs = Self::parse_expr_ops(stream, rhs, next_precedence)?;
             }
             match op {
@@ -177,10 +162,8 @@ impl Expr {
                 return Some(Operator::BinaryOperator(op));
             }
         }
-        if t.token == Token::LParen {
-            if Operator::FnCall.precedence() > min_precedence {
-                return Some(Operator::FnCall);
-            }
+        if t.token == Token::LParen && Operator::FnCall.precedence() > min_precedence {
+            return Some(Operator::FnCall);
         }
         None
     }
@@ -192,9 +175,8 @@ impl Expr {
             let Some(t) = stream.peek()? else {
                 break;
             };
-            match t.token {
-                Token::RParen => break,
-                _ => {}
+            if t.token == Token::RParen {
+                break;
             }
             args.push(Self::parse(stream)?);
             let Some(t) = stream.peek()? else {
@@ -275,22 +257,6 @@ impl super::display::AstDisplay for BinaryOp {
             .child(self.left.as_ref())
             .child(&self.op.span)
             .child(self.right.as_ref())
-            .finish()
-    }
-}
-
-#[derive(Debug)]
-pub struct Dot {
-    pub left: Box<Expr>,
-    pub dot_token: LocalSpan,
-    pub name: LocalSpan,
-}
-
-impl super::display::AstDisplay for Dot {
-    fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
-        f.node("Dot")
-            .child(self.left.as_ref())
-            .child(&self.name)
             .finish()
     }
 }
