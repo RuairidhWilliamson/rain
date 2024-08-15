@@ -24,14 +24,6 @@ impl BinaryOperator {
             span: t.span,
         })
     }
-
-    fn precedence(&self) -> usize {
-        self.kind.precedence()
-    }
-
-    fn associativity(&self) -> Associativity {
-        self.kind.associativity()
-    }
 }
 
 #[derive(Debug)]
@@ -54,39 +46,20 @@ impl BinaryOperatorKind {
             _ => None,
         }
     }
-
-    fn associativity(&self) -> Associativity {
-        match self {
-            Self::Addition
-            | Self::Subtraction
-            | Self::Multiplication
-            | Self::Division
-            | Self::Dot => Associativity::Left,
-        }
-    }
-
-    fn precedence(&self) -> usize {
-        match self {
-            Self::Dot => 50,
-            // FnCall binding => 40
-            Self::Multiplication | Self::Division => 30,
-            Self::Addition | Self::Subtraction => 20,
-        }
-    }
 }
 
-enum Operator {
-    BinaryOperator(BinaryOperator),
-    FnCall,
-}
+type Precedence = usize;
 
-impl Operator {
-    fn precedence(&self) -> usize {
-        match self {
-            Self::BinaryOperator(inner) => inner.precedence(),
-            Self::FnCall => 40,
-        }
-    }
+fn get_token_precedence_associativity(token: Token) -> Option<(Precedence, Associativity)> {
+    let precedence = match token {
+        Token::Dot => Some(50),
+        Token::LParen => Some(40),
+        Token::Star | Token::Slash => Some(30),
+        Token::Plus | Token::Subtract => Some(20),
+        _ => None,
+    }?;
+    let associativity = Associativity::Left;
+    Some((precedence, associativity))
 }
 
 #[derive(Debug)]
@@ -127,45 +100,42 @@ impl Expr {
         mut lhs: Self,
         min_precedence: usize,
     ) -> Result<Self, ParseError> {
-        while let Some(op) = Self::check_op(stream.peek()?, min_precedence) {
-            if matches!(op, Operator::FnCall) {
+        while let Some((t, precedence)) = Self::check_op(stream.peek()?, min_precedence) {
+            if t.token == Token::LParen {
                 lhs = Self::FnCall(Self::parse_fn_call(stream, lhs)?);
                 continue;
             }
             stream.parse_next()?;
             let mut rhs = Self::parse_primary(stream)?;
-            while let Some(next_op) = Self::check_op(stream.peek()?, op.precedence()) {
-                let next_precedence =
-                    op.precedence() + usize::from(next_op.precedence() > op.precedence());
+            while let Some((_, next_op_precedence)) = Self::check_op(stream.peek()?, precedence) {
+                let next_precedence = precedence + usize::from(next_op_precedence > precedence);
                 rhs = Self::parse_expr_ops(stream, rhs, next_precedence)?;
             }
-            match op {
-                Operator::BinaryOperator(op) => {
-                    lhs = Self::BinaryOp(BinaryOp {
-                        left: Box::new(lhs),
-                        op,
-                        right: Box::new(rhs),
-                    });
-                }
-                Operator::FnCall => todo!(),
-            }
+            let Some(op) = BinaryOperator::new_from_token(t) else {
+                unreachable!()
+            };
+            lhs = Self::BinaryOp(BinaryOp {
+                left: Box::new(lhs),
+                op,
+                right: Box::new(rhs),
+            });
         }
         Ok(lhs)
     }
 
-    fn check_op(t: Option<TokenLocalSpan>, min_precedence: usize) -> Option<Operator> {
+    fn check_op(
+        t: Option<TokenLocalSpan>,
+        min_precedence: usize,
+    ) -> Option<(TokenLocalSpan, Precedence)> {
         let t = t?;
-        if let Some(op) = BinaryOperator::new_from_token(t) {
-            if op.precedence() > min_precedence
-                || op.precedence() == min_precedence && op.associativity() == Associativity::Right
-            {
-                return Some(Operator::BinaryOperator(op));
-            }
+        let (precedence, associativity) = get_token_precedence_associativity(t.token)?;
+        if precedence > min_precedence
+            || precedence == min_precedence && associativity == Associativity::Right
+        {
+            Some((t, precedence))
+        } else {
+            None
         }
-        if t.token == Token::LParen && Operator::FnCall.precedence() > min_precedence {
-            return Some(Operator::FnCall);
-        }
-        None
     }
 
     fn parse_fn_call(stream: &mut PeekTokenStream, lhs: Self) -> Result<FnCall, ParseError> {
