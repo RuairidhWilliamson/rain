@@ -88,6 +88,7 @@ impl Operator {
         }
     }
 
+    #[allow(dead_code)]
     fn associativity(&self) -> Associativity {
         match self {
             Operator::BinaryOperator(inner) => inner.associativity(),
@@ -137,16 +138,7 @@ impl Expr {
         while let Some(op) = Self::check_op(stream.peek()?, min_precedence) {
             match op {
                 Operator::FnCall => {
-                    let lparen_token = stream.parse_next()?.unwrap();
-                    let rparen_token = expect_token(stream.parse_next()?, &[Token::RParen])?;
-                    lhs = Self::FnCall(FnCall {
-                        callee: Box::new(lhs),
-                        args: FnCallArgs {
-                            lparen_token,
-                            args: vec![],
-                            rparen_token,
-                        },
-                    });
+                    lhs = Self::FnCall(Self::parse_fn_call(stream, lhs)?);
                     continue;
                 }
                 _ => {}
@@ -191,6 +183,39 @@ impl Expr {
             }
         }
         None
+    }
+
+    fn parse_fn_call(stream: &mut PeekTokenStream, lhs: Self) -> Result<FnCall, ParseError> {
+        let lparen_token = stream.parse_next()?.unwrap();
+        let mut args = Vec::new();
+        loop {
+            let Some(t) = stream.peek()? else {
+                break;
+            };
+            match t.token {
+                Token::RParen => break,
+                _ => {}
+            }
+            args.push(Self::parse(stream)?);
+            let Some(t) = stream.peek()? else {
+                break;
+            };
+            match t.token {
+                Token::Comma => {
+                    stream.parse_next()?;
+                }
+                _ => break,
+            }
+        }
+        let rparen_token = expect_token(stream.parse_next()?, &[Token::RParen])?;
+        Ok(FnCall {
+            callee: Box::new(lhs),
+            args: FnCallArgs {
+                lparen_token,
+                args,
+                rparen_token,
+            },
+        })
     }
 }
 
@@ -387,19 +412,16 @@ mod test {
         insta::assert_snapshot!(parse_display_expr("foo.bar()"));
     }
 
-    #[ignore]
     #[test]
     fn fn_call_one_arg() {
         insta::assert_snapshot!(parse_display_expr("foo(1)"));
     }
 
-    #[ignore]
     #[test]
     fn fn_call_two_arg() {
         insta::assert_snapshot!(parse_display_expr("foo(1, 2)"));
     }
 
-    #[ignore]
     #[test]
     fn fn_call_two_arg_trailing_comma() {
         insta::assert_snapshot!(parse_display_expr("foo(1, 2,)"));
