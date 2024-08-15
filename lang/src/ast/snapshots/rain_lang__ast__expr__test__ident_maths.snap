@@ -5,17 +5,17 @@ expression: "parse_display_expr(\"a + b - c * d / e\")"
 BinaryOp(
  BinaryOp(
   Ident(a)
-  Plus(+)
+  +
   Ident(b)
  )
- Subtract(-)
+ -
  BinaryOp(
   BinaryOp(
    Ident(c)
-   Star(*)
+   *
    Ident(d)
   )
-  Slash(/)
+  /
   Ident(e)
  )
 )

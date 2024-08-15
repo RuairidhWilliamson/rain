@@ -5,17 +5,17 @@ expression: "parse_display_expr(\"1 - 3 / 2 + 4 * 3\")"
 BinaryOp(
  BinaryOp(
   Number(1)
-  Subtract(-)
+  -
   BinaryOp(
    Number(3)
-   Slash(/)
+   /
    Number(2)
   )
  )
- Plus(+)
+ +
  BinaryOp(
   Number(4)
-  Star(*)
+  *
   Number(3)
  )
 )

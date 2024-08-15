@@ -5,9 +5,9 @@ expression: "parse_display_expr(\"5 * 2 + 3\")"
 BinaryOp(
  BinaryOp(
   Number(5)
-  Star(*)
+  *
   Number(2)
  )
- Plus(+)
+ +
  Number(3)
 )

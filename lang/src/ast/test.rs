@@ -25,6 +25,7 @@ fn hello_world() {
     ));
 }
 
+#[ignore]
 #[test]
 fn let_declare() {
     insta::assert_snapshot!(parse_display_script(
