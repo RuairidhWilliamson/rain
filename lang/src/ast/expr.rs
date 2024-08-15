@@ -67,9 +67,31 @@ impl BinaryOperatorKind {
 
     fn precedence(&self) -> usize {
         match self {
-            Self::Dot => 40,
+            Self::Dot => 50,
+            // FnCall binding => 40
             Self::Multiplication | Self::Division => 30,
             Self::Addition | Self::Subtraction => 20,
+        }
+    }
+}
+
+enum Operator {
+    BinaryOperator(BinaryOperator),
+    FnCall,
+}
+
+impl Operator {
+    fn precedence(&self) -> usize {
+        match self {
+            Operator::BinaryOperator(inner) => inner.precedence(),
+            Operator::FnCall => 40,
+        }
+    }
+
+    fn associativity(&self) -> Associativity {
+        match self {
+            Operator::BinaryOperator(inner) => inner.associativity(),
+            Operator::FnCall => Associativity::Left,
         }
     }
 }
@@ -93,17 +115,18 @@ impl Expr {
         let Some(t) = stream.parse_next()? else {
             return Err(ParseError::ExpectedExpression(None));
         };
-        match t.token {
-            Token::Ident => Ok(Self::Ident(t)),
-            Token::Number => Ok(Self::IntegerLiteral(t)),
-            Token::DoubleQuoteLiteral => Ok(Self::StringLiteral(t)),
+        let expr = match t.token {
+            Token::Ident => Self::Ident(t),
+            Token::Number => Self::IntegerLiteral(t),
+            Token::DoubleQuoteLiteral => Self::StringLiteral(t),
             Token::LParen => {
                 let expr = Expr::parse(stream)?;
                 expect_token(stream.parse_next()?, &[Token::RParen])?;
-                Ok(expr)
+                expr
             }
-            _ => Err(ParseError::ExpectedExpression(Some(t))),
-        }
+            _ => return Err(ParseError::ExpectedExpression(Some(t))),
+        };
+        Ok(expr)
     }
 
     fn parse_expr_ops(
@@ -112,6 +135,22 @@ impl Expr {
         min_precedence: usize,
     ) -> Result<Self, ParseError> {
         while let Some(op) = Self::check_op(stream.peek()?, min_precedence) {
+            match op {
+                Operator::FnCall => {
+                    let lparen_token = stream.parse_next()?.unwrap();
+                    let rparen_token = expect_token(stream.parse_next()?, &[Token::RParen])?;
+                    lhs = Self::FnCall(FnCall {
+                        callee: Box::new(lhs),
+                        args: FnCallArgs {
+                            lparen_token,
+                            args: vec![],
+                            rparen_token,
+                        },
+                    });
+                    continue;
+                }
+                _ => {}
+            }
             stream.parse_next()?;
             let mut rhs = Self::parse_primary(stream)?;
             while let Some(next_op) = Self::check_op(stream.peek()?, op.precedence()) {
@@ -123,24 +162,35 @@ impl Expr {
                     };
                 rhs = Self::parse_expr_ops(stream, rhs, next_precedence)?;
             }
-            lhs = Self::BinaryOp(BinaryOp {
-                left: Box::new(lhs),
-                op,
-                right: Box::new(rhs),
-            });
+            match op {
+                Operator::BinaryOperator(op) => {
+                    lhs = Self::BinaryOp(BinaryOp {
+                        left: Box::new(lhs),
+                        op,
+                        right: Box::new(rhs),
+                    });
+                }
+                Operator::FnCall => todo!(),
+            }
         }
         Ok(lhs)
     }
 
-    fn check_op(t: Option<TokenLocalSpan>, min_precedence: usize) -> Option<BinaryOperator> {
-        let op = BinaryOperator::new_from_token(t?)?;
-        if op.precedence() > min_precedence
-            || op.precedence() == min_precedence && op.associativity() == Associativity::Right
-        {
-            Some(op)
-        } else {
-            None
+    fn check_op(t: Option<TokenLocalSpan>, min_precedence: usize) -> Option<Operator> {
+        let t = t?;
+        if let Some(op) = BinaryOperator::new_from_token(t) {
+            if op.precedence() > min_precedence
+                || op.precedence() == min_precedence && op.associativity() == Associativity::Right
+            {
+                return Some(Operator::BinaryOperator(op));
+            }
         }
+        if t.token == Token::LParen {
+            if Operator::FnCall.precedence() > min_precedence {
+                return Some(Operator::FnCall);
+            }
+        }
+        None
     }
 }
 
@@ -322,10 +372,19 @@ mod test {
         insta::assert_snapshot!(parse_display_expr("(3 - b) * c"));
     }
 
-    #[ignore]
     #[test]
     fn fn_call_no_args() {
         insta::assert_snapshot!(parse_display_expr("foo()"));
+    }
+
+    #[test]
+    fn fn_call_no_args_call_no_args() {
+        insta::assert_snapshot!(parse_display_expr("foo()()"));
+    }
+
+    #[test]
+    fn fn_call_no_args_precedence() {
+        insta::assert_snapshot!(parse_display_expr("foo.bar()"));
     }
 
     #[ignore]

@@ -1,0 +1,13 @@
+---
+source: lang/src/ast/expr.rs
+expression: "parse_display_expr(\"foo.bar()\")"
+---
+FnCall(
+ BinaryOp(
+  Ident(foo)
+  .
+  Ident(bar)
+ )
+ FnCallArgs(
+ )
+)
