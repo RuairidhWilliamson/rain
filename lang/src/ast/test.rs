@@ -13,7 +13,6 @@ fn parse_display_script(src: &str) -> String {
     display_ast(&s, src)
 }
 
-#[ignore]
 #[test]
 fn hello_world() {
     insta::assert_snapshot!(parse_display_script(
@@ -25,7 +24,6 @@ fn hello_world() {
     ));
 }
 
-#[ignore]
 #[test]
 fn let_declare() {
     insta::assert_snapshot!(parse_display_script(
@@ -36,7 +34,6 @@ fn let_declare() {
     ));
 }
 
-#[ignore]
 #[test]
 fn fn_call() {
     insta::assert_snapshot!(parse_display_script(
