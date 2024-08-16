@@ -213,14 +213,46 @@ impl display::AstDisplay for Statement {
 pub enum ParseError {
     TokenError(TokenError),
     ExpectedToken(&'static [Token], Option<TokenLocalSpan>),
-    UnclosedLParen(TokenLocalSpan),
-    UnclosedRParen(TokenLocalSpan),
     ExpectedExpression(Option<TokenLocalSpan>),
 }
 
 impl From<TokenError> for ParseError {
     fn from(err: TokenError) -> Self {
         Self::TokenError(err)
+    }
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseError::TokenError(err) => std::fmt::Display::fmt(err, f),
+            ParseError::ExpectedToken(tokens, tls) => f.write_fmt(format_args!(
+                "expected one of {tokens:?}, instead found {:?}",
+                tls
+            )),
+            ParseError::ExpectedExpression(_) => f.write_str("expected expression"),
+        }
+    }
+}
+
+impl ParseError {
+    fn span(&self) -> Option<LocalSpan> {
+        match self {
+            Self::TokenError(TokenError::UnclosedDoubleQuote(span)) => Some(*span),
+            Self::TokenError(TokenError::IllegalChar(span)) => Some(*span),
+            Self::ExpectedToken(_, span) => span.map(TokenLocalSpan::span),
+            Self::ExpectedExpression(span) => span.map(TokenLocalSpan::span),
+        }
+    }
+
+    pub fn resolve<'a>(&'a self, path: &'a std::path::Path, src: &'a str) -> ResolvedError<'a> {
+        let span = self.span();
+        ResolvedError {
+            err: self,
+            path,
+            src,
+            span,
+        }
     }
 }
 
@@ -235,5 +267,38 @@ fn expect_token(
         Ok(token)
     } else {
         Err(ParseError::ExpectedToken(expect, tls))
+    }
+}
+
+pub struct ResolvedError<'a> {
+    err: &'a dyn std::fmt::Display,
+    path: &'a std::path::Path,
+    src: &'a str,
+    span: Option<LocalSpan>,
+}
+
+impl std::fmt::Display for ResolvedError<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use colored::Colorize;
+        let Self {
+            err,
+            path,
+            src,
+            span,
+            ..
+        } = self;
+        let span = span.unwrap();
+        let (line, col) = span.line_col(src);
+        let location = format!("{}:{}:{}\n", path.display(), line, col).blue();
+        f.write_fmt(format_args!("{location}"))?;
+        let [before, contents, after] = span.surrounding_lines(src, 2);
+        let before = before.replace('\n', "\n| ");
+        let contents = contents.replace('\n', "\\n");
+        f.write_str("|\n")?;
+        f.write_fmt(format_args!("| {before}{contents}{after}\n"))?;
+        let arrows = span.arrow_line(src, 2).red();
+        let err = format!("{err}").red();
+        f.write_fmt(format_args!("| {arrows} {err}"))?;
+        Ok(())
     }
 }
