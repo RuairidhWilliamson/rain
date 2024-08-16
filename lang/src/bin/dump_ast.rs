@@ -11,7 +11,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     let src_path = std::path::Path::new(&src_path);
-    let src = match std::fs::read_to_string(&src_path) {
+    let src = match std::fs::read_to_string(src_path) {
         Ok(src) => src,
         Err(err) => {
             print_help();
@@ -21,7 +21,7 @@ fn main() -> ExitCode {
         }
     };
     if let Err(err) = inner(&src) {
-        let resolved = err.resolve(&src_path, &src);
+        let resolved = err.resolve(src_path, &src);
         eprintln!("{resolved}");
         ExitCode::FAILURE
     } else {

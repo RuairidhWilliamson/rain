@@ -225,12 +225,11 @@ impl From<TokenError> for ParseError {
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParseError::TokenError(err) => std::fmt::Display::fmt(err, f),
-            ParseError::ExpectedToken(tokens, tls) => f.write_fmt(format_args!(
-                "expected one of {tokens:?}, instead found {:?}",
-                tls
+            Self::TokenError(err) => std::fmt::Display::fmt(err, f),
+            Self::ExpectedToken(tokens, tls) => f.write_fmt(format_args!(
+                "expected one of {tokens:?}, instead found {tls:?}"
             )),
-            ParseError::ExpectedExpression(_) => f.write_str("expected expression"),
+            Self::ExpectedExpression(_) => f.write_str("expected expression"),
         }
     }
 }
@@ -238,10 +237,12 @@ impl std::fmt::Display for ParseError {
 impl ParseError {
     fn span(&self) -> Option<LocalSpan> {
         match self {
-            Self::TokenError(TokenError::UnclosedDoubleQuote(span)) => Some(*span),
-            Self::TokenError(TokenError::IllegalChar(span)) => Some(*span),
-            Self::ExpectedToken(_, span) => span.map(TokenLocalSpan::span),
-            Self::ExpectedExpression(span) => span.map(TokenLocalSpan::span),
+            Self::TokenError(
+                TokenError::UnclosedDoubleQuote(span) | TokenError::IllegalChar(span),
+            ) => Some(*span),
+            Self::ExpectedToken(_, span) | Self::ExpectedExpression(span) => {
+                span.map(TokenLocalSpan::span)
+            }
         }
     }
 

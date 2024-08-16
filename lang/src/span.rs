@@ -30,19 +30,19 @@ impl LocalSpan {
             .chars()
             .rev()
             .take_while(|&c| {
-                if c != '\n' {
-                    true
-                } else {
+                if c == '\n' {
                     new_line_count += 1;
                     new_line_count <= before_lines
+                } else {
+                    true
                 }
             })
-            .map(|c| c.len_utf8())
+            .map(char::len_utf8)
             .sum();
         let end_offset: usize = src[self.end..]
             .chars()
             .take_while(|&c| c != '\n')
-            .map(|c| c.len_utf8())
+            .map(char::len_utf8)
             .sum();
 
         [
@@ -80,6 +80,10 @@ impl LocalSpan {
         let line = self.line(src) + 1;
         let col = self.col(src) + 1;
         (line, col)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.end == self.start
     }
 
     pub fn len(&self) -> usize {
