@@ -28,7 +28,7 @@ fn empty() {
 #[test]
 fn symbols() {
     assert_tokens!(
-        ".*+-=,:;/\\~!(){}<>&|",
+        ".*+-=,:;/\\~!(){}<>&|?@%$^",
         Token::Dot,
         Token::Star,
         Token::Plus,
@@ -49,6 +49,11 @@ fn symbols() {
         Token::RAngle,
         Token::Ampersand,
         Token::Pipe,
+        Token::Question,
+        Token::At,
+        Token::Percent,
+        Token::Dollar,
+        Token::Caret,
     );
 }
 

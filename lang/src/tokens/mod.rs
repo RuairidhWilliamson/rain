@@ -32,6 +32,13 @@ pub enum Token {
     Excalmation,
     Ampersand,
     Pipe,
+    Question,
+    At,
+    Percent,
+    Dollar,
+    Caret,
+
+    // Pairs
     LParen,
     RParen,
     LBrace,
