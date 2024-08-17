@@ -38,18 +38,20 @@ pub enum Token {
 
 #[derive(Debug)]
 pub enum TokenError {
-    UnclosedDoubleQuote(LocalSpan),
-    IllegalChar(LocalSpan),
+    UnclosedDoubleQuote,
+    IllegalChar,
 }
 
 impl std::fmt::Display for TokenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnclosedDoubleQuote(_) => f.write_str("unclosed double quotes"),
-            Self::IllegalChar(_) => f.write_str("illegal char"),
+            Self::UnclosedDoubleQuote => f.write_str("unclosed double quotes"),
+            Self::IllegalChar => f.write_str("illegal char"),
         }
     }
 }
+
+impl std::error::Error for TokenError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TokenLocalSpan {

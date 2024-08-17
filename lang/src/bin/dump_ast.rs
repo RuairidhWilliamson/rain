@@ -1,7 +1,8 @@
 use std::process::ExitCode;
 
 use rain_lang::{
-    ast::{display::display_ast, ParseError},
+    ast::{display::display_ast, error::ParseError},
+    error::ErrorSpan,
     tokens::peek::PeekTokenStream,
 };
 
@@ -33,7 +34,7 @@ fn print_help() {
     eprintln!("Usage: dump_ast <src_path>");
 }
 
-fn inner(src: &str) -> Result<(), ParseError> {
+fn inner(src: &str) -> Result<(), ErrorSpan<ParseError>> {
     let mut stream = PeekTokenStream::new(src);
     let script = rain_lang::ast::Script::parse(&mut stream)?;
     let out = display_ast(&script, src);

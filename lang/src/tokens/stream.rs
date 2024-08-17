@@ -1,4 +1,7 @@
-use crate::span::LocalSpan;
+use crate::{
+    error::{ErrorSpan, ErrorSpanExt as _},
+    span::LocalSpan,
+};
 
 use super::{Token, TokenError, TokenLocalSpan};
 
@@ -14,7 +17,7 @@ impl<'a> TokenStream<'a> {
 }
 
 impl TokenStream<'_> {
-    pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, TokenError> {
+    pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, ErrorSpan<TokenError>> {
         loop {
             let Some(c) = self.source.as_bytes().get(self.index) else {
                 return Ok(None);
@@ -47,7 +50,7 @@ impl TokenStream<'_> {
                 b'0'..=b'9' => self.number(),
                 b'\"' => self.double_quote_literal()?,
                 c if c.is_ascii() => {
-                    return Err(TokenError::IllegalChar(LocalSpan::byte(self.index)))
+                    return Err(LocalSpan::byte(self.index).with_error(TokenError::IllegalChar));
                 }
                 _ => self.ident(),
             };
@@ -109,14 +112,14 @@ impl TokenStream<'_> {
         }
     }
 
-    fn double_quote_literal(&mut self) -> Result<TokenLocalSpan, TokenError> {
+    fn double_quote_literal(&mut self) -> Result<TokenLocalSpan, ErrorSpan<TokenError>> {
         let start = self.index;
         self.index += 1;
         loop {
             let Some(c) = self.source.as_bytes().get(self.index) else {
-                return Err(TokenError::UnclosedDoubleQuote(LocalSpan::new(
-                    start, self.index,
-                )));
+                return Err(
+                    LocalSpan::new(start, self.index).with_error(TokenError::UnclosedDoubleQuote)
+                );
             };
             if !self.source.is_char_boundary(self.index) {
                 self.index += 1;
@@ -128,9 +131,8 @@ impl TokenStream<'_> {
                     break;
                 }
                 b'\n' => {
-                    return Err(TokenError::UnclosedDoubleQuote(LocalSpan::new(
-                        start, self.index,
-                    )))
+                    return Err(LocalSpan::new(start, self.index)
+                        .with_error(TokenError::UnclosedDoubleQuote))
                 }
                 _ => {}
             }
@@ -144,7 +146,7 @@ impl TokenStream<'_> {
 }
 
 impl Iterator for TokenStream<'_> {
-    type Item = Result<TokenLocalSpan, TokenError>;
+    type Item = Result<TokenLocalSpan, ErrorSpan<TokenError>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.parse_next().transpose()

@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 
+use crate::error::ErrorSpan;
+
 use super::{stream::TokenStream, TokenError, TokenLocalSpan};
 
 pub struct PeekTokenStream<'a> {
@@ -21,14 +23,14 @@ impl<'a> PeekTokenStream<'a> {
         Self::from(TokenStream::new(source))
     }
 
-    pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, TokenError> {
+    pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, ErrorSpan<TokenError>> {
         if let Some(peeked) = self.peeked.pop_front() {
             return Ok(Some(peeked));
         }
         self.stream.parse_next()
     }
 
-    pub fn peek(&mut self) -> Result<Option<TokenLocalSpan>, TokenError> {
+    pub fn peek(&mut self) -> Result<Option<TokenLocalSpan>, ErrorSpan<TokenError>> {
         if self.peeked.is_empty() {
             let Some(tls) = self.stream.parse_next()? else {
                 return Ok(None);

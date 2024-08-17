@@ -1,9 +1,13 @@
 use crate::{
+    error::{ErrorSpan, ErrorSpanExt},
     span::LocalSpan,
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
 
-use super::{expect_token, ParseError};
+use super::{
+    error::{ParseError, ParseResult},
+    expect_token,
+};
 
 #[derive(PartialEq, Eq)]
 enum Associativity {
@@ -72,14 +76,14 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn parse(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
+    pub fn parse(stream: &mut PeekTokenStream) -> ParseResult<Self> {
         let lhs = Self::parse_primary(stream)?;
         Self::parse_expr_ops(stream, lhs, 0)
     }
 
-    fn parse_primary(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
+    fn parse_primary(stream: &mut PeekTokenStream) -> ParseResult<Self> {
         let Some(t) = stream.parse_next()? else {
-            return Err(ParseError::ExpectedExpression(None));
+            return Err(ErrorSpan::new(ParseError::ExpectedExpression, None));
         };
         let expr = match t.token {
             Token::Ident => Self::Ident(t),
@@ -90,7 +94,7 @@ impl Expr {
                 expect_token(stream.parse_next()?, &[Token::RParen])?;
                 expr
             }
-            _ => return Err(ParseError::ExpectedExpression(Some(t))),
+            _ => return Err(t.span.with_error(ParseError::ExpectedExpression)),
         };
         Ok(expr)
     }
@@ -99,7 +103,7 @@ impl Expr {
         stream: &mut PeekTokenStream,
         mut lhs: Self,
         min_precedence: usize,
-    ) -> Result<Self, ParseError> {
+    ) -> ParseResult<Self> {
         while let Some((t, precedence)) = Self::check_op(stream.peek()?, min_precedence) {
             if t.token == Token::LParen {
                 lhs = Self::FnCall(Self::parse_fn_call(stream, lhs)?);
@@ -138,7 +142,7 @@ impl Expr {
         }
     }
 
-    fn parse_fn_call(stream: &mut PeekTokenStream, lhs: Self) -> Result<FnCall, ParseError> {
+    fn parse_fn_call(stream: &mut PeekTokenStream, lhs: Self) -> ParseResult<FnCall> {
         let lparen_token = stream.parse_next()?.unwrap();
         let mut args = Vec::new();
         loop {

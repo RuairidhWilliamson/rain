@@ -1,12 +1,16 @@
 pub mod display;
+pub mod error;
 pub mod expr;
 
 #[cfg(test)]
 mod test;
 
+use error::{ParseError, ParseResult};
+
 use crate::{
+    error::{ErrorSpan, ErrorSpanExt},
     span::LocalSpan,
-    tokens::{peek::PeekTokenStream, Token, TokenError, TokenLocalSpan},
+    tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
 
 #[derive(Debug)]
@@ -25,7 +29,7 @@ impl display::AstDisplay for Script {
 }
 
 impl Script {
-    pub fn parse(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
+    pub fn parse(stream: &mut PeekTokenStream) -> ParseResult<Self> {
         let mut declarations = Vec::new();
         while let Some(peek) = stream.peek()? {
             match peek.token {
@@ -40,10 +44,9 @@ impl Script {
                     declarations.push(FnDeclare::parse(stream)?.into());
                 }
                 _ => {
-                    return Err(ParseError::ExpectedToken(
-                        &[Token::Fn, Token::Let],
-                        Some(peek),
-                    ))
+                    return Err(peek
+                        .span
+                        .with_error(ParseError::ExpectedToken(&[Token::Fn, Token::Let])))
                 }
             }
         }
@@ -88,7 +91,7 @@ pub struct LetDeclare {
 }
 
 impl LetDeclare {
-    fn parse(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
+    fn parse(stream: &mut PeekTokenStream) -> ParseResult<Self> {
         let let_token = expect_token(stream.parse_next()?, &[Token::Let])?;
         let name = expect_token(stream.parse_next()?, &[Token::Ident])?;
         let equals_token = expect_token(stream.parse_next()?, &[Token::Equals])?;
@@ -122,7 +125,7 @@ pub struct FnDeclare {
 }
 
 impl FnDeclare {
-    fn parse(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
+    fn parse(stream: &mut PeekTokenStream) -> ParseResult<Self> {
         let fn_token = expect_token(stream.parse_next()?, &[Token::Fn])?;
         let name = expect_token(stream.parse_next()?, &[Token::Ident])?;
         let lparen_token = expect_token(stream.parse_next()?, &[Token::LParen])?;
@@ -155,7 +158,7 @@ pub struct Block {
 }
 
 impl Block {
-    fn parse(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
+    fn parse(stream: &mut PeekTokenStream) -> ParseResult<Self> {
         let lbrace_token = expect_token(stream.parse_next()?, &[Token::LBrace])?.span;
         let mut statements = Vec::new();
         while let Some(peek) = stream.peek()? {
@@ -195,7 +198,7 @@ pub enum Statement {
 }
 
 impl Statement {
-    fn parse(stream: &mut PeekTokenStream) -> Result<Self, ParseError> {
+    fn parse(stream: &mut PeekTokenStream) -> ParseResult<Self> {
         expr::Expr::parse(stream).map(Self::Expr)
     }
 }
@@ -209,97 +212,16 @@ impl display::AstDisplay for Statement {
     }
 }
 
-#[derive(Debug)]
-pub enum ParseError {
-    TokenError(TokenError),
-    ExpectedToken(&'static [Token], Option<TokenLocalSpan>),
-    ExpectedExpression(Option<TokenLocalSpan>),
-}
-
-impl From<TokenError> for ParseError {
-    fn from(err: TokenError) -> Self {
-        Self::TokenError(err)
-    }
-}
-
-impl std::fmt::Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::TokenError(err) => std::fmt::Display::fmt(err, f),
-            Self::ExpectedToken(tokens, tls) => f.write_fmt(format_args!(
-                "expected one of {tokens:?}, instead found {tls:?}"
-            )),
-            Self::ExpectedExpression(_) => f.write_str("expected expression"),
-        }
-    }
-}
-
-impl ParseError {
-    fn span(&self) -> Option<LocalSpan> {
-        match self {
-            Self::TokenError(
-                TokenError::UnclosedDoubleQuote(span) | TokenError::IllegalChar(span),
-            ) => Some(*span),
-            Self::ExpectedToken(_, span) | Self::ExpectedExpression(span) => {
-                span.map(TokenLocalSpan::span)
-            }
-        }
-    }
-
-    pub fn resolve<'a>(&'a self, path: &'a std::path::Path, src: &'a str) -> ResolvedError<'a> {
-        let span = self.span();
-        ResolvedError {
-            err: self,
-            path,
-            src,
-            span,
-        }
-    }
-}
-
 fn expect_token(
     tls: Option<TokenLocalSpan>,
     expect: &'static [Token],
-) -> Result<TokenLocalSpan, ParseError> {
+) -> ParseResult<TokenLocalSpan> {
     let Some(token) = tls else {
-        return Err(ParseError::ExpectedToken(expect, tls));
+        return Err(ErrorSpan::new(ParseError::ExpectedToken(expect), None));
     };
     if expect.contains(&token.token) {
         Ok(token)
     } else {
-        Err(ParseError::ExpectedToken(expect, tls))
-    }
-}
-
-pub struct ResolvedError<'a> {
-    err: &'a dyn std::fmt::Display,
-    path: &'a std::path::Path,
-    src: &'a str,
-    span: Option<LocalSpan>,
-}
-
-impl std::fmt::Display for ResolvedError<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use colored::Colorize;
-        let Self {
-            err,
-            path,
-            src,
-            span,
-            ..
-        } = self;
-        let span = span.unwrap();
-        let (line, col) = span.line_col(src);
-        let location = format!("{}:{}:{}\n", path.display(), line, col).blue();
-        f.write_fmt(format_args!("{location}"))?;
-        let [before, contents, after] = span.surrounding_lines(src, 2);
-        let before = before.replace('\n', "\n| ");
-        let contents = contents.replace('\n', "\\n");
-        f.write_str("|\n")?;
-        f.write_fmt(format_args!("| {before}{contents}{after}\n"))?;
-        let arrows = span.arrow_line(src, 2).red();
-        let err = format!("{err}").red();
-        f.write_fmt(format_args!("| {arrows} {err}"))?;
-        Ok(())
+        Err(token.span.with_error(ParseError::ExpectedToken(expect)))
     }
 }
