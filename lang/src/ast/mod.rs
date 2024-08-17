@@ -119,7 +119,7 @@ pub struct FnDeclare {
     pub fn_token: TokenLocalSpan,
     pub name: TokenLocalSpan,
     pub lparen_token: TokenLocalSpan,
-    // TODO: Args
+    pub args: Vec<FnDeclareArg>,
     pub rparen_token: TokenLocalSpan,
     pub block: Block,
 }
@@ -129,12 +129,33 @@ impl FnDeclare {
         let fn_token = expect_token(stream.parse_next()?, &[Token::Fn])?;
         let name = expect_token(stream.parse_next()?, &[Token::Ident])?;
         let lparen_token = expect_token(stream.parse_next()?, &[Token::LParen])?;
+        let mut args = Vec::new();
+        loop {
+            let t = expect_token(stream.peek()?, &[Token::RParen, Token::Ident])?;
+            match t.token {
+                Token::RParen => break,
+                Token::Ident => {}
+                _ => unreachable!(),
+            }
+            stream.parse_next()?;
+            args.push(FnDeclareArg { name: t });
+            let t = expect_token(stream.peek()?, &[Token::RParen, Token::Comma])?;
+            match t.token {
+                Token::RParen => break,
+                Token::Comma => {
+                    stream.parse_next()?;
+                }
+                _ => unreachable!(),
+            }
+        }
+
         let rparen_token = expect_token(stream.parse_next()?, &[Token::RParen])?;
         let block = Block::parse(stream)?;
         Ok(Self {
             fn_token,
             name,
             lparen_token,
+            args,
             rparen_token,
             block,
         })
@@ -145,8 +166,20 @@ impl display::AstDisplay for FnDeclare {
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
         f.node("FnDeclare")
             .child(&self.name)
+            .children(&self.args)
             .child(&self.block)
             .finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct FnDeclareArg {
+    pub name: TokenLocalSpan,
+}
+
+impl display::AstDisplay for FnDeclareArg {
+    fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
+        f.node("Arg").child(&self.name).finish()
     }
 }
 

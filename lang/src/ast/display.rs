@@ -83,6 +83,27 @@ impl<'a, 'b> NodeBuilder<'a, 'b> {
         self.child_fn(|f| child.fmt(f))
     }
 
+    pub fn children<T: AstDisplay + 'a>(
+        &mut self,
+        children: impl IntoIterator<Item = &'a T>,
+    ) -> &mut Self {
+        self.result = self.result.and_then(|()| {
+            self.fmt.write_indent()?;
+            self.fmt.buf.write_str("(\n")?;
+            self.fmt.indent += 1;
+            for c in children {
+                self.fmt.write_indent()?;
+                c.fmt(self.fmt)?;
+                self.fmt.buf.write_str("\n")?;
+            }
+            self.fmt.indent -= 1;
+            self.fmt.write_indent()?;
+            self.fmt.buf.write_str(")\n")
+        });
+        self.has_children = true;
+        self
+    }
+
     pub fn named_child(&mut self, name: &str, child: &dyn AstDisplay) -> &mut Self {
         self.child_fn(|f| f.node(name).child(child).finish())
     }

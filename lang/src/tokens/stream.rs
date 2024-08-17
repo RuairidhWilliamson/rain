@@ -19,7 +19,7 @@ impl<'a> TokenStream<'a> {
 impl TokenStream<'_> {
     pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, ErrorSpan<TokenError>> {
         loop {
-            let Some(c) = self.source.as_bytes().get(self.index) else {
+            let Some(&c) = self.source.as_bytes().get(self.index) else {
                 return Ok(None);
             };
             let tls = match c {
@@ -42,7 +42,7 @@ impl TokenStream<'_> {
                 b'<' => self.inc(Token::LAngle),
                 b'>' => self.inc(Token::RAngle),
                 b'\n' => self.inc(Token::NewLine),
-                b' ' => {
+                b' ' | b'\t' => {
                     self.index += 1;
                     continue;
                 }
@@ -50,7 +50,8 @@ impl TokenStream<'_> {
                 b'0'..=b'9' => self.number(),
                 b'\"' => self.double_quote_literal()?,
                 c if c.is_ascii() => {
-                    return Err(LocalSpan::byte(self.index).with_error(TokenError::IllegalChar));
+                    return Err(LocalSpan::byte(self.index)
+                        .with_error(TokenError::IllegalChar(char::from(c))));
                 }
                 _ => self.ident(),
             };

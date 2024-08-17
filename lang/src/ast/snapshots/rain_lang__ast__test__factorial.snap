@@ -1,0 +1,30 @@
+---
+source: lang/src/ast/test.rs
+expression: "parse_display_script(\"\n        fn factorial(n) {\n        \tfactorial(n - 1) * n\n        }\n        \")"
+---
+Script(
+ FnDeclare(
+  Ident(factorial)
+  (
+   Arg(
+    Ident(n)
+   )
+  )
+  Block(
+   BinaryOp(
+    FnCall(
+     Ident(factorial)
+     FnCallArgs(
+      BinaryOp(
+       Ident(n)
+       -
+       Number(1)
+      )
+     )
+    )
+    *
+    Ident(n)
+   )
+  )
+ )
+)

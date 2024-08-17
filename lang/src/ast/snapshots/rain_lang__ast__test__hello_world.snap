@@ -5,6 +5,8 @@ expression: "parse_display_script(\"\n        fn main() {\n            print(\\\
 Script(
  FnDeclare(
   Ident(main)
+  (
+  )
   Block(
    FnCall(
     Ident(print)

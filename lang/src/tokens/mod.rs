@@ -39,14 +39,14 @@ pub enum Token {
 #[derive(Debug)]
 pub enum TokenError {
     UnclosedDoubleQuote,
-    IllegalChar,
+    IllegalChar(char),
 }
 
 impl std::fmt::Display for TokenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnclosedDoubleQuote => f.write_str("unclosed double quotes"),
-            Self::IllegalChar => f.write_str("illegal char"),
+            Self::IllegalChar(c) => f.write_fmt(format_args!("illegal char {c:?}")),
         }
     }
 }

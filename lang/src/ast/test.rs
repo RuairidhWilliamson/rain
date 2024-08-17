@@ -43,3 +43,14 @@ fn fn_call() {
         "
     ));
 }
+
+#[test]
+fn factorial() {
+    insta::assert_snapshot!(parse_display_script(
+        "
+        fn factorial(n) {
+        	factorial(n - 1) * n
+        }
+        "
+    ));
+}
