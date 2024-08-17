@@ -10,6 +10,7 @@ pub enum Token {
     Ident,
     Number,
     DoubleQuoteLiteral,
+    Comment,
 
     // Keywords
     Fn,

@@ -1,1 +1,7 @@
-let a = print("ajsldkaskjalsdfkj
+// Id = 0
+// Depends on []
+let a = 5
+
+// Id = 1
+// Depends on [0]
+let b = a

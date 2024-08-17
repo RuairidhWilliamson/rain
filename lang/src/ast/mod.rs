@@ -33,7 +33,7 @@ impl Script {
         let mut declarations = Vec::new();
         while let Some(peek) = stream.peek()? {
             match peek.token {
-                Token::NewLine => {
+                Token::NewLine | Token::Comment => {
                     stream.parse_next()?;
                     continue;
                 }

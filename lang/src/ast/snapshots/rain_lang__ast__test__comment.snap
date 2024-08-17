@@ -1,0 +1,14 @@
+---
+source: lang/src/ast/test.rs
+expression: "parse_display_script(\"\n        let b = 2\n        // This is silly\n        let a = b // Very silly\n        // Hehe\n        \")"
+---
+Script(
+ LetDeclare(
+  Ident(b)
+  Number(2)
+ )
+ LetDeclare(
+  Ident(a)
+  Ident(b)
+ )
+)

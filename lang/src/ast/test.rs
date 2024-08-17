@@ -4,7 +4,13 @@ use super::Script;
 
 fn parse_display_script(src: &str) -> String {
     let mut stream = PeekTokenStream::new(src);
-    let s = Script::parse(&mut stream).unwrap();
+    let s = match Script::parse(&mut stream) {
+        Ok(s) => s,
+        Err(err) => {
+            eprintln!("{}", err.resolve(None, src));
+            panic!("parse error");
+        }
+    };
     assert_eq!(
         stream.parse_next().unwrap(),
         None,
@@ -58,6 +64,18 @@ fn factorial() {
         fn factorial(n) {
         	factorial(n - 1) * n
         }
+        "
+    ));
+}
+
+#[test]
+fn comment() {
+    insta::assert_snapshot!(parse_display_script(
+        "
+        let b = 2
+        // This is silly
+        let a = b // Very silly
+        // Hehe
         "
     ));
 }
