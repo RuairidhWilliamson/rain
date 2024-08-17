@@ -6,12 +6,12 @@ BinaryOp(
  BinaryOp(
   BinaryOp(
    Number(5)
-   *
+   Multiplication(*)
    Number(2)
   )
-  +
+  Addition(+)
   Number(3)
  )
- -
+ Subtraction(-)
  Number(4)
 )

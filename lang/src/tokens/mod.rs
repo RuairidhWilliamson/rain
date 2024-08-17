@@ -11,14 +11,18 @@ pub enum Token {
     Number,
     DoubleQuoteLiteral,
 
+    // Keywords
     Fn,
     Let,
+    True,
+    False,
 
+    // Symbols
     Dot,
     Star,
     Plus,
     Subtract,
-    Equals,
+    Assign,
     Comma,
     Colon,
     Semicolon,
@@ -26,12 +30,20 @@ pub enum Token {
     Backslash,
     Tilde,
     Excalmation,
+    Ampersand,
+    Pipe,
     LParen,
     RParen,
     LBrace,
     RBrace,
     LAngle,
     RAngle,
+
+    // Compound symbols
+    Equals,
+    NotEquals,
+    LogicalAnd,
+    LogicalOr,
 
     NewLine,
 }

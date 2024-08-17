@@ -5,9 +5,9 @@ expression: "parse_display_expr(\"1 + 2 + 3\")"
 BinaryOp(
  BinaryOp(
   Number(1)
-  +
+  Addition(+)
   Number(2)
  )
- +
+ Addition(+)
  Number(3)
 )

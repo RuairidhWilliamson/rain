@@ -22,7 +22,7 @@ fn main() -> ExitCode {
         }
     };
     if let Err(err) = inner(&src) {
-        let resolved = err.resolve(src_path, &src);
+        let resolved = err.resolve(Some(src_path), &src);
         eprintln!("{resolved}");
         ExitCode::FAILURE
     } else {

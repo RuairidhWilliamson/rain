@@ -4,6 +4,6 @@ expression: "parse_display_expr(\"1 * 2\")"
 ---
 BinaryOp(
  Number(1)
- *
+ Multiplication(*)
  Number(2)
 )

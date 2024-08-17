@@ -5,7 +5,7 @@ expression: "parse_display_expr(\"foo.bar()\")"
 FnCall(
  BinaryOp(
   Ident(foo)
-  .
+  Dot(.)
   Ident(bar)
  )
  FnCallArgs(

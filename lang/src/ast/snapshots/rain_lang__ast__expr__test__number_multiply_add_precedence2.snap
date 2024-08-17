@@ -4,10 +4,10 @@ expression: "parse_display_expr(\"5 + 2 * 3\")"
 ---
 BinaryOp(
  Number(5)
- +
+ Addition(+)
  BinaryOp(
   Number(2)
-  *
+  Multiplication(*)
   Number(3)
  )
 )

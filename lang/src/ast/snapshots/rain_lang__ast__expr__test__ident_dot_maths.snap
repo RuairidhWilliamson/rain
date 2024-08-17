@@ -6,19 +6,19 @@ BinaryOp(
  BinaryOp(
   BinaryOp(
    Ident(a)
-   .
+   Dot(.)
    Ident(b)
   )
-  .
+  Dot(.)
   Ident(c)
  )
- +
+ Addition(+)
  BinaryOp(
   Number(3)
-  *
+  Multiplication(*)
   BinaryOp(
    Ident(d)
-   .
+   Dot(.)
    Ident(e)
   )
  )

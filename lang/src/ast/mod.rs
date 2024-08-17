@@ -94,7 +94,7 @@ impl LetDeclare {
     fn parse(stream: &mut PeekTokenStream) -> ParseResult<Self> {
         let let_token = expect_token(stream.parse_next()?, &[Token::Let])?;
         let name = expect_token(stream.parse_next()?, &[Token::Ident])?;
-        let equals_token = expect_token(stream.parse_next()?, &[Token::Equals])?;
+        let equals_token = expect_token(stream.parse_next()?, &[Token::Assign])?;
         let expr = expr::Expr::parse(stream)?;
         Ok(Self {
             let_token,

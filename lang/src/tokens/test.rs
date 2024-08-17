@@ -28,12 +28,12 @@ fn empty() {
 #[test]
 fn symbols() {
     assert_tokens!(
-        ".*+-=,:;/\\~!(){}<>",
+        ".*+-=,:;/\\~!(){}<>&|",
         Token::Dot,
         Token::Star,
         Token::Plus,
         Token::Subtract,
-        Token::Equals,
+        Token::Assign,
         Token::Comma,
         Token::Colon,
         Token::Semicolon,
@@ -47,6 +47,19 @@ fn symbols() {
         Token::RBrace,
         Token::LAngle,
         Token::RAngle,
+        Token::Ampersand,
+        Token::Pipe,
+    );
+}
+
+#[test]
+fn compound_symbols() {
+    assert_tokens!(
+        "==&&!=||",
+        Token::Equals,
+        Token::LogicalAnd,
+        Token::NotEquals,
+        Token::LogicalOr
     );
 }
 
@@ -87,6 +100,7 @@ fn double_quote_literal() {
     assert!(str_tokens("\"hei").is_err());
     assert!(str_tokens("\"hei\n\"").is_err());
     assert_tokens!("\"😀 普通话 abc普通话😀\"", Token::DoubleQuoteLiteral);
+    assert_tokens!("f\"{aljskdfa}\"", Token::DoubleQuoteLiteral);
 
     // TODO: Escape characters in string literals
     // assert_tokens!("\"he\\\"i\"", Token::DoubleQuoteLiteral);

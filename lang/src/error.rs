@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::span::LocalSpan;
 
 #[derive(Debug, Clone)]
@@ -13,7 +15,7 @@ impl<E: std::error::Error> ErrorSpan<E> {
 }
 
 impl<E: std::error::Error> ErrorSpan<E> {
-    pub fn resolve<'a>(&'a self, path: &'a std::path::Path, src: &'a str) -> ResolvedError<'a> {
+    pub fn resolve<'a>(&'a self, path: Option<&'a Path>, src: &'a str) -> ResolvedError<'a> {
         ResolvedError {
             err: &self.err,
             path,
@@ -39,7 +41,7 @@ impl ErrorSpanExt for LocalSpan {
 #[derive(Debug)]
 pub struct ResolvedError<'a> {
     err: &'a dyn std::error::Error,
-    path: &'a std::path::Path,
+    path: Option<&'a Path>,
     src: &'a str,
     span: Option<LocalSpan>,
 }
@@ -56,6 +58,7 @@ impl std::fmt::Display for ResolvedError<'_> {
         } = self;
         let span = span.unwrap();
         let (line, col) = span.line_col(src);
+        let path = path.unwrap_or(Path::new("<unknown>"));
         let location = format!("{}:{}:{}\n", path.display(), line, col).blue();
         f.write_fmt(format_args!("{location}"))?;
         let [before, contents, after] = span.surrounding_lines(src, 2);

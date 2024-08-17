@@ -5,6 +5,7 @@ use crate::{
 };
 
 use super::{
+    display::AstDisplay,
     error::{ParseError, ParseResult},
     expect_token,
 };
@@ -19,6 +20,12 @@ enum Associativity {
 pub struct BinaryOperator {
     pub kind: BinaryOperatorKind,
     pub span: LocalSpan,
+}
+
+impl AstDisplay for BinaryOperator {
+    fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
+        f.node_single_child(&format!("{:?}", self.kind), &self.span)
+    }
 }
 
 impl BinaryOperator {
@@ -37,6 +44,10 @@ pub enum BinaryOperatorKind {
     Multiplication,
     Division,
     Dot,
+    LogicalAnd,
+    LogicalOr,
+    Equals,
+    NotEquals,
 }
 
 impl BinaryOperatorKind {
@@ -47,6 +58,10 @@ impl BinaryOperatorKind {
             Token::Plus => Some(Self::Addition),
             Token::Subtract => Some(Self::Subtraction),
             Token::Dot => Some(Self::Dot),
+            Token::Equals => Some(Self::Equals),
+            Token::NotEquals => Some(Self::NotEquals),
+            Token::LogicalAnd => Some(Self::LogicalAnd),
+            Token::LogicalOr => Some(Self::LogicalOr),
             _ => None,
         }
     }
@@ -56,10 +71,13 @@ type Precedence = usize;
 
 fn get_token_precedence_associativity(token: Token) -> Option<(Precedence, Associativity)> {
     let precedence = match token {
-        Token::Dot => Some(50),
-        Token::LParen => Some(40),
-        Token::Star | Token::Slash => Some(30),
-        Token::Plus | Token::Subtract => Some(20),
+        Token::Dot => Some(70),
+        Token::LParen => Some(60),
+        Token::Star | Token::Slash => Some(50),
+        Token::Plus | Token::Subtract => Some(40),
+        Token::Equals | Token::NotEquals => Some(30),
+        Token::LogicalAnd => Some(20),
+        Token::LogicalOr => Some(10),
         _ => None,
     }?;
     let associativity = Associativity::Left;
@@ -71,6 +89,8 @@ pub enum Expr {
     Ident(TokenLocalSpan),
     StringLiteral(TokenLocalSpan),
     IntegerLiteral(TokenLocalSpan),
+    TrueLiteral(TokenLocalSpan),
+    FalseLiteral(TokenLocalSpan),
     BinaryOp(BinaryOp),
     FnCall(FnCall),
 }
@@ -83,18 +103,24 @@ impl Expr {
 
     fn parse_primary(stream: &mut PeekTokenStream) -> ParseResult<Self> {
         let Some(t) = stream.parse_next()? else {
-            return Err(ErrorSpan::new(ParseError::ExpectedExpression, None));
+            return Err(ErrorSpan::new(ParseError::ExpectedExpression(None), None));
         };
         let expr = match t.token {
             Token::Ident => Self::Ident(t),
             Token::Number => Self::IntegerLiteral(t),
             Token::DoubleQuoteLiteral => Self::StringLiteral(t),
+            Token::True => Self::TrueLiteral(t),
+            Token::False => Self::FalseLiteral(t),
             Token::LParen => {
                 let expr = Self::parse(stream)?;
                 expect_token(stream.parse_next()?, &[Token::RParen])?;
                 expr
             }
-            _ => return Err(t.span.with_error(ParseError::ExpectedExpression)),
+            _ => {
+                return Err(t
+                    .span
+                    .with_error(ParseError::ExpectedExpression(Some(t.token))))
+            }
         };
         Ok(expr)
     }
@@ -178,7 +204,11 @@ impl Expr {
 impl super::display::AstDisplay for Expr {
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
         let inner: &dyn super::display::AstDisplay = match self {
-            Self::Ident(inner) | Self::StringLiteral(inner) | Self::IntegerLiteral(inner) => inner,
+            Self::Ident(inner)
+            | Self::StringLiteral(inner)
+            | Self::IntegerLiteral(inner)
+            | Self::TrueLiteral(inner)
+            | Self::FalseLiteral(inner) => inner,
             Self::BinaryOp(inner) => inner,
             Self::FnCall(inner) => inner,
         };
@@ -229,7 +259,7 @@ impl super::display::AstDisplay for BinaryOp {
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
         f.node("BinaryOp")
             .child(self.left.as_ref())
-            .child(&self.op.span)
+            .child(&self.op)
             .child(self.right.as_ref())
             .finish()
     }
@@ -243,7 +273,13 @@ mod test {
 
     fn parse_display_expr(src: &str) -> String {
         let mut stream = PeekTokenStream::new(src);
-        let s = Expr::parse(&mut stream).unwrap();
+        let s = match Expr::parse(&mut stream) {
+            Ok(s) => s,
+            Err(err) => {
+                eprintln!("{}", err.resolve(None, src));
+                panic!("parse error");
+            }
+        };
         assert_eq!(
             stream.parse_next().unwrap(),
             None,
@@ -365,5 +401,12 @@ mod test {
     #[test]
     fn fn_call_two_arg_trailing_comma() {
         insta::assert_snapshot!(parse_display_expr("foo(1, 2,)"));
+    }
+
+    #[test]
+    fn logical_operators() {
+        insta::assert_snapshot!(parse_display_expr(
+            "true || a == b && 1 != 1 && (false || a != b)"
+        ));
     }
 }

@@ -4,6 +4,6 @@ expression: "parse_display_expr(\"foo.bar\")"
 ---
 BinaryOp(
  Ident(foo)
- .
+ Dot(.)
  Ident(bar)
 )

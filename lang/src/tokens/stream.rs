@@ -19,37 +19,47 @@ impl<'a> TokenStream<'a> {
 impl TokenStream<'_> {
     pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, ErrorSpan<TokenError>> {
         loop {
-            let Some(&c) = self.source.as_bytes().get(self.index) else {
+            let bytes = self.source.as_bytes();
+            let Some(&c) = bytes.get(self.index) else {
                 return Ok(None);
             };
-            let tls = match c {
-                b'.' => self.inc(Token::Dot),
-                b'*' => self.inc(Token::Star),
-                b'+' => self.inc(Token::Plus),
-                b'-' => self.inc(Token::Subtract),
-                b'=' => self.inc(Token::Equals),
-                b',' => self.inc(Token::Comma),
-                b':' => self.inc(Token::Colon),
-                b';' => self.inc(Token::Semicolon),
-                b'/' => self.inc(Token::Slash),
-                b'\\' => self.inc(Token::Backslash),
-                b'~' => self.inc(Token::Tilde),
-                b'!' => self.inc(Token::Excalmation),
-                b'(' => self.inc(Token::LParen),
-                b')' => self.inc(Token::RParen),
-                b'{' => self.inc(Token::LBrace),
-                b'}' => self.inc(Token::RBrace),
-                b'<' => self.inc(Token::LAngle),
-                b'>' => self.inc(Token::RAngle),
-                b'\n' => self.inc(Token::NewLine),
-                b' ' | b'\t' => {
+            let c_next = bytes.get(self.index + 1);
+            let tls = match (c, c_next) {
+                (b'.', _) => self.inc(Token::Dot),
+                (b'*', _) => self.inc(Token::Star),
+                (b'+', _) => self.inc(Token::Plus),
+                (b'-', _) => self.inc(Token::Subtract),
+                (b',', _) => self.inc(Token::Comma),
+                (b':', _) => self.inc(Token::Colon),
+                (b';', _) => self.inc(Token::Semicolon),
+                (b'/', _) => self.inc(Token::Slash),
+                (b'\\', _) => self.inc(Token::Backslash),
+                (b'~', _) => self.inc(Token::Tilde),
+                (b'(', _) => self.inc(Token::LParen),
+                (b')', _) => self.inc(Token::RParen),
+                (b'{', _) => self.inc(Token::LBrace),
+                (b'}', _) => self.inc(Token::RBrace),
+                (b'<', _) => self.inc(Token::LAngle),
+                (b'>', _) => self.inc(Token::RAngle),
+                (b'|', Some(b'|')) => self.inc2(Token::LogicalOr),
+                (b'|', _) => self.inc(Token::Pipe),
+                (b'&', Some(b'&')) => self.inc2(Token::LogicalAnd),
+                (b'&', _) => self.inc(Token::Ampersand),
+                (b'=', Some(b'=')) => self.inc2(Token::Equals),
+                (b'=', _) => self.inc(Token::Assign),
+                (b'!', Some(b'=')) => self.inc2(Token::NotEquals),
+                (b'!', _) => self.inc(Token::Excalmation),
+
+                (b'\n', _) => self.inc(Token::NewLine),
+                (b' ' | b'\t', _) => {
                     self.index += 1;
                     continue;
                 }
-                b'a'..=b'z' | b'A'..=b'Z' | b'_' => self.ident(),
-                b'0'..=b'9' => self.number(),
-                b'\"' => self.double_quote_literal()?,
-                c if c.is_ascii() => {
+                (b'a'..b'z', Some(b'\"')) => self.double_quote_literal()?,
+                (b'\"', _) => self.double_quote_literal()?,
+                (b'a'..=b'z' | b'A'..=b'Z' | b'_', _) => self.ident(),
+                (b'0'..=b'9', _) => self.number(),
+                (c, _) if c.is_ascii() => {
                     return Err(LocalSpan::byte(self.index)
                         .with_error(TokenError::IllegalChar(char::from(c))));
                 }
@@ -65,6 +75,15 @@ impl TokenStream<'_> {
             span: LocalSpan::byte(self.index),
         };
         self.index += 1;
+        tls
+    }
+
+    fn inc2(&mut self, token: Token) -> TokenLocalSpan {
+        let tls = TokenLocalSpan {
+            token,
+            span: LocalSpan::new(self.index, self.index + 2),
+        };
+        self.index += 2;
         tls
     }
 
@@ -89,6 +108,8 @@ impl TokenStream<'_> {
         let token = match s {
             "fn" => Token::Fn,
             "let" => Token::Let,
+            "true" => Token::True,
+            "false" => Token::False,
             _ => Token::Ident,
         };
         TokenLocalSpan {
@@ -115,6 +136,10 @@ impl TokenStream<'_> {
 
     fn double_quote_literal(&mut self) -> Result<TokenLocalSpan, ErrorSpan<TokenError>> {
         let start = self.index;
+        if Some(b'"') != self.source.as_bytes().get(self.index).copied() {
+            // Skip over the string modifier
+            self.index += 1;
+        }
         self.index += 1;
         loop {
             let Some(c) = self.source.as_bytes().get(self.index) else {

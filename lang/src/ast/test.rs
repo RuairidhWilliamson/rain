@@ -48,6 +48,13 @@ fn fn_call() {
 fn factorial() {
     insta::assert_snapshot!(parse_display_script(
         "
+        let assert = std.test.assert
+        let eq = std.ops.eq
+
+        fn main() {
+        	assert(factorial(5), 12)
+        }
+
         fn factorial(n) {
         	factorial(n - 1) * n
         }
