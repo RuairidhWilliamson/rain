@@ -1,5 +1,5 @@
 use crate::{
-    error::{ErrorSpan, ErrorSpanExt},
+    error::ErrorSpan,
     span::LocalSpan,
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };

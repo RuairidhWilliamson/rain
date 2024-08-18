@@ -25,12 +25,8 @@ impl<E: std::error::Error> ErrorSpan<E> {
     }
 }
 
-pub trait ErrorSpanExt {
-    fn with_error<E: std::error::Error>(self, err: E) -> ErrorSpan<E>;
-}
-
-impl ErrorSpanExt for LocalSpan {
-    fn with_error<E: std::error::Error>(self, err: E) -> ErrorSpan<E> {
+impl LocalSpan {
+    pub const fn with_error<E: std::error::Error>(self, err: E) -> ErrorSpan<E> {
         ErrorSpan {
             err,
             span: Some(self),

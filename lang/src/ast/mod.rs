@@ -8,7 +8,7 @@ mod test;
 use error::{ParseError, ParseResult};
 
 use crate::{
-    error::{ErrorSpan, ErrorSpanExt},
+    error::ErrorSpan,
     span::LocalSpan,
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
@@ -58,6 +58,15 @@ impl Script {
 pub enum Declaration {
     LetDeclare(LetDeclare),
     FnDeclare(FnDeclare),
+}
+
+impl Declaration {
+    pub fn name(&self) -> TokenLocalSpan {
+        match self {
+            Self::LetDeclare(declare) => declare.name,
+            Self::FnDeclare(declare) => declare.name,
+        }
+    }
 }
 
 impl display::AstDisplay for Declaration {

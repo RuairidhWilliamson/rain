@@ -1,7 +1,4 @@
-use crate::{
-    error::{ErrorSpan, ErrorSpanExt as _},
-    span::LocalSpan,
-};
+use crate::{error::ErrorSpan, span::LocalSpan};
 
 use super::{Token, TokenError, TokenLocalSpan};
 
@@ -95,10 +92,9 @@ impl TokenStream<'_> {
     fn comment(&mut self) -> TokenLocalSpan {
         let start = self.index;
         self.index += 2;
-        while let Some(c) = self.source.as_bytes().get(self.index) {
-            match c {
-                b'\n' => break,
-                _ => {}
+        while let Some(&c) = self.source.as_bytes().get(self.index) {
+            if b'\n' == c {
+                break;
             }
             self.index += 1;
         }
