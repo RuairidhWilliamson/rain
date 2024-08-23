@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod test;
 
+pub mod runner;
+
 use std::path::Path;
 
 use crate::{
@@ -12,11 +14,11 @@ use crate::{
 };
 
 #[derive(Debug, Default)]
-pub struct IR<'a> {
+pub struct Rir<'a> {
     modules: Vec<Module<'a>>,
 }
 
-impl<'a> IR<'a> {
+impl<'a> Rir<'a> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -37,7 +39,7 @@ impl<'a> IR<'a> {
         id
     }
 
-    fn get_module(&self, module_id: ModuleId) -> &Module {
+    pub fn get_module(&self, module_id: ModuleId) -> &Module {
         let Some(m) = self.modules.get(module_id.0) else {
             unreachable!("id is always valid")
         };
@@ -57,7 +59,7 @@ impl<'a> IR<'a> {
     pub fn declaration_deps(
         &self,
         id: DeclarationId,
-    ) -> Result<Vec<DeclarationId>, ErrorSpan<TypeError>> {
+    ) -> Result<Vec<DeclarationId>, ErrorSpan<RainError>> {
         let module = self.get_module(id.module_id());
         let declaration = module.get_declaration(id.local_id());
         Ok(match declaration {
@@ -86,13 +88,13 @@ impl Module<'_> {
         d
     }
 
-    fn expr_deps(&self, expr: &Expr) -> Result<Vec<LocalDeclarationId>, ErrorSpan<TypeError>> {
+    fn expr_deps(&self, expr: &Expr) -> Result<Vec<LocalDeclarationId>, ErrorSpan<RainError>> {
         let mut v = Vec::new();
         match expr {
             Expr::Ident(tls) => {
                 v.push(
                     self.find_declaration_by_name(tls.span.contents(self.src))
-                        .ok_or_else(|| tls.span.with_error(TypeError::UnresolvedIdentifier))?,
+                        .ok_or_else(|| tls.span.with_error(RainError::UnresolvedIdentifier))?,
                 );
             }
             Expr::StringLiteral(_)
@@ -116,7 +118,7 @@ impl Module<'_> {
         Ok(v)
     }
 
-    fn block_deps(&self, block: &Block) -> Result<Vec<LocalDeclarationId>, ErrorSpan<TypeError>> {
+    fn block_deps(&self, block: &Block) -> Result<Vec<LocalDeclarationId>, ErrorSpan<RainError>> {
         let mut v = Vec::new();
         for s in &block.statements {
             match s {
@@ -157,11 +159,11 @@ impl DeclarationId {
 }
 
 #[derive(Debug)]
-pub enum TypeError {
+pub enum RainError {
     UnresolvedIdentifier,
 }
 
-impl std::fmt::Display for TypeError {
+impl std::fmt::Display for RainError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnresolvedIdentifier => f.write_str("unresolved identifier"),
@@ -169,4 +171,4 @@ impl std::fmt::Display for TypeError {
     }
 }
 
-impl std::error::Error for TypeError {}
+impl std::error::Error for RainError {}
