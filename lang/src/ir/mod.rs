@@ -32,6 +32,7 @@ impl<'a> Rir<'a> {
         let declarations = ast.declarations.iter().collect();
         let id = ModuleId(self.modules.len());
         self.modules.push(Module {
+            id,
             path,
             src,
             declarations,
@@ -74,6 +75,7 @@ impl<'a> Rir<'a> {
 
 #[derive(Debug)]
 pub struct Module<'a> {
+    id: ModuleId,
     #[allow(dead_code)]
     path: Option<&'a Path>,
     src: &'a str,

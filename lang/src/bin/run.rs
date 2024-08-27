@@ -43,7 +43,8 @@ fn inner(path: &std::path::Path, src: &str) -> Result<(), ErrorSpan<ParseError>>
     let Some(main) = rir.resolve_global_declaration(modid, "main") else {
         panic!("no main")
     };
-    let mut runner = Runner::new(rir);
-    runner.evaluate(main);
+    let mut runner = Runner::new(&rir);
+    let value = runner.evaluate(main);
+    println!("{value:?}");
     Ok(())
 }
