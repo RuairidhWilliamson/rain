@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod test;
 
-pub mod runner;
-
 use std::path::Path;
 
 use crate::{
@@ -75,10 +73,10 @@ impl<'a> Rir<'a> {
 
 #[derive(Debug)]
 pub struct Module<'a> {
-    id: ModuleId,
+    pub id: ModuleId,
     #[allow(dead_code)]
     path: Option<&'a Path>,
-    src: &'a str,
+    pub src: &'a str,
     declarations: Vec<&'a Declaration>,
 }
 

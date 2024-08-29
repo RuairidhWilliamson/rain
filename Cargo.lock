@@ -1394,6 +1394,7 @@ dependencies = [
 name = "rain-lang"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "colored",
  "insta",
 ]

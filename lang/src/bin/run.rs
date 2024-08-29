@@ -1,9 +1,7 @@
 use std::process::ExitCode;
 
 use rain_lang::{
-    ast::error::ParseError,
-    error::ErrorSpan,
-    ir::{runner::Runner, Rir},
+    ast::error::ParseError, error::ErrorSpan, ir::Rir, runner::Runner,
     tokens::peek::PeekTokenStream,
 };
 

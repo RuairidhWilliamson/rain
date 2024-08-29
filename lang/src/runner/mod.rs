@@ -1,17 +1,14 @@
-use std::{
-    any::{Any, TypeId},
-    fmt::Debug,
-};
+pub mod value;
+
+use value::RainValue;
 
 use crate::{
     ast::{
         expr::{BinaryOp, BinaryOperator, BinaryOperatorKind, Expr},
         FnDeclare, LetDeclare,
     },
-    ir::{DeclarationId, Rir},
+    ir::{DeclarationId, Module, Rir},
 };
-
-use super::Module;
 
 pub struct Runner<'a> {
     rir: &'a Rir<'a>,
@@ -34,7 +31,8 @@ impl<'a> Runner<'a> {
     }
 
     fn evaluate_fn(&mut self, module: &Module, fn_declare: &FnDeclare) -> RainValue {
-        todo!()
+        let crate::ast::Statement::Expr(expr) = fn_declare.block.statements.last().unwrap();
+        self.evaluate_expr(module, expr)
     }
 
     fn evaluate_expr(&mut self, module: &Module, expr: &Expr) -> RainValue {
@@ -48,12 +46,12 @@ impl<'a> Runner<'a> {
                 };
                 self.evaluate(declaration_id)
             }
-            Expr::StringLiteral(_) => todo!("evaluate string literal"),
-            Expr::IntegerLiteral(tls) => RainValue {
-                value: Box::new(tls.span.contents(module.src).parse::<isize>().unwrap()),
-            },
-            Expr::TrueLiteral(_) => todo!("evaluate true literal"),
-            Expr::FalseLiteral(_) => todo!("evaluate false literal"),
+            Expr::StringLiteral(tls) => RainValue::new(tls.span.contents(module.src).to_owned()),
+            Expr::IntegerLiteral(tls) => {
+                RainValue::new(tls.span.contents(module.src).parse::<isize>().unwrap())
+            }
+            Expr::TrueLiteral(_) => RainValue::new(true),
+            Expr::FalseLiteral(_) => RainValue::new(false),
             Expr::BinaryOp(b) => self.evaluate_binary_op(module, b),
             Expr::FnCall(_) => todo!("evaluate fn call"),
         }
@@ -88,38 +86,14 @@ impl<'a> Runner<'a> {
                     / *right_value.downcast::<isize>().unwrap(),
             ),
             BinaryOperatorKind::Dot => todo!("evaluate dot expr"),
-            BinaryOperatorKind::LogicalAnd => todo!("evaluate logical and"),
-            BinaryOperatorKind::LogicalOr => todo!("evaluate logical or"),
+            BinaryOperatorKind::LogicalAnd => RainValue::new(
+                *left_value.downcast::<bool>().unwrap() && *right_value.downcast::<bool>().unwrap(),
+            ),
+            BinaryOperatorKind::LogicalOr => RainValue::new(
+                *left_value.downcast::<bool>().unwrap() || *right_value.downcast::<bool>().unwrap(),
+            ),
             BinaryOperatorKind::Equals => todo!("evaluate equality"),
             BinaryOperatorKind::NotEquals => todo!("evaluate not equality"),
         }
     }
 }
-
-#[derive(Debug)]
-pub struct RainValue {
-    value: Box<dyn RainValueInner>,
-}
-
-impl RainValue {
-    fn new<T: RainValueInner>(value: T) -> Self {
-        Self {
-            value: Box::new(value),
-        }
-    }
-
-    pub fn downcast<T: RainValueInner>(self) -> Option<Box<T>> {
-        if (*self.value).type_id() == TypeId::of::<T>() {
-            let ptr = Box::into_raw(self.value);
-            // Safety:
-            // We have checked this is of the right type already
-            Some(unsafe { Box::from_raw(ptr.cast()) })
-        } else {
-            None
-        }
-    }
-}
-
-pub trait RainValueInner: Any + Debug + Send + Sync {}
-
-impl RainValueInner for isize {}

@@ -13,4 +13,5 @@ workspace = true
 colored = "2.1.0"
 
 [dev-dependencies]
+anyhow.workspace = true
 insta = { version = "1.39.0", features = ["colors"], default-features = false }
