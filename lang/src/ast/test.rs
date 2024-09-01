@@ -62,7 +62,11 @@ fn factorial() {
         }
 
         fn factorial(n) {
-        	factorial(n - 1) * n
+            if n == 0 {
+                1
+            } else {
+            	factorial(n - 1) * n
+        	}
         }
         "
     ));

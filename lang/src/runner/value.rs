@@ -3,9 +3,14 @@ use std::{
     fmt::Debug,
 };
 
-#[derive(Debug)]
 pub struct RainValue {
     value: Box<dyn RainValueInner>,
+}
+
+impl std::fmt::Debug for RainValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.value.fmt(f)
+    }
 }
 
 impl RainValue {

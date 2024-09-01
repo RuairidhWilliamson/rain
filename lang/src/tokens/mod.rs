@@ -15,6 +15,8 @@ pub enum Token {
     // Keywords
     Fn,
     Let,
+    If,
+    Else,
     True,
     False,
 

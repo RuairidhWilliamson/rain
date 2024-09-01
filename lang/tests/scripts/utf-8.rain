@@ -2,5 +2,5 @@ let 🌧 = "rain"
 let rain_emoji = "🌧"
 
 fn main() {
-	rain_emoji
+	🌧
 }

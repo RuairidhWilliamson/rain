@@ -5,7 +5,8 @@ use std::path::Path;
 
 use crate::{
     ast::{
-        expr::{BinaryOp, Expr, FnCall, FnCallArgs},
+        binary_op::BinaryOp,
+        expr::{AlternateCondition, Expr, FnCall, FnCallArgs, IfCondition},
         Block, Declaration, FnDeclare,
     },
     error::ErrorSpan,
@@ -114,7 +115,33 @@ impl Module<'_> {
                     v.extend(self.expr_deps(a)?);
                 }
             }
+            Expr::If(if_condition) => v.extend(self.if_condition_deps(if_condition)?),
         }
+        Ok(v)
+    }
+
+    fn if_condition_deps(
+        &self,
+        if_condition: &IfCondition,
+    ) -> Result<Vec<LocalDeclarationId>, ErrorSpan<RainError>> {
+        let mut v = Vec::new();
+        let IfCondition {
+            condition,
+            then,
+            alternate,
+        } = if_condition;
+        v.extend(self.expr_deps(&condition)?);
+        v.extend(self.block_deps(&then)?);
+        match alternate {
+            Some(AlternateCondition::IfElse(if_condition)) => {
+                v.extend(self.if_condition_deps(&if_condition)?);
+            }
+            Some(AlternateCondition::Else(block)) => {
+                v.extend(self.block_deps(block)?);
+            }
+            None => (),
+        }
+
         Ok(v)
     }
 

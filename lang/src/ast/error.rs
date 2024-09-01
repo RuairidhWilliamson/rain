@@ -33,6 +33,11 @@ impl std::fmt::Display for ParseError {
             Self::TokenError(err) => std::fmt::Display::fmt(err, f),
             Self::ExpectedToken(tokens) => f.write_fmt(format_args!("expected one of {tokens:?}")),
             Self::ExpectedExpression(token) => {
+                let token: &str = if let Some(t) = token {
+                    &format!("{t:?}")
+                } else {
+                    "EOF"
+                };
                 f.write_fmt(format_args!("unexpected {token:?}, expected expression"))
             }
         }

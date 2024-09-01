@@ -1,3 +1,4 @@
+pub mod binary_op;
 pub mod display;
 pub mod error;
 pub mod expr;

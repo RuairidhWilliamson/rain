@@ -125,6 +125,8 @@ impl TokenStream<'_> {
         let token = match s {
             "fn" => Token::Fn,
             "let" => Token::Let,
+            "if" => Token::If,
+            "else" => Token::Else,
             "true" => Token::True,
             "false" => Token::False,
             _ => Token::Ident,

@@ -4,7 +4,8 @@ use value::RainValue;
 
 use crate::{
     ast::{
-        expr::{BinaryOp, BinaryOperator, BinaryOperatorKind, Expr},
+        binary_op::{BinaryOp, BinaryOperator, BinaryOperatorKind},
+        expr::Expr,
         FnDeclare, LetDeclare,
     },
     ir::{DeclarationId, Module, Rir},
@@ -46,7 +47,30 @@ impl<'a> Runner<'a> {
                 };
                 self.evaluate(declaration_id)
             }
-            Expr::StringLiteral(tls) => RainValue::new(tls.span.contents(module.src).to_owned()),
+            Expr::StringLiteral(tls) => {
+                let mut string_value = tls.span.contents(module.src);
+                let mut prefix = None;
+                match string_value.chars().next() {
+                    Some(p @ 'a'..='z') => {
+                        string_value = &string_value[1..];
+                        prefix = Some(p);
+                    }
+                    Some('"') => (),
+                    Some(_) => panic!("unrecognised string prefix"),
+                    None => unreachable!("empty string literal"),
+                }
+                string_value = string_value
+                    .strip_prefix('"')
+                    .expect("strip prefix double quote")
+                    .strip_suffix('\"')
+                    .expect("strip suffix double quote");
+                match prefix {
+                    Some('f') => todo!("format string"),
+                    Some(p) => panic!("unrecognised string prefix: {p}"),
+                    None => (),
+                }
+                RainValue::new(string_value.to_owned())
+            }
             Expr::IntegerLiteral(tls) => {
                 RainValue::new(tls.span.contents(module.src).parse::<isize>().unwrap())
             }
@@ -54,6 +78,7 @@ impl<'a> Runner<'a> {
             Expr::FalseLiteral(_) => RainValue::new(false),
             Expr::BinaryOp(b) => self.evaluate_binary_op(module, b),
             Expr::FnCall(_) => todo!("evaluate fn call"),
+            Expr::If(_) => todo!("run if condition"),
         }
     }
 

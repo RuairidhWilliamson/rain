@@ -1,88 +1,15 @@
 use crate::{
     error::ErrorSpan,
-    span::LocalSpan,
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
 
 use super::{
-    display::AstDisplay,
+    binary_op::{
+        get_token_precedence_associativity, Associativity, BinaryOp, BinaryOperator, Precedence,
+    },
     error::{ParseError, ParseResult},
-    expect_token,
+    expect_token, Block,
 };
-
-#[derive(PartialEq, Eq)]
-enum Associativity {
-    Left,
-    Right,
-}
-
-#[derive(Debug)]
-pub struct BinaryOperator {
-    pub kind: BinaryOperatorKind,
-    pub span: LocalSpan,
-}
-
-impl AstDisplay for BinaryOperator {
-    fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
-        f.node_single_child(&format!("{:?}", self.kind), &self.span)
-    }
-}
-
-impl BinaryOperator {
-    fn new_from_token(t: TokenLocalSpan) -> Option<Self> {
-        Some(Self {
-            kind: BinaryOperatorKind::new_from_token(t.token)?,
-            span: t.span,
-        })
-    }
-}
-
-#[derive(Debug)]
-pub enum BinaryOperatorKind {
-    Addition,
-    Subtraction,
-    Multiplication,
-    Division,
-    Dot,
-    LogicalAnd,
-    LogicalOr,
-    Equals,
-    NotEquals,
-}
-
-impl BinaryOperatorKind {
-    fn new_from_token(t: Token) -> Option<Self> {
-        match t {
-            Token::Star => Some(Self::Multiplication),
-            Token::Slash => Some(Self::Division),
-            Token::Plus => Some(Self::Addition),
-            Token::Subtract => Some(Self::Subtraction),
-            Token::Dot => Some(Self::Dot),
-            Token::Equals => Some(Self::Equals),
-            Token::NotEquals => Some(Self::NotEquals),
-            Token::LogicalAnd => Some(Self::LogicalAnd),
-            Token::LogicalOr => Some(Self::LogicalOr),
-            _ => None,
-        }
-    }
-}
-
-type Precedence = usize;
-
-fn get_token_precedence_associativity(token: Token) -> Option<(Precedence, Associativity)> {
-    let precedence = match token {
-        Token::Dot => Some(70),
-        Token::LParen => Some(60),
-        Token::Star | Token::Slash => Some(50),
-        Token::Plus | Token::Subtract => Some(40),
-        Token::Equals | Token::NotEquals => Some(30),
-        Token::LogicalAnd => Some(20),
-        Token::LogicalOr => Some(10),
-        _ => None,
-    }?;
-    let associativity = Associativity::Left;
-    Some((precedence, associativity))
-}
 
 #[derive(Debug)]
 pub enum Expr {
@@ -93,6 +20,7 @@ pub enum Expr {
     FalseLiteral(TokenLocalSpan),
     BinaryOp(BinaryOp),
     FnCall(FnCall),
+    If(IfCondition),
 }
 
 impl Expr {
@@ -116,6 +44,7 @@ impl Expr {
                 expect_token(stream.parse_next()?, &[Token::RParen])?;
                 expr
             }
+            Token::If => Self::If(Self::parse_if_condition(t, stream)?),
             _ => {
                 return Err(t
                     .span
@@ -123,6 +52,41 @@ impl Expr {
             }
         };
         Ok(expr)
+    }
+
+    fn parse_if_condition(
+        if_token: TokenLocalSpan,
+        stream: &mut PeekTokenStream,
+    ) -> ParseResult<IfCondition> {
+        debug_assert_eq!(if_token.token, Token::If);
+        let condition = Box::new(Self::parse(stream)?);
+        let then = Block::parse(stream)?;
+        let mut alternate = None;
+        if let Some(peek) = stream.peek()? {
+            if peek.token == Token::Else {
+                let _ = stream.parse_next()?;
+                alternate = Some(Self::parse_alternate(stream)?);
+            }
+        }
+        Ok(IfCondition {
+            condition,
+            then,
+            alternate,
+        })
+    }
+
+    fn parse_alternate(stream: &mut PeekTokenStream) -> ParseResult<AlternateCondition> {
+        let peek = expect_token(stream.peek()?, &[Token::If, Token::LBrace])?;
+        match peek.token {
+            Token::If => {
+                let _ = stream.parse_next()?;
+                Ok(AlternateCondition::IfElse(Box::new(
+                    Self::parse_if_condition(peek, stream)?,
+                )))
+            }
+            Token::LBrace => Ok(AlternateCondition::Else(Block::parse(stream)?)),
+            _ => unreachable!(),
+        }
     }
 
     fn parse_expr_ops(
@@ -211,6 +175,7 @@ impl super::display::AstDisplay for Expr {
             | Self::FalseLiteral(inner) => inner,
             Self::BinaryOp(inner) => inner,
             Self::FnCall(inner) => inner,
+            Self::If(inner) => inner,
         };
         inner.fmt(f)
     }
@@ -249,19 +214,37 @@ impl super::display::AstDisplay for FnCallArgs {
 }
 
 #[derive(Debug)]
-pub struct BinaryOp {
-    pub left: Box<Expr>,
-    pub op: BinaryOperator,
-    pub right: Box<Expr>,
+pub struct IfCondition {
+    pub condition: Box<Expr>,
+    pub then: super::Block,
+    pub alternate: Option<AlternateCondition>,
 }
 
-impl super::display::AstDisplay for BinaryOp {
+impl super::display::AstDisplay for IfCondition {
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
-        f.node("BinaryOp")
-            .child(self.left.as_ref())
-            .child(&self.op)
-            .child(self.right.as_ref())
-            .finish()
+        let mut builder = f.node("If");
+        builder.child(self.condition.as_ref()).child(&self.then);
+        if let Some(alternate) = &self.alternate {
+            builder.child(alternate);
+        }
+        builder.finish()
+    }
+}
+
+#[derive(Debug)]
+pub enum AlternateCondition {
+    IfElse(Box<IfCondition>),
+    Else(super::Block),
+}
+
+impl super::display::AstDisplay for AlternateCondition {
+    fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
+        match self {
+            AlternateCondition::IfElse(alternate) => {
+                f.node("IfElse").child(alternate.as_ref()).finish()
+            }
+            AlternateCondition::Else(alternate) => f.node("Else").child(alternate).finish(),
+        }
     }
 }
 

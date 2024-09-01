@@ -1,6 +1,6 @@
 ---
 source: lang/src/ast/test.rs
-expression: "parse_display_script(\"\n        let assert = std.test.assert\n        let eq = std.ops.eq\n\n        fn main() {\n        \tassert(factorial(5), 12)\n        }\n\n        fn factorial(n) {\n        \tfactorial(n - 1) * n\n        }\n        \")"
+expression: "parse_display_script(\"\n        let assert = std.test.assert\n        let eq = std.ops.eq\n\n        fn main() {\n        \tassert(factorial(5), 12)\n        }\n\n        fn factorial(n) {\n            if n == 0 {\n                1\n            } else {\n            \tfactorial(n - 1) * n\n        \t}\n        }\n        \")"
 ---
 Script(
  LetDeclare(
@@ -54,19 +54,33 @@ Script(
    )
   )
   Block(
-   BinaryOp(
-    FnCall(
-     Ident(factorial)
-     FnCallArgs(
+   If(
+    BinaryOp(
+     Ident(n)
+     Equals(==)
+     Number(0)
+    )
+    Block(
+     Number(1)
+    )
+    Else(
+     Block(
       BinaryOp(
+       FnCall(
+        Ident(factorial)
+        FnCallArgs(
+         BinaryOp(
+          Ident(n)
+          Subtraction(-)
+          Number(1)
+         )
+        )
+       )
+       Multiplication(*)
        Ident(n)
-       Subtraction(-)
-       Number(1)
       )
      )
     )
-    Multiplication(*)
-    Ident(n)
    )
   )
  )
