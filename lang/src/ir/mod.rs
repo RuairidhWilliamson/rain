@@ -130,11 +130,11 @@ impl Module<'_> {
             then,
             alternate,
         } = if_condition;
-        v.extend(self.expr_deps(&condition)?);
-        v.extend(self.block_deps(&then)?);
+        v.extend(self.expr_deps(condition)?);
+        v.extend(self.block_deps(then)?);
         match alternate {
             Some(AlternateCondition::IfElse(if_condition)) => {
-                v.extend(self.if_condition_deps(&if_condition)?);
+                v.extend(self.if_condition_deps(if_condition)?);
             }
             Some(AlternateCondition::Else(block)) => {
                 v.extend(self.block_deps(block)?);

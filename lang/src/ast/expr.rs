@@ -240,10 +240,8 @@ pub enum AlternateCondition {
 impl super::display::AstDisplay for AlternateCondition {
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
         match self {
-            AlternateCondition::IfElse(alternate) => {
-                f.node("IfElse").child(alternate.as_ref()).finish()
-            }
-            AlternateCondition::Else(alternate) => f.node("Else").child(alternate).finish(),
+            Self::IfElse(alternate) => f.node("IfElse").child(alternate.as_ref()).finish(),
+            Self::Else(alternate) => f.node("Else").child(alternate).finish(),
         }
     }
 }

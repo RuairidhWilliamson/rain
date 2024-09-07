@@ -8,16 +8,16 @@ use rain_lang::{
 };
 
 fn run_inner(path: Option<&Path>, src: &str) -> anyhow::Result<RainValue> {
-    let mut stream = PeekTokenStream::new(&src);
+    let mut stream = PeekTokenStream::new(src);
     let ast = Script::parse(&mut stream).map_err(|err| {
-        eprintln!("{}", err.resolve(path, &src));
+        eprintln!("{}", err.resolve(path, src));
         err.err
     })?;
     let mut ir = Rir::new();
-    let module_id = ir.insert_module(path, &src, &ast);
+    let module_id = ir.insert_module(path, src, &ast);
     let main = ir
         .resolve_global_declaration(module_id, "main")
-        .ok_or(anyhow::anyhow!("main function not found"))?;
+        .ok_or_else(|| anyhow::anyhow!("main function not found"))?;
     let mut runner = Runner::new(&ir);
     let value = runner.evaluate(main);
     Ok(value)
