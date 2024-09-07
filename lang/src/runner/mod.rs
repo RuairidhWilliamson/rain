@@ -1,12 +1,14 @@
 pub mod value;
 
-use value::RainValue;
+use std::any::TypeId;
+
+use value::{RainFunction, RainValue};
 
 use crate::{
     ast::{
         binary_op::{BinaryOp, BinaryOperator, BinaryOperatorKind},
-        expr::Expr,
-        FnDeclare, LetDeclare,
+        expr::{AlternateCondition, Expr, FnCall, IfCondition},
+        Block, LetDeclare,
     },
     ir::{DeclarationId, Module, Rir},
 };
@@ -20,6 +22,18 @@ impl<'a> Runner<'a> {
         Self { rir }
     }
 
+    pub fn evaluate_and_call(&mut self, id: DeclarationId) -> RainValue {
+        let v = self.evaluate(id);
+        if v.rain_type_id() == TypeId::of::<RainFunction>() {
+            let Some(f) = v.downcast::<RainFunction>() else {
+                unreachable!();
+            };
+            self.evaluate_fn(&f)
+        } else {
+            v
+        }
+    }
+
     pub fn evaluate(&mut self, id: DeclarationId) -> RainValue {
         let m = self.rir.get_module(id.module_id());
         let d = m.get_declaration(id.local_id());
@@ -27,23 +41,34 @@ impl<'a> Runner<'a> {
             crate::ast::Declaration::LetDeclare(LetDeclare { expr, .. }) => {
                 self.evaluate_expr(m, expr)
             }
-            crate::ast::Declaration::FnDeclare(fn_declare) => self.evaluate_fn(m, fn_declare),
+            crate::ast::Declaration::FnDeclare(_) => RainValue::new(RainFunction { id }),
         }
     }
 
-    fn evaluate_fn(&mut self, module: &Module, fn_declare: &FnDeclare) -> RainValue {
-        let crate::ast::Statement::Expr(expr) = fn_declare.block.statements.last().unwrap();
+    fn evaluate_fn(&mut self, RainFunction { id }: &RainFunction) -> RainValue {
+        let m = self.rir.get_module(id.module_id());
+        let d = m.get_declaration(id.local_id());
+        match d {
+            crate::ast::Declaration::FnDeclare(fn_declare) => {
+                self.evaluate_block(m, &fn_declare.block)
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn evaluate_block(&mut self, module: &Module, block: &Block) -> RainValue {
+        let crate::ast::Statement::Expr(expr) = block.statements.last().unwrap();
         self.evaluate_expr(module, expr)
     }
 
     fn evaluate_expr(&mut self, module: &Module, expr: &Expr) -> RainValue {
         match expr {
             Expr::Ident(tls) => {
-                let Some(declaration_id) = self
-                    .rir
-                    .resolve_global_declaration(module.id, tls.span.contents(module.src))
+                let ident_name = tls.span.contents(module.src);
+                let Some(declaration_id) =
+                    self.rir.resolve_global_declaration(module.id, ident_name)
                 else {
-                    todo!();
+                    panic!("unknown ident: {ident_name}");
                 };
                 self.evaluate(declaration_id)
             }
@@ -77,8 +102,21 @@ impl<'a> Runner<'a> {
             Expr::TrueLiteral(_) => RainValue::new(true),
             Expr::FalseLiteral(_) => RainValue::new(false),
             Expr::BinaryOp(b) => self.evaluate_binary_op(module, b),
-            Expr::FnCall(_) => todo!("evaluate fn call"),
-            Expr::If(_) => todo!("run if condition"),
+            Expr::FnCall(fn_call) => self.evaluate_fn_call(module, fn_call),
+            Expr::If(if_condition) => self.evaluate_if_condition(module, if_condition),
+        }
+    }
+
+    fn evaluate_fn_call(&mut self, module: &Module, FnCall { callee, args }: &FnCall) -> RainValue {
+        let _ = args;
+        let v = self.evaluate_expr(module, callee);
+        if v.rain_type_id() == TypeId::of::<RainFunction>() {
+            let Some(f) = v.downcast::<RainFunction>() else {
+                unreachable!();
+            };
+            self.evaluate_fn(&f)
+        } else {
+            panic!("can't call value: {v:?}")
         }
     }
 
@@ -119,6 +157,32 @@ impl<'a> Runner<'a> {
             ),
             BinaryOperatorKind::Equals => todo!("evaluate equality"),
             BinaryOperatorKind::NotEquals => todo!("evaluate not equality"),
+        }
+    }
+
+    fn evaluate_if_condition(
+        &mut self,
+        module: &Module,
+        IfCondition {
+            condition,
+            then,
+            alternate,
+        }: &IfCondition,
+    ) -> RainValue {
+        let condition_value = self.evaluate_expr(module, condition);
+        let Some(condition_bool): Option<Box<bool>> = condition_value.downcast() else {
+            panic!("condition is not bool");
+        };
+        if *condition_bool {
+            self.evaluate_block(module, then)
+        } else {
+            match alternate {
+                Some(AlternateCondition::IfElse(if_condition)) => {
+                    self.evaluate_if_condition(module, if_condition)
+                }
+                Some(AlternateCondition::Else(block)) => self.evaluate_block(module, block),
+                None => RainValue::new(()),
+            }
         }
     }
 }

@@ -19,7 +19,7 @@ fn run_inner(path: Option<&Path>, src: &str) -> anyhow::Result<RainValue> {
         .resolve_global_declaration(module_id, "main")
         .ok_or_else(|| anyhow::anyhow!("main function not found"))?;
     let mut runner = Runner::new(&ir);
-    let value = runner.evaluate(main);
+    let value = runner.evaluate_and_call(main);
     Ok(value)
 }
 
@@ -37,4 +37,14 @@ fn utf8() {
 #[test]
 fn fib() {
     insta::assert_debug_snapshot!(run("tests/scripts/fib.rain").unwrap());
+}
+
+#[test]
+fn local_var() {
+    insta::assert_debug_snapshot!(run("tests/scripts/local_var.rain").unwrap());
+}
+
+#[test]
+fn fn_call() {
+    insta::assert_debug_snapshot!(run("tests/scripts/fn_call.rain").unwrap());
 }

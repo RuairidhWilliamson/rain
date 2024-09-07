@@ -53,9 +53,16 @@ impl LocalSpan {
     }
 
     pub fn arrow_line(&self, src: &str, new_line_size: usize) -> String {
-        let col = self.col(src);
-
-        let a: String = std::iter::once(' ').cycle().take(col).collect();
+        // This is reversed but it shouldn't matter
+        let a: String = src[..self.start]
+            .chars()
+            .rev()
+            .take_while(|&c| c != '\n')
+            .map(|c| match c {
+                '\t' => c,
+                _ => ' ',
+            })
+            .collect();
         let contents = self.contents(src);
         let extra_len = contents.chars().filter(|&c| c == '\n').count() * (new_line_size - 1);
         let len = self.len() + extra_len;

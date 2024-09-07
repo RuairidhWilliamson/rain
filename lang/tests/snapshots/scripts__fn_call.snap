@@ -1,0 +1,5 @@
+---
+source: lang/tests/scripts.rs
+expression: "run(\"tests/scripts/fn_call.rain\").unwrap()"
+---
+10
