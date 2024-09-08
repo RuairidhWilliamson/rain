@@ -1,5 +1,5 @@
 fn main() {
-	fib(34)
+	fib(100)
 }
 
 fn fib(n) {

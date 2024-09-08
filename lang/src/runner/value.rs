@@ -1,7 +1,6 @@
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
-    num::ParseIntError,
     str::FromStr,
     sync::Arc,
 };
@@ -49,7 +48,7 @@ impl RainValueInner for bool {}
 impl RainValueInner for String {}
 
 #[derive(Hash)]
-pub struct RainInteger(pub isize);
+pub struct RainInteger(pub num_bigint::BigInt);
 
 impl RainValueInner for RainInteger {}
 impl std::fmt::Debug for RainInteger {
@@ -58,10 +57,10 @@ impl std::fmt::Debug for RainInteger {
     }
 }
 impl FromStr for RainInteger {
-    type Err = ParseIntError;
+    type Err = num_bigint::ParseBigIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        isize::from_str(s).map(Self)
+        num_bigint::BigInt::from_str(s).map(Self)
     }
 }
 

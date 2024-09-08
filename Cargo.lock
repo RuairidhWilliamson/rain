@@ -1397,6 +1397,7 @@ dependencies = [
  "anyhow",
  "colored",
  "insta",
+ "num-bigint",
 ]
 
 [[package]]

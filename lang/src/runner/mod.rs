@@ -208,20 +208,20 @@ impl<'a> Runner<'a> {
         let right_value = self.evaluate_expr(cx, right)?;
         match kind {
             BinaryOperatorKind::Addition => Ok(RainValue::new(RainInteger(
-                left_value.downcast::<RainInteger>().unwrap().0
-                    + right_value.downcast::<RainInteger>().unwrap().0,
+                &left_value.downcast::<RainInteger>().unwrap().0
+                    + &right_value.downcast::<RainInteger>().unwrap().0,
             ))),
             BinaryOperatorKind::Subtraction => Ok(RainValue::new(RainInteger(
-                left_value.downcast::<RainInteger>().unwrap().0
-                    - right_value.downcast::<RainInteger>().unwrap().0,
+                &left_value.downcast::<RainInteger>().unwrap().0
+                    - &right_value.downcast::<RainInteger>().unwrap().0,
             ))),
             BinaryOperatorKind::Multiplication => Ok(RainValue::new(RainInteger(
-                left_value.downcast::<RainInteger>().unwrap().0
-                    * right_value.downcast::<RainInteger>().unwrap().0,
+                &left_value.downcast::<RainInteger>().unwrap().0
+                    * &right_value.downcast::<RainInteger>().unwrap().0,
             ))),
             BinaryOperatorKind::Division => Ok(RainValue::new(RainInteger(
-                left_value.downcast::<RainInteger>().unwrap().0
-                    / right_value.downcast::<RainInteger>().unwrap().0,
+                &left_value.downcast::<RainInteger>().unwrap().0
+                    / &right_value.downcast::<RainInteger>().unwrap().0,
             ))),
             BinaryOperatorKind::Dot => todo!("evaluate dot expr"),
             BinaryOperatorKind::LogicalAnd => Ok(RainValue::new(
