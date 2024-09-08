@@ -1,7 +1,9 @@
+pub mod error;
 pub mod value;
 
 use std::any::TypeId;
 
+use error::RunnerError;
 use value::{RainFunction, RainValue};
 
 use crate::{
@@ -10,8 +12,11 @@ use crate::{
         expr::{AlternateCondition, Expr, FnCall, IfCondition},
         Block, LetDeclare,
     },
+    error::ErrorSpan,
     ir::{DeclarationId, Module, Rir},
 };
+
+type ResultValue = Result<RainValue, ErrorSpan<RunnerError>>;
 
 pub struct Runner<'a> {
     rir: &'a Rir<'a>,
@@ -22,30 +27,30 @@ impl<'a> Runner<'a> {
         Self { rir }
     }
 
-    pub fn evaluate_and_call(&mut self, id: DeclarationId) -> RainValue {
-        let v = self.evaluate(id);
+    pub fn evaluate_and_call(&mut self, id: DeclarationId) -> ResultValue {
+        let v = self.evaluate(id)?;
         if v.rain_type_id() == TypeId::of::<RainFunction>() {
             let Some(f) = v.downcast::<RainFunction>() else {
                 unreachable!();
             };
             self.evaluate_fn(&f)
         } else {
-            v
+            Ok(v)
         }
     }
 
-    pub fn evaluate(&mut self, id: DeclarationId) -> RainValue {
+    pub fn evaluate(&mut self, id: DeclarationId) -> ResultValue {
         let m = self.rir.get_module(id.module_id());
         let d = m.get_declaration(id.local_id());
         match d {
             crate::ast::Declaration::LetDeclare(LetDeclare { expr, .. }) => {
                 self.evaluate_expr(m, expr)
             }
-            crate::ast::Declaration::FnDeclare(_) => RainValue::new(RainFunction { id }),
+            crate::ast::Declaration::FnDeclare(_) => Ok(RainValue::new(RainFunction { id })),
         }
     }
 
-    fn evaluate_fn(&mut self, RainFunction { id }: &RainFunction) -> RainValue {
+    fn evaluate_fn(&mut self, RainFunction { id }: &RainFunction) -> ResultValue {
         let m = self.rir.get_module(id.module_id());
         let d = m.get_declaration(id.local_id());
         match d {
@@ -56,20 +61,19 @@ impl<'a> Runner<'a> {
         }
     }
 
-    fn evaluate_block(&mut self, module: &Module, block: &Block) -> RainValue {
+    fn evaluate_block(&mut self, module: &Module, block: &Block) -> ResultValue {
         let crate::ast::Statement::Expr(expr) = block.statements.last().unwrap();
         self.evaluate_expr(module, expr)
     }
 
-    fn evaluate_expr(&mut self, module: &Module, expr: &Expr) -> RainValue {
+    fn evaluate_expr(&mut self, module: &Module, expr: &Expr) -> ResultValue {
         match expr {
             Expr::Ident(tls) => {
                 let ident_name = tls.span.contents(module.src);
-                let Some(declaration_id) =
-                    self.rir.resolve_global_declaration(module.id, ident_name)
-                else {
-                    panic!("unknown ident: {ident_name}");
-                };
+                let declaration_id = self
+                    .rir
+                    .resolve_global_declaration(module.id, ident_name)
+                    .ok_or(tls.span.with_error(RunnerError::UnknownIdent))?;
                 self.evaluate(declaration_id)
             }
             Expr::StringLiteral(tls) => {
@@ -94,22 +98,26 @@ impl<'a> Runner<'a> {
                     Some(p) => panic!("unrecognised string prefix: {p}"),
                     None => (),
                 }
-                RainValue::new(string_value.to_owned())
+                Ok(RainValue::new(string_value.to_owned()))
             }
-            Expr::IntegerLiteral(tls) => {
-                RainValue::new(tls.span.contents(module.src).parse::<isize>().unwrap())
-            }
-            Expr::TrueLiteral(_) => RainValue::new(true),
-            Expr::FalseLiteral(_) => RainValue::new(false),
+            Expr::IntegerLiteral(tls) => Ok(RainValue::new(
+                tls.span.contents(module.src).parse::<isize>().unwrap(),
+            )),
+            Expr::TrueLiteral(_) => Ok(RainValue::new(true)),
+            Expr::FalseLiteral(_) => Ok(RainValue::new(false)),
             Expr::BinaryOp(b) => self.evaluate_binary_op(module, b),
             Expr::FnCall(fn_call) => self.evaluate_fn_call(module, fn_call),
             Expr::If(if_condition) => self.evaluate_if_condition(module, if_condition),
         }
     }
 
-    fn evaluate_fn_call(&mut self, module: &Module, FnCall { callee, args }: &FnCall) -> RainValue {
+    fn evaluate_fn_call(
+        &mut self,
+        module: &Module,
+        FnCall { callee, args }: &FnCall,
+    ) -> ResultValue {
         let _ = args;
-        let v = self.evaluate_expr(module, callee);
+        let v = self.evaluate_expr(module, callee)?;
         if v.rain_type_id() == TypeId::of::<RainFunction>() {
             let Some(f) = v.downcast::<RainFunction>() else {
                 unreachable!();
@@ -128,33 +136,33 @@ impl<'a> Runner<'a> {
             op: BinaryOperator { kind, .. },
             right,
         }: &BinaryOp,
-    ) -> RainValue {
-        let left_value = self.evaluate_expr(module, left);
-        let right_value = self.evaluate_expr(module, right);
+    ) -> ResultValue {
+        let left_value = self.evaluate_expr(module, left)?;
+        let right_value = self.evaluate_expr(module, right)?;
         match kind {
-            BinaryOperatorKind::Addition => RainValue::new(
+            BinaryOperatorKind::Addition => Ok(RainValue::new(
                 *left_value.downcast::<isize>().unwrap()
                     + *right_value.downcast::<isize>().unwrap(),
-            ),
-            BinaryOperatorKind::Subtraction => RainValue::new(
+            )),
+            BinaryOperatorKind::Subtraction => Ok(RainValue::new(
                 *left_value.downcast::<isize>().unwrap()
                     - *right_value.downcast::<isize>().unwrap(),
-            ),
-            BinaryOperatorKind::Multiplication => RainValue::new(
+            )),
+            BinaryOperatorKind::Multiplication => Ok(RainValue::new(
                 *left_value.downcast::<isize>().unwrap()
                     * *right_value.downcast::<isize>().unwrap(),
-            ),
-            BinaryOperatorKind::Division => RainValue::new(
+            )),
+            BinaryOperatorKind::Division => Ok(RainValue::new(
                 *left_value.downcast::<isize>().unwrap()
                     / *right_value.downcast::<isize>().unwrap(),
-            ),
+            )),
             BinaryOperatorKind::Dot => todo!("evaluate dot expr"),
-            BinaryOperatorKind::LogicalAnd => RainValue::new(
+            BinaryOperatorKind::LogicalAnd => Ok(RainValue::new(
                 *left_value.downcast::<bool>().unwrap() && *right_value.downcast::<bool>().unwrap(),
-            ),
-            BinaryOperatorKind::LogicalOr => RainValue::new(
+            )),
+            BinaryOperatorKind::LogicalOr => Ok(RainValue::new(
                 *left_value.downcast::<bool>().unwrap() || *right_value.downcast::<bool>().unwrap(),
-            ),
+            )),
             BinaryOperatorKind::Equals => todo!("evaluate equality"),
             BinaryOperatorKind::NotEquals => todo!("evaluate not equality"),
         }
@@ -168,8 +176,8 @@ impl<'a> Runner<'a> {
             then,
             alternate,
         }: &IfCondition,
-    ) -> RainValue {
-        let condition_value = self.evaluate_expr(module, condition);
+    ) -> ResultValue {
+        let condition_value = self.evaluate_expr(module, condition)?;
         let Some(condition_bool): Option<Box<bool>> = condition_value.downcast() else {
             panic!("condition is not bool");
         };
@@ -181,7 +189,7 @@ impl<'a> Runner<'a> {
                     self.evaluate_if_condition(module, if_condition)
                 }
                 Some(AlternateCondition::Else(block)) => self.evaluate_block(module, block),
-                None => RainValue::new(()),
+                None => Ok(RainValue::new(())),
             }
         }
     }

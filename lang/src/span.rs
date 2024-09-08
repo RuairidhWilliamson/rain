@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use std::ops::{Add, AddAssign};
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct LocalSpan {
     start: usize,
     end: usize,
@@ -53,7 +55,6 @@ impl LocalSpan {
     }
 
     pub fn arrow_line(&self, src: &str, new_line_size: usize) -> String {
-        // This is reversed but it shouldn't matter
         let a: String = src[..self.start]
             .chars()
             .rev()
@@ -62,6 +63,9 @@ impl LocalSpan {
                 '\t' => c,
                 _ => ' ',
             })
+            .collect::<String>()
+            .chars()
+            .rev()
             .collect();
         let contents = self.contents(src);
         let extra_len = contents.chars().filter(|&c| c == '\n').count() * (new_line_size - 1);
@@ -95,5 +99,30 @@ impl LocalSpan {
 
     pub fn len(&self) -> usize {
         self.end - self.start
+    }
+
+    pub fn span_iter(iter: impl Iterator<Item = LocalSpan>) -> Self {
+        let mut acc = Self::default();
+        for s in iter {
+            acc += s
+        }
+        acc
+    }
+}
+
+impl Add for LocalSpan {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            start: self.start.min(rhs.start),
+            end: self.end.max(rhs.end),
+        }
+    }
+}
+
+impl AddAssign for LocalSpan {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs
     }
 }

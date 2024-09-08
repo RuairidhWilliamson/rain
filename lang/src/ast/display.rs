@@ -17,6 +17,7 @@ pub fn display_ast(ast: &dyn AstDisplay, src: &str) -> String {
 }
 
 pub trait AstDisplay {
+    fn span(&self) -> LocalSpan;
     fn fmt(&self, f: &mut AstFormatter<'_>) -> Result;
 }
 
@@ -118,12 +119,20 @@ impl<'a, 'b> NodeBuilder<'a, 'b> {
 }
 
 impl AstDisplay for LocalSpan {
+    fn span(&self) -> LocalSpan {
+        *self
+    }
+
     fn fmt(&self, f: &mut AstFormatter<'_>) -> Result {
         f.buf.write_str(self.contents(f.src))
     }
 }
 
 impl AstDisplay for TokenLocalSpan {
+    fn span(&self) -> LocalSpan {
+        self.span
+    }
+
     fn fmt(&self, f: &mut AstFormatter<'_>) -> Result {
         f.node_single_child(&format!("{:?}", self.token), &self.span)
     }

@@ -1,5 +1,6 @@
 use crate::{
     error::ErrorSpan,
+    span::LocalSpan,
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
 
@@ -166,6 +167,19 @@ impl Expr {
 }
 
 impl super::display::AstDisplay for Expr {
+    fn span(&self) -> LocalSpan {
+        match self {
+            Expr::Ident(inner) => inner.span,
+            Expr::StringLiteral(inner) => inner.span,
+            Expr::IntegerLiteral(inner) => inner.span,
+            Expr::TrueLiteral(inner) => inner.span,
+            Expr::FalseLiteral(inner) => inner.span,
+            Expr::BinaryOp(inner) => inner.span(),
+            Expr::FnCall(inner) => inner.span(),
+            Expr::If(inner) => inner.span(),
+        }
+    }
+
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
         let inner: &dyn super::display::AstDisplay = match self {
             Self::Ident(inner)
@@ -188,6 +202,10 @@ pub struct FnCall {
 }
 
 impl super::display::AstDisplay for FnCall {
+    fn span(&self) -> LocalSpan {
+        self.callee.span() + self.args.span()
+    }
+
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
         let mut builder = f.node("FnCall");
         builder.child(self.callee.as_ref());
@@ -204,6 +222,10 @@ pub struct FnCallArgs {
 }
 
 impl super::display::AstDisplay for FnCallArgs {
+    fn span(&self) -> LocalSpan {
+        self.lparen_token.span() + self.rparen_token.span()
+    }
+
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
         let mut builder = f.node("FnCallArgs");
         for a in &self.args {
@@ -221,6 +243,14 @@ pub struct IfCondition {
 }
 
 impl super::display::AstDisplay for IfCondition {
+    fn span(&self) -> LocalSpan {
+        let mut s = self.condition.span() + self.then.span();
+        if let Some(alternate) = &self.alternate {
+            s += alternate.span();
+        }
+        s
+    }
+
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
         let mut builder = f.node("If");
         builder.child(self.condition.as_ref()).child(&self.then);
@@ -238,6 +268,13 @@ pub enum AlternateCondition {
 }
 
 impl super::display::AstDisplay for AlternateCondition {
+    fn span(&self) -> LocalSpan {
+        match self {
+            AlternateCondition::IfElse(inner) => inner.span(),
+            AlternateCondition::Else(inner) => inner.span(),
+        }
+    }
+
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
         match self {
             Self::IfElse(alternate) => f.node("IfElse").child(alternate.as_ref()).finish(),

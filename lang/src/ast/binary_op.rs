@@ -13,6 +13,10 @@ pub struct BinaryOp {
 }
 
 impl super::display::AstDisplay for BinaryOp {
+    fn span(&self) -> LocalSpan {
+        self.left.span() + self.right.span()
+    }
+
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
         f.node("BinaryOp")
             .child(self.left.as_ref())
@@ -35,6 +39,10 @@ pub struct BinaryOperator {
 }
 
 impl AstDisplay for BinaryOperator {
+    fn span(&self) -> LocalSpan {
+        self.span
+    }
+
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
         f.node_single_child(&format!("{:?}", self.kind), &self.span)
     }

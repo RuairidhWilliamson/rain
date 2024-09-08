@@ -20,6 +20,10 @@ pub struct Script {
 }
 
 impl display::AstDisplay for Script {
+    fn span(&self) -> LocalSpan {
+        LocalSpan::span_iter(self.declarations.iter().map(|d| d.span()))
+    }
+
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
         let mut builder = f.node("Script");
         for d in &self.declarations {
@@ -71,6 +75,13 @@ impl Declaration {
 }
 
 impl display::AstDisplay for Declaration {
+    fn span(&self) -> LocalSpan {
+        match self {
+            Declaration::LetDeclare(inner) => inner.span(),
+            Declaration::FnDeclare(inner) => inner.span(),
+        }
+    }
+
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
         let inner: &dyn display::AstDisplay = match self {
             Self::LetDeclare(inner) => inner,
@@ -116,6 +127,10 @@ impl LetDeclare {
 }
 
 impl display::AstDisplay for LetDeclare {
+    fn span(&self) -> LocalSpan {
+        self.let_token.span + self.expr.span()
+    }
+
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
         f.node("LetDeclare")
             .child(&self.name)
@@ -173,6 +188,10 @@ impl FnDeclare {
 }
 
 impl display::AstDisplay for FnDeclare {
+    fn span(&self) -> LocalSpan {
+        self.fn_token.span + self.block.span()
+    }
+
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
         f.node("FnDeclare")
             .child(&self.name)
@@ -188,6 +207,10 @@ pub struct FnDeclareArg {
 }
 
 impl display::AstDisplay for FnDeclareArg {
+    fn span(&self) -> LocalSpan {
+        self.name.span
+    }
+
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
         f.node("Arg").child(&self.name).finish()
     }
@@ -226,6 +249,10 @@ impl Block {
 }
 
 impl display::AstDisplay for Block {
+    fn span(&self) -> LocalSpan {
+        self.lbrace_token + self.rbrace_token
+    }
+
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
         let mut builder = f.node("Block");
         for s in &self.statements {
@@ -247,6 +274,12 @@ impl Statement {
 }
 
 impl display::AstDisplay for Statement {
+    fn span(&self) -> LocalSpan {
+        match self {
+            Statement::Expr(inner) => inner.span(),
+        }
+    }
+
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
         let inner: &dyn display::AstDisplay = match self {
             Self::Expr(inner) => inner,
