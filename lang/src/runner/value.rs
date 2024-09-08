@@ -1,12 +1,14 @@
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
+    sync::Arc,
 };
 
 use crate::ir::DeclarationId;
 
+#[derive(Clone)]
 pub struct RainValue {
-    value: Box<dyn RainValueInner>,
+    value: Arc<dyn RainValueInner>,
 }
 
 impl std::fmt::Debug for RainValue {
@@ -18,7 +20,7 @@ impl std::fmt::Debug for RainValue {
 impl RainValue {
     pub fn new<T: RainValueInner>(value: T) -> Self {
         Self {
-            value: Box::new(value),
+            value: Arc::new(value),
         }
     }
 
@@ -26,12 +28,12 @@ impl RainValue {
         (*self.value).type_id()
     }
 
-    pub fn downcast<T: RainValueInner>(self) -> Option<Box<T>> {
+    pub fn downcast<T: RainValueInner>(self) -> Option<Arc<T>> {
         if self.rain_type_id() == TypeId::of::<T>() {
-            let ptr = Box::into_raw(self.value);
+            let ptr = Arc::into_raw(self.value);
             // Safety:
             // We have checked this is of the right type already
-            Some(unsafe { Box::from_raw(ptr.cast()) })
+            Some(unsafe { Arc::from_raw(ptr.cast()) })
         } else {
             None
         }

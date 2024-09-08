@@ -1,9 +1,6 @@
 use std::process::ExitCode;
 
-use rain_lang::{
-    ast::error::ParseError, error::ErrorSpan, ir::Rir, runner::Runner,
-    tokens::peek::PeekTokenStream,
-};
+use rain_lang::{ir::Rir, runner::Runner, tokens::peek::PeekTokenStream};
 
 fn main() -> ExitCode {
     let Some(src_path) = std::env::args().nth(1) else {
@@ -20,9 +17,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    if let Err(err) = inner(src_path, &src) {
-        let resolved = err.resolve(Some(src_path), &src);
-        eprintln!("{resolved}");
+    if inner(src_path, &src).is_err() {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
@@ -33,16 +28,20 @@ fn print_help() {
     eprintln!("Usage: rain-run <src_path>");
 }
 
-fn inner(path: &std::path::Path, src: &str) -> Result<(), ErrorSpan<ParseError>> {
+fn inner(path: &std::path::Path, src: &str) -> Result<(), ()> {
     let mut stream = PeekTokenStream::new(src);
-    let script = rain_lang::ast::Script::parse(&mut stream)?;
+    let script = rain_lang::ast::Script::parse(&mut stream).map_err(|err| {
+        eprintln!("{}", err.resolve(Some(path), src));
+    })?;
     let mut rir = Rir::new();
     let modid = rir.insert_module(Some(path), src, &script);
     let Some(main) = rir.resolve_global_declaration(modid, "main") else {
-        panic!("no main")
+        panic!("main declaration not found")
     };
     let mut runner = Runner::new(&rir);
-    let value = runner.evaluate(main);
+    let value = runner.evaluate_and_call(main).map_err(|err| {
+        eprintln!("{}", err.resolve(Some(path), src));
+    });
     println!("{value:?}");
     Ok(())
 }

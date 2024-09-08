@@ -17,7 +17,7 @@ fn run_inner(path: Option<&Path>, src: &str) -> anyhow::Result<RainValue> {
     let module_id = ir.insert_module(path, src, &ast);
     let main = ir
         .resolve_global_declaration(module_id, "main")
-        .ok_or_else(|| anyhow::anyhow!("main function not found"))?;
+        .ok_or_else(|| anyhow::anyhow!("main declaration not found"))?;
     let mut runner = Runner::new(&ir);
     let value = runner.evaluate_and_call(main).map_err(|err| {
         eprintln!("{}", err.resolve(path, src));

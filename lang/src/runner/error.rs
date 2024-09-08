@@ -2,6 +2,7 @@
 pub enum RunnerError {
     GenericTypeError,
     UnknownIdent,
+    MaxCallDepth,
 }
 
 impl std::fmt::Display for RunnerError {
@@ -9,6 +10,7 @@ impl std::fmt::Display for RunnerError {
         match self {
             RunnerError::GenericTypeError => f.write_str("generic type error"),
             RunnerError::UnknownIdent => f.write_str("unknown identifier"),
+            RunnerError::MaxCallDepth => f.write_str("max_call_depth"),
         }
     }
 }
