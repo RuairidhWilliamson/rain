@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, mem::MaybeUninit};
 
 use crate::error::ErrorSpan;
 
@@ -38,5 +38,22 @@ impl<'a> PeekTokenStream<'a> {
             self.peeked.push_back(tls);
         }
         Ok(self.peeked.front().copied())
+    }
+
+    pub fn peek_many<const N: usize>(
+        &mut self,
+    ) -> Result<Option<[TokenLocalSpan; N]>, ErrorSpan<TokenError>> {
+        while self.peeked.len() < N {
+            let Some(tls) = self.stream.parse_next()? else {
+                return Ok(None);
+            };
+            self.peeked.push_back(tls);
+        }
+        debug_assert_eq!(N, self.peeked.len());
+        let mut out = [MaybeUninit::uninit(); N];
+        for i in 0..N {
+            out[i].write(*self.peeked.get(i).unwrap());
+        }
+        Ok(Some(out.map(|m| unsafe { m.assume_init() })))
     }
 }

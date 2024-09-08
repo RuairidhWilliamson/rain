@@ -265,10 +265,16 @@ impl display::AstDisplay for Block {
 #[derive(Debug)]
 pub enum Statement {
     Expr(expr::Expr),
+    Assignment(Assignment),
 }
 
 impl Statement {
     fn parse(stream: &mut PeekTokenStream) -> ParseResult<Self> {
+        if let Some([first, second]) = stream.peek_many()? {
+            if first.token == Token::Ident && second.token == Token::Assign {
+                return Assignment::parse(stream).map(Self::Assignment);
+            }
+        }
         expr::Expr::parse(stream).map(Self::Expr)
     }
 }
@@ -277,14 +283,49 @@ impl display::AstDisplay for Statement {
     fn span(&self) -> LocalSpan {
         match self {
             Statement::Expr(inner) => inner.span(),
+            Statement::Assignment(inner) => inner.span(),
         }
     }
 
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
         let inner: &dyn display::AstDisplay = match self {
             Self::Expr(inner) => inner,
+            Self::Assignment(inner) => inner,
         };
         inner.fmt(f)
+    }
+}
+
+#[derive(Debug)]
+pub struct Assignment {
+    pub name: TokenLocalSpan,
+    pub equals_token: TokenLocalSpan,
+    pub expr: expr::Expr,
+}
+
+impl Assignment {
+    fn parse(stream: &mut PeekTokenStream) -> ParseResult<Self> {
+        let name = expect_token(stream.parse_next()?, &[Token::Ident])?;
+        let equals_token = expect_token(stream.parse_next()?, &[Token::Assign])?;
+        let expr = expr::Expr::parse(stream)?;
+        Ok(Self {
+            name,
+            equals_token,
+            expr,
+        })
+    }
+}
+
+impl display::AstDisplay for Assignment {
+    fn span(&self) -> LocalSpan {
+        self.name.span + self.expr.span()
+    }
+
+    fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
+        f.node("Assignment")
+            .child(&self.name)
+            .child(&self.expr)
+            .finish()
     }
 }
 

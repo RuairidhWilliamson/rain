@@ -25,6 +25,7 @@ type ResultValue = Result<RainValue, ErrorSpan<RunnerError>>;
 struct Cx<'a> {
     module: &'a Module<'a>,
     call_depth: usize,
+    locals: HashMap<&'a str, RainValue>,
     args: HashMap<&'a str, RainValue>,
 }
 
@@ -34,6 +35,7 @@ impl<'a> Cx<'a> {
             module,
             call_depth: 0,
             args: HashMap::new(),
+            locals: HashMap::new(),
         }
     }
 }
@@ -68,7 +70,7 @@ impl<'a> Runner<'a> {
         let d = m.get_declaration(id.local_id());
         match d {
             crate::ast::Declaration::LetDeclare(LetDeclare { expr, .. }) => {
-                self.evaluate_expr(&Cx::new(m), expr)
+                self.evaluate_expr(&mut Cx::new(m), expr)
             }
             crate::ast::Declaration::FnDeclare(_) => Ok(RainValue::new(RainFunction { id })),
         }
@@ -90,27 +92,54 @@ impl<'a> Runner<'a> {
                     .zip(arg_values)
                     .map(|(a, v)| (a.name.span.contents(m.src), v))
                     .collect();
-                let cx = Cx {
+                let mut cx = Cx {
                     module: m,
                     call_depth,
                     args,
+                    locals: HashMap::new(),
                 };
-                self.evaluate_block(&cx, &fn_declare.block)
+                self.evaluate_block(&mut cx, &fn_declare.block)
             }
             _ => unreachable!(),
         }
     }
 
-    fn evaluate_block(&mut self, cx: &Cx, block: &Block) -> ResultValue {
-        let crate::ast::Statement::Expr(expr) = block.statements.last().unwrap();
-        self.evaluate_expr(cx, expr)
+    fn evaluate_block(&mut self, cx: &mut Cx, block: &Block) -> ResultValue {
+        for s in &block.statements[..block.statements.len() - 1] {
+            match s {
+                crate::ast::Statement::Expr(expr) => {
+                    self.evaluate_expr(cx, expr)?;
+                }
+                crate::ast::Statement::Assignment(assign) => {
+                    let v = self.evaluate_expr(cx, &assign.expr)?;
+                    let name = assign.name.span.contents(cx.module.src);
+                    cx.locals.insert(name, v);
+                }
+            }
+        }
+        if let Some(s) = block.statements.last() {
+            match s {
+                crate::ast::Statement::Expr(expr) => self.evaluate_expr(cx, expr),
+                crate::ast::Statement::Assignment(assign) => {
+                    let v = self.evaluate_expr(cx, &assign.expr)?;
+                    let name = assign.name.span.contents(cx.module.src);
+                    cx.locals.insert(name, v);
+                    Ok(RainValue::new(()))
+                }
+            }
+        } else {
+            Ok(RainValue::new(()))
+        }
     }
 
     fn resolve_ident(
         &mut self,
-        cx: &Cx,
+        cx: &mut Cx,
         ident: &str,
     ) -> Result<Option<RainValue>, ErrorSpan<RunnerError>> {
+        if let Some(v) = cx.locals.get(ident) {
+            return Ok(Some(v.clone()));
+        }
         if let Some(v) = cx.args.get(ident) {
             return Ok(Some(v.clone()));
         }
@@ -120,7 +149,7 @@ impl<'a> Runner<'a> {
         Ok(Some(self.evaluate(declaration_id)?))
     }
 
-    fn evaluate_expr(&mut self, cx: &Cx, expr: &Expr) -> ResultValue {
+    fn evaluate_expr(&mut self, cx: &mut Cx, expr: &Expr) -> ResultValue {
         match expr {
             Expr::Ident(tls) => {
                 let ident_name = tls.span.contents(cx.module.src);
@@ -165,7 +194,7 @@ impl<'a> Runner<'a> {
         }
     }
 
-    fn evaluate_fn_call(&mut self, cx: &Cx, fn_call: &FnCall) -> ResultValue {
+    fn evaluate_fn_call(&mut self, cx: &mut Cx, fn_call: &FnCall) -> ResultValue {
         let v = self.evaluate_expr(cx, &fn_call.callee)?;
         if v.rain_type_id() != TypeId::of::<RainFunction>() {
             return Err(fn_call
@@ -197,7 +226,7 @@ impl<'a> Runner<'a> {
 
     fn evaluate_binary_op(
         &mut self,
-        cx: &Cx,
+        cx: &mut Cx,
         BinaryOp {
             left,
             op: BinaryOperator { kind, .. },
@@ -240,7 +269,7 @@ impl<'a> Runner<'a> {
 
     fn evaluate_if_condition(
         &mut self,
-        cx: &Cx,
+        cx: &mut Cx,
         IfCondition {
             condition,
             then,

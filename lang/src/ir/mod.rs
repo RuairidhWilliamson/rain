@@ -152,6 +152,9 @@ impl Module<'_> {
                 crate::ast::Statement::Expr(expr) => {
                     v.extend(self.expr_deps(expr)?);
                 }
+                crate::ast::Statement::Assignment(assign) => {
+                    v.extend(self.expr_deps(&assign.expr)?)
+                }
             }
         }
         Ok(v)
