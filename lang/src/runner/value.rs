@@ -1,6 +1,8 @@
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
+    num::ParseIntError,
+    str::FromStr,
     sync::Arc,
 };
 
@@ -40,16 +42,48 @@ impl RainValue {
     }
 }
 
-pub trait RainValueInner: Any + Debug + Send + Sync {}
+pub trait RainValueInner: Any + Debug + Send + Sync + RainHash {}
 
 impl RainValueInner for () {}
 impl RainValueInner for bool {}
-impl RainValueInner for isize {}
 impl RainValueInner for String {}
 
-#[derive(Debug)]
+#[derive(Hash)]
+pub struct RainInteger(pub isize);
+
+impl RainValueInner for RainInteger {}
+impl std::fmt::Debug for RainInteger {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+impl FromStr for RainInteger {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        isize::from_str(s).map(Self)
+    }
+}
+
+#[derive(Debug, Hash)]
 pub struct RainFunction {
     pub id: DeclarationId,
 }
 
 impl RainValueInner for RainFunction {}
+
+pub trait RainHash {
+    fn hash(&self, state: &mut std::hash::DefaultHasher);
+}
+
+impl<T: std::hash::Hash> RainHash for T {
+    fn hash(&self, state: &mut std::hash::DefaultHasher) {
+        self.hash(state)
+    }
+}
+
+impl RainHash for RainValue {
+    fn hash(&self, state: &mut std::hash::DefaultHasher) {
+        self.value.hash(state)
+    }
+}

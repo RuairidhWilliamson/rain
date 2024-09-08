@@ -1,3 +1,4 @@
+pub mod cache;
 pub mod error;
 pub mod value;
 
@@ -6,7 +7,7 @@ const MAX_CALL_DEPTH: usize = 500;
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
 use error::RunnerError;
-use value::{RainFunction, RainValue};
+use value::{RainFunction, RainInteger, RainValue};
 
 use crate::{
     ast::{
@@ -39,11 +40,15 @@ impl<'a> Cx<'a> {
 
 pub struct Runner<'a> {
     rir: &'a Rir<'a>,
+    cache: cache::Cache,
 }
 
 impl<'a> Runner<'a> {
     pub fn new(rir: &'a Rir<'a>) -> Self {
-        Self { rir }
+        Self {
+            rir,
+            cache: cache::Cache::default(),
+        }
     }
 
     pub fn evaluate_and_call(&mut self, id: DeclarationId) -> ResultValue {
@@ -147,7 +152,10 @@ impl<'a> Runner<'a> {
                 Ok(RainValue::new(string_value.to_owned()))
             }
             Expr::IntegerLiteral(tls) => Ok(RainValue::new(
-                tls.span.contents(cx.module.src).parse::<isize>().unwrap(),
+                tls.span
+                    .contents(cx.module.src)
+                    .parse::<RainInteger>()
+                    .unwrap(),
             )),
             Expr::TrueLiteral(_) => Ok(RainValue::new(true)),
             Expr::FalseLiteral(_) => Ok(RainValue::new(false)),
@@ -159,26 +167,32 @@ impl<'a> Runner<'a> {
 
     fn evaluate_fn_call(&mut self, cx: &Cx, fn_call: &FnCall) -> ResultValue {
         let v = self.evaluate_expr(cx, &fn_call.callee)?;
-        if v.rain_type_id() == TypeId::of::<RainFunction>() {
-            let Some(f) = v.downcast::<RainFunction>() else {
-                unreachable!();
-            };
-            let arg_values = fn_call
-                .args
-                .args
-                .iter()
-                .map(|a| self.evaluate_expr(cx, a))
-                .collect::<Result<_, _>>()?;
-            if cx.call_depth >= MAX_CALL_DEPTH {
-                return Err(fn_call.span().with_error(RunnerError::MaxCallDepth));
-            }
-            self.call_function(cx.call_depth + 1, &f, arg_values)
-        } else {
+        if v.rain_type_id() != TypeId::of::<RainFunction>() {
             return Err(fn_call
                 .callee
                 .span()
                 .with_error(RunnerError::GenericTypeError));
         }
+        let Some(f) = v.downcast::<RainFunction>() else {
+            unreachable!();
+        };
+        let arg_values: Vec<RainValue> = fn_call
+            .args
+            .args
+            .iter()
+            .map(|a| self.evaluate_expr(cx, a))
+            .collect::<Result<_, _>>()?;
+        if cx.call_depth >= MAX_CALL_DEPTH {
+            return Err(fn_call.span().with_error(RunnerError::MaxCallDepth));
+        }
+        let key = self.cache.function_call_key(&f, &arg_values);
+
+        if let Some(v) = self.cache.get(&key) {
+            return Ok(v.clone());
+        }
+        let v = self.call_function(cx.call_depth + 1, &f, arg_values)?;
+        self.cache.put(key, v.clone());
+        Ok(v)
     }
 
     fn evaluate_binary_op(
@@ -193,22 +207,22 @@ impl<'a> Runner<'a> {
         let left_value = self.evaluate_expr(cx, left)?;
         let right_value = self.evaluate_expr(cx, right)?;
         match kind {
-            BinaryOperatorKind::Addition => Ok(RainValue::new(
-                *left_value.downcast::<isize>().unwrap()
-                    + *right_value.downcast::<isize>().unwrap(),
-            )),
-            BinaryOperatorKind::Subtraction => Ok(RainValue::new(
-                *left_value.downcast::<isize>().unwrap()
-                    - *right_value.downcast::<isize>().unwrap(),
-            )),
-            BinaryOperatorKind::Multiplication => Ok(RainValue::new(
-                *left_value.downcast::<isize>().unwrap()
-                    * *right_value.downcast::<isize>().unwrap(),
-            )),
-            BinaryOperatorKind::Division => Ok(RainValue::new(
-                *left_value.downcast::<isize>().unwrap()
-                    / *right_value.downcast::<isize>().unwrap(),
-            )),
+            BinaryOperatorKind::Addition => Ok(RainValue::new(RainInteger(
+                left_value.downcast::<RainInteger>().unwrap().0
+                    + right_value.downcast::<RainInteger>().unwrap().0,
+            ))),
+            BinaryOperatorKind::Subtraction => Ok(RainValue::new(RainInteger(
+                left_value.downcast::<RainInteger>().unwrap().0
+                    - right_value.downcast::<RainInteger>().unwrap().0,
+            ))),
+            BinaryOperatorKind::Multiplication => Ok(RainValue::new(RainInteger(
+                left_value.downcast::<RainInteger>().unwrap().0
+                    * right_value.downcast::<RainInteger>().unwrap().0,
+            ))),
+            BinaryOperatorKind::Division => Ok(RainValue::new(RainInteger(
+                left_value.downcast::<RainInteger>().unwrap().0
+                    / right_value.downcast::<RainInteger>().unwrap().0,
+            ))),
             BinaryOperatorKind::Dot => todo!("evaluate dot expr"),
             BinaryOperatorKind::LogicalAnd => Ok(RainValue::new(
                 *left_value.downcast::<bool>().unwrap() && *right_value.downcast::<bool>().unwrap(),
@@ -217,8 +231,8 @@ impl<'a> Runner<'a> {
                 *left_value.downcast::<bool>().unwrap() || *right_value.downcast::<bool>().unwrap(),
             )),
             BinaryOperatorKind::Equals => Ok(RainValue::new(
-                *left_value.downcast::<isize>().unwrap()
-                    == *right_value.downcast::<isize>().unwrap(),
+                left_value.downcast::<RainInteger>().unwrap().0
+                    == right_value.downcast::<RainInteger>().unwrap().0,
             )),
             BinaryOperatorKind::NotEquals => todo!("evaluate not equality"),
         }

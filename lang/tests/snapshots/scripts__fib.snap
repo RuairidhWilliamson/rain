@@ -1,0 +1,5 @@
+---
+source: lang/tests/scripts.rs
+expression: "run(\"tests/scripts/fib.rain\").unwrap()"
+---
+5702887
