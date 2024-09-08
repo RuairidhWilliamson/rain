@@ -1,6 +1,6 @@
 use crate::{error::ErrorSpan, span::LocalSpan};
 
-use super::{Token, TokenError, TokenLocalSpan};
+use super::{StringLiteralPrefix, Token, TokenError, TokenLocalSpan};
 
 pub struct TokenStream<'a> {
     source: &'a str,
@@ -155,10 +155,16 @@ impl TokenStream<'_> {
 
     fn double_quote_literal(&mut self) -> Result<TokenLocalSpan, ErrorSpan<TokenError>> {
         let start = self.index;
-        if Some(b'"') != self.source.as_bytes().get(self.index).copied() {
-            // Skip over the string modifier
-            self.index += 1;
-        }
+        let prefix_symbol = self.source.as_bytes().get(self.index).copied();
+        let prefix = match prefix_symbol {
+            Some(b'"') => None,
+            Some(b @ b'a'..=b'z') => {
+                // Skip over the string modifier
+                self.index += 1;
+                StringLiteralPrefix::from_byte(b)
+            }
+            _ => unreachable!(),
+        };
         self.index += 1;
         loop {
             let Some(c) = self.source.as_bytes().get(self.index) else {
@@ -184,7 +190,7 @@ impl TokenStream<'_> {
             self.index += 1;
         }
         Ok(TokenLocalSpan {
-            token: Token::DoubleQuoteLiteral,
+            token: Token::DoubleQuoteLiteral(prefix),
             span: LocalSpan::new(start, self.index),
         })
     }

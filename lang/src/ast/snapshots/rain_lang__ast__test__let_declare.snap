@@ -9,6 +9,6 @@ Script(
  )
  LetDeclare(
   Ident(asjldf)
-  DoubleQuoteLiteral("asjldf")
+  DoubleQuoteLiteral(None)("asjldf")
  )
 )

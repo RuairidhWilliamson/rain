@@ -9,7 +9,7 @@ mod test;
 pub enum Token {
     Ident,
     Number,
-    DoubleQuoteLiteral,
+    DoubleQuoteLiteral(Option<StringLiteralPrefix>),
     Comment,
 
     // Keywords
@@ -56,6 +56,20 @@ pub enum Token {
     LogicalOr,
 
     NewLine,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StringLiteralPrefix {
+    Format,
+}
+
+impl StringLiteralPrefix {
+    pub fn from_byte(b: u8) -> Option<Self> {
+        match b {
+            b'f' => Some(Self::Format),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug)]

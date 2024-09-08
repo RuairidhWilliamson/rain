@@ -101,11 +101,14 @@ fn space() {
 
 #[test]
 fn double_quote_literal() {
-    assert_tokens!("\"hei\"", Token::DoubleQuoteLiteral);
+    assert_tokens!("\"hei\"", Token::DoubleQuoteLiteral(None));
     assert!(str_tokens("\"hei").is_err());
     assert!(str_tokens("\"hei\n\"").is_err());
-    assert_tokens!("\"😀 普通话 abc普通话😀\"", Token::DoubleQuoteLiteral);
-    assert_tokens!("f\"{aljskdfa}\"", Token::DoubleQuoteLiteral);
+    assert_tokens!("\"😀 普通话 abc普通话😀\"", Token::DoubleQuoteLiteral(None));
+    assert_tokens!(
+        "f\"{aljskdfa}\"",
+        Token::DoubleQuoteLiteral(Some(crate::tokens::StringLiteralPrefix::Format))
+    );
 
     // TODO: Escape characters in string literals
     // assert_tokens!("\"he\\\"i\"", Token::DoubleQuoteLiteral);

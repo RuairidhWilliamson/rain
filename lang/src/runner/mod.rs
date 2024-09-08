@@ -156,30 +156,12 @@ impl<'a> Runner<'a> {
                 self.resolve_ident(cx, ident_name)?
                     .ok_or(tls.span.with_error(RunnerError::UnknownIdent))
             }
-            Expr::StringLiteral(tls) => {
-                let mut string_value = tls.span.contents(cx.module.src);
-                let mut prefix = None;
-                match string_value.chars().next() {
-                    Some(p @ 'a'..='z') => {
-                        string_value = &string_value[1..];
-                        prefix = Some(p);
-                    }
-                    Some('"') => (),
-                    Some(_) => panic!("unrecognised string prefix"),
-                    None => unreachable!("empty string literal"),
-                }
-                string_value = string_value
-                    .strip_prefix('"')
-                    .expect("strip prefix double quote")
-                    .strip_suffix('\"')
-                    .expect("strip suffix double quote");
-                match prefix {
-                    Some('f') => todo!("format string"),
-                    Some(p) => panic!("unrecognised string prefix: {p}"),
-                    None => (),
-                }
-                Ok(RainValue::new(string_value.to_owned()))
-            }
+            Expr::StringLiteral(lit) => match lit.prefix() {
+                Some(crate::tokens::StringLiteralPrefix::Format) => todo!("format string"),
+                None => Ok(RainValue::new(
+                    lit.content_span().contents(cx.module.src).to_owned(),
+                )),
+            },
             Expr::IntegerLiteral(tls) => Ok(RainValue::new(
                 tls.span
                     .contents(cx.module.src)

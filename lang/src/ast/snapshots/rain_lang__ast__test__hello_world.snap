@@ -11,7 +11,7 @@ Script(
    FnCall(
     Ident(print)
     FnCallArgs(
-     DoubleQuoteLiteral("Hello world")
+     DoubleQuoteLiteral(None)("Hello world")
     )
    )
   )

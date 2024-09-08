@@ -1,7 +1,7 @@
 use crate::{
     error::ErrorSpan,
     span::LocalSpan,
-    tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
+    tokens::{peek::PeekTokenStream, StringLiteralPrefix, Token, TokenLocalSpan},
 };
 
 use super::{
@@ -15,7 +15,7 @@ use super::{
 #[derive(Debug)]
 pub enum Expr {
     Ident(TokenLocalSpan),
-    StringLiteral(TokenLocalSpan),
+    StringLiteral(StringLiteral),
     IntegerLiteral(TokenLocalSpan),
     TrueLiteral(TokenLocalSpan),
     FalseLiteral(TokenLocalSpan),
@@ -37,7 +37,7 @@ impl Expr {
         let expr = match t.token {
             Token::Ident => Self::Ident(t),
             Token::Number => Self::IntegerLiteral(t),
-            Token::DoubleQuoteLiteral => Self::StringLiteral(t),
+            Token::DoubleQuoteLiteral(_) => Self::StringLiteral(StringLiteral(t)),
             Token::True => Self::TrueLiteral(t),
             Token::False => Self::FalseLiteral(t),
             Token::LParen => {
@@ -170,7 +170,7 @@ impl super::display::AstDisplay for Expr {
     fn span(&self) -> LocalSpan {
         match self {
             Expr::Ident(inner) => inner.span,
-            Expr::StringLiteral(inner) => inner.span,
+            Expr::StringLiteral(inner) => inner.span(),
             Expr::IntegerLiteral(inner) => inner.span,
             Expr::TrueLiteral(inner) => inner.span,
             Expr::FalseLiteral(inner) => inner.span,
@@ -183,15 +183,47 @@ impl super::display::AstDisplay for Expr {
     fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
         let inner: &dyn super::display::AstDisplay = match self {
             Self::Ident(inner)
-            | Self::StringLiteral(inner)
             | Self::IntegerLiteral(inner)
             | Self::TrueLiteral(inner)
             | Self::FalseLiteral(inner) => inner,
+            Self::StringLiteral(inner) => &inner.0,
             Self::BinaryOp(inner) => inner,
             Self::FnCall(inner) => inner,
             Self::If(inner) => inner,
         };
         inner.fmt(f)
+    }
+}
+
+#[derive(Debug)]
+pub struct StringLiteral(pub TokenLocalSpan);
+
+impl StringLiteral {
+    pub fn prefix(&self) -> Option<StringLiteralPrefix> {
+        let Token::DoubleQuoteLiteral(prefix) = self.0.token else {
+            unreachable!()
+        };
+        prefix
+    }
+
+    pub fn content_span(&self) -> LocalSpan {
+        let mut s = self.0.span;
+        if self.prefix().is_some() {
+            s.start += 1;
+        }
+        s.start += 1;
+        s.end -= 1;
+        s
+    }
+}
+
+impl super::display::AstDisplay for StringLiteral {
+    fn span(&self) -> LocalSpan {
+        self.0.span
+    }
+
+    fn fmt(&self, f: &mut super::display::AstFormatter<'_>) -> std::fmt::Result {
+        f.node("StringLiteral").child(&self.0.span).finish()
     }
 }
 

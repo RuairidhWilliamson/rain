@@ -2,8 +2,8 @@ use std::ops::{Add, AddAssign};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct LocalSpan {
-    start: usize,
-    end: usize,
+    pub start: usize,
+    pub end: usize,
 }
 
 impl LocalSpan {
