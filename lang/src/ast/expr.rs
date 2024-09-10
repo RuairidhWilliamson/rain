@@ -169,14 +169,14 @@ impl Expr {
 impl super::display::AstDisplay for Expr {
     fn span(&self) -> LocalSpan {
         match self {
-            Expr::Ident(inner) => inner.span,
-            Expr::StringLiteral(inner) => inner.span(),
-            Expr::IntegerLiteral(inner) => inner.span,
-            Expr::TrueLiteral(inner) => inner.span,
-            Expr::FalseLiteral(inner) => inner.span,
-            Expr::BinaryOp(inner) => inner.span(),
-            Expr::FnCall(inner) => inner.span(),
-            Expr::If(inner) => inner.span(),
+            Self::Ident(inner) => inner.span,
+            Self::StringLiteral(inner) => inner.span(),
+            Self::IntegerLiteral(inner) | Self::TrueLiteral(inner) | Self::FalseLiteral(inner) => {
+                inner.span
+            }
+            Self::BinaryOp(inner) => inner.span(),
+            Self::FnCall(inner) => inner.span(),
+            Self::If(inner) => inner.span(),
         }
     }
 
@@ -302,8 +302,8 @@ pub enum AlternateCondition {
 impl super::display::AstDisplay for AlternateCondition {
     fn span(&self) -> LocalSpan {
         match self {
-            AlternateCondition::IfElse(inner) => inner.span(),
-            AlternateCondition::Else(inner) => inner.span(),
+            Self::IfElse(inner) => inner.span(),
+            Self::Else(inner) => inner.span(),
         }
     }
 

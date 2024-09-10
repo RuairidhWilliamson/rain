@@ -51,9 +51,13 @@ impl<'a> PeekTokenStream<'a> {
         }
         debug_assert_eq!(N, self.peeked.len());
         let mut out = [MaybeUninit::uninit(); N];
-        for i in 0..N {
-            out[i].write(*self.peeked.get(i).unwrap());
+        for (i, x) in out.iter_mut().enumerate() {
+            let Some(tls) = self.peeked.get(i) else {
+                unreachable!();
+            };
+            x.write(*tls);
         }
+        // Safety: Safe to assume we have written to all the out
         Ok(Some(out.map(|m| unsafe { m.assume_init() })))
     }
 }

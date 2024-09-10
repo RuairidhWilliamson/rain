@@ -101,10 +101,10 @@ impl LocalSpan {
         self.end - self.start
     }
 
-    pub fn span_iter(iter: impl Iterator<Item = LocalSpan>) -> Self {
+    pub fn span_iter(iter: impl Iterator<Item = Self>) -> Self {
         let mut acc = Self::default();
         for s in iter {
-            acc += s
+            acc += s;
         }
         acc
     }
@@ -123,6 +123,6 @@ impl Add for LocalSpan {
 
 impl AddAssign for LocalSpan {
     fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs
+        *self = *self + rhs;
     }
 }

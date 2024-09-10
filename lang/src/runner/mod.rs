@@ -100,7 +100,7 @@ impl<'a> Runner<'a> {
                 };
                 self.evaluate_block(&mut cx, &fn_declare.block)
             }
-            _ => unreachable!(),
+            crate::ast::Declaration::LetDeclare(_) => unreachable!(),
         }
     }
 
@@ -154,7 +154,7 @@ impl<'a> Runner<'a> {
             Expr::Ident(tls) => {
                 let ident_name = tls.span.contents(cx.module.src);
                 self.resolve_ident(cx, ident_name)?
-                    .ok_or(tls.span.with_error(RunnerError::UnknownIdent))
+                    .ok_or_else(|| tls.span.with_error(RunnerError::UnknownIdent))
             }
             Expr::StringLiteral(lit) => match lit.prefix() {
                 Some(crate::tokens::StringLiteralPrefix::Format) => todo!("format string"),

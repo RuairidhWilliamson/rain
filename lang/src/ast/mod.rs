@@ -21,7 +21,7 @@ pub struct Script {
 
 impl display::AstDisplay for Script {
     fn span(&self) -> LocalSpan {
-        LocalSpan::span_iter(self.declarations.iter().map(|d| d.span()))
+        LocalSpan::span_iter(self.declarations.iter().map(display::AstDisplay::span))
     }
 
     fn fmt(&self, f: &mut display::AstFormatter<'_>) -> std::fmt::Result {
@@ -77,8 +77,8 @@ impl Declaration {
 impl display::AstDisplay for Declaration {
     fn span(&self) -> LocalSpan {
         match self {
-            Declaration::LetDeclare(inner) => inner.span(),
-            Declaration::FnDeclare(inner) => inner.span(),
+            Self::LetDeclare(inner) => inner.span(),
+            Self::FnDeclare(inner) => inner.span(),
         }
     }
 
@@ -282,8 +282,8 @@ impl Statement {
 impl display::AstDisplay for Statement {
     fn span(&self) -> LocalSpan {
         match self {
-            Statement::Expr(inner) => inner.span(),
-            Statement::Assignment(inner) => inner.span(),
+            Self::Expr(inner) => inner.span(),
+            Self::Assignment(inner) => inner.span(),
         }
     }
 

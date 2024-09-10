@@ -77,12 +77,12 @@ pub trait RainHash {
 
 impl<T: std::hash::Hash> RainHash for T {
     fn hash(&self, state: &mut std::hash::DefaultHasher) {
-        self.hash(state)
+        self.hash(state);
     }
 }
 
 impl RainHash for RainValue {
     fn hash(&self, state: &mut std::hash::DefaultHasher) {
-        self.value.hash(state)
+        self.value.hash(state);
     }
 }
