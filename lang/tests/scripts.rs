@@ -51,3 +51,8 @@ fn local_var() {
 fn fn_call() {
     insta::assert_debug_snapshot!(run("tests/scripts/fn_call.rain").unwrap());
 }
+
+#[test]
+fn import() {
+    insta::assert_debug_snapshot!(run("tests/scripts/import.rain").unwrap());
+}

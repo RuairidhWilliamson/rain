@@ -19,6 +19,7 @@ pub enum Token {
     Else,
     True,
     False,
+    Internal,
 
     // Symbols
     Dot,

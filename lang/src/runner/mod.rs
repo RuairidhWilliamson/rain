@@ -4,14 +4,17 @@ pub mod value;
 
 const MAX_CALL_DEPTH: usize = 500;
 
-use std::{any::TypeId, collections::HashMap, sync::Arc};
+use std::{any::TypeId, collections::HashMap};
 
 use error::RunnerError;
-use value::{RainFunction, RainInteger, RainValue};
+use value::{
+    RainFunction, RainInteger, RainInternal, RainInternalFunction, RainModule, RainTypeId,
+    RainValue,
+};
 
 use crate::{
     ast::{
-        binary_op::{BinaryOp, BinaryOperator, BinaryOperatorKind},
+        binary_op::{BinaryOp, BinaryOperatorKind},
         display::AstDisplay,
         expr::{AlternateCondition, Expr, FnCall, IfCondition},
         Block, LetDeclare,
@@ -55,7 +58,7 @@ impl<'a> Runner<'a> {
 
     pub fn evaluate_and_call(&mut self, id: DeclarationId) -> ResultValue {
         let v = self.evaluate(id)?;
-        if v.rain_type_id() == TypeId::of::<RainFunction>() {
+        if v.any_type_id() == TypeId::of::<RainFunction>() {
             let Some(f) = v.downcast::<RainFunction>() else {
                 unreachable!();
             };
@@ -166,86 +169,150 @@ impl<'a> Runner<'a> {
                 tls.span
                     .contents(cx.module.src)
                     .parse::<RainInteger>()
-                    .unwrap(),
+                    .map_err(|_| tls.span.with_error(RunnerError::InvalidIntegerLiteral))?,
             )),
             Expr::TrueLiteral(_) => Ok(RainValue::new(true)),
             Expr::FalseLiteral(_) => Ok(RainValue::new(false)),
             Expr::BinaryOp(b) => self.evaluate_binary_op(cx, b),
             Expr::FnCall(fn_call) => self.evaluate_fn_call(cx, fn_call),
             Expr::If(if_condition) => self.evaluate_if_condition(cx, if_condition),
+            Expr::Internal(_) => Ok(RainValue::new(RainInternal)),
         }
     }
 
     fn evaluate_fn_call(&mut self, cx: &mut Cx, fn_call: &FnCall) -> ResultValue {
         let v = self.evaluate_expr(cx, &fn_call.callee)?;
-        if v.rain_type_id() != TypeId::of::<RainFunction>() {
-            return Err(fn_call
-                .callee
-                .span()
-                .with_error(RunnerError::GenericTypeError));
-        }
-        let Some(f) = v.downcast::<RainFunction>() else {
-            unreachable!();
-        };
-        let arg_values: Vec<RainValue> = fn_call
-            .args
-            .args
-            .iter()
-            .map(|a| self.evaluate_expr(cx, a))
-            .collect::<Result<_, _>>()?;
-        if cx.call_depth >= MAX_CALL_DEPTH {
-            return Err(fn_call.span().with_error(RunnerError::MaxCallDepth));
-        }
-        let key = self.cache.function_call_key(&f, &arg_values);
+        let v_type = v.rain_type_id();
+        match v_type {
+            RainTypeId::Function => {
+                let Some(f) = v.downcast_ref::<RainFunction>() else {
+                    unreachable!();
+                };
+                let arg_values: Vec<RainValue> = fn_call
+                    .args
+                    .args
+                    .iter()
+                    .map(|a| self.evaluate_expr(cx, a))
+                    .collect::<Result<_, _>>()?;
+                if cx.call_depth >= MAX_CALL_DEPTH {
+                    return Err(fn_call.span().with_error(RunnerError::MaxCallDepth));
+                }
+                let key = self.cache.function_call_key(f, &arg_values);
 
-        if let Some(v) = self.cache.get(&key) {
-            return Ok(v.clone());
+                if let Some(v) = self.cache.get(&key) {
+                    return Ok(v.clone());
+                }
+                let v = self.call_function(cx.call_depth + 1, f, arg_values)?;
+                self.cache.put(key, v.clone());
+                Ok(v)
+            }
+            RainTypeId::InternalFunction => {
+                todo!("call internal function")
+            }
+            _ => Err(fn_call.callee.span().with_error(RunnerError::ExpectedType(
+                v.rain_type_id(),
+                &[RainTypeId::Function],
+            ))),
         }
-        let v = self.call_function(cx.call_depth + 1, &f, arg_values)?;
-        self.cache.put(key, v.clone());
-        Ok(v)
     }
 
-    fn evaluate_binary_op(
-        &mut self,
-        cx: &mut Cx,
-        BinaryOp {
-            left,
-            op: BinaryOperator { kind, .. },
-            right,
-        }: &BinaryOp,
-    ) -> ResultValue {
-        let left_value = self.evaluate_expr(cx, left)?;
-        let right_value = self.evaluate_expr(cx, right)?;
-        match kind {
+    fn evaluate_binary_op(&mut self, cx: &mut Cx, op: &BinaryOp) -> ResultValue {
+        let left = self.evaluate_expr(cx, &op.left)?;
+        match op.op.kind {
             BinaryOperatorKind::Addition => Ok(RainValue::new(RainInteger(
-                &left_value.downcast::<RainInteger>().unwrap().0
-                    + &right_value.downcast::<RainInteger>().unwrap().0,
+                &left
+                    .downcast_ref::<RainInteger>()
+                    .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                    .0
+                    + &self
+                        .evaluate_expr(cx, &op.right)?
+                        .downcast_ref::<RainInteger>()
+                        .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                        .0,
             ))),
             BinaryOperatorKind::Subtraction => Ok(RainValue::new(RainInteger(
-                &left_value.downcast::<RainInteger>().unwrap().0
-                    - &right_value.downcast::<RainInteger>().unwrap().0,
+                &left
+                    .downcast_ref::<RainInteger>()
+                    .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                    .0
+                    - &self
+                        .evaluate_expr(cx, &op.right)?
+                        .downcast_ref::<RainInteger>()
+                        .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                        .0,
             ))),
             BinaryOperatorKind::Multiplication => Ok(RainValue::new(RainInteger(
-                &left_value.downcast::<RainInteger>().unwrap().0
-                    * &right_value.downcast::<RainInteger>().unwrap().0,
+                &left
+                    .downcast_ref::<RainInteger>()
+                    .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                    .0
+                    * &self
+                        .evaluate_expr(cx, &op.right)?
+                        .downcast_ref::<RainInteger>()
+                        .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                        .0,
             ))),
             BinaryOperatorKind::Division => Ok(RainValue::new(RainInteger(
-                &left_value.downcast::<RainInteger>().unwrap().0
-                    / &right_value.downcast::<RainInteger>().unwrap().0,
+                &left
+                    .downcast_ref::<RainInteger>()
+                    .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                    .0
+                    / &self
+                        .evaluate_expr(cx, &op.right)?
+                        .downcast_ref::<RainInteger>()
+                        .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                        .0,
             ))),
-            BinaryOperatorKind::Dot => todo!("evaluate dot expr"),
             BinaryOperatorKind::LogicalAnd => Ok(RainValue::new(
-                *left_value.downcast::<bool>().unwrap() && *right_value.downcast::<bool>().unwrap(),
+                *left
+                    .downcast_ref::<bool>()
+                    .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                    && *self
+                        .evaluate_expr(cx, &op.right)?
+                        .downcast_ref::<bool>()
+                        .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?,
             )),
             BinaryOperatorKind::LogicalOr => Ok(RainValue::new(
-                *left_value.downcast::<bool>().unwrap() || *right_value.downcast::<bool>().unwrap(),
+                *left
+                    .downcast_ref::<bool>()
+                    .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                    || *self
+                        .evaluate_expr(cx, &op.right)?
+                        .downcast_ref::<bool>()
+                        .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?,
             )),
             BinaryOperatorKind::Equals => Ok(RainValue::new(
-                left_value.downcast::<RainInteger>().unwrap().0
-                    == right_value.downcast::<RainInteger>().unwrap().0,
+                left.downcast_ref::<RainInteger>()
+                    .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                    .0
+                    == self
+                        .evaluate_expr(cx, &op.right)?
+                        .downcast_ref::<RainInteger>()
+                        .ok_or_else(|| op.op.span.with_error(RunnerError::GenericTypeError))?
+                        .0,
             )),
             BinaryOperatorKind::NotEquals => todo!("evaluate not equality"),
+            BinaryOperatorKind::Dot => match left.rain_type_id() {
+                RainTypeId::Module => {
+                    let Some(module_value) = left.downcast_ref::<RainModule>() else {
+                        unreachable!()
+                    };
+                    let _module = self.rir.get_module(module_value.id);
+                    todo!("implement module")
+                }
+                RainTypeId::Internal => match op.right.as_ref() {
+                    Expr::Ident(tls) => {
+                        let name = tls.span.contents(cx.module.src);
+                        match name {
+                            "print" => Ok(RainValue::new(RainInternalFunction::Print)),
+                            "import" => Ok(RainValue::new(RainInternalFunction::Import)),
+                            _ => Err(tls.span.with_error(RunnerError::GenericTypeError)),
+                        }
+                    }
+                    _ => Err(op.right.span().with_error(RunnerError::GenericTypeError)),
+                },
+                _ => Err(op.op.span.with_error(RunnerError::GenericTypeError)),
+            },
         }
     }
 
@@ -259,8 +326,11 @@ impl<'a> Runner<'a> {
         }: &IfCondition,
     ) -> ResultValue {
         let condition_value = self.evaluate_expr(cx, condition)?;
-        let Some(condition_bool): Option<Arc<bool>> = condition_value.downcast() else {
-            return Err(condition.span().with_error(RunnerError::GenericTypeError));
+        let Some(condition_bool): Option<&bool> = condition_value.downcast_ref() else {
+            return Err(condition.span().with_error(RunnerError::ExpectedType(
+                condition_value.rain_type_id(),
+                &[RainTypeId::Boolean],
+            )));
         };
         if *condition_bool {
             self.evaluate_block(cx, then)

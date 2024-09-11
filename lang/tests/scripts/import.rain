@@ -1,0 +1,5 @@
+let foo = internal.import("foo.rain")
+
+fn main() {
+	foo.foo()
+}

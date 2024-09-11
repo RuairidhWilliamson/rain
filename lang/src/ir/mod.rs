@@ -101,7 +101,8 @@ impl Module<'_> {
             Expr::StringLiteral(_)
             | Expr::IntegerLiteral(_)
             | Expr::TrueLiteral(_)
-            | Expr::FalseLiteral(_) => {}
+            | Expr::FalseLiteral(_)
+            | Expr::Internal(_) => {}
             Expr::BinaryOp(BinaryOp { left, op: _, right }) => {
                 v.extend(self.expr_deps(left)?);
                 v.extend(self.expr_deps(right)?);

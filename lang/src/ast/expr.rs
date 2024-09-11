@@ -22,6 +22,7 @@ pub enum Expr {
     BinaryOp(BinaryOp),
     FnCall(FnCall),
     If(IfCondition),
+    Internal(TokenLocalSpan),
 }
 
 impl Expr {
@@ -40,6 +41,7 @@ impl Expr {
             Token::DoubleQuoteLiteral(_) => Self::StringLiteral(StringLiteral(t)),
             Token::True => Self::TrueLiteral(t),
             Token::False => Self::FalseLiteral(t),
+            Token::Internal => Self::Internal(t),
             Token::LParen => {
                 let expr = Self::parse(stream)?;
                 expect_token(stream.parse_next()?, &[Token::RParen])?;
@@ -169,11 +171,12 @@ impl Expr {
 impl super::display::AstDisplay for Expr {
     fn span(&self) -> LocalSpan {
         match self {
-            Self::Ident(inner) => inner.span,
+            Self::Ident(inner)
+            | Self::IntegerLiteral(inner)
+            | Self::TrueLiteral(inner)
+            | Self::FalseLiteral(inner)
+            | Self::Internal(inner) => inner.span,
             Self::StringLiteral(inner) => inner.span(),
-            Self::IntegerLiteral(inner) | Self::TrueLiteral(inner) | Self::FalseLiteral(inner) => {
-                inner.span
-            }
             Self::BinaryOp(inner) => inner.span(),
             Self::FnCall(inner) => inner.span(),
             Self::If(inner) => inner.span(),
@@ -185,7 +188,8 @@ impl super::display::AstDisplay for Expr {
             Self::Ident(inner)
             | Self::IntegerLiteral(inner)
             | Self::TrueLiteral(inner)
-            | Self::FalseLiteral(inner) => inner,
+            | Self::FalseLiteral(inner)
+            | Self::Internal(inner) => inner,
             Self::StringLiteral(inner) => &inner.0,
             Self::BinaryOp(inner) => inner,
             Self::FnCall(inner) => inner,
