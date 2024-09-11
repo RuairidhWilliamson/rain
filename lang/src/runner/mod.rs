@@ -79,34 +79,6 @@ impl<'a> Runner<'a> {
         }
     }
 
-    fn call_function(
-        &mut self,
-        call_depth: usize,
-        RainFunction { id }: &RainFunction,
-        arg_values: Vec<RainValue>,
-    ) -> ResultValue {
-        let m = self.rir.get_module(id.module_id());
-        let d = m.get_declaration(id.local_id());
-        match d {
-            crate::ast::Declaration::FnDeclare(fn_declare) => {
-                let args = fn_declare
-                    .args
-                    .iter()
-                    .zip(arg_values)
-                    .map(|(a, v)| (a.name.span.contents(m.src), v))
-                    .collect();
-                let mut cx = Cx {
-                    module: m,
-                    call_depth,
-                    args,
-                    locals: HashMap::new(),
-                };
-                self.evaluate_block(&mut cx, &fn_declare.block)
-            }
-            crate::ast::Declaration::LetDeclare(_) => unreachable!(),
-        }
-    }
-
     fn evaluate_block(&mut self, cx: &mut Cx, block: &Block) -> ResultValue {
         for s in &block.statements[..block.statements.len() - 1] {
             match s {
@@ -207,12 +179,60 @@ impl<'a> Runner<'a> {
                 Ok(v)
             }
             RainTypeId::InternalFunction => {
-                todo!("call internal function")
+                let Some(f) = v.downcast_ref::<RainInternalFunction>() else {
+                    unreachable!()
+                };
+                let arg_values: Vec<RainValue> = fn_call
+                    .args
+                    .args
+                    .iter()
+                    .map(|a| self.evaluate_expr(cx, a))
+                    .collect::<Result<_, _>>()?;
+                self.call_internal_function(f, arg_values)
             }
             _ => Err(fn_call.callee.span().with_error(RunnerError::ExpectedType(
                 v.rain_type_id(),
                 &[RainTypeId::Function],
             ))),
+        }
+    }
+
+    fn call_function(
+        &mut self,
+        call_depth: usize,
+        function: &RainFunction,
+        arg_values: Vec<RainValue>,
+    ) -> ResultValue {
+        let m = self.rir.get_module(function.id.module_id());
+        let d = m.get_declaration(function.id.local_id());
+        match d {
+            crate::ast::Declaration::FnDeclare(fn_declare) => {
+                let args = fn_declare
+                    .args
+                    .iter()
+                    .zip(arg_values)
+                    .map(|(a, v)| (a.name.span.contents(m.src), v))
+                    .collect();
+                let mut cx = Cx {
+                    module: m,
+                    call_depth,
+                    args,
+                    locals: HashMap::new(),
+                };
+                self.evaluate_block(&mut cx, &fn_declare.block)
+            }
+            crate::ast::Declaration::LetDeclare(_) => unreachable!(),
+        }
+    }
+
+    fn call_internal_function(
+        &mut self,
+        function: &RainInternalFunction,
+        _arg_values: Vec<RainValue>,
+    ) -> ResultValue {
+        match function {
+            RainInternalFunction::Print => todo!("implement internal.print"),
+            RainInternalFunction::Import => todo!("implement internal.import"),
         }
     }
 
