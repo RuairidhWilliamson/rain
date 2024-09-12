@@ -1,6 +1,6 @@
 use crate::{
-    error::ErrorSpan,
-    span::LocalSpan,
+    error::ErrorLocalSpan,
+    local_span::LocalSpan,
     tokens::{peek::PeekTokenStream, StringLiteralPrefix, Token, TokenLocalSpan},
 };
 
@@ -33,7 +33,10 @@ impl Expr {
 
     fn parse_primary(stream: &mut PeekTokenStream) -> ParseResult<Self> {
         let Some(t) = stream.parse_next()? else {
-            return Err(ErrorSpan::new(ParseError::ExpectedExpression(None), None));
+            return Err(ErrorLocalSpan::new(
+                ParseError::ExpectedExpression(None),
+                None,
+            ));
         };
         let expr = match t.token {
             Token::Ident => Self::Ident(t),

@@ -9,7 +9,7 @@ use crate::{
         expr::{AlternateCondition, Expr, FnCall, FnCallArgs, IfCondition},
         Block, Declaration, FnDeclare,
     },
-    error::ErrorSpan,
+    error::ErrorLocalSpan,
 };
 
 #[derive(Debug, Default)]
@@ -59,7 +59,7 @@ impl Rir {
     pub fn declaration_deps(
         &self,
         id: DeclarationId,
-    ) -> Result<Vec<DeclarationId>, ErrorSpan<RainError>> {
+    ) -> Result<Vec<DeclarationId>, ErrorLocalSpan<RainError>> {
         let module = self.get_module(id.module_id());
         let declaration = module.get_declaration(id.local_id());
         Ok(match declaration {
@@ -89,7 +89,7 @@ impl Module {
         d
     }
 
-    fn expr_deps(&self, expr: &Expr) -> Result<Vec<LocalDeclarationId>, ErrorSpan<RainError>> {
+    fn expr_deps(&self, expr: &Expr) -> Result<Vec<LocalDeclarationId>, ErrorLocalSpan<RainError>> {
         let mut v = Vec::new();
         match expr {
             Expr::Ident(tls) => {
@@ -124,7 +124,7 @@ impl Module {
     fn if_condition_deps(
         &self,
         if_condition: &IfCondition,
-    ) -> Result<Vec<LocalDeclarationId>, ErrorSpan<RainError>> {
+    ) -> Result<Vec<LocalDeclarationId>, ErrorLocalSpan<RainError>> {
         let mut v = Vec::new();
         let IfCondition {
             condition,
@@ -146,7 +146,10 @@ impl Module {
         Ok(v)
     }
 
-    fn block_deps(&self, block: &Block) -> Result<Vec<LocalDeclarationId>, ErrorSpan<RainError>> {
+    fn block_deps(
+        &self,
+        block: &Block,
+    ) -> Result<Vec<LocalDeclarationId>, ErrorLocalSpan<RainError>> {
         let mut v = Vec::new();
         for s in &block.statements {
             match s {

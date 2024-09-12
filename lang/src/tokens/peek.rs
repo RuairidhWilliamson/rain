@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, mem::MaybeUninit};
 
-use crate::error::ErrorSpan;
+use crate::error::ErrorLocalSpan;
 
 use super::{stream::TokenStream, TokenError, TokenLocalSpan};
 
@@ -23,14 +23,14 @@ impl<'a> PeekTokenStream<'a> {
         Self::from(TokenStream::new(source))
     }
 
-    pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, ErrorSpan<TokenError>> {
+    pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, ErrorLocalSpan<TokenError>> {
         if let Some(peeked) = self.peeked.pop_front() {
             return Ok(Some(peeked));
         }
         self.stream.parse_next()
     }
 
-    pub fn peek(&mut self) -> Result<Option<TokenLocalSpan>, ErrorSpan<TokenError>> {
+    pub fn peek(&mut self) -> Result<Option<TokenLocalSpan>, ErrorLocalSpan<TokenError>> {
         if self.peeked.is_empty() {
             let Some(tls) = self.stream.parse_next()? else {
                 return Ok(None);
@@ -42,7 +42,7 @@ impl<'a> PeekTokenStream<'a> {
 
     pub fn peek_many<const N: usize>(
         &mut self,
-    ) -> Result<Option<[TokenLocalSpan; N]>, ErrorSpan<TokenError>> {
+    ) -> Result<Option<[TokenLocalSpan; N]>, ErrorLocalSpan<TokenError>> {
         while self.peeked.len() < N {
             let Some(tls) = self.stream.parse_next()? else {
                 return Ok(None);

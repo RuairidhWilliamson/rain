@@ -1,9 +1,9 @@
 use crate::{
-    error::ErrorSpan,
+    error::ErrorLocalSpan,
     tokens::{Token, TokenError},
 };
 
-pub type ParseResult<T> = Result<T, ErrorSpan<ParseError>>;
+pub type ParseResult<T> = Result<T, ErrorLocalSpan<ParseError>>;
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -18,8 +18,8 @@ impl From<TokenError> for ParseError {
     }
 }
 
-impl From<ErrorSpan<TokenError>> for ErrorSpan<ParseError> {
-    fn from(ErrorSpan { err, span }: ErrorSpan<TokenError>) -> Self {
+impl From<ErrorLocalSpan<TokenError>> for ErrorLocalSpan<ParseError> {
+    fn from(ErrorLocalSpan { err, span }: ErrorLocalSpan<TokenError>) -> Self {
         Self {
             err: err.into(),
             span,

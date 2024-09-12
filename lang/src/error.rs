@@ -1,20 +1,20 @@
 use std::path::Path;
 
-use crate::span::LocalSpan;
+use crate::local_span::LocalSpan;
 
 #[derive(Debug, Clone)]
-pub struct ErrorSpan<E: std::error::Error> {
+pub struct ErrorLocalSpan<E: std::error::Error> {
     pub err: E,
     pub span: Option<LocalSpan>,
 }
 
-impl<E: std::error::Error> ErrorSpan<E> {
+impl<E: std::error::Error> ErrorLocalSpan<E> {
     pub fn new(err: E, span: Option<LocalSpan>) -> Self {
         Self { err, span }
     }
 }
 
-impl<E: std::error::Error> ErrorSpan<E> {
+impl<E: std::error::Error> ErrorLocalSpan<E> {
     pub fn resolve<'a>(&'a self, path: Option<&'a Path>, src: &'a str) -> ResolvedError<'a> {
         ResolvedError {
             err: &self.err,
@@ -26,8 +26,8 @@ impl<E: std::error::Error> ErrorSpan<E> {
 }
 
 impl LocalSpan {
-    pub const fn with_error<E: std::error::Error>(self, err: E) -> ErrorSpan<E> {
-        ErrorSpan {
+    pub const fn with_error<E: std::error::Error>(self, err: E) -> ErrorLocalSpan<E> {
+        ErrorLocalSpan {
             err,
             span: Some(self),
         }

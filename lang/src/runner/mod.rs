@@ -19,11 +19,11 @@ use crate::{
         expr::{AlternateCondition, Expr, FnCall, IfCondition},
         Block, LetDeclare,
     },
-    error::ErrorSpan,
+    error::ErrorLocalSpan,
     ir::{DeclarationId, Module, Rir},
 };
 
-type ResultValue = Result<RainValue, ErrorSpan<RunnerError>>;
+type ResultValue = Result<RainValue, ErrorLocalSpan<RunnerError>>;
 
 struct Cx<'a> {
     module: &'a Module,
@@ -111,7 +111,7 @@ impl<'a> Runner<'a> {
         &mut self,
         cx: &mut Cx,
         ident: &str,
-    ) -> Result<Option<RainValue>, ErrorSpan<RunnerError>> {
+    ) -> Result<Option<RainValue>, ErrorLocalSpan<RunnerError>> {
         if let Some(v) = cx.locals.get(ident) {
             return Ok(Some(v.clone()));
         }

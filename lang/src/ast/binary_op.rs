@@ -1,5 +1,5 @@
 use crate::{
-    span::LocalSpan,
+    local_span::LocalSpan,
     tokens::{Token, TokenLocalSpan},
 };
 

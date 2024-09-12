@@ -1,4 +1,4 @@
-use crate::{error::ErrorSpan, span::LocalSpan};
+use crate::{error::ErrorLocalSpan, local_span::LocalSpan};
 
 use super::{StringLiteralPrefix, Token, TokenError, TokenLocalSpan};
 
@@ -14,7 +14,7 @@ impl<'a> TokenStream<'a> {
 }
 
 impl TokenStream<'_> {
-    pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, ErrorSpan<TokenError>> {
+    pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, ErrorLocalSpan<TokenError>> {
         loop {
             let bytes = self.source.as_bytes();
             let Some(&c) = bytes.get(self.index) else {
@@ -154,7 +154,7 @@ impl TokenStream<'_> {
         }
     }
 
-    fn double_quote_literal(&mut self) -> Result<TokenLocalSpan, ErrorSpan<TokenError>> {
+    fn double_quote_literal(&mut self) -> Result<TokenLocalSpan, ErrorLocalSpan<TokenError>> {
         let start = self.index;
         let prefix_symbol = self.source.as_bytes().get(self.index).copied();
         let prefix = match prefix_symbol {
@@ -198,7 +198,7 @@ impl TokenStream<'_> {
 }
 
 impl Iterator for TokenStream<'_> {
-    type Item = Result<TokenLocalSpan, ErrorSpan<TokenError>>;
+    type Item = Result<TokenLocalSpan, ErrorLocalSpan<TokenError>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.parse_next().transpose()

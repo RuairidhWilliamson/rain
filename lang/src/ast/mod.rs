@@ -9,8 +9,8 @@ mod test;
 use error::{ParseError, ParseResult};
 
 use crate::{
-    error::ErrorSpan,
-    span::LocalSpan,
+    error::ErrorLocalSpan,
+    local_span::LocalSpan,
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
 
@@ -334,7 +334,7 @@ fn expect_token(
     expect: &'static [Token],
 ) -> ParseResult<TokenLocalSpan> {
     let Some(token) = tls else {
-        return Err(ErrorSpan::new(ParseError::ExpectedToken(expect), None));
+        return Err(ErrorLocalSpan::new(ParseError::ExpectedToken(expect), None));
     };
     if expect.contains(&token.token) {
         Ok(token)

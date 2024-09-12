@@ -1,6 +1,6 @@
 use std::fmt::{Result, Write};
 
-use crate::{span::LocalSpan, tokens::TokenLocalSpan};
+use crate::{local_span::LocalSpan, tokens::TokenLocalSpan};
 
 /// # Panics
 /// Panics if a formatter error occurs

@@ -1,4 +1,4 @@
-use crate::span::LocalSpan;
+use crate::local_span::LocalSpan;
 
 pub mod peek;
 pub mod stream;

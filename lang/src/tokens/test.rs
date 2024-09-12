@@ -1,4 +1,4 @@
-use crate::{error::ErrorSpan, tokens::Token};
+use crate::{error::ErrorLocalSpan, tokens::Token};
 
 use super::{stream::TokenStream, TokenError};
 
@@ -14,7 +14,7 @@ macro_rules! assert_tokens {
     };
 }
 
-fn str_tokens(s: &str) -> Result<Vec<Token>, ErrorSpan<TokenError>> {
+fn str_tokens(s: &str) -> Result<Vec<Token>, ErrorLocalSpan<TokenError>> {
     TokenStream::new(s)
         .map(|res| res.map(|tls| tls.token))
         .collect()
