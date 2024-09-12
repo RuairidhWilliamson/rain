@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use std::path::Path;
+use std::path::PathBuf;
 
 use crate::{
     ast::{
@@ -13,22 +13,22 @@ use crate::{
 };
 
 #[derive(Debug, Default)]
-pub struct Rir<'a> {
-    modules: Vec<Module<'a>>,
+pub struct Rir {
+    modules: Vec<Module>,
 }
 
-impl<'a> Rir<'a> {
+impl Rir {
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn insert_module(
         &mut self,
-        path: Option<&'a Path>,
-        src: &'a str,
-        ast: &'a crate::ast::Script,
+        path: Option<PathBuf>,
+        src: String,
+        ast: crate::ast::Script,
     ) -> ModuleId {
-        let declarations = ast.declarations.iter().collect();
+        let declarations = ast.declarations;
         let id = ModuleId(self.modules.len());
         self.modules.push(Module {
             id,
@@ -73,15 +73,15 @@ impl<'a> Rir<'a> {
 }
 
 #[derive(Debug)]
-pub struct Module<'a> {
+pub struct Module {
     pub id: ModuleId,
     #[allow(dead_code)]
-    path: Option<&'a Path>,
-    pub src: &'a str,
-    declarations: Vec<&'a Declaration>,
+    path: Option<PathBuf>,
+    pub src: String,
+    declarations: Vec<Declaration>,
 }
 
-impl Module<'_> {
+impl Module {
     pub fn get_declaration(&self, id: LocalDeclarationId) -> &Declaration {
         let Some(d) = self.declarations.get(id.0) else {
             unreachable!("id is always valid");
@@ -94,7 +94,7 @@ impl Module<'_> {
         match expr {
             Expr::Ident(tls) => {
                 v.push(
-                    self.find_declaration_by_name(tls.span.contents(self.src))
+                    self.find_declaration_by_name(tls.span.contents(&self.src))
                         .ok_or_else(|| tls.span.with_error(RainError::UnresolvedIdentifier))?,
                 );
             }
@@ -165,7 +165,7 @@ impl Module<'_> {
         self.declarations
             .iter()
             .enumerate()
-            .find(|(_, d)| d.name().span.contents(self.src) == name)
+            .find(|(_, d)| d.name().span.contents(&self.src) == name)
             .map(|(id, _)| LocalDeclarationId(id))
     }
 }

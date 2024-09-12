@@ -26,14 +26,14 @@ use crate::{
 type ResultValue = Result<RainValue, ErrorSpan<RunnerError>>;
 
 struct Cx<'a> {
-    module: &'a Module<'a>,
+    module: &'a Module,
     call_depth: usize,
     locals: HashMap<&'a str, RainValue>,
     args: HashMap<&'a str, RainValue>,
 }
 
 impl<'a> Cx<'a> {
-    fn new(module: &'a Module<'a>) -> Self {
+    fn new(module: &'a Module) -> Self {
         Self {
             module,
             call_depth: 0,
@@ -44,12 +44,12 @@ impl<'a> Cx<'a> {
 }
 
 pub struct Runner<'a> {
-    rir: &'a Rir<'a>,
+    rir: &'a Rir,
     cache: cache::Cache,
 }
 
 impl<'a> Runner<'a> {
-    pub fn new(rir: &'a Rir<'a>) -> Self {
+    pub fn new(rir: &'a Rir) -> Self {
         Self {
             rir,
             cache: cache::Cache::default(),
@@ -87,7 +87,7 @@ impl<'a> Runner<'a> {
                 }
                 crate::ast::Statement::Assignment(assign) => {
                     let v = self.evaluate_expr(cx, &assign.expr)?;
-                    let name = assign.name.span.contents(cx.module.src);
+                    let name = assign.name.span.contents(&cx.module.src);
                     cx.locals.insert(name, v);
                 }
             }
@@ -97,7 +97,7 @@ impl<'a> Runner<'a> {
                 crate::ast::Statement::Expr(expr) => self.evaluate_expr(cx, expr),
                 crate::ast::Statement::Assignment(assign) => {
                     let v = self.evaluate_expr(cx, &assign.expr)?;
-                    let name = assign.name.span.contents(cx.module.src);
+                    let name = assign.name.span.contents(&cx.module.src);
                     cx.locals.insert(name, v);
                     Ok(RainValue::new(()))
                 }
@@ -127,19 +127,19 @@ impl<'a> Runner<'a> {
     fn evaluate_expr(&mut self, cx: &mut Cx, expr: &Expr) -> ResultValue {
         match expr {
             Expr::Ident(tls) => {
-                let ident_name = tls.span.contents(cx.module.src);
+                let ident_name = tls.span.contents(&cx.module.src);
                 self.resolve_ident(cx, ident_name)?
                     .ok_or_else(|| tls.span.with_error(RunnerError::UnknownIdent))
             }
             Expr::StringLiteral(lit) => match lit.prefix() {
                 Some(crate::tokens::StringLiteralPrefix::Format) => todo!("format string"),
                 None => Ok(RainValue::new(
-                    lit.content_span().contents(cx.module.src).to_owned(),
+                    lit.content_span().contents(&cx.module.src).to_owned(),
                 )),
             },
             Expr::IntegerLiteral(tls) => Ok(RainValue::new(
                 tls.span
-                    .contents(cx.module.src)
+                    .contents(&cx.module.src)
                     .parse::<RainInteger>()
                     .map_err(|_| tls.span.with_error(RunnerError::InvalidIntegerLiteral))?,
             )),
@@ -211,7 +211,7 @@ impl<'a> Runner<'a> {
                     .args
                     .iter()
                     .zip(arg_values)
-                    .map(|(a, v)| (a.name.span.contents(m.src), v))
+                    .map(|(a, v)| (a.name.span.contents(&m.src), v))
                     .collect();
                 let mut cx = Cx {
                     module: m,
@@ -322,7 +322,7 @@ impl<'a> Runner<'a> {
                 }
                 RainTypeId::Internal => match op.right.as_ref() {
                     Expr::Ident(tls) => {
-                        let name = tls.span.contents(cx.module.src);
+                        let name = tls.span.contents(&cx.module.src);
                         match name {
                             "print" => Ok(RainValue::new(RainInternalFunction::Print)),
                             "import" => Ok(RainValue::new(RainInternalFunction::Import)),
