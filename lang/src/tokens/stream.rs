@@ -1,4 +1,4 @@
-use crate::{error::ErrorLocalSpan, local_span::LocalSpan};
+use crate::local_span::{ErrorLocalSpan, LocalSpan};
 
 use super::{StringLiteralPrefix, Token, TokenError, TokenLocalSpan};
 

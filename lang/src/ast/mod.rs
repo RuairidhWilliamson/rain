@@ -9,8 +9,7 @@ mod test;
 use error::{ParseError, ParseResult};
 
 use crate::{
-    error::ErrorLocalSpan,
-    local_span::LocalSpan,
+    local_span::{ErrorLocalSpan, LocalSpan},
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
 

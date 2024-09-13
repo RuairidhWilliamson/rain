@@ -1,6 +1,5 @@
 use crate::{
-    error::ErrorLocalSpan,
-    local_span::LocalSpan,
+    local_span::{ErrorLocalSpan, LocalSpan},
     tokens::{peek::PeekTokenStream, StringLiteralPrefix, Token, TokenLocalSpan},
 };
 

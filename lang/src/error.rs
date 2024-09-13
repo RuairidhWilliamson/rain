@@ -2,44 +2,12 @@ use std::path::Path;
 
 use crate::local_span::LocalSpan;
 
-#[derive(Debug, Clone)]
-pub struct ErrorLocalSpan<E: std::error::Error> {
-    pub err: E,
-    pub span: Option<LocalSpan>,
-}
-
-impl<E: std::error::Error> ErrorLocalSpan<E> {
-    pub fn new(err: E, span: Option<LocalSpan>) -> Self {
-        Self { err, span }
-    }
-}
-
-impl<E: std::error::Error> ErrorLocalSpan<E> {
-    pub fn resolve<'a>(&'a self, path: Option<&'a Path>, src: &'a str) -> ResolvedError<'a> {
-        ResolvedError {
-            err: &self.err,
-            path,
-            src,
-            span: self.span,
-        }
-    }
-}
-
-impl LocalSpan {
-    pub const fn with_error<E: std::error::Error>(self, err: E) -> ErrorLocalSpan<E> {
-        ErrorLocalSpan {
-            err,
-            span: Some(self),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct ResolvedError<'a> {
-    err: &'a dyn std::error::Error,
-    path: Option<&'a Path>,
-    src: &'a str,
-    span: Option<LocalSpan>,
+    pub err: &'a dyn std::error::Error,
+    pub path: Option<&'a Path>,
+    pub src: &'a str,
+    pub span: Option<LocalSpan>,
 }
 
 impl std::fmt::Display for ResolvedError<'_> {

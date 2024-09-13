@@ -1,4 +1,4 @@
-use crate::{error::ErrorLocalSpan, tokens::Token};
+use crate::{local_span::ErrorLocalSpan, tokens::Token};
 
 use super::{stream::TokenStream, TokenError};
 

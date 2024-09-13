@@ -1,5 +1,5 @@
 use crate::{
-    error::ErrorLocalSpan,
+    local_span::ErrorLocalSpan,
     tokens::{Token, TokenError},
 };
 

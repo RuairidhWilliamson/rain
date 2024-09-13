@@ -2,7 +2,7 @@ use std::process::ExitCode;
 
 use rain_lang::{
     ast::{display::display_ast, error::ParseError},
-    error::ErrorLocalSpan,
+    local_span::ErrorLocalSpan,
     tokens::peek::PeekTokenStream,
 };
 

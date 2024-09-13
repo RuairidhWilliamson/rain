@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, mem::MaybeUninit};
 
-use crate::error::ErrorLocalSpan;
+use crate::local_span::ErrorLocalSpan;
 
 use super::{stream::TokenStream, TokenError, TokenLocalSpan};
 

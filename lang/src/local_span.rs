@@ -1,4 +1,9 @@
-use std::ops::{Add, AddAssign};
+use std::{
+    ops::{Add, AddAssign},
+    path::Path,
+};
+
+use crate::error::ResolvedError;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct LocalSpan {
@@ -108,6 +113,13 @@ impl LocalSpan {
         }
         acc
     }
+
+    pub const fn with_error<E: std::error::Error>(self, err: E) -> ErrorLocalSpan<E> {
+        ErrorLocalSpan {
+            err,
+            span: Some(self),
+        }
+    }
 }
 
 impl Add for LocalSpan {
@@ -124,5 +136,28 @@ impl Add for LocalSpan {
 impl AddAssign for LocalSpan {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ErrorLocalSpan<E: std::error::Error> {
+    pub err: E,
+    pub span: Option<LocalSpan>,
+}
+
+impl<E: std::error::Error> ErrorLocalSpan<E> {
+    pub fn new(err: E, span: Option<LocalSpan>) -> Self {
+        Self { err, span }
+    }
+}
+
+impl<E: std::error::Error> ErrorLocalSpan<E> {
+    pub fn resolve<'a>(&'a self, path: Option<&'a Path>, src: &'a str) -> ResolvedError<'a> {
+        ResolvedError {
+            err: &self.err,
+            path,
+            src,
+            span: self.span,
+        }
     }
 }

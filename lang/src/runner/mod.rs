@@ -19,8 +19,8 @@ use crate::{
         expr::{AlternateCondition, Expr, FnCall, IfCondition},
         Block, LetDeclare,
     },
-    error::ErrorLocalSpan,
     ir::{DeclarationId, Module, Rir},
+    local_span::ErrorLocalSpan,
 };
 
 type ResultValue = Result<RainValue, ErrorLocalSpan<RunnerError>>;

@@ -9,7 +9,7 @@ use crate::{
         expr::{AlternateCondition, Expr, FnCall, FnCallArgs, IfCondition},
         Block, Declaration, FnDeclare,
     },
-    error::ErrorLocalSpan,
+    local_span::ErrorLocalSpan,
 };
 
 #[derive(Debug, Default)]
