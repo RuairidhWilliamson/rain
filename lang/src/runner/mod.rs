@@ -7,7 +7,10 @@ const MAX_CALL_DEPTH: usize = 500;
 use std::{any::TypeId, collections::HashMap};
 
 use error::RunnerError;
-use value::{RainFunction, RainInteger, RainInternalFunction, RainModule, RainTypeId, RainValue};
+use value::{
+    RainFunction, RainInteger, RainInternal, RainInternalFunction, RainModule, RainTypeId,
+    RainValue,
+};
 
 use crate::{
     ast2::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
@@ -63,7 +66,7 @@ impl<'a> Runner<'a> {
     pub fn evaluate_declaration(&mut self, id: DeclarationId) -> ResultValue {
         let m = self.rir.get_module(id.module_id());
         let nid = m.get_declaration(id.local_id());
-        let node = m.module.get(nid);
+        let node = m.get(nid);
         match node {
             Node::LetDeclare(let_declare) => self.evaluate_node(&mut Cx::new(m), let_declare.expr),
             Node::FnDeclare(_) => Ok(RainValue::new(RainFunction { id })),
@@ -72,7 +75,7 @@ impl<'a> Runner<'a> {
     }
 
     fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> ResultValue {
-        match cx.module.module.get(nid) {
+        match cx.module.get(nid) {
             Node::ModuleRoot(_) => {
                 panic!("can't evaluate module root")
             }
@@ -100,7 +103,7 @@ impl<'a> Runner<'a> {
             Node::Ident(tls) => self
                 .resolve_ident(cx, tls.span.contents(&cx.module.src))?
                 .ok_or_else(|| tls.span.with_error(RunnerError::UnknownIdent)),
-            Node::Internal(_) => todo!("evaluate internal"),
+            Node::Internal(_) => Ok(RainValue::new(RainInternal)),
             Node::StringLiteral(lit) => match lit.prefix() {
                 Some(crate::tokens::StringLiteralPrefix::Format) => todo!("format string"),
                 None => Ok(RainValue::new(
@@ -192,7 +195,7 @@ impl<'a> Runner<'a> {
     ) -> ResultValue {
         let m = self.rir.get_module(function.id.module_id());
         let nid = m.get_declaration(function.id.local_id());
-        let node = m.module.get(nid);
+        let node = m.get(nid);
         match node {
             Node::FnDeclare(fn_declare) => {
                 let args = fn_declare
@@ -216,11 +219,17 @@ impl<'a> Runner<'a> {
     fn call_internal_function(
         &mut self,
         function: &RainInternalFunction,
-        _arg_values: Vec<RainValue>,
+        arg_values: Vec<RainValue>,
     ) -> ResultValue {
         match function {
-            RainInternalFunction::Print => todo!("implement internal.print"),
-            RainInternalFunction::Import => todo!("implement internal.import"),
+            RainInternalFunction::Print => {
+                println!("{arg_values:?}");
+                Ok(RainValue::new(()))
+            }
+            RainInternalFunction::Import => {
+                self.rir;
+                todo!()
+            }
         }
     }
 
@@ -308,7 +317,7 @@ impl<'a> Runner<'a> {
                     let _module = self.rir.get_module(module_value.id);
                     todo!("implement module")
                 }
-                RainTypeId::Internal => match cx.module.module.get(op.right) {
+                RainTypeId::Internal => match cx.module.get(op.right) {
                     Node::Ident(tls) => {
                         let name = tls.span.contents(&cx.module.src);
                         match name {

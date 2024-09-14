@@ -52,6 +52,11 @@ fn fn_call() {
 }
 
 #[test]
-fn import() {
-    insta::assert_debug_snapshot!(run("tests/scripts/import.rain").unwrap());
+fn internal_print() {
+    insta::assert_debug_snapshot!(run("tests/scripts/internal_print.rain").unwrap());
+}
+
+#[test]
+fn internal_import() {
+    insta::assert_debug_snapshot!(run("tests/scripts/internal_import.rain").unwrap());
 }

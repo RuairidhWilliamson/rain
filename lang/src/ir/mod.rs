@@ -46,10 +46,14 @@ pub struct IrModule {
     #[allow(dead_code)]
     path: Option<PathBuf>,
     pub src: String,
-    pub module: crate::ast2::Module,
+    module: crate::ast2::Module,
 }
 
 impl IrModule {
+    pub fn get(&self, id: NodeId) -> &Node {
+        self.module.get(id)
+    }
+
     pub fn get_declaration(&self, id: LocalDeclarationId) -> NodeId {
         let Node::ModuleRoot(module_root) = self.module.get(self.module.root) else {
             unreachable!()
@@ -60,14 +64,14 @@ impl IrModule {
         *id
     }
 
-    fn module_root(&self) -> &ModuleRoot {
+    pub fn module_root(&self) -> &ModuleRoot {
         let Node::ModuleRoot(module_root) = self.module.get(self.module.root) else {
             unreachable!()
         };
         module_root
     }
 
-    fn declarations(&self) -> impl Iterator<Item = &Node> {
+    pub fn declarations(&self) -> impl Iterator<Item = &Node> {
         self.module_root()
             .declarations
             .iter()

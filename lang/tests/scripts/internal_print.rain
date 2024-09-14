@@ -1,0 +1,3 @@
+fn main() {
+	internal.print("Wow so cool")
+}
