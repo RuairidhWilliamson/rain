@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use rain_lang::{
-    ast::ModuleRoot,
     ir::Rir,
     runner::{value::RainValue, Runner},
     tokens::peek::PeekTokenStream,
@@ -9,12 +8,12 @@ use rain_lang::{
 
 fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<RainValue> {
     let mut stream = PeekTokenStream::new(&src);
-    let ast = ModuleRoot::parse(&mut stream).map_err(|err| {
+    let module = rain_lang::ast2::parser::parse_module(&mut stream).map_err(|err| {
         eprintln!("{}", err.resolve(path.as_ref().map(|p| p.as_path()), &src));
         err.err
     })?;
     let mut ir = Rir::new();
-    let module_id = ir.insert_module(path.clone(), src.clone(), ast);
+    let module_id = ir.insert_module(path.clone(), src.clone(), module);
     let main = ir
         .resolve_global_declaration(module_id, "main")
         .ok_or_else(|| anyhow::anyhow!("main declaration not found"))?;

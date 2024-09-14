@@ -2,22 +2,27 @@
 mod test;
 
 mod display;
+pub mod error;
 pub mod parser;
 
 use crate::{
     local_span::LocalSpan,
-    tokens::{Token, TokenLocalSpan},
+    tokens::{StringLiteralPrefix, Token, TokenLocalSpan},
 };
 
 #[derive(Debug)]
 pub struct Module {
+    pub root: NodeId,
     nodes: NodeList,
-    root: NodeId,
 }
 
 impl Module {
     pub fn display(&self, src: &str) -> String {
         self.nodes.display(src, self.root)
+    }
+
+    pub fn get(&self, id: NodeId) -> &Node {
+        self.nodes.get(id)
     }
 }
 
@@ -190,6 +195,25 @@ impl From<Block> for Node {
 
 #[derive(Debug)]
 pub struct StringLiteral(pub TokenLocalSpan);
+
+impl StringLiteral {
+    pub fn prefix(&self) -> Option<StringLiteralPrefix> {
+        let Token::DoubleQuoteLiteral(prefix) = self.0.token else {
+            unreachable!()
+        };
+        prefix
+    }
+
+    pub fn content_span(&self) -> LocalSpan {
+        let mut s = self.0.span;
+        if self.prefix().is_some() {
+            s.start += 1;
+        }
+        s.start += 1;
+        s.end -= 1;
+        s
+    }
+}
 
 impl From<StringLiteral> for Node {
     fn from(inner: StringLiteral) -> Self {

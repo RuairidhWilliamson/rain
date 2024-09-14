@@ -1,12 +1,13 @@
 use crate::{
-    ast::error::{ParseError, ParseResult},
+    ast2::error::{ParseError, ParseResult},
     local_span::ErrorLocalSpan,
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
 
 use super::{
-    AlternateCondition, BinaryOp, BinaryOperatorKind, Block, FnCall, FnDeclare, FnDeclareArg,
-    IfCondition, LetDeclare, Module, ModuleRoot, Node, NodeId, NodeList, StringLiteral,
+    AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, FnCall, FnDeclare,
+    FnDeclareArg, IfCondition, LetDeclare, Module, ModuleRoot, Node, NodeId, NodeList,
+    StringLiteral,
 };
 
 pub fn parse_module<'a>(stream: &mut PeekTokenStream<'a>) -> ParseResult<Module> {
@@ -136,7 +137,14 @@ impl<'src, 'stream> ModuleParser<'src, 'stream> {
     }
 
     fn parse_assignment(&mut self) -> ParseResult<NodeId> {
-        todo!("assignment")
+        let name = expect_token(self.stream.parse_next()?, &[Token::Ident])?;
+        let equals_token = expect_token(self.stream.parse_next()?, &[Token::Assign])?;
+        let expr = self.parse_expr()?;
+        Ok(self.push(Assignment {
+            name,
+            equals_token,
+            expr,
+        }))
     }
 
     fn parse_expr(&mut self) -> ParseResult<NodeId> {

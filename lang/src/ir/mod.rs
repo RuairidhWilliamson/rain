@@ -1,20 +1,10 @@
-#[cfg(test)]
-mod test;
-
 use std::path::PathBuf;
 
-use crate::{
-    ast::{
-        binary_op::BinaryOp,
-        expr::{AlternateCondition, Expr, FnCall, FnCallArgs, IfCondition},
-        Block, Declaration, FnDeclare,
-    },
-    local_span::ErrorLocalSpan,
-};
+use crate::ast2::{Module, ModuleRoot, Node, NodeId};
 
 #[derive(Debug, Default)]
 pub struct Rir {
-    modules: Vec<Module>,
+    modules: Vec<IrModule>,
 }
 
 impl Rir {
@@ -22,30 +12,23 @@ impl Rir {
         Self::default()
     }
 
-    pub fn insert_module(
-        &mut self,
-        path: Option<PathBuf>,
-        src: String,
-        ast: crate::ast::ModuleRoot,
-    ) -> ModuleId {
-        let declarations = ast.declarations;
+    pub fn insert_module(&mut self, path: Option<PathBuf>, src: String, ast: Module) -> ModuleId {
         let id = ModuleId(self.modules.len());
-        self.modules.push(Module {
+        self.modules.push(IrModule {
             id,
             path,
             src,
-            declarations,
+            module: ast,
         });
         id
     }
 
-    pub fn get_module(&self, module_id: ModuleId) -> &Module {
+    pub fn get_module(&self, module_id: ModuleId) -> &IrModule {
         let Some(m) = self.modules.get(module_id.0) else {
             unreachable!("id is always valid")
         };
         m
     }
-
     pub fn resolve_global_declaration(
         &self,
         module_id: ModuleId,
@@ -55,120 +38,50 @@ impl Rir {
             .find_declaration_by_name(name)
             .map(|id| DeclarationId(module_id, id))
     }
-
-    pub fn declaration_deps(
-        &self,
-        id: DeclarationId,
-    ) -> Result<Vec<DeclarationId>, ErrorLocalSpan<RainError>> {
-        let module = self.get_module(id.module_id());
-        let declaration = module.get_declaration(id.local_id());
-        Ok(match declaration {
-            Declaration::LetDeclare(declare) => module.expr_deps(&declare.expr)?,
-            Declaration::FnDeclare(FnDeclare { block, .. }) => module.block_deps(block)?,
-        }
-        .into_iter()
-        .map(|i| DeclarationId(id.0, i))
-        .collect())
-    }
 }
 
 #[derive(Debug)]
-pub struct Module {
+pub struct IrModule {
     pub id: ModuleId,
     #[allow(dead_code)]
     path: Option<PathBuf>,
     pub src: String,
-    declarations: Vec<Declaration>,
+    pub module: crate::ast2::Module,
 }
 
-impl Module {
-    pub fn get_declaration(&self, id: LocalDeclarationId) -> &Declaration {
-        let Some(d) = self.declarations.get(id.0) else {
-            unreachable!("id is always valid");
+impl IrModule {
+    pub fn get_declaration(&self, id: LocalDeclarationId) -> NodeId {
+        let Node::ModuleRoot(module_root) = self.module.get(self.module.root) else {
+            unreachable!()
         };
-        d
+        let Some(id) = module_root.declarations.get(id.0) else {
+            unreachable!()
+        };
+        *id
     }
 
-    fn expr_deps(&self, expr: &Expr) -> Result<Vec<LocalDeclarationId>, ErrorLocalSpan<RainError>> {
-        let mut v = Vec::new();
-        match expr {
-            Expr::Ident(tls) => {
-                v.push(
-                    self.find_declaration_by_name(tls.span.contents(&self.src))
-                        .ok_or_else(|| tls.span.with_error(RainError::UnresolvedIdentifier))?,
-                );
-            }
-            Expr::StringLiteral(_)
-            | Expr::IntegerLiteral(_)
-            | Expr::TrueLiteral(_)
-            | Expr::FalseLiteral(_)
-            | Expr::Internal(_) => {}
-            Expr::BinaryOp(BinaryOp { left, op: _, right }) => {
-                v.extend(self.expr_deps(left)?);
-                v.extend(self.expr_deps(right)?);
-            }
-            Expr::FnCall(FnCall {
-                callee,
-                args: FnCallArgs { args, .. },
-            }) => {
-                v.extend(self.expr_deps(callee)?);
-                for a in args {
-                    v.extend(self.expr_deps(a)?);
-                }
-            }
-            Expr::If(if_condition) => v.extend(self.if_condition_deps(if_condition)?),
-        }
-        Ok(v)
+    fn module_root(&self) -> &ModuleRoot {
+        let Node::ModuleRoot(module_root) = self.module.get(self.module.root) else {
+            unreachable!()
+        };
+        module_root
     }
 
-    fn if_condition_deps(
-        &self,
-        if_condition: &IfCondition,
-    ) -> Result<Vec<LocalDeclarationId>, ErrorLocalSpan<RainError>> {
-        let mut v = Vec::new();
-        let IfCondition {
-            condition,
-            then,
-            alternate,
-        } = if_condition;
-        v.extend(self.expr_deps(condition)?);
-        v.extend(self.block_deps(then)?);
-        match alternate {
-            Some(AlternateCondition::IfElse(if_condition)) => {
-                v.extend(self.if_condition_deps(if_condition)?);
-            }
-            Some(AlternateCondition::Else(block)) => {
-                v.extend(self.block_deps(block)?);
-            }
-            None => (),
-        }
-
-        Ok(v)
-    }
-
-    fn block_deps(
-        &self,
-        block: &Block,
-    ) -> Result<Vec<LocalDeclarationId>, ErrorLocalSpan<RainError>> {
-        let mut v = Vec::new();
-        for s in &block.statements {
-            match s {
-                crate::ast::Statement::Expr(expr) => {
-                    v.extend(self.expr_deps(expr)?);
-                }
-                crate::ast::Statement::Assignment(assign) => {
-                    v.extend(self.expr_deps(&assign.expr)?);
-                }
-            }
-        }
-        Ok(v)
+    fn declarations(&self) -> impl Iterator<Item = &Node> {
+        self.module_root()
+            .declarations
+            .iter()
+            .map(|nid| self.module.get(*nid))
     }
 
     fn find_declaration_by_name(&self, name: &str) -> Option<LocalDeclarationId> {
-        self.declarations
-            .iter()
+        self.declarations()
             .enumerate()
-            .find(|(_, d)| d.name().span.contents(&self.src) == name)
+            .find(|(_, node)| match node {
+                Node::LetDeclare(let_declare) => let_declare.name.span.contents(&self.src) == name,
+                Node::FnDeclare(fn_declare) => fn_declare.name.span.contents(&self.src) == name,
+                _ => unreachable!(),
+            })
             .map(|(id, _)| LocalDeclarationId(id))
     }
 }
