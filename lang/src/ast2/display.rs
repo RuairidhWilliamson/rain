@@ -2,21 +2,21 @@ use std::fmt::{Result, Write};
 
 use crate::local_span::LocalSpan;
 
-use super::{Module, NodeId};
+use super::{NodeId, NodeList};
 
 pub struct AstFormatter<'a> {
     src: &'a str,
     indent: usize,
     buf: &'a mut (dyn Write + 'a),
-    module: &'a Module,
+    nodes: &'a NodeList,
 }
 impl<'a> AstFormatter<'a> {
-    pub fn new(src: &'a str, buf: &'a mut (dyn Write + 'a), module: &'a Module) -> Self {
+    pub fn new(src: &'a str, buf: &'a mut (dyn Write + 'a), nodes: &'a NodeList) -> Self {
         Self {
             src,
             indent: 0,
             buf,
-            module,
+            nodes,
         }
     }
 
@@ -67,18 +67,14 @@ impl<'b, 'a> NodeBuilder<'b, 'a> {
         self.child_fn(|f| f.buf.write_str(span.contents(self.fmt.src)))
     }
 
-    pub fn child_str(&mut self, value: &str) -> &mut Self {
-        self.child_fn(|f| f.buf.write_str(value))
-    }
-
     pub fn child(&mut self, id: NodeId) -> &mut Self {
-        let child = self.fmt.module.get(id);
+        let child = self.fmt.nodes.get(id);
         self.child_fn(|f| child.ast_display(f))
     }
 
     pub fn children<'id>(&mut self, children: impl IntoIterator<Item = &'id NodeId>) -> &mut Self {
         for c in children.into_iter().copied() {
-            let child = self.fmt.module.get(c);
+            let child = self.fmt.nodes.get(c);
             self.child_fn(|f| child.ast_display(f));
         }
         self

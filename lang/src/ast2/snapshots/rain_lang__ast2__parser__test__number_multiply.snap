@@ -1,0 +1,13 @@
+---
+source: lang/src/ast2/parser.rs
+expression: "parse_display_expr(\"1 * 2\")"
+---
+BinaryOp(
+ IntegerLiteral(
+  1
+ )
+ *
+ IntegerLiteral(
+  2
+ )
+)

@@ -1,0 +1,7 @@
+---
+source: lang/src/ast2/parser.rs
+expression: "parse_display_expr(\"\\\"asldjf\\\"\")"
+---
+StringLiteral(
+ "asldjf"
+)

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-pub mod display;
+mod display;
 pub mod parser;
 
 use crate::{
@@ -11,24 +11,45 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Module {
-    nodes: Vec<Node>,
+    nodes: NodeList,
     root: NodeId,
 }
 
 impl Module {
+    pub fn display(&self, src: &str) -> String {
+        self.nodes.display(src, self.root)
+    }
+}
+
+#[derive(Debug)]
+struct NodeList {
+    nodes: Vec<Node>,
+}
+
+impl NodeList {
+    const fn new() -> Self {
+        Self { nodes: Vec::new() }
+    }
+
+    fn display(&self, src: &str, id: NodeId) -> String {
+        let node = self.get(id);
+        let mut buf = String::new();
+        let mut f = display::AstFormatter::new(src, &mut buf, &self);
+        node.ast_display(&mut f).unwrap();
+        buf
+    }
+
+    fn push(&mut self, node: impl Into<Node>) -> NodeId {
+        let index = self.nodes.len();
+        self.nodes.push(node.into());
+        NodeId(index)
+    }
+
     fn get(&self, id: NodeId) -> &Node {
         let Some(node) = self.nodes.get(id.0) else {
             unreachable!()
         };
         node
-    }
-
-    pub fn display(&self, src: &str) -> String {
-        let module_root = self.get(self.root);
-        let mut buf = String::new();
-        let mut f = display::AstFormatter::new(src, &mut buf, self);
-        module_root.ast_display(&mut f).unwrap();
-        buf
     }
 }
 

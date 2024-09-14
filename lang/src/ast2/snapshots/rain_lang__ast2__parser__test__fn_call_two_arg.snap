@@ -1,0 +1,15 @@
+---
+source: lang/src/ast2/parser.rs
+expression: "parse_display_expr(\"foo(1, 2)\")"
+---
+FnCall(
+ Ident(
+  foo
+ )
+ IntegerLiteral(
+  1
+ )
+ IntegerLiteral(
+  2
+ )
+)

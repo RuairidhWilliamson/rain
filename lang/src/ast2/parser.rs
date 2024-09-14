@@ -6,12 +6,12 @@ use crate::{
 
 use super::{
     AlternateCondition, BinaryOp, BinaryOperatorKind, Block, FnCall, FnDeclare, FnDeclareArg,
-    IfCondition, LetDeclare, Module, ModuleRoot, Node, NodeId, StringLiteral,
+    IfCondition, LetDeclare, Module, ModuleRoot, Node, NodeId, NodeList, StringLiteral,
 };
 
 pub fn parse_module<'a>(stream: &mut PeekTokenStream<'a>) -> ParseResult<Module> {
     let mut m = ModuleParser {
-        nodes: Vec::new(),
+        nodes: NodeList::new(),
         stream,
     };
     let module_root = m.parse_module_root()?;
@@ -21,15 +21,13 @@ pub fn parse_module<'a>(stream: &mut PeekTokenStream<'a>) -> ParseResult<Module>
 }
 
 struct ModuleParser<'src, 'stream> {
-    nodes: Vec<Node>,
+    nodes: NodeList,
     stream: &'stream mut PeekTokenStream<'src>,
 }
 
 impl<'src, 'stream> ModuleParser<'src, 'stream> {
-    fn push(&mut self, elem: impl Into<Node>) -> NodeId {
-        let index = self.nodes.len();
-        self.nodes.push(elem.into());
-        NodeId(index)
+    fn push(&mut self, node: impl Into<Node>) -> NodeId {
+        self.nodes.push(node)
     }
 
     fn parse_module_root(&mut self) -> ParseResult<ModuleRoot> {
@@ -312,5 +310,153 @@ fn expect_token(
         Ok(token)
     } else {
         Err(token.span.with_error(ParseError::ExpectedToken(expect)))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{ast2::NodeList, tokens::peek::PeekTokenStream};
+
+    fn parse_display_expr(src: &str) -> String {
+        let mut stream = PeekTokenStream::new(src);
+        let mut parser = super::ModuleParser {
+            nodes: NodeList::new(),
+            stream: &mut stream,
+        };
+        let id = match parser.parse_expr() {
+            Ok(s) => s,
+            Err(err) => {
+                eprintln!("{}", err.resolve(None, src));
+                panic!("parse error");
+            }
+        };
+        assert_eq!(
+            parser.stream.parse_next().unwrap(),
+            None,
+            "input not fully consumed"
+        );
+        parser.nodes.display(src, id)
+    }
+
+    #[test]
+    fn number_literal() {
+        insta::assert_snapshot!(parse_display_expr("4"));
+    }
+
+    #[test]
+    fn string_literal() {
+        insta::assert_snapshot!(parse_display_expr("\"asldjf\""));
+    }
+
+    #[test]
+    fn number_add() {
+        insta::assert_snapshot!(parse_display_expr("1 + 1"));
+    }
+
+    #[test]
+    fn number_add_left_associative() {
+        insta::assert_snapshot!(parse_display_expr("1 + 2 + 3"));
+    }
+
+    #[test]
+    fn number_multiply() {
+        insta::assert_snapshot!(parse_display_expr("1 * 2"));
+    }
+
+    #[test]
+    fn number_multiply_left_associative() {
+        insta::assert_snapshot!(parse_display_expr("1 * 2 * 3"));
+    }
+
+    #[test]
+    fn number_multiply_add_precedence1() {
+        insta::assert_snapshot!(parse_display_expr("5 * 2 + 3"));
+    }
+
+    #[test]
+    fn number_multiply_add_precedence2() {
+        insta::assert_snapshot!(parse_display_expr("5 + 2 * 3"));
+    }
+
+    #[test]
+    fn number_add_subtract_precedence() {
+        insta::assert_snapshot!(parse_display_expr("5 - 2 + 3 - 4"));
+    }
+
+    #[test]
+    fn number_add_subtract_multiply_precedence() {
+        insta::assert_snapshot!(parse_display_expr("5 * 2 + 3 - 4"));
+    }
+
+    #[test]
+    fn number_add_subtrace_multiply_divide_precedence() {
+        insta::assert_snapshot!(parse_display_expr("1 - 3 / 2 + 4 * 3"));
+    }
+
+    #[test]
+    fn ident_maths() {
+        insta::assert_snapshot!(parse_display_expr("a + b - c * d / e"));
+    }
+
+    #[test]
+    fn ident_dot_ident() {
+        insta::assert_snapshot!(parse_display_expr("foo.bar"));
+    }
+
+    #[test]
+    fn ident_dot_ident_dot_ident() {
+        insta::assert_snapshot!(parse_display_expr("foo.bar.baz"));
+    }
+
+    #[test]
+    fn ident_dot_maths() {
+        insta::assert_snapshot!(parse_display_expr("a.b.c + 3 * d.e"));
+    }
+
+    #[test]
+    fn maths_parens1() {
+        insta::assert_snapshot!(parse_display_expr("1 - (a + 3) * 4"));
+    }
+
+    #[test]
+    fn maths_parens2() {
+        insta::assert_snapshot!(parse_display_expr("(3 - b) * c"));
+    }
+
+    #[test]
+    fn fn_call_no_args() {
+        insta::assert_snapshot!(parse_display_expr("foo()"));
+    }
+
+    #[test]
+    fn fn_call_no_args_call_no_args() {
+        insta::assert_snapshot!(parse_display_expr("foo()()"));
+    }
+
+    #[test]
+    fn fn_call_no_args_precedence() {
+        insta::assert_snapshot!(parse_display_expr("foo.bar()"));
+    }
+
+    #[test]
+    fn fn_call_one_arg() {
+        insta::assert_snapshot!(parse_display_expr("foo(1)"));
+    }
+
+    #[test]
+    fn fn_call_two_arg() {
+        insta::assert_snapshot!(parse_display_expr("foo(1, 2)"));
+    }
+
+    #[test]
+    fn fn_call_two_arg_trailing_comma() {
+        insta::assert_snapshot!(parse_display_expr("foo(1, 2,)"));
+    }
+
+    #[test]
+    fn logical_operators() {
+        insta::assert_snapshot!(parse_display_expr(
+            "true || a == b && 1 != 1 && (false || a != b)"
+        ));
     }
 }
