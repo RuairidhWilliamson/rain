@@ -1,4 +1,4 @@
-use crate::{ast::Script, tokens::peek::PeekTokenStream};
+use crate::{ast::ModuleRoot, tokens::peek::PeekTokenStream};
 
 use super::Rir;
 
@@ -11,7 +11,7 @@ fn let_deps() {
     "
     .to_string();
     let mut stream = PeekTokenStream::new(&src);
-    let ast = Script::parse(&mut stream).unwrap();
+    let ast = ModuleRoot::parse(&mut stream).unwrap();
     let mut ir = Rir::new();
     let module_id = ir.insert_module(None, src, ast);
     let a = ir.resolve_global_declaration(module_id, "a").unwrap();
@@ -34,7 +34,7 @@ fn fn_deps() {
     ",
     );
     let mut stream = PeekTokenStream::new(&src);
-    let ast = Script::parse(&mut stream).unwrap();
+    let ast = ModuleRoot::parse(&mut stream).unwrap();
     let mut ir = Rir::new();
     let module_id = ir.insert_module(None, src, ast);
     let a = ir.resolve_global_declaration(module_id, "a").unwrap();

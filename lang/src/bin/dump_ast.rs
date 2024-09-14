@@ -36,7 +36,7 @@ fn print_help() {
 
 fn inner(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
     let mut stream = PeekTokenStream::new(src);
-    let script = rain_lang::ast::Script::parse(&mut stream)?;
+    let script = rain_lang::ast::ModuleRoot::parse(&mut stream)?;
     let out = display_ast(&script, src);
     println!("{out}");
     Ok(())

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use rain_lang::{
-    ast::Script,
+    ast::ModuleRoot,
     ir::Rir,
     runner::{value::RainValue, Runner},
     tokens::peek::PeekTokenStream,
@@ -9,7 +9,7 @@ use rain_lang::{
 
 fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<RainValue> {
     let mut stream = PeekTokenStream::new(&src);
-    let ast = Script::parse(&mut stream).map_err(|err| {
+    let ast = ModuleRoot::parse(&mut stream).map_err(|err| {
         eprintln!("{}", err.resolve(path.as_ref().map(|p| p.as_path()), &src));
         err.err
     })?;

@@ -26,7 +26,7 @@ impl Rir {
         &mut self,
         path: Option<PathBuf>,
         src: String,
-        ast: crate::ast::Script,
+        ast: crate::ast::ModuleRoot,
     ) -> ModuleId {
         let declarations = ast.declarations;
         let id = ModuleId(self.modules.len());

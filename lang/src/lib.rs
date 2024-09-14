@@ -1,4 +1,6 @@
+pub mod append_vec;
 pub mod ast;
+pub mod ast2;
 pub mod error;
 pub mod ir;
 pub mod local_span;

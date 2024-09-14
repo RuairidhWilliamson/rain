@@ -30,7 +30,7 @@ fn print_help() {
 
 fn inner(path: PathBuf, src: String) -> Result<(), ()> {
     let mut stream = PeekTokenStream::new(&src);
-    let script = rain_lang::ast::Script::parse(&mut stream).map_err(|err| {
+    let script = rain_lang::ast::ModuleRoot::parse(&mut stream).map_err(|err| {
         eprintln!("{}", err.resolve(Some(&path), &src));
     })?;
     let mut rir = Rir::new();

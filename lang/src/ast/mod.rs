@@ -14,11 +14,11 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Script {
+pub struct ModuleRoot {
     pub declarations: Vec<Declaration>,
 }
 
-impl display::AstDisplay for Script {
+impl display::AstDisplay for ModuleRoot {
     fn span(&self) -> LocalSpan {
         LocalSpan::span_iter(self.declarations.iter().map(display::AstDisplay::span))
     }
@@ -32,7 +32,7 @@ impl display::AstDisplay for Script {
     }
 }
 
-impl Script {
+impl ModuleRoot {
     pub fn parse(stream: &mut PeekTokenStream) -> ParseResult<Self> {
         let mut declarations = Vec::new();
         while let Some(peek) = stream.peek()? {

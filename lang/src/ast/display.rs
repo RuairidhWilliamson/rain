@@ -28,6 +28,14 @@ pub struct AstFormatter<'a> {
 }
 
 impl<'b> AstFormatter<'b> {
+    pub fn new(src: &'b str, buf: &'b mut (dyn Write + 'b)) -> Self {
+        Self {
+            src,
+            indent: 0,
+            buf,
+        }
+    }
+
     pub fn node<'a>(&'a mut self, name: &str) -> NodeBuilder<'a, 'b>
     where
         'b: 'a,

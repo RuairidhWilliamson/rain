@@ -1,10 +1,8 @@
-use crate::{ast::display::display_ast, tokens::peek::PeekTokenStream};
-
-use super::ModuleRoot;
+use crate::tokens::peek::PeekTokenStream;
 
 fn parse_display_script(src: &str) -> String {
     let mut stream = PeekTokenStream::new(src);
-    let s = match ModuleRoot::parse(&mut stream) {
+    let s = match super::parser::parse_module(&mut stream) {
         Ok(s) => s,
         Err(err) => {
             eprintln!("{}", err.resolve(None, src));
@@ -16,7 +14,7 @@ fn parse_display_script(src: &str) -> String {
         None,
         "input not fully consumed"
     );
-    display_ast(&s, src)
+    s.display(src)
 }
 
 #[test]
