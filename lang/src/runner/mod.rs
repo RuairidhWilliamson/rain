@@ -13,7 +13,7 @@ use value::{
 };
 
 use crate::{
-    ast2::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
+    ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
     ir::{DeclarationId, IrModule, Rir},
     local_span::{ErrorLocalSpan, LocalSpan},
 };

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::ast2::{Module, ModuleRoot, Node, NodeId};
+use crate::ast::{Module, ModuleRoot, Node, NodeId};
 
 #[derive(Debug, Default)]
 pub struct Rir {
@@ -46,7 +46,7 @@ pub struct IrModule {
     #[allow(dead_code)]
     path: Option<PathBuf>,
     pub src: String,
-    module: crate::ast2::Module,
+    module: crate::ast::Module,
 }
 
 impl IrModule {

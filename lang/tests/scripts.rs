@@ -8,7 +8,7 @@ use rain_lang::{
 
 fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<RainValue> {
     let mut stream = PeekTokenStream::new(&src);
-    let module = rain_lang::ast2::parser::parse_module(&mut stream).map_err(|err| {
+    let module = rain_lang::ast::parser::parse_module(&mut stream).map_err(|err| {
         eprintln!("{}", err.resolve(path.as_ref().map(|p| p.as_path()), &src));
         err.err
     })?;

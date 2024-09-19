@@ -1,5 +1,5 @@
 use crate::{
-    ast2::error::{ParseError, ParseResult},
+    ast::error::{ParseError, ParseResult},
     local_span::ErrorLocalSpan,
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
@@ -323,7 +323,7 @@ fn expect_token(
 
 #[cfg(test)]
 mod test {
-    use crate::{ast2::NodeList, tokens::peek::PeekTokenStream};
+    use crate::{ast::NodeList, tokens::peek::PeekTokenStream};
 
     fn parse_display_expr(src: &str) -> String {
         let mut stream = PeekTokenStream::new(src);
