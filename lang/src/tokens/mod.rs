@@ -96,8 +96,14 @@ pub struct TokenLocalSpan {
     pub span: LocalSpan,
 }
 
-impl TokenLocalSpan {
-    pub fn span(self) -> LocalSpan {
-        self.span
+impl From<TokenLocalSpan> for LocalSpan {
+    fn from(tls: TokenLocalSpan) -> Self {
+        tls.span
+    }
+}
+
+impl From<&TokenLocalSpan> for LocalSpan {
+    fn from(tls: &TokenLocalSpan) -> Self {
+        tls.span
     }
 }

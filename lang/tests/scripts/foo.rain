@@ -1,5 +1,5 @@
 fn foo() {
-	11
+	6 + bar
 }
 
 let bar = 5

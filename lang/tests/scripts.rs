@@ -19,7 +19,7 @@ fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<RainValue> {
         .ok_or_else(|| anyhow::anyhow!("main declaration not found"))?;
     let mut runner = Runner::new(ir);
     let value = runner.evaluate_and_call(main).map_err(|err| {
-        eprintln!("{}", err.resolve_ir(&runner.rir, mid));
+        eprintln!("{}", err.resolve_ir(&runner.rir));
         err.err
     })?;
     Ok(value)

@@ -6,6 +6,7 @@ use std::{
 use crate::{
     error::ResolvedError,
     ir::{ModuleId, Rir},
+    span::Span,
 };
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -115,6 +116,13 @@ impl LocalSpan {
             acc += s;
         }
         acc
+    }
+
+    pub const fn with_module(self, module_id: ModuleId) -> Span {
+        Span {
+            module: module_id,
+            span: Some(self),
+        }
     }
 
     pub const fn with_error<E: std::error::Error>(self, err: E) -> ErrorLocalSpan<E> {

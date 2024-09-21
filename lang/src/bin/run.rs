@@ -40,8 +40,8 @@ fn inner(path: PathBuf, src: String) -> Result<(), ()> {
     };
     let mut runner = Runner::new(rir);
     let value = runner.evaluate_and_call(main).map_err(|err| {
-        eprintln!("{}", err.resolve_ir(&runner.rir, mid));
-    });
+        eprintln!("{}", err.resolve_ir(&runner.rir));
+    })?;
     println!("{value:?}");
     Ok(())
 }
