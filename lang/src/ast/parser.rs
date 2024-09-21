@@ -5,9 +5,9 @@ use crate::{
 };
 
 use super::{
-    AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, FnCall, FnDeclare,
-    FnDeclareArg, IfCondition, LetDeclare, Module, ModuleRoot, Node, NodeId, NodeList,
-    StringLiteral,
+    AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, FalseLiteral, FnCall,
+    FnDeclare, FnDeclareArg, Ident, IfCondition, IntegerLiteral, InternalLiteral, LetDeclare,
+    Module, ModuleRoot, Node, NodeId, NodeList, StringLiteral, TrueLiteral,
 };
 
 pub fn parse_module(source: &str) -> ParseResult<Module> {
@@ -184,12 +184,12 @@ impl<'src> ModuleParser<'src> {
                 .with_error(ParseError::ExpectedExpression));
         };
         let expr = match t.token {
-            Token::Ident => self.push(Node::Ident(t)),
-            Token::Number => self.push(Node::IntegerLiteral(t)),
+            Token::Ident => self.push(Ident(t)),
+            Token::Number => self.push(IntegerLiteral(t)),
             Token::DoubleQuoteLiteral(_) => self.push(StringLiteral(t)),
-            Token::True => self.push(Node::TrueLiteral(t)),
-            Token::False => self.push(Node::FalseLiteral(t)),
-            Token::Internal => self.push(Node::Internal(t)),
+            Token::True => self.push(TrueLiteral(t)),
+            Token::False => self.push(FalseLiteral(t)),
+            Token::Internal => self.push(InternalLiteral(t)),
             Token::LParen => {
                 let expr = self.parse_expr()?;
                 self.stream.expect_parse_next(&[Token::RParen])?;

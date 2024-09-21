@@ -6,7 +6,7 @@ use std::{
 use crate::{
     error::ResolvedError,
     ir::{ModuleId, Rir},
-    span::Span,
+    span::{ErrorSpan, Span},
 };
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -166,5 +166,9 @@ impl<E: std::error::Error> ErrorLocalSpan<E> {
     pub fn resolve_ir<'a>(&'a self, ir: &'a Rir, module_id: ModuleId) -> ResolvedError<'a> {
         let module = ir.get_module(module_id);
         self.resolve(module.path.as_deref(), &module.src)
+    }
+
+    pub fn upgrade(self, module_id: ModuleId) -> ErrorSpan<E> {
+        self.span.with_module(module_id).with_error(self.err)
     }
 }

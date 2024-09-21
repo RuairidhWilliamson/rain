@@ -34,4 +34,11 @@ impl<E: std::error::Error> ErrorSpan<E> {
             span: self.span.span,
         }
     }
+
+    pub fn convert<T>(self) -> ErrorSpan<T>
+    where
+        T: From<E> + std::error::Error,
+    {
+        self.span.with_error(T::from(self.err))
+    }
 }

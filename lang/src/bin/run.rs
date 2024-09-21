@@ -29,13 +29,14 @@ fn print_help() {
 }
 
 fn inner(path: PathBuf, src: String) -> Result<(), ()> {
-    let script = rain_lang::ast::parser::parse_module(&src).map_err(|err| {
-        eprintln!("{}", err.resolve(Some(&path), &src));
-    })?;
+    let script = rain_lang::ast::parser::parse_module(&src);
     let mut rir = Rir::new();
-    let mid = rir.insert_module(Some(path), src, script);
+    let mid = rir.insert_module(Some(path), src, script).map_err(|err| {
+        eprintln!("{}", err.resolve_ir(&rir));
+    })?;
     let Some(main) = rir.resolve_global_declaration(mid, "main") else {
-        panic!("main declaration not found")
+        eprintln!("main declaration not found");
+        return Err(());
     };
     let mut runner = Runner::new(rir);
     let value = runner.evaluate_and_call(main).map_err(|err| {

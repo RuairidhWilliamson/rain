@@ -1,9 +1,5 @@
-// Id = 0
-// Depends on []
 let a = 5
-
-// Id = 1
-// Depends on [0]
 let b = a
+let m = internal.import("nonexistent.rain")
 
-let main = (1 + 3 * 4 - 1) / 4 * 3 + a + b
+let main = (1 + 3 * 4 - 1) / 4 * 3 + a + b + m.foo

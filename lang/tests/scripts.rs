@@ -6,12 +6,12 @@ use rain_lang::{
 };
 
 fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<RainValue> {
-    let module = rain_lang::ast::parser::parse_module(&src).map_err(|err| {
-        eprintln!("{}", err.resolve(path.as_deref(), &src));
+    let module = rain_lang::ast::parser::parse_module(&src);
+    let mut ir = Rir::new();
+    let mid = ir.insert_module(path, src, module).map_err(|err| {
+        eprintln!("{}", err.resolve_ir(&ir));
         err.err
     })?;
-    let mut ir = Rir::new();
-    let mid = ir.insert_module(path, src, module);
     let main = ir
         .resolve_global_declaration(mid, "main")
         .ok_or_else(|| anyhow::anyhow!("main declaration not found"))?;

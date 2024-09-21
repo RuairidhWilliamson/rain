@@ -9,6 +9,8 @@ pub enum RunnerError {
     ExpectedType(RainTypeId, &'static [RainTypeId]),
     InvalidIntegerLiteral,
     MaxCallDepth,
+    ImportResolve,
+    ImportIOError(std::io::Error),
     ImportParseError(ParseError),
 }
 
@@ -24,6 +26,8 @@ impl std::fmt::Display for RunnerError {
             Self::MaxCallDepth => {
                 f.write_str("reached max call depth probably due to infinite recursion")
             }
+            Self::ImportResolve => f.write_fmt(format_args!("could not resolve import")),
+            Self::ImportIOError(err) => f.write_fmt(format_args!("io error when importing: {err}")),
             Self::ImportParseError(err) => {
                 f.write_fmt(format_args!("parse error when importing: {err}"))
             }
@@ -32,3 +36,9 @@ impl std::fmt::Display for RunnerError {
 }
 
 impl std::error::Error for RunnerError {}
+
+impl From<ParseError> for RunnerError {
+    fn from(err: ParseError) -> Self {
+        Self::ImportParseError(err)
+    }
+}

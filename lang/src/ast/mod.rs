@@ -10,6 +10,11 @@ use crate::{
     tokens::{StringLiteralPrefix, Token, TokenLocalSpan},
 };
 
+trait AstNode {
+    fn span(&self, list: &NodeList) -> LocalSpan;
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result;
+}
+
 #[derive(Debug)]
 pub struct Module {
     pub root: NodeId,
@@ -23,6 +28,10 @@ impl Module {
 
     pub fn get(&self, id: NodeId) -> &Node {
         self.nodes.get(id)
+    }
+
+    pub fn span(&self, id: NodeId) -> LocalSpan {
+        self.nodes.get(id).span(&self.nodes)
     }
 }
 
@@ -46,7 +55,8 @@ impl NodeList {
 
     fn push(&mut self, node: impl Into<Node>) -> NodeId {
         let index = self.nodes.len();
-        self.nodes.push(node.into());
+        let node = node.into();
+        self.nodes.push(node);
         NodeId(index)
     }
 
@@ -55,6 +65,10 @@ impl NodeList {
             unreachable!()
         };
         node
+    }
+
+    fn span(&self, id: NodeId) -> LocalSpan {
+        self.get(id).span(self)
     }
 }
 
@@ -71,67 +85,40 @@ pub enum Node {
     FnCall(FnCall),
     Assignment(Assignment),
     BinaryOp(BinaryOp),
-    Ident(TokenLocalSpan),
-    Internal(TokenLocalSpan),
+    Ident(Ident),
     StringLiteral(StringLiteral),
-    IntegerLiteral(TokenLocalSpan),
-    TrueLiteral(TokenLocalSpan),
-    FalseLiteral(TokenLocalSpan),
+    IntegerLiteral(IntegerLiteral),
+    TrueLiteral(TrueLiteral),
+    FalseLiteral(FalseLiteral),
+    InternalLiteral(InternalLiteral),
 }
 
 impl Node {
-    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+    fn ast_node(&self) -> &dyn AstNode {
         match self {
-            Self::ModuleRoot(module_root) => f
-                .node("ModuleRoot")
-                .children(&module_root.declarations)
-                .finish(),
-            Self::LetDeclare(let_declare) => f
-                .node("LetDeclare")
-                .child_contents(let_declare.name.span)
-                .child(let_declare.expr)
-                .finish(),
-            Self::FnDeclare(fn_declare) => f
-                .node("FnDeclare")
-                .child_contents(fn_declare.name.span)
-                .child(fn_declare.block)
-                .finish(),
-            Self::Block(block) => f.node("Block").children(&block.statements).finish(),
-            Self::IfCondition(if_condition) => {
-                let mut b = f.node("IfCondition");
-                b.child(if_condition.condition)
-                    .child(if_condition.then_block);
-                match &if_condition.alternate {
-                    Some(
-                        AlternateCondition::IfElseCondition(id) | AlternateCondition::ElseBlock(id),
-                    ) => b.child(*id),
-                    None => &mut b,
-                }
-                .finish()
-            }
-            Self::FnCall(fn_call) => f
-                .node("FnCall")
-                .child(fn_call.callee)
-                .children(&fn_call.args)
-                .finish(),
-            Self::Assignment(assignment) => f
-                .node("Assignment")
-                .child_contents(assignment.name.span)
-                .child(assignment.expr)
-                .finish(),
-            Self::BinaryOp(op) => f
-                .node("BinaryOp")
-                .child(op.left)
-                .child_contents(op.op_span)
-                .child(op.right)
-                .finish(),
-            Self::Ident(tls) => f.node("Ident").child_contents(tls.span).finish(),
-            Self::Internal(tls) => f.node("Internal").child_contents(tls.span).finish(),
-            Self::StringLiteral(lit) => f.node("StringLiteral").child_contents(lit.0.span).finish(),
-            Self::IntegerLiteral(tls) => f.node("IntegerLiteral").child_contents(tls.span).finish(),
-            Self::TrueLiteral(_) => f.node("TrueLiteral").finish(),
-            Self::FalseLiteral(_) => f.node("FalseLiteral").finish(),
+            Self::ModuleRoot(inner) => inner,
+            Self::LetDeclare(inner) => inner,
+            Self::FnDeclare(inner) => inner,
+            Self::Block(inner) => inner,
+            Self::IfCondition(inner) => inner,
+            Self::FnCall(inner) => inner,
+            Self::Assignment(inner) => inner,
+            Self::BinaryOp(inner) => inner,
+            Self::Ident(inner) => inner,
+            Self::StringLiteral(inner) => inner,
+            Self::IntegerLiteral(inner) => inner,
+            Self::TrueLiteral(inner) => inner,
+            Self::FalseLiteral(inner) => inner,
+            Self::InternalLiteral(inner) => inner,
         }
+    }
+
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        self.ast_node().span(list)
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        self.ast_node().ast_display(f)
     }
 }
 
@@ -146,6 +133,16 @@ impl From<ModuleRoot> for Node {
     }
 }
 
+impl AstNode for ModuleRoot {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        LocalSpan::span_iter(self.declarations.iter().map(|&nid| list.span(nid)))
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("ModuleRoot").children(&self.declarations).finish()
+    }
+}
+
 #[derive(Debug)]
 pub struct LetDeclare {
     pub let_token: TokenLocalSpan,
@@ -157,6 +154,19 @@ pub struct LetDeclare {
 impl From<LetDeclare> for Node {
     fn from(inner: LetDeclare) -> Self {
         Self::LetDeclare(inner)
+    }
+}
+
+impl AstNode for LetDeclare {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        self.let_token.span + list.span(self.expr)
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("LetDeclare")
+            .child_contents(self.name.span)
+            .child(self.expr)
+            .finish()
     }
 }
 
@@ -176,6 +186,19 @@ impl From<FnDeclare> for Node {
     }
 }
 
+impl AstNode for FnDeclare {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        self.fn_token.span + list.span(self.block)
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("FnDeclare")
+            .child_contents(self.name.span)
+            .child(self.block)
+            .finish()
+    }
+}
+
 #[derive(Debug)]
 pub struct FnDeclareArg {
     pub name: TokenLocalSpan,
@@ -191,6 +214,16 @@ pub struct Block {
 impl From<Block> for Node {
     fn from(inner: Block) -> Self {
         Self::Block(inner)
+    }
+}
+
+impl AstNode for Block {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.lbrace_token.span + self.rbrace_token.span
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("Block").children(&self.statements).finish()
     }
 }
 
@@ -222,6 +255,16 @@ impl From<StringLiteral> for Node {
     }
 }
 
+impl AstNode for StringLiteral {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.0.span
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("StringLiteral").child_contents(self.0.span).finish()
+    }
+}
+
 #[derive(Debug)]
 pub struct BinaryOp {
     pub left: NodeId,
@@ -236,6 +279,20 @@ impl From<BinaryOp> for Node {
     }
 }
 
+impl AstNode for BinaryOp {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        list.span(self.left) + list.span(self.right)
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("BinaryOp")
+            .child(self.left)
+            .child_contents(self.op_span)
+            .child(self.right)
+            .finish()
+    }
+}
+
 #[derive(Debug)]
 pub struct FnCall {
     pub callee: NodeId,
@@ -247,6 +304,19 @@ pub struct FnCall {
 impl From<FnCall> for Node {
     fn from(inner: FnCall) -> Self {
         Self::FnCall(inner)
+    }
+}
+
+impl AstNode for FnCall {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        list.span(self.callee) + self.rparen_token.span
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("FnCall")
+            .child(self.callee)
+            .children(&self.args)
+            .finish()
     }
 }
 
@@ -269,6 +339,30 @@ impl From<IfCondition> for Node {
     }
 }
 
+impl AstNode for IfCondition {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        list.span(self.condition)
+            + match &self.alternate {
+                Some(
+                    AlternateCondition::IfElseCondition(nid) | AlternateCondition::ElseBlock(nid),
+                ) => list.span(*nid),
+                None => list.span(self.then_block),
+            }
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        let mut b = f.node("IfCondition");
+        b.child(self.condition).child(self.then_block);
+        match &self.alternate {
+            Some(AlternateCondition::IfElseCondition(id) | AlternateCondition::ElseBlock(id)) => {
+                b.child(*id)
+            }
+            None => &mut b,
+        }
+        .finish()
+    }
+}
+
 #[derive(Debug)]
 pub struct Assignment {
     pub name: TokenLocalSpan,
@@ -279,6 +373,19 @@ pub struct Assignment {
 impl From<Assignment> for Node {
     fn from(inner: Assignment) -> Self {
         Self::Assignment(inner)
+    }
+}
+
+impl AstNode for Assignment {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        self.name.span + list.span(self.expr)
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("Assignment")
+            .child_contents(self.name.span)
+            .child(self.expr)
+            .finish()
     }
 }
 
@@ -309,5 +416,104 @@ impl BinaryOperatorKind {
             Token::LogicalOr => Some(Self::LogicalOr),
             _ => None,
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct IntegerLiteral(pub TokenLocalSpan);
+
+impl From<IntegerLiteral> for Node {
+    fn from(inner: IntegerLiteral) -> Self {
+        Self::IntegerLiteral(inner)
+    }
+}
+
+impl AstNode for IntegerLiteral {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.0.span
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("IntegerLiteral")
+            .child_contents(self.0.span)
+            .finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct InternalLiteral(pub TokenLocalSpan);
+
+impl From<InternalLiteral> for Node {
+    fn from(inner: InternalLiteral) -> Self {
+        Self::InternalLiteral(inner)
+    }
+}
+
+impl AstNode for InternalLiteral {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.0.span
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("IntegerLiteral")
+            .child_contents(self.0.span)
+            .finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct TrueLiteral(pub TokenLocalSpan);
+
+impl From<TrueLiteral> for Node {
+    fn from(inner: TrueLiteral) -> Self {
+        Self::TrueLiteral(inner)
+    }
+}
+
+impl AstNode for TrueLiteral {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.0.span
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("TrueLiteral").finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct FalseLiteral(pub TokenLocalSpan);
+
+impl From<FalseLiteral> for Node {
+    fn from(inner: FalseLiteral) -> Self {
+        Self::FalseLiteral(inner)
+    }
+}
+
+impl AstNode for FalseLiteral {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.0.span
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("FalseLiteral").finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct Ident(pub TokenLocalSpan);
+
+impl From<Ident> for Node {
+    fn from(inner: Ident) -> Self {
+        Self::Ident(inner)
+    }
+}
+
+impl AstNode for Ident {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.0.span
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("Ident").child_contents(self.0.span).finish()
     }
 }

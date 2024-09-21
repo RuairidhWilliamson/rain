@@ -1,6 +1,10 @@
 use std::{path::PathBuf, sync::Arc};
 
-use crate::ast::{Module, ModuleRoot, Node, NodeId};
+use crate::{
+    ast::{error::ParseError, Module, ModuleRoot, Node, NodeId},
+    local_span::{ErrorLocalSpan, LocalSpan},
+    span::ErrorSpan,
+};
 
 #[derive(Debug, Default)]
 pub struct Rir {
@@ -12,15 +16,24 @@ impl Rir {
         Self::default()
     }
 
-    pub fn insert_module(&mut self, path: Option<PathBuf>, src: String, ast: Module) -> ModuleId {
+    pub fn insert_module(
+        &mut self,
+        path: Option<PathBuf>,
+        src: String,
+        ast: Result<Module, ErrorLocalSpan<ParseError>>,
+    ) -> Result<ModuleId, ErrorSpan<ParseError>> {
         let id = ModuleId(self.modules.len());
+        let (module, res) = match ast {
+            Ok(m) => (Some(ParsedIrModule(m)), Ok(id)),
+            Err(els) => (None, Err(els.upgrade(id))),
+        };
         self.modules.push(Arc::new(IrModule {
             id,
             path,
             src,
-            module: ast,
+            module,
         }));
-        id
+        res
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Arc<IrModule> {
@@ -29,12 +42,14 @@ impl Rir {
         };
         m
     }
+
     pub fn resolve_global_declaration(
         &self,
         module_id: ModuleId,
         name: &str,
     ) -> Option<DeclarationId> {
-        self.get_module(module_id)
+        let module = self.get_module(module_id);
+        module
             .find_declaration_by_name(name)
             .map(|id| DeclarationId(module_id, id))
     }
@@ -45,40 +60,35 @@ pub struct IrModule {
     pub id: ModuleId,
     pub path: Option<PathBuf>,
     pub src: String,
-    module: crate::ast::Module,
+    module: Option<ParsedIrModule>,
 }
 
 impl IrModule {
+    fn inner(&self) -> &ParsedIrModule {
+        let Some(m) = &self.module else {
+            unreachable!("module failed to parse so can't be used")
+        };
+        m
+    }
+
     pub fn get(&self, id: NodeId) -> &Node {
-        self.module.get(id)
+        self.inner().0.get(id)
+    }
+
+    pub fn span(&self, id: NodeId) -> LocalSpan {
+        self.inner().0.span(id)
     }
 
     pub fn get_declaration(&self, id: LocalDeclarationId) -> NodeId {
-        let Node::ModuleRoot(module_root) = self.module.get(self.module.root) else {
-            unreachable!()
-        };
-        let Some(id) = module_root.declarations.get(id.0) else {
+        let Some(id) = self.inner().module_root().declarations.get(id.0) else {
             unreachable!()
         };
         *id
     }
 
-    pub fn module_root(&self) -> &ModuleRoot {
-        let Node::ModuleRoot(module_root) = self.module.get(self.module.root) else {
-            unreachable!()
-        };
-        module_root
-    }
-
-    pub fn declarations(&self) -> impl Iterator<Item = &Node> {
-        self.module_root()
-            .declarations
-            .iter()
-            .map(|nid| self.module.get(*nid))
-    }
-
-    fn find_declaration_by_name(&self, name: &str) -> Option<LocalDeclarationId> {
-        self.declarations()
+    pub fn find_declaration_by_name(&self, name: &str) -> Option<LocalDeclarationId> {
+        self.inner()
+            .declarations()
             .enumerate()
             .find(|(_, node)| match node {
                 Node::LetDeclare(let_declare) => let_declare.name.span.contents(&self.src) == name,
@@ -86,6 +96,25 @@ impl IrModule {
                 _ => unreachable!(),
             })
             .map(|(id, _)| LocalDeclarationId(id))
+    }
+}
+
+#[derive(Debug)]
+struct ParsedIrModule(Module);
+
+impl ParsedIrModule {
+    fn module_root(&self) -> &ModuleRoot {
+        let Node::ModuleRoot(module_root) = self.0.get(self.0.root) else {
+            unreachable!()
+        };
+        module_root
+    }
+
+    fn declarations(&self) -> impl Iterator<Item = &Node> {
+        self.module_root()
+            .declarations
+            .iter()
+            .map(|nid| self.0.get(*nid))
     }
 }
 
