@@ -7,7 +7,7 @@ pub struct ResolvedError<'a> {
     pub err: &'a dyn std::error::Error,
     pub path: Option<&'a Path>,
     pub src: &'a str,
-    pub span: Option<LocalSpan>,
+    pub span: LocalSpan,
 }
 
 impl std::fmt::Display for ResolvedError<'_> {
@@ -20,7 +20,6 @@ impl std::fmt::Display for ResolvedError<'_> {
             span,
             ..
         } = self;
-        let span = span.unwrap();
         let (line, col) = span.line_col(src);
         let path = path.unwrap_or(Path::new("<unknown>"));
         let location = format!("{}:{}:{}\n", path.display(), line, col).blue();

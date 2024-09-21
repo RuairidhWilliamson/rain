@@ -1,5 +1,6 @@
 use crate::{
     ast::error::{ParseError, ParseResult},
+    local_span::ErrorLocalSpan,
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
 
@@ -12,11 +13,8 @@ use super::{
 pub fn parse_module(source: &str) -> ParseResult<Module> {
     let mut parser = ModuleParser::new(source);
     let module_root = parser.parse_module_root()?;
-    if let Some(tls) = parser.stream.parse_next()? {
-        return Err(tls.span.with_error(ParseError::InputNotFullConsumed));
-    }
     let root = parser.push(Node::ModuleRoot(module_root));
-    let ModuleParser { nodes, stream: _ } = parser;
+    let nodes = parser.complete()?;
     Ok(Module { root, nodes })
 }
 
@@ -34,6 +32,14 @@ impl<'src> ModuleParser<'src> {
         Self {
             nodes: NodeList::new(),
             stream,
+        }
+    }
+
+    pub fn complete(mut self) -> Result<NodeList, ErrorLocalSpan<ParseError>> {
+        if let Some(tls) = self.stream.parse_next()? {
+            Err(tls.span.with_error(ParseError::InputNotFullConsumed))
+        } else {
+            Ok(self.nodes)
         }
     }
 
@@ -339,12 +345,14 @@ mod test {
                 panic!("parse error");
             }
         };
-        assert_eq!(
-            parser.stream.parse_next().unwrap(),
-            None,
-            "input not fully consumed"
-        );
-        parser.nodes.display(src, id)
+        let nodes = match parser.complete() {
+            Ok(nodes) => nodes,
+            Err(err) => {
+                eprintln!("{}", err.resolve(None, src));
+                panic!("parse error");
+            }
+        };
+        nodes.display(src, id)
     }
 
     #[test]

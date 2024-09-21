@@ -121,15 +121,12 @@ impl LocalSpan {
     pub const fn with_module(self, module_id: ModuleId) -> Span {
         Span {
             module: module_id,
-            span: Some(self),
+            span: self,
         }
     }
 
     pub const fn with_error<E: std::error::Error>(self, err: E) -> ErrorLocalSpan<E> {
-        ErrorLocalSpan {
-            err,
-            span: Some(self),
-        }
+        ErrorLocalSpan { err, span: self }
     }
 }
 
@@ -153,13 +150,7 @@ impl AddAssign for LocalSpan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ErrorLocalSpan<E: std::error::Error> {
     pub err: E,
-    pub span: Option<LocalSpan>,
-}
-
-impl<E: std::error::Error> ErrorLocalSpan<E> {
-    pub fn new(err: E, span: Option<LocalSpan>) -> Self {
-        Self { err, span }
-    }
+    pub span: LocalSpan,
 }
 
 impl<E: std::error::Error> ErrorLocalSpan<E> {

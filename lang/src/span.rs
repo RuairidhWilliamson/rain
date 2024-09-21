@@ -7,7 +7,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Span {
     pub module: ModuleId,
-    pub span: Option<LocalSpan>,
+    pub span: LocalSpan,
 }
 
 impl Span {

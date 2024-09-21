@@ -219,7 +219,11 @@ impl Runner {
         }
     }
 
-    #[expect(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
+    #[expect(
+        clippy::needless_pass_by_value,
+        clippy::unnecessary_wraps,
+        clippy::unwrap_used
+    )]
     fn call_internal_function(
         &mut self,
         cx: &mut Cx,
@@ -244,8 +248,8 @@ impl Runner {
                     .join(import_path);
                 let src = std::fs::read_to_string(&resolved_path).unwrap();
                 let module = crate::ast::parser::parse_module(&src).unwrap();
-                let mid = self.rir.insert_module(Some(resolved_path), src, module);
-                Ok(RainValue::new(RainModule { id: mid }))
+                let id = self.rir.insert_module(Some(resolved_path), src, module);
+                Ok(RainValue::new(RainModule { id }))
             }
         }
     }

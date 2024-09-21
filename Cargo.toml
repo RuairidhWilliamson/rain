@@ -29,7 +29,7 @@ publish = false
 
 [workspace.lints.clippy]
 # Probably should be enabled
-# unwrap_used = "warn"
+unwrap_used = "warn"
 # print_stderr = "warn"
 # print_stdout = "warn"
 

@@ -40,7 +40,7 @@ impl NodeList {
         let node = self.get(id);
         let mut buf = String::new();
         let mut f = display::AstFormatter::new(src, &mut buf, self);
-        node.ast_display(&mut f).unwrap();
+        node.ast_display(&mut f).expect("display write");
         buf
     }
 

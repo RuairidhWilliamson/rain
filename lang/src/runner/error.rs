@@ -1,3 +1,5 @@
+use crate::ast::error::ParseError;
+
 use super::value::RainTypeId;
 
 #[derive(Debug)]
@@ -7,6 +9,7 @@ pub enum RunnerError {
     ExpectedType(RainTypeId, &'static [RainTypeId]),
     InvalidIntegerLiteral,
     MaxCallDepth,
+    ImportParseError(ParseError),
 }
 
 impl std::fmt::Display for RunnerError {
@@ -20,6 +23,9 @@ impl std::fmt::Display for RunnerError {
             Self::InvalidIntegerLiteral => f.write_str("invalid integer literal"),
             Self::MaxCallDepth => {
                 f.write_str("reached max call depth probably due to infinite recursion")
+            }
+            Self::ImportParseError(err) => {
+                f.write_fmt(format_args!("parse error when importing: {err}"))
             }
         }
     }

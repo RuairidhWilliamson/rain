@@ -77,10 +77,9 @@ impl PeekTokenStream<'_> {
         expect: &'static [Token],
     ) -> ParseResult<TokenLocalSpan> {
         let Some(token) = tls else {
-            return Err(ErrorLocalSpan::new(
-                ParseError::ExpectedToken(expect),
-                Some(self.last_span()),
-            ));
+            return Err(self
+                .last_span()
+                .with_error(ParseError::ExpectedToken(expect)));
         };
         if expect.contains(&token.token) {
             Ok(token)
