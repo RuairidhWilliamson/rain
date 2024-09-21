@@ -33,7 +33,7 @@ impl std::fmt::Display for ParseError {
             Self::TokenError(err) => std::fmt::Display::fmt(err, f),
             Self::ExpectedToken(tokens) => f.write_fmt(format_args!("expected one of {tokens:?}")),
             Self::ExpectedExpression(token) => {
-                #[allow(clippy::option_if_let_else)]
+                #[expect(clippy::option_if_let_else)]
                 let token: &str = if let Some(t) = token {
                     &format!("{t:?}")
                 } else {

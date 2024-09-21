@@ -216,7 +216,7 @@ impl Runner {
         }
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
+    #[expect(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
     fn call_internal_function(
         &mut self,
         cx: &mut Cx,
@@ -248,7 +248,7 @@ impl Runner {
         }
     }
 
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     fn evaluate_binary_op(&mut self, cx: &mut Cx, op: &BinaryOp) -> ResultValue {
         let left = self.evaluate_node(cx, op.left)?;
         match op.op {
