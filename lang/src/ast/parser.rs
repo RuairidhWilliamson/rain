@@ -1,6 +1,5 @@
 use crate::{
     ast::error::{ParseError, ParseResult},
-    local_span::ErrorLocalSpan,
     tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
 };
 
@@ -13,11 +12,9 @@ use super::{
 pub fn parse_module(source: &str) -> ParseResult<Module> {
     let mut parser = ModuleParser::new(source);
     let module_root = parser.parse_module_root()?;
-    assert_eq!(
-        parser.stream.parse_next().unwrap(),
-        None,
-        "input not fully consumed"
-    );
+    if let Some(tls) = parser.stream.parse_next()? {
+        return Err(tls.span.with_error(ParseError::InputNotFullConsumed));
+    }
     let root = parser.push(Node::ModuleRoot(module_root));
     let ModuleParser { nodes, stream: _ } = parser;
     Ok(Module { root, nodes })
@@ -69,9 +66,9 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_let_declare(&mut self) -> ParseResult<NodeId> {
-        let let_token = expect_token(self.stream.parse_next()?, &[Token::Let])?;
-        let name = expect_token(self.stream.parse_next()?, &[Token::Ident])?;
-        let equals_token = expect_token(self.stream.parse_next()?, &[Token::Assign])?;
+        let let_token = self.stream.expect_parse_next(&[Token::Let])?;
+        let name = self.stream.expect_parse_next(&[Token::Ident])?;
+        let equals_token = self.stream.expect_parse_next(&[Token::Assign])?;
         let expr = self.parse_expr()?;
         Ok(self.push(LetDeclare {
             let_token,
@@ -82,12 +79,12 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_fn_declare(&mut self) -> ParseResult<NodeId> {
-        let fn_token = expect_token(self.stream.parse_next()?, &[Token::Fn])?;
-        let name = expect_token(self.stream.parse_next()?, &[Token::Ident])?;
-        let lparen_token = expect_token(self.stream.parse_next()?, &[Token::LParen])?;
+        let fn_token = self.stream.expect_parse_next(&[Token::Fn])?;
+        let name = self.stream.expect_parse_next(&[Token::Ident])?;
+        let lparen_token = self.stream.expect_parse_next(&[Token::LParen])?;
         let mut args = Vec::new();
         loop {
-            let t = expect_token(self.stream.peek()?, &[Token::RParen, Token::Ident])?;
+            let t = self.stream.expect_peek(&[Token::RParen, Token::Ident])?;
             match t.token {
                 Token::RParen => break,
                 Token::Ident => {}
@@ -95,7 +92,7 @@ impl<'src> ModuleParser<'src> {
             }
             self.stream.parse_next()?;
             args.push(FnDeclareArg { name: t });
-            let t = expect_token(self.stream.peek()?, &[Token::RParen, Token::Comma])?;
+            let t = self.stream.expect_peek(&[Token::RParen, Token::Comma])?;
             match t.token {
                 Token::RParen => break,
                 Token::Comma => {
@@ -105,7 +102,7 @@ impl<'src> ModuleParser<'src> {
             }
         }
 
-        let rparen_token = expect_token(self.stream.parse_next()?, &[Token::RParen])?;
+        let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?;
         let block = self.parse_block()?;
         Ok(self.push(FnDeclare {
             fn_token,
@@ -118,7 +115,7 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_block(&mut self) -> ParseResult<NodeId> {
-        let lbrace_token = expect_token(self.stream.parse_next()?, &[Token::LBrace])?;
+        let lbrace_token = self.stream.expect_parse_next(&[Token::LBrace])?;
         let mut statements = Vec::new();
         let mut expecting_statement = true;
         while let Some(peek) = self.stream.peek()? {
@@ -140,7 +137,7 @@ impl<'src> ModuleParser<'src> {
                 }
             }
         }
-        let rbrace_token = expect_token(self.stream.parse_next()?, &[Token::RBrace])?;
+        let rbrace_token = self.stream.expect_parse_next(&[Token::RBrace])?;
         Ok(self.push(Block {
             lbrace_token,
             statements,
@@ -158,8 +155,8 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_assignment(&mut self) -> ParseResult<NodeId> {
-        let name = expect_token(self.stream.parse_next()?, &[Token::Ident])?;
-        let equals_token = expect_token(self.stream.parse_next()?, &[Token::Assign])?;
+        let name = self.stream.expect_parse_next(&[Token::Ident])?;
+        let equals_token = self.stream.expect_parse_next(&[Token::Assign])?;
         let expr = self.parse_expr()?;
         Ok(self.push(Assignment {
             name,
@@ -175,10 +172,10 @@ impl<'src> ModuleParser<'src> {
 
     fn parse_expr_primary(&mut self) -> ParseResult<NodeId> {
         let Some(t) = self.stream.parse_next()? else {
-            return Err(ErrorLocalSpan::new(
-                ParseError::ExpectedExpression(None),
-                None,
-            ));
+            return Err(self
+                .stream
+                .last_span()
+                .with_error(ParseError::ExpectedExpression));
         };
         let expr = match t.token {
             Token::Ident => self.push(Node::Ident(t)),
@@ -189,15 +186,11 @@ impl<'src> ModuleParser<'src> {
             Token::Internal => self.push(Node::Internal(t)),
             Token::LParen => {
                 let expr = self.parse_expr()?;
-                expect_token(self.stream.parse_next()?, &[Token::RParen])?;
+                self.stream.expect_parse_next(&[Token::RParen])?;
                 expr
             }
             Token::If => self.parse_if_condition(t)?,
-            _ => {
-                return Err(t
-                    .span
-                    .with_error(ParseError::ExpectedExpression(Some(t.token))))
-            }
+            _ => return Err(t.span.with_error(ParseError::ExpectedExpression)),
         };
         Ok(expr)
     }
@@ -246,7 +239,7 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_alternate(&mut self) -> ParseResult<AlternateCondition> {
-        let peek = expect_token(self.stream.peek()?, &[Token::If, Token::LBrace])?;
+        let peek = self.stream.expect_peek(&[Token::If, Token::LBrace])?;
         match peek.token {
             Token::If => {
                 let _ = self.stream.parse_next()?;
@@ -260,7 +253,7 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_fn_call(&mut self, lhs: NodeId) -> ParseResult<NodeId> {
-        let lparen_token = self.stream.parse_next()?.unwrap();
+        let lparen_token = self.stream.expect_parse_next(&[Token::LParen])?;
         let mut args = Vec::new();
         loop {
             let Some(t) = self.stream.peek()? else {
@@ -280,7 +273,7 @@ impl<'src> ModuleParser<'src> {
                 _ => break,
             }
         }
-        let rparen_token = expect_token(self.stream.parse_next()?, &[Token::RParen])?;
+        let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?;
         Ok(self.push(FnCall {
             callee: lhs,
             lparen_token,
@@ -328,37 +321,14 @@ pub fn get_token_precedence_associativity(token: Token) -> Option<(Precedence, A
     Some((precedence, associativity))
 }
 
-fn expect_token(
-    tls: Option<TokenLocalSpan>,
-    expect: &'static [Token],
-) -> ParseResult<TokenLocalSpan> {
-    let Some(token) = tls else {
-        return Err(ErrorLocalSpan::new(ParseError::ExpectedToken(expect), None));
-    };
-    if expect.contains(&token.token) {
-        Ok(token)
-    } else {
-        Err(token.span.with_error(ParseError::ExpectedToken(expect)))
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crate::{
         ast::{error::ParseError, parser::ModuleParser},
-        local_span::ErrorLocalSpan,
+        local_span::{ErrorLocalSpan, LocalSpan},
     };
 
     use super::parse_module;
-
-    macro_rules! assert_matches {
-        ($s:expr, $pattern:pat) => {
-            let s = $s;
-            if !matches!(s, $pattern) {
-                panic!("{s:?} did not match expected");
-            }
-        };
-    }
 
     fn parse_display_expr(src: &str) -> String {
         let mut parser = ModuleParser::new(src);
@@ -501,7 +471,21 @@ mod test {
 
     #[test]
     fn invalid_exprs() {
-        assert_matches!(ModuleParser::new("4.").parse_expr(), Err(_));
+        assert!(ModuleParser::new("4.").parse_expr().is_err());
+        assert!(ModuleParser::new(".4").parse_expr().is_err());
+        assert!(ModuleParser::new("()").parse_expr().is_err());
+        assert_eq!(
+            ModuleParser::new("()").parse_expr(),
+            Err(LocalSpan::byte(1).with_error(ParseError::ExpectedExpression))
+        );
+        assert_eq!(
+            ModuleParser::new("(").parse_expr(),
+            Err(LocalSpan::byte(0).with_error(ParseError::ExpectedExpression))
+        );
+        assert_eq!(
+            ModuleParser::new(")").parse_expr(),
+            Err(LocalSpan::byte(0).with_error(ParseError::ExpectedExpression))
+        );
     }
 
     #[test]
@@ -511,6 +495,7 @@ mod test {
                 eprintln!("{}", m.display(src));
             })
         }
-        assert_matches!(parse_display_module("fn foo() {5 6}"), Err(_));
+        assert!(parse_display_module("fn foo() {5 6}").is_err());
+        assert!(parse_display_module("fn foo() {a b c}").is_err());
     }
 }

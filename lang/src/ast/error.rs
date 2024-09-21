@@ -9,7 +9,10 @@ pub type ParseResult<T> = Result<T, ErrorLocalSpan<ParseError>>;
 pub enum ParseError {
     TokenError(TokenError),
     ExpectedToken(&'static [Token]),
-    ExpectedExpression(Option<Token>),
+    ExpectedTokenAfter(&'static [Token]),
+    UnmatchedPair(Token),
+    ExpectedExpression,
+    InputNotFullConsumed,
 }
 
 impl From<TokenError> for ParseError {
@@ -32,15 +35,12 @@ impl std::fmt::Display for ParseError {
         match self {
             Self::TokenError(err) => std::fmt::Display::fmt(err, f),
             Self::ExpectedToken(tokens) => f.write_fmt(format_args!("expected one of {tokens:?}")),
-            Self::ExpectedExpression(token) => {
-                #[expect(clippy::option_if_let_else)]
-                let token: &str = if let Some(t) = token {
-                    &format!("{t:?}")
-                } else {
-                    "EOF"
-                };
-                f.write_fmt(format_args!("unexpected {token:?}, expected expression"))
+            Self::ExpectedTokenAfter(tokens) => {
+                f.write_fmt(format_args!("expected one of {tokens:?} after"))
             }
+            Self::UnmatchedPair(token) => f.write_fmt(format_args!("unmatched pair {token:?}")),
+            Self::ExpectedExpression => f.write_str("expected expression"),
+            Self::InputNotFullConsumed => f.write_str("input not fully consumed"),
         }
     }
 }

@@ -5,11 +5,16 @@ use super::{StringLiteralPrefix, Token, TokenError, TokenLocalSpan};
 pub struct TokenStream<'a> {
     source: &'a str,
     index: usize,
+    last_parsed_span: Option<LocalSpan>,
 }
 
 impl<'a> TokenStream<'a> {
     pub fn new(source: &'a str) -> Self {
-        Self { source, index: 0 }
+        Self {
+            source,
+            index: 0,
+            last_parsed_span: None,
+        }
     }
 }
 
@@ -67,8 +72,13 @@ impl TokenStream<'_> {
                 }
                 _ => self.ident(),
             };
+            self.last_parsed_span = Some(tls.span);
             return Ok(Some(tls));
         }
+    }
+
+    pub fn last_span(&self) -> LocalSpan {
+        self.last_parsed_span.unwrap_or_default()
     }
 
     fn inc(&mut self, token: Token) -> TokenLocalSpan {
