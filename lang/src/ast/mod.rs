@@ -39,7 +39,7 @@ impl NodeList {
     fn display(&self, src: &str, id: NodeId) -> String {
         let node = self.get(id);
         let mut buf = String::new();
-        let mut f = display::AstFormatter::new(src, &mut buf, &self);
+        let mut f = display::AstFormatter::new(src, &mut buf, self);
         node.ast_display(&mut f).unwrap();
         buf
     }
@@ -102,8 +102,9 @@ impl Node {
                 b.child(if_condition.condition)
                     .child(if_condition.then_block);
                 match &if_condition.alternate {
-                    Some(AlternateCondition::IfElseCondition(id)) => b.child(*id),
-                    Some(AlternateCondition::ElseBlock(id)) => b.child(*id),
+                    Some(
+                        AlternateCondition::IfElseCondition(id) | AlternateCondition::ElseBlock(id),
+                    ) => b.child(*id),
                     None => &mut b,
                 }
                 .finish()

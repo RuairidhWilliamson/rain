@@ -10,7 +10,7 @@ use super::{
     StringLiteral,
 };
 
-pub fn parse_module<'a>(stream: &mut PeekTokenStream<'a>) -> ParseResult<Module> {
+pub fn parse_module(stream: &mut PeekTokenStream) -> ParseResult<Module> {
     let mut m = ModuleParser {
         nodes: NodeList::new(),
         stream,
@@ -18,7 +18,7 @@ pub fn parse_module<'a>(stream: &mut PeekTokenStream<'a>) -> ParseResult<Module>
     let module_root = m.parse_module_root()?;
     let root = m.push(Node::ModuleRoot(module_root));
     let ModuleParser { nodes, stream: _ } = m;
-    Ok(Module { nodes, root })
+    Ok(Module { root, nodes })
 }
 
 struct ModuleParser<'src, 'stream> {

@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rain_lang::{
     ir::Rir,
@@ -9,26 +9,26 @@ use rain_lang::{
 fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<RainValue> {
     let mut stream = PeekTokenStream::new(&src);
     let module = rain_lang::ast::parser::parse_module(&mut stream).map_err(|err| {
-        eprintln!("{}", err.resolve(path.as_ref().map(|p| p.as_path()), &src));
+        eprintln!("{}", err.resolve(path.as_deref(), &src));
         err.err
     })?;
     let mut ir = Rir::new();
-    let module_id = ir.insert_module(path.clone(), src.clone(), module);
+    let mid = ir.insert_module(path, src, module);
     let main = ir
-        .resolve_global_declaration(module_id, "main")
+        .resolve_global_declaration(mid, "main")
         .ok_or_else(|| anyhow::anyhow!("main declaration not found"))?;
-    let mut runner = Runner::new(&ir);
+    let mut runner = Runner::new(ir);
     let value = runner.evaluate_and_call(main).map_err(|err| {
-        eprintln!("{}", err.resolve(path.as_ref().map(|p| p.as_path()), &src));
+        eprintln!("{}", err.resolve_ir(&runner.rir, mid));
         err.err
     })?;
     Ok(value)
 }
 
-fn run(path: impl AsRef<Path>) -> anyhow::Result<RainValue> {
-    let path: &Path = path.as_ref();
-    let src = std::fs::read_to_string(path)?;
-    run_inner(Some(path.to_path_buf()), src)
+fn run(path: impl Into<PathBuf>) -> anyhow::Result<RainValue> {
+    let path: PathBuf = path.into();
+    let src = std::fs::read_to_string(&path)?;
+    run_inner(Some(path), src)
 }
 
 #[test]

@@ -1,3 +1,5 @@
 fn foo() {
 	11
 }
+
+let bar = 5

@@ -4,7 +4,7 @@ pub mod value;
 
 const MAX_CALL_DEPTH: usize = 500;
 
-use std::{any::TypeId, collections::HashMap};
+use std::{any::TypeId, collections::HashMap, sync::Arc};
 
 use error::RunnerError;
 use value::{
@@ -21,14 +21,14 @@ use crate::{
 type ResultValue = Result<RainValue, ErrorLocalSpan<RunnerError>>;
 
 struct Cx<'a> {
-    module: &'a IrModule,
+    module: &'a Arc<IrModule>,
     call_depth: usize,
     locals: HashMap<&'a str, RainValue>,
     args: HashMap<&'a str, RainValue>,
 }
 
 impl<'a> Cx<'a> {
-    fn new(module: &'a IrModule) -> Self {
+    fn new(module: &'a Arc<IrModule>) -> Self {
         Self {
             module,
             call_depth: 0,
@@ -38,13 +38,13 @@ impl<'a> Cx<'a> {
     }
 }
 
-pub struct Runner<'a> {
-    rir: &'a Rir,
-    cache: cache::Cache,
+pub struct Runner {
+    pub rir: Rir,
+    pub cache: cache::Cache,
 }
 
-impl<'a> Runner<'a> {
-    pub fn new(rir: &'a Rir) -> Self {
+impl Runner {
+    pub fn new(rir: Rir) -> Self {
         Self {
             rir,
             cache: cache::Cache::default(),
@@ -64,7 +64,7 @@ impl<'a> Runner<'a> {
     }
 
     pub fn evaluate_declaration(&mut self, id: DeclarationId) -> ResultValue {
-        let m = self.rir.get_module(id.module_id());
+        let m = &Arc::clone(self.rir.get_module(id.module_id()));
         let nid = m.get_declaration(id.local_id());
         let node = m.get(nid);
         match node {
@@ -175,7 +175,7 @@ impl<'a> Runner<'a> {
                     .iter()
                     .map(|a| self.evaluate_node(cx, *a))
                     .collect::<Result<_, _>>()?;
-                self.call_internal_function(f, arg_values)
+                self.call_internal_function(cx, f, arg_values)
             }
             _ => Err(fn_call
                 .lparen_token
@@ -193,7 +193,7 @@ impl<'a> Runner<'a> {
         function: &RainFunction,
         arg_values: Vec<RainValue>,
     ) -> ResultValue {
-        let m = self.rir.get_module(function.id.module_id());
+        let m = &Arc::clone(self.rir.get_module(function.id.module_id()));
         let nid = m.get_declaration(function.id.local_id());
         let node = m.get(nid);
         match node {
@@ -216,8 +216,10 @@ impl<'a> Runner<'a> {
         }
     }
 
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
     fn call_internal_function(
         &mut self,
+        cx: &mut Cx,
         function: &RainInternalFunction,
         arg_values: Vec<RainValue>,
     ) -> ResultValue {
@@ -227,12 +229,26 @@ impl<'a> Runner<'a> {
                 Ok(RainValue::new(()))
             }
             RainInternalFunction::Import => {
-                self.rir;
-                todo!()
+                let import_target = arg_values.first().unwrap();
+                let import_path: &String = import_target.downcast_ref().unwrap();
+                let resolved_path = cx
+                    .module
+                    .path
+                    .as_ref()
+                    .unwrap()
+                    .parent()
+                    .unwrap()
+                    .join(import_path);
+                let src = std::fs::read_to_string(&resolved_path).unwrap();
+                let mut stream = crate::tokens::peek::PeekTokenStream::new(&src);
+                let module = crate::ast::parser::parse_module(&mut stream).unwrap();
+                let mid = self.rir.insert_module(Some(resolved_path), src, module);
+                Ok(RainValue::new(RainModule { id: mid }))
             }
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn evaluate_binary_op(&mut self, cx: &mut Cx, op: &BinaryOp) -> ResultValue {
         let left = self.evaluate_node(cx, op.left)?;
         match op.op {
@@ -314,8 +330,18 @@ impl<'a> Runner<'a> {
                     let Some(module_value) = left.downcast_ref::<RainModule>() else {
                         unreachable!()
                     };
-                    let _module = self.rir.get_module(module_value.id);
-                    todo!("implement module")
+                    match cx.module.get(op.right) {
+                        Node::Ident(tls) => {
+                            let name = tls.span.contents(&cx.module.src);
+                            let Some(did) =
+                                self.rir.resolve_global_declaration(module_value.id, name)
+                            else {
+                                return Err(tls.span.with_error(RunnerError::UnknownIdent));
+                            };
+                            self.evaluate_declaration(did)
+                        }
+                        _ => Err(op.op_span.with_error(RunnerError::GenericTypeError)),
+                    }
                 }
                 RainTypeId::Internal => match cx.module.get(op.right) {
                     Node::Ident(tls) => {

@@ -34,13 +34,13 @@ fn inner(path: PathBuf, src: String) -> Result<(), ()> {
         eprintln!("{}", err.resolve(Some(&path), &src));
     })?;
     let mut rir = Rir::new();
-    let modid = rir.insert_module(Some(path.clone()), src.clone(), script);
-    let Some(main) = rir.resolve_global_declaration(modid, "main") else {
+    let mid = rir.insert_module(Some(path), src, script);
+    let Some(main) = rir.resolve_global_declaration(mid, "main") else {
         panic!("main declaration not found")
     };
-    let mut runner = Runner::new(&rir);
+    let mut runner = Runner::new(rir);
     let value = runner.evaluate_and_call(main).map_err(|err| {
-        eprintln!("{}", err.resolve(Some(&path), &src));
+        eprintln!("{}", err.resolve_ir(&runner.rir, mid));
     });
     println!("{value:?}");
     Ok(())

@@ -3,7 +3,10 @@ use std::{
     path::Path,
 };
 
-use crate::error::ResolvedError;
+use crate::{
+    error::ResolvedError,
+    ir::{ModuleId, Rir},
+};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct LocalSpan {
@@ -159,5 +162,10 @@ impl<E: std::error::Error> ErrorLocalSpan<E> {
             src,
             span: self.span,
         }
+    }
+
+    pub fn resolve_ir<'a>(&'a self, ir: &'a Rir, module_id: ModuleId) -> ResolvedError<'a> {
+        let module = ir.get_module(module_id);
+        self.resolve(module.path.as_deref(), &module.src)
     }
 }

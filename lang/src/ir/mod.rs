@@ -1,10 +1,10 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use crate::ast::{Module, ModuleRoot, Node, NodeId};
 
 #[derive(Debug, Default)]
 pub struct Rir {
-    modules: Vec<IrModule>,
+    modules: Vec<Arc<IrModule>>,
 }
 
 impl Rir {
@@ -14,16 +14,16 @@ impl Rir {
 
     pub fn insert_module(&mut self, path: Option<PathBuf>, src: String, ast: Module) -> ModuleId {
         let id = ModuleId(self.modules.len());
-        self.modules.push(IrModule {
+        self.modules.push(Arc::new(IrModule {
             id,
             path,
             src,
             module: ast,
-        });
+        }));
         id
     }
 
-    pub fn get_module(&self, module_id: ModuleId) -> &IrModule {
+    pub fn get_module(&self, module_id: ModuleId) -> &Arc<IrModule> {
         let Some(m) = self.modules.get(module_id.0) else {
             unreachable!("id is always valid")
         };
@@ -43,8 +43,7 @@ impl Rir {
 #[derive(Debug)]
 pub struct IrModule {
     pub id: ModuleId,
-    #[allow(dead_code)]
-    path: Option<PathBuf>,
+    pub path: Option<PathBuf>,
     pub src: String,
     module: crate::ast::Module,
 }
