@@ -3,12 +3,10 @@ use std::path::PathBuf;
 use rain_lang::{
     ir::Rir,
     runner::{value::RainValue, Runner},
-    tokens::peek::PeekTokenStream,
 };
 
 fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<RainValue> {
-    let mut stream = PeekTokenStream::new(&src);
-    let module = rain_lang::ast::parser::parse_module(&mut stream).map_err(|err| {
+    let module = rain_lang::ast::parser::parse_module(&src).map_err(|err| {
         eprintln!("{}", err.resolve(path.as_deref(), &src));
         err.err
     })?;

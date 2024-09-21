@@ -5,7 +5,7 @@ use crate::{
 
 pub type ParseResult<T> = Result<T, ErrorLocalSpan<ParseError>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseError {
     TokenError(TokenError),
     ExpectedToken(&'static [Token]),

@@ -1,8 +1,6 @@
 use std::process::ExitCode;
 
-use rain_lang::{
-    ast::error::ParseError, local_span::ErrorLocalSpan, tokens::peek::PeekTokenStream,
-};
+use rain_lang::{ast::error::ParseError, local_span::ErrorLocalSpan};
 
 fn main() -> ExitCode {
     let Some(src_path) = std::env::args().nth(1) else {
@@ -33,8 +31,7 @@ fn print_help() {
 }
 
 fn inner(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
-    let mut stream = PeekTokenStream::new(src);
-    let module = rain_lang::ast::parser::parse_module(&mut stream)?;
+    let module = rain_lang::ast::parser::parse_module(src)?;
     let out = module.display(src);
     println!("{out}");
     Ok(())

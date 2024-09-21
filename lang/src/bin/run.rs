@@ -1,6 +1,6 @@
 use std::{path::PathBuf, process::ExitCode};
 
-use rain_lang::{ir::Rir, runner::Runner, tokens::peek::PeekTokenStream};
+use rain_lang::{ir::Rir, runner::Runner};
 
 fn main() -> ExitCode {
     let Some(src_path) = std::env::args().nth(1) else {
@@ -29,8 +29,7 @@ fn print_help() {
 }
 
 fn inner(path: PathBuf, src: String) -> Result<(), ()> {
-    let mut stream = PeekTokenStream::new(&src);
-    let script = rain_lang::ast::parser::parse_module(&mut stream).map_err(|err| {
+    let script = rain_lang::ast::parser::parse_module(&src).map_err(|err| {
         eprintln!("{}", err.resolve(Some(&path), &src));
     })?;
     let mut rir = Rir::new();

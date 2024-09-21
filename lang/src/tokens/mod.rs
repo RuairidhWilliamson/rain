@@ -73,7 +73,7 @@ impl StringLiteralPrefix {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenError {
     UnclosedDoubleQuote,
     IllegalChar(char),

@@ -1,19 +1,11 @@
-use crate::tokens::peek::PeekTokenStream;
-
 fn parse_display_script(src: &str) -> String {
-    let mut stream = PeekTokenStream::new(src);
-    let s = match super::parser::parse_module(&mut stream) {
+    let s = match super::parser::parse_module(src) {
         Ok(s) => s,
         Err(err) => {
             eprintln!("{}", err.resolve(None, src));
             panic!("parse error");
         }
     };
-    assert_eq!(
-        stream.parse_next().unwrap(),
-        None,
-        "input not fully consumed"
-    );
     s.display(src)
 }
 

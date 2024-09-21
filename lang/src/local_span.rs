@@ -150,7 +150,7 @@ impl AddAssign for LocalSpan {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ErrorLocalSpan<E: std::error::Error> {
     pub err: E,
     pub span: Option<LocalSpan>,

@@ -58,7 +58,7 @@ impl NodeList {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NodeId(usize);
 
 #[derive(Debug)]

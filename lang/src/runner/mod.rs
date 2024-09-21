@@ -243,8 +243,7 @@ impl Runner {
                     .unwrap()
                     .join(import_path);
                 let src = std::fs::read_to_string(&resolved_path).unwrap();
-                let mut stream = crate::tokens::peek::PeekTokenStream::new(&src);
-                let module = crate::ast::parser::parse_module(&mut stream).unwrap();
+                let module = crate::ast::parser::parse_module(&src).unwrap();
                 let mid = self.rir.insert_module(Some(resolved_path), src, module);
                 Ok(RainValue::new(RainModule { id: mid }))
             }

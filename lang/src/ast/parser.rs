@@ -10,23 +10,36 @@ use super::{
     StringLiteral,
 };
 
-pub fn parse_module(stream: &mut PeekTokenStream) -> ParseResult<Module> {
-    let mut m = ModuleParser {
-        nodes: NodeList::new(),
-        stream,
-    };
-    let module_root = m.parse_module_root()?;
-    let root = m.push(Node::ModuleRoot(module_root));
-    let ModuleParser { nodes, stream: _ } = m;
+pub fn parse_module(source: &str) -> ParseResult<Module> {
+    let mut parser = ModuleParser::new(source);
+    let module_root = parser.parse_module_root()?;
+    assert_eq!(
+        parser.stream.parse_next().unwrap(),
+        None,
+        "input not fully consumed"
+    );
+    let root = parser.push(Node::ModuleRoot(module_root));
+    let ModuleParser { nodes, stream: _ } = parser;
     Ok(Module { root, nodes })
 }
 
-struct ModuleParser<'src, 'stream> {
+struct ModuleParser<'src> {
     nodes: NodeList,
-    stream: &'stream mut PeekTokenStream<'src>,
+    stream: PeekTokenStream<'src>,
 }
 
-impl<'src, 'stream> ModuleParser<'src, 'stream> {
+impl<'src> ModuleParser<'src> {
+    pub fn new(s: &'src str) -> Self {
+        Self::new_from_stream(PeekTokenStream::new(s))
+    }
+
+    pub fn new_from_stream(stream: PeekTokenStream<'src>) -> Self {
+        Self {
+            nodes: NodeList::new(),
+            stream,
+        }
+    }
+
     fn push(&mut self, node: impl Into<Node>) -> NodeId {
         self.nodes.push(node)
     }
@@ -107,15 +120,23 @@ impl<'src, 'stream> ModuleParser<'src, 'stream> {
     fn parse_block(&mut self) -> ParseResult<NodeId> {
         let lbrace_token = expect_token(self.stream.parse_next()?, &[Token::LBrace])?;
         let mut statements = Vec::new();
+        let mut expecting_statement = true;
         while let Some(peek) = self.stream.peek()? {
             match peek.token {
                 Token::NewLine => {
                     self.stream.parse_next()?;
+                    expecting_statement = true;
                     continue;
                 }
                 Token::RBrace => break,
-                _ => {
+                _ if expecting_statement => {
                     statements.push(self.parse_statement()?);
+                    expecting_statement = false;
+                }
+                _ => {
+                    return Err(peek
+                        .span
+                        .with_error(ParseError::ExpectedToken(&[Token::NewLine, Token::RBrace])))
                 }
             }
         }
@@ -323,14 +344,24 @@ fn expect_token(
 
 #[cfg(test)]
 mod test {
-    use crate::{ast::NodeList, tokens::peek::PeekTokenStream};
+    use crate::{
+        ast::{error::ParseError, parser::ModuleParser},
+        local_span::ErrorLocalSpan,
+    };
+
+    use super::parse_module;
+
+    macro_rules! assert_matches {
+        ($s:expr, $pattern:pat) => {
+            let s = $s;
+            if !matches!(s, $pattern) {
+                panic!("{s:?} did not match expected");
+            }
+        };
+    }
 
     fn parse_display_expr(src: &str) -> String {
-        let mut stream = PeekTokenStream::new(src);
-        let mut parser = super::ModuleParser {
-            nodes: NodeList::new(),
-            stream: &mut stream,
-        };
+        let mut parser = ModuleParser::new(src);
         let id = match parser.parse_expr() {
             Ok(s) => s,
             Err(err) => {
@@ -466,5 +497,20 @@ mod test {
         insta::assert_snapshot!(parse_display_expr(
             "true || a == b && 1 != 1 && (false || a != b)"
         ));
+    }
+
+    #[test]
+    fn invalid_exprs() {
+        assert_matches!(ModuleParser::new("4.").parse_expr(), Err(_));
+    }
+
+    #[test]
+    fn invalid_scripts() {
+        fn parse_display_module(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
+            parse_module(src).map(|m| {
+                eprintln!("{}", m.display(src));
+            })
+        }
+        assert_matches!(parse_display_module("fn foo() {5 6}"), Err(_));
     }
 }
