@@ -43,5 +43,6 @@ fn inner(path: PathBuf, src: String) -> Result<(), ()> {
         eprintln!("{}", err.resolve_ir(&runner.rir));
     })?;
     println!("{value:?}");
+    eprintln!("{} modules loaded", runner.rir.len());
     Ok(())
 }

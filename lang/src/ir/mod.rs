@@ -53,6 +53,14 @@ impl Rir {
             .find_declaration_by_name(name)
             .map(|id| DeclarationId(module_id, id))
     }
+
+    pub fn len(&self) -> usize {
+        self.modules.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.modules.is_empty()
+    }
 }
 
 #[derive(Debug)]

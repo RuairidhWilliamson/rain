@@ -161,6 +161,9 @@ impl Runner {
         let v_type = v.rain_type_id();
         match v_type {
             RainTypeId::Function => {
+                if cx.call_depth >= MAX_CALL_DEPTH {
+                    return Err(cx.err(fn_call.lparen_token, RunnerError::MaxCallDepth));
+                }
                 let Some(f) = v.downcast_ref::<RainFunction>() else {
                     unreachable!();
                 };
@@ -169,10 +172,7 @@ impl Runner {
                     .iter()
                     .map(|a| self.evaluate_node(cx, *a))
                     .collect::<Result<_, _>>()?;
-                if cx.call_depth >= MAX_CALL_DEPTH {
-                    return Err(cx.err(fn_call.lparen_token, RunnerError::MaxCallDepth));
-                }
-                let key = self.cache.function_call_key(f, &arg_values);
+                let key = self.cache.function_key(f, arg_values.iter());
 
                 if let Some(v) = self.cache.get(&key) {
                     return Ok(v.clone());
@@ -190,7 +190,15 @@ impl Runner {
                     .iter()
                     .map(|&a| Ok((a, self.evaluate_node(cx, a)?)))
                     .collect::<Result<_, _>>()?;
-                self.call_internal_function(cx, nid, fn_call, f, arg_values)
+                let key = self
+                    .cache
+                    .function_key(*f, arg_values.iter().map(|(_, a)| a));
+                if let Some(v) = self.cache.get(&key) {
+                    return Ok(v.clone());
+                }
+                let v = self.call_internal_function(cx, nid, fn_call, f, arg_values)?;
+                self.cache.put(key, v.clone());
+                Ok(v)
             }
             _ => Err(cx.err(
                 fn_call.lparen_token,
@@ -228,7 +236,6 @@ impl Runner {
         }
     }
 
-    #[expect(clippy::needless_pass_by_value)]
     fn call_internal_function(
         &mut self,
         cx: &mut Cx,
@@ -239,7 +246,11 @@ impl Runner {
     ) -> ResultValue {
         match function {
             RainInternalFunction::Print => {
-                println!("{arg_values:?}");
+                let args: Vec<String> = arg_values
+                    .into_iter()
+                    .map(|(_, a)| format!("{a:?}"))
+                    .collect();
+                println!("{}", args.join(" "));
                 Ok(RainValue::new(()))
             }
             RainInternalFunction::Import => {

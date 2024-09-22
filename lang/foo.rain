@@ -1,0 +1,4 @@
+let bar = internal.import("bar.rain")
+
+let apples = 5
+let bananas = 6 + bar.bananas

@@ -141,7 +141,7 @@ impl RainValueInner for RainInternal {
     }
 }
 
-#[derive(Debug, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RainInternalFunction {
     Print,
     Import,

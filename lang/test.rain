@@ -1,5 +1,11 @@
 let a = 5
 let b = a
-let m = internal.import("nonexistent.rain")
+let foo = internal.import("foo.rain")
+let bar = internal.import("bar.rain")
 
-let main = (1 + 3 * 4 - 1) / 4 * 3 + a + b + m.foo
+fn main() {
+	internal.print("foo.apples:", foo.apples)
+	internal.print("foo.bananas:", foo.bananas)
+	internal.print("bar.apples:", bar.apples)
+	internal.print("bar.bananas:", bar.bananas)
+}

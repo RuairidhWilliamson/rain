@@ -30,7 +30,7 @@ impl std::fmt::Display for ResolvedError<'_> {
         f.write_fmt(format_args!("| {before}{contents}{after}\n"))?;
         let arrows = span.arrow_line(src, 2).red();
         let err = format!("{err}").red();
-        f.write_fmt(format_args!("| {arrows} {err}"))?;
+        f.write_fmt(format_args!("  {arrows} {err}"))?;
         Ok(())
     }
 }
