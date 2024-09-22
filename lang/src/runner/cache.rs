@@ -1,18 +1,25 @@
 use std::{
-    collections::HashMap,
     hash::{DefaultHasher, Hasher},
+    num::NonZeroUsize,
 };
+
+use lru::LruCache;
 
 use crate::ir::DeclarationId;
 
 use super::value::{RainFunction, RainHash, RainInternalFunction, RainValue};
 
-#[derive(Default)]
 pub struct Cache {
-    storage: HashMap<CacheKey, RainValue>,
+    storage: LruCache<CacheKey, RainValue>,
 }
 
 impl Cache {
+    pub fn new(size: NonZeroUsize) -> Self {
+        Self {
+            storage: LruCache::new(size),
+        }
+    }
+
     pub fn function_key<'a>(
         &self,
         function: impl Into<FunctionDefinition>,
@@ -34,7 +41,7 @@ impl Cache {
     }
 
     pub fn put(&mut self, key: CacheKey, v: RainValue) {
-        self.storage.insert(key, v);
+        self.storage.put(key, v);
     }
 }
 

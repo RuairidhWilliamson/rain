@@ -2,9 +2,7 @@ pub mod cache;
 pub mod error;
 pub mod value;
 
-const MAX_CALL_DEPTH: usize = 500;
-
-use std::{any::TypeId, collections::HashMap, sync::Arc};
+use std::{any::TypeId, collections::HashMap, num::NonZeroUsize, sync::Arc};
 
 use error::RunnerError;
 use value::{
@@ -18,6 +16,9 @@ use crate::{
     local_span::LocalSpan,
     span::ErrorSpan,
 };
+
+const MAX_CALL_DEPTH: usize = 500;
+const CACHE_SIZE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1024) };
 
 type ResultValue = Result<RainValue, ErrorSpan<RunnerError>>;
 
@@ -59,7 +60,7 @@ impl Runner {
     pub fn new(rir: Rir) -> Self {
         Self {
             rir,
-            cache: cache::Cache::default(),
+            cache: cache::Cache::new(CACHE_SIZE),
         }
     }
 
@@ -196,7 +197,7 @@ impl Runner {
                 if let Some(v) = self.cache.get(&key) {
                     return Ok(v.clone());
                 }
-                let v = self.call_internal_function(cx, nid, fn_call, f, arg_values)?;
+                let v = self.call_internal_function(cx, nid, fn_call, *f, arg_values)?;
                 self.cache.put(key, v.clone());
                 Ok(v)
             }
@@ -241,7 +242,7 @@ impl Runner {
         cx: &mut Cx,
         nid: NodeId,
         fn_call: &FnCall,
-        function: &RainInternalFunction,
+        function: RainInternalFunction,
         arg_values: Vec<(NodeId, RainValue)>,
     ) -> ResultValue {
         match function {
@@ -357,7 +358,16 @@ impl Runner {
                         .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
                         .0,
             )),
-            BinaryOperatorKind::NotEquals => todo!("evaluate not equality"),
+            BinaryOperatorKind::NotEquals => Ok(RainValue::new(
+                left.downcast_ref::<RainInteger>()
+                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                    .0
+                    != self
+                        .evaluate_node(cx, op.right)?
+                        .downcast_ref::<RainInteger>()
+                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                        .0,
+            )),
             BinaryOperatorKind::Dot => match left.rain_type_id() {
                 RainTypeId::Module => {
                     let Some(module_value) = left.downcast_ref::<RainModule>() else {
