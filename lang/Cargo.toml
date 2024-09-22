@@ -17,3 +17,5 @@ num-bigint = "0.4.6"
 [dev-dependencies]
 anyhow.workspace = true
 insta = { version = "1.39.0", features = ["colors"], default-features = false }
+quickcheck = "1.0.3"
+quickcheck_macros = "1.0.0"

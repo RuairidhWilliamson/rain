@@ -131,3 +131,18 @@ fn number() {
         Token::Number,
     );
 }
+
+#[quickcheck_macros::quickcheck]
+fn tokenise_any_script(src: String) {
+    let _: Result<(), ErrorLocalSpan<TokenError>> =
+        TokenStream::new(&src).map(|r| r.map(|_| ())).collect();
+}
+
+#[quickcheck_macros::quickcheck]
+fn tokenise_string_literal(contents: String) -> Result<(), ErrorLocalSpan<TokenError>> {
+    if contents.contains(&['"', '\n']) {
+        return Ok(());
+    }
+    let literal = format!("\"{contents}\"");
+    TokenStream::new(&literal).map(|r| r.map(|_| ())).collect()
+}
