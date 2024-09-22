@@ -2,7 +2,7 @@ pub mod cache;
 pub mod error;
 pub mod value;
 
-use std::{any::TypeId, collections::HashMap, num::NonZeroUsize, sync::Arc};
+use std::{any::TypeId, collections::HashMap, num::NonZeroUsize, sync::Arc, time::Instant};
 
 use error::RunnerError;
 use value::{
@@ -175,11 +175,12 @@ impl Runner {
                     .collect::<Result<_, _>>()?;
                 let key = self.cache.function_key(f, arg_values.iter());
 
-                if let Some(v) = self.cache.get(&key) {
+                if let Some(v) = self.cache.get_value(&key) {
                     return Ok(v.clone());
                 }
+                let start = Instant::now();
                 let v = self.call_function(cx.call_depth + 1, f, arg_values)?;
-                self.cache.put(key, v.clone());
+                self.cache.put(key, start.elapsed(), vec![], v.clone());
                 Ok(v)
             }
             RainTypeId::InternalFunction => {
@@ -194,11 +195,12 @@ impl Runner {
                 let key = self
                     .cache
                     .function_key(*f, arg_values.iter().map(|(_, a)| a));
-                if let Some(v) = self.cache.get(&key) {
+                if let Some(v) = self.cache.get_value(&key) {
                     return Ok(v.clone());
                 }
+                let start = Instant::now();
                 let v = self.call_internal_function(cx, nid, fn_call, *f, arg_values)?;
-                self.cache.put(key, v.clone());
+                self.cache.put(key, start.elapsed(), vec![], v.clone());
                 Ok(v)
             }
             _ => Err(cx.err(

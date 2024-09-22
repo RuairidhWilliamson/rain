@@ -1,6 +1,8 @@
 use std::{
     hash::{DefaultHasher, Hasher},
     num::NonZeroUsize,
+    path::PathBuf,
+    time::Duration,
 };
 
 use lru::LruCache;
@@ -10,7 +12,7 @@ use crate::ir::DeclarationId;
 use super::value::{RainFunction, RainHash, RainInternalFunction, RainValue};
 
 pub struct Cache {
-    storage: LruCache<CacheKey, RainValue>,
+    storage: LruCache<CacheKey, CacheEntry>,
 }
 
 impl Cache {
@@ -36,12 +38,25 @@ impl Cache {
         }
     }
 
-    pub fn get(&mut self, key: &CacheKey) -> Option<&RainValue> {
-        self.storage.get(key)
+    pub fn get_value(&mut self, key: &CacheKey) -> Option<&RainValue> {
+        self.storage.get(key).map(|e| &e.value)
     }
 
-    pub fn put(&mut self, key: CacheKey, v: RainValue) {
-        self.storage.put(key, v);
+    pub fn put(
+        &mut self,
+        key: CacheKey,
+        execution_time: Duration,
+        deps: Vec<CacheKey>,
+        value: RainValue,
+    ) {
+        self.storage.put(
+            key,
+            CacheEntry {
+                execution_time,
+                deps,
+                value,
+            },
+        );
     }
 }
 
@@ -67,4 +82,10 @@ impl From<RainInternalFunction> for FunctionDefinition {
     fn from(f: RainInternalFunction) -> Self {
         Self::Internal(f)
     }
+}
+
+struct CacheEntry {
+    execution_time: Duration,
+    deps: Vec<CacheKey>,
+    value: RainValue,
 }
