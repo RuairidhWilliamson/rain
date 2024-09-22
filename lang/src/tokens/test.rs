@@ -139,6 +139,21 @@ fn tokenise_any_script(src: String) {
 }
 
 #[quickcheck_macros::quickcheck]
+fn tokenise_non_control_character_script(src: String) -> Result<(), ErrorLocalSpan<TokenError>> {
+    if src.contains(|c: char| c.is_control()) {
+        return Ok(());
+    }
+    TokenStream::new(&src)
+        .map(|r| {
+            r.map(|tls| {
+                // Check the span can be indexed and doesn't break UTF-8 boundaries
+                tls.span.contents(&src);
+            })
+        })
+        .collect()
+}
+
+#[quickcheck_macros::quickcheck]
 fn tokenise_string_literal(contents: String) -> Result<(), ErrorLocalSpan<TokenError>> {
     if contents.contains(&['"', '\n']) {
         return Ok(());

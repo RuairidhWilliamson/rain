@@ -49,6 +49,8 @@ impl TokenStream<'_> {
                 (b'}', _) => self.inc(Token::RBrace),
                 (b'<', _) => self.inc(Token::LAngle),
                 (b'>', _) => self.inc(Token::RAngle),
+                (b'[', _) => self.inc(Token::LSqBracket),
+                (b']', _) => self.inc(Token::RSqBracket),
                 (b'|', Some(b'|')) => self.inc2(Token::LogicalOr),
                 (b'|', _) => self.inc(Token::Pipe),
                 (b'&', Some(b'&')) => self.inc2(Token::LogicalAnd),

@@ -49,6 +49,8 @@ pub enum Token {
     RBrace,
     LAngle,
     RAngle,
+    LSqBracket,
+    RSqBracket,
 
     // Compound symbols
     Equals,
