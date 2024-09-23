@@ -18,6 +18,16 @@ impl std::fmt::Debug for RainValue {
     }
 }
 
+impl std::fmt::Display for RainValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(s) = self.downcast_ref::<String>() {
+            std::fmt::Display::fmt(s, f)
+        } else {
+            std::fmt::Debug::fmt(self, f)
+        }
+    }
+}
+
 impl RainValue {
     pub fn new<T: RainValueInner>(value: T) -> Self {
         Self {

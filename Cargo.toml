@@ -3,6 +3,7 @@ members = [
   "lang",
   "smee-rs",
   "ci-test",
+  "rain-cli",
 ]
 resolver = "2"
 

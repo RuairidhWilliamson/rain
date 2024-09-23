@@ -251,7 +251,7 @@ impl Runner {
             RainInternalFunction::Print => {
                 let args: Vec<String> = arg_values
                     .into_iter()
-                    .map(|(_, a)| format!("{a:?}"))
+                    .map(|(_, a)| format!("{a}"))
                     .collect();
                 println!("{}", args.join(" "));
                 Ok(RainValue::new(()))
