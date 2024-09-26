@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
     };
     eprintln!("webhook url: {channel_url}");
     eprintln!("target url: {target}");
-    let mut smee = smee_rs::Smee::new(channel_url, target)?;
+    let smee = smee_rs::Smee::new(channel_url, target)?;
     smee.start().await?;
     Ok(())
 }
