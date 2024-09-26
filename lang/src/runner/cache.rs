@@ -1,7 +1,6 @@
 use std::{
     hash::{DefaultHasher, Hasher},
     num::NonZeroUsize,
-    path::PathBuf,
     time::Duration,
 };
 
@@ -84,6 +83,7 @@ impl From<RainInternalFunction> for FunctionDefinition {
     }
 }
 
+#[expect(dead_code)]
 struct CacheEntry {
     execution_time: Duration,
     deps: Vec<CacheKey>,
