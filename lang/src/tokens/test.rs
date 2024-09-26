@@ -1,4 +1,9 @@
-use crate::{local_span::ErrorLocalSpan, tokens::Token};
+use quickcheck::TestResult;
+
+use crate::{
+    local_span::{ErrorLocalSpan, LocalSpan},
+    tokens::Token,
+};
 
 use super::{stream::TokenStream, TokenError};
 
@@ -132,6 +137,14 @@ fn number() {
     );
 }
 
+#[test]
+fn illegal_chars() {
+    assert_eq!(
+        str_tokens("`"),
+        Err(LocalSpan::byte(0).with_error(TokenError::IllegalChar))
+    );
+}
+
 #[expect(clippy::needless_pass_by_value)]
 #[quickcheck_macros::quickcheck]
 fn tokenise_any_script(src: String) {
@@ -141,24 +154,34 @@ fn tokenise_any_script(src: String) {
 
 #[expect(clippy::needless_pass_by_value)]
 #[quickcheck_macros::quickcheck]
-fn tokenise_non_control_character_script(src: String) -> Result<(), ErrorLocalSpan<TokenError>> {
-    if src.contains(|c: char| c.is_control()) {
-        return Ok(());
+fn tokenise_non_control_character_script(src: String) -> TestResult {
+    if src.contains(|c: char| match c {
+        '"' | '\'' | '`' => true,
+        _ => c.is_control(),
+    }) {
+        return TestResult::discard();
     }
-    TokenStream::new(&src).try_for_each(|r| {
+    convert_test_result(TokenStream::new(&src).try_for_each(|r| {
         r.map(|tls| {
             // Check the span can be indexed and doesn't break UTF-8 boundaries
             tls.span.contents(&src);
         })
-    })
+    }))
 }
 
 #[expect(clippy::needless_pass_by_value)]
 #[quickcheck_macros::quickcheck]
-fn tokenise_string_literal(contents: String) -> Result<(), ErrorLocalSpan<TokenError>> {
-    if contents.contains(['"', '\n']) {
-        return Ok(());
+fn tokenise_string_literal(contents: String) -> TestResult {
+    if contents.contains(&['"', '\n']) {
+        return TestResult::discard();
     }
     let literal = format!("\"{contents}\"");
-    TokenStream::new(&literal).try_for_each(|r| r.map(|_| ()))
+    convert_test_result(TokenStream::new(&literal).try_for_each(|r| r.map(|_| ())))
+}
+
+fn convert_test_result<T, E: std::fmt::Debug>(res: Result<T, E>) -> TestResult {
+    match res {
+        Ok(_) => TestResult::passed(),
+        Err(err) => TestResult::error(format!("{err:?}")),
+    }
 }

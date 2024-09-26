@@ -9,6 +9,7 @@ mod test;
 pub enum Token {
     Ident,
     Number,
+    SingleQuoteLiteral(Option<StringLiteralPrefix>),
     DoubleQuoteLiteral(Option<StringLiteralPrefix>),
     Comment,
 
@@ -41,6 +42,7 @@ pub enum Token {
     Percent,
     Dollar,
     Caret,
+    Hash,
 
     // Pairs
     LParen,
@@ -77,15 +79,17 @@ impl StringLiteralPrefix {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenError {
+    UnclosedSingleQuote,
     UnclosedDoubleQuote,
-    IllegalChar(char),
+    IllegalChar,
 }
 
 impl std::fmt::Display for TokenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::UnclosedSingleQuote => f.write_str("unclosed single quotes"),
             Self::UnclosedDoubleQuote => f.write_str("unclosed double quotes"),
-            Self::IllegalChar(c) => f.write_fmt(format_args!("illegal char {c:?}")),
+            Self::IllegalChar => f.write_fmt(format_args!("illegal char")),
         }
     }
 }

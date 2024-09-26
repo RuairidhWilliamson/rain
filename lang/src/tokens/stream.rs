@@ -43,6 +43,7 @@ impl TokenStream<'_> {
                 (b'%', _) => self.inc(Token::Percent),
                 (b'$', _) => self.inc(Token::Dollar),
                 (b'^', _) => self.inc(Token::Caret),
+                (b'#', _) => self.inc(Token::Hash),
                 (b'(', _) => self.inc(Token::LParen),
                 (b')', _) => self.inc(Token::RParen),
                 (b'{', _) => self.inc(Token::LBrace),
@@ -64,13 +65,13 @@ impl TokenStream<'_> {
                     self.index += 1;
                     continue;
                 }
+                (b'a'..=b'z', Some(b'\'')) => self.single_quote_literal()?,
                 (b'a'..=b'z', Some(b'\"')) => self.double_quote_literal()?,
                 (b'\"', _) => self.double_quote_literal()?,
                 (b'a'..=b'z' | b'A'..=b'Z' | b'_', _) => self.ident(),
                 (b'0'..=b'9', _) => self.number(),
                 (c, _) if c.is_ascii() => {
-                    return Err(LocalSpan::byte(self.index)
-                        .with_error(TokenError::IllegalChar(char::from(c))));
+                    return Err(LocalSpan::byte(self.index).with_error(TokenError::IllegalChar));
                 }
                 _ => self.ident(),
             };
@@ -164,6 +165,48 @@ impl TokenStream<'_> {
             token: Token::Number,
             span: LocalSpan::new(start, self.index),
         }
+    }
+
+    fn single_quote_literal(&mut self) -> Result<TokenLocalSpan, ErrorLocalSpan<TokenError>> {
+        let start = self.index;
+        let prefix_symbol = self.source.as_bytes().get(self.index).copied();
+        let prefix = match prefix_symbol {
+            Some(b'"') => None,
+            Some(b @ b'a'..=b'z') => {
+                // Skip over the string modifier
+                self.index += 1;
+                StringLiteralPrefix::from_byte(b)
+            }
+            _ => unreachable!(),
+        };
+        self.index += 1;
+        loop {
+            let Some(c) = self.source.as_bytes().get(self.index) else {
+                return Err(
+                    LocalSpan::new(start, self.index).with_error(TokenError::UnclosedSingleQuote)
+                );
+            };
+            if !self.source.is_char_boundary(self.index) {
+                self.index += 1;
+                continue;
+            }
+            match c {
+                b'\"' => {
+                    self.index += 1;
+                    break;
+                }
+                b'\n' => {
+                    return Err(LocalSpan::new(start, self.index)
+                        .with_error(TokenError::UnclosedSingleQuote))
+                }
+                _ => {}
+            }
+            self.index += 1;
+        }
+        Ok(TokenLocalSpan {
+            token: Token::SingleQuoteLiteral(prefix),
+            span: LocalSpan::new(start, self.index),
+        })
     }
 
     fn double_quote_literal(&mut self) -> Result<TokenLocalSpan, ErrorLocalSpan<TokenError>> {
