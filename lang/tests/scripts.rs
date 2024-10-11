@@ -2,10 +2,10 @@ use std::path::PathBuf;
 
 use rain_lang::{
     ir::Rir,
-    runner::{value::RainValue, Runner},
+    runner::{value::Value, Runner},
 };
 
-fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<RainValue> {
+fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<Value> {
     let module = rain_lang::ast::parser::parse_module(&src);
     let mut ir = Rir::new();
     let mid = ir.insert_module(path, src, module).map_err(|err| {
@@ -23,7 +23,7 @@ fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<RainValue> {
     Ok(value)
 }
 
-fn run(path: impl Into<PathBuf>) -> anyhow::Result<RainValue> {
+fn run(path: impl Into<PathBuf>) -> anyhow::Result<Value> {
     let path: PathBuf = path.into();
     let src = std::fs::read_to_string(&path)?;
     run_inner(Some(path), src)

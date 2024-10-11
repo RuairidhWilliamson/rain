@@ -1,14 +1,13 @@
 pub mod cache;
 pub mod error;
+mod internal;
 pub mod value;
 
 use std::{any::TypeId, collections::HashMap, num::NonZeroUsize, sync::Arc, time::Instant};
 
 use error::RunnerError;
-use value::{
-    RainFunction, RainInteger, RainInternal, RainInternalFunction, RainModule, RainTypeId,
-    RainValue,
-};
+use internal::InternalFunction;
+use value::{Module, RainFunction, RainInteger, RainInternal, RainTypeId, Value};
 
 use crate::{
     ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
@@ -20,13 +19,13 @@ use crate::{
 const MAX_CALL_DEPTH: usize = 500;
 const CACHE_SIZE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1024) };
 
-type ResultValue = Result<RainValue, ErrorSpan<RunnerError>>;
+type ResultValue = Result<Value, ErrorSpan<RunnerError>>;
 
-struct Cx<'a> {
+pub struct Cx<'a> {
     module: &'a Arc<IrModule>,
     call_depth: usize,
-    locals: HashMap<&'a str, RainValue>,
-    args: HashMap<&'a str, RainValue>,
+    locals: HashMap<&'a str, Value>,
+    args: HashMap<&'a str, Value>,
 }
 
 impl<'a> Cx<'a> {
@@ -82,7 +81,7 @@ impl Runner {
         let node = m.get(nid);
         match node {
             Node::LetDeclare(let_declare) => self.evaluate_node(&mut Cx::new(m), let_declare.expr),
-            Node::FnDeclare(_) => Ok(RainValue::new(RainFunction { id })),
+            Node::FnDeclare(_) => Ok(Value::new(RainFunction { id })),
             _ => unreachable!(),
         }
     }
@@ -101,7 +100,7 @@ impl Runner {
                 if let Some(nid) = block.statements.last() {
                     self.evaluate_node(cx, *nid)
                 } else {
-                    Ok(RainValue::new(()))
+                    Ok(Value::new(()))
                 }
             }
             Node::IfCondition(if_condition) => self.evaluate_if_condition(cx, if_condition),
@@ -110,7 +109,7 @@ impl Runner {
                 let v = self.evaluate_node(cx, assignment.expr)?;
                 let name = assignment.name.span.contents(&cx.module.src);
                 cx.locals.insert(name, v);
-                Ok(RainValue::new(()))
+                Ok(Value::new(()))
             }
             Node::BinaryOp(binary_op) => self.evaluate_binary_op(cx, binary_op),
             Node::Ident(tls) => self
@@ -121,22 +120,22 @@ impl Runner {
                         .with_module(cx.module.id)
                         .with_error(RunnerError::UnknownIdent)
                 }),
-            Node::InternalLiteral(_) => Ok(RainValue::new(RainInternal)),
+            Node::InternalLiteral(_) => Ok(Value::new(RainInternal)),
             Node::StringLiteral(lit) => match lit.prefix() {
                 Some(crate::tokens::StringLiteralPrefix::Format) => todo!("format string"),
-                None => Ok(RainValue::new(
+                None => Ok(Value::new(
                     lit.content_span().contents(&cx.module.src).to_owned(),
                 )),
             },
-            Node::IntegerLiteral(tls) => Ok(RainValue::new(
+            Node::IntegerLiteral(tls) => Ok(Value::new(
                 tls.0
                     .span
                     .contents(&cx.module.src)
                     .parse::<RainInteger>()
                     .map_err(|_| cx.err(tls.0, RunnerError::InvalidIntegerLiteral))?,
             )),
-            Node::TrueLiteral(_) => Ok(RainValue::new(true)),
-            Node::FalseLiteral(_) => Ok(RainValue::new(false)),
+            Node::TrueLiteral(_) => Ok(Value::new(true)),
+            Node::FalseLiteral(_) => Ok(Value::new(false)),
         }
     }
 
@@ -144,7 +143,7 @@ impl Runner {
         &mut self,
         cx: &mut Cx,
         ident: &str,
-    ) -> Result<Option<RainValue>, ErrorSpan<RunnerError>> {
+    ) -> Result<Option<Value>, ErrorSpan<RunnerError>> {
         if let Some(v) = cx.locals.get(ident) {
             return Ok(Some(v.clone()));
         }
@@ -168,7 +167,7 @@ impl Runner {
                 let Some(f) = v.downcast_ref::<RainFunction>() else {
                     unreachable!();
                 };
-                let arg_values: Vec<RainValue> = fn_call
+                let arg_values: Vec<Value> = fn_call
                     .args
                     .iter()
                     .map(|a| self.evaluate_node(cx, *a))
@@ -184,10 +183,10 @@ impl Runner {
                 Ok(v)
             }
             RainTypeId::InternalFunction => {
-                let Some(f) = v.downcast_ref::<RainInternalFunction>() else {
+                let Some(f) = v.downcast_ref::<InternalFunction>() else {
                     unreachable!()
                 };
-                let arg_values: Vec<(NodeId, RainValue)> = fn_call
+                let arg_values: Vec<(NodeId, Value)> = fn_call
                     .args
                     .iter()
                     .map(|&a| Ok((a, self.evaluate_node(cx, a)?)))
@@ -199,7 +198,7 @@ impl Runner {
                     return Ok(v.clone());
                 }
                 let start = Instant::now();
-                let v = self.call_internal_function(cx, nid, fn_call, *f, arg_values)?;
+                let v = f.call_internal_function(&mut self.rir, cx, nid, fn_call, arg_values)?;
                 self.cache.put(key, start.elapsed(), vec![], v.clone());
                 Ok(v)
             }
@@ -214,7 +213,7 @@ impl Runner {
         &mut self,
         call_depth: usize,
         function: &RainFunction,
-        arg_values: Vec<RainValue>,
+        arg_values: Vec<Value>,
     ) -> ResultValue {
         let m = &Arc::clone(self.rir.get_module(function.id.module_id()));
         let nid = m.get_declaration(function.id.local_id());
@@ -239,56 +238,11 @@ impl Runner {
         }
     }
 
-    fn call_internal_function(
-        &mut self,
-        cx: &mut Cx,
-        nid: NodeId,
-        fn_call: &FnCall,
-        function: RainInternalFunction,
-        arg_values: Vec<(NodeId, RainValue)>,
-    ) -> ResultValue {
-        match function {
-            RainInternalFunction::Print => {
-                let args: Vec<String> = arg_values
-                    .into_iter()
-                    .map(|(_, a)| format!("{a}"))
-                    .collect();
-                println!("{}", args.join(" "));
-                Ok(RainValue::new(()))
-            }
-            RainInternalFunction::Import => {
-                let import_target = arg_values
-                    .first()
-                    .ok_or_else(|| cx.err(fn_call.rparen_token, RunnerError::GenericTypeError))?;
-                let import_path: &String = import_target
-                    .1
-                    .downcast_ref()
-                    .ok_or_else(|| cx.nid_err(import_target.0, RunnerError::GenericTypeError))?;
-                let resolved_path = cx
-                    .module
-                    .path
-                    .as_ref()
-                    .ok_or_else(|| cx.nid_err(nid, RunnerError::ImportResolve))?
-                    .parent()
-                    .ok_or_else(|| cx.nid_err(nid, RunnerError::ImportResolve))?
-                    .join(import_path);
-                let src = std::fs::read_to_string(&resolved_path)
-                    .map_err(|err| cx.nid_err(nid, RunnerError::ImportIOError(err)))?;
-                let module = crate::ast::parser::parse_module(&src);
-                let id = self
-                    .rir
-                    .insert_module(Some(resolved_path), src, module)
-                    .map_err(ErrorSpan::convert)?;
-                Ok(RainValue::new(RainModule { id }))
-            }
-        }
-    }
-
     #[expect(clippy::too_many_lines)]
     fn evaluate_binary_op(&mut self, cx: &mut Cx, op: &BinaryOp) -> ResultValue {
         let left = self.evaluate_node(cx, op.left)?;
         match op.op {
-            BinaryOperatorKind::Addition => Ok(RainValue::new(RainInteger(
+            BinaryOperatorKind::Addition => Ok(Value::new(RainInteger(
                 &left
                     .downcast_ref::<RainInteger>()
                     .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
@@ -299,7 +253,7 @@ impl Runner {
                         .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
                         .0,
             ))),
-            BinaryOperatorKind::Subtraction => Ok(RainValue::new(RainInteger(
+            BinaryOperatorKind::Subtraction => Ok(Value::new(RainInteger(
                 &left
                     .downcast_ref::<RainInteger>()
                     .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
@@ -310,7 +264,7 @@ impl Runner {
                         .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
                         .0,
             ))),
-            BinaryOperatorKind::Multiplication => Ok(RainValue::new(RainInteger(
+            BinaryOperatorKind::Multiplication => Ok(Value::new(RainInteger(
                 &left
                     .downcast_ref::<RainInteger>()
                     .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
@@ -321,7 +275,7 @@ impl Runner {
                         .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
                         .0,
             ))),
-            BinaryOperatorKind::Division => Ok(RainValue::new(RainInteger(
+            BinaryOperatorKind::Division => Ok(Value::new(RainInteger(
                 &left
                     .downcast_ref::<RainInteger>()
                     .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
@@ -332,7 +286,7 @@ impl Runner {
                         .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
                         .0,
             ))),
-            BinaryOperatorKind::LogicalAnd => Ok(RainValue::new(
+            BinaryOperatorKind::LogicalAnd => Ok(Value::new(
                 *left
                     .downcast_ref::<bool>()
                     .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
@@ -341,7 +295,7 @@ impl Runner {
                         .downcast_ref::<bool>()
                         .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?,
             )),
-            BinaryOperatorKind::LogicalOr => Ok(RainValue::new(
+            BinaryOperatorKind::LogicalOr => Ok(Value::new(
                 *left
                     .downcast_ref::<bool>()
                     .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
@@ -350,7 +304,7 @@ impl Runner {
                         .downcast_ref::<bool>()
                         .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?,
             )),
-            BinaryOperatorKind::Equals => Ok(RainValue::new(
+            BinaryOperatorKind::Equals => Ok(Value::new(
                 left.downcast_ref::<RainInteger>()
                     .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
                     .0
@@ -360,7 +314,7 @@ impl Runner {
                         .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
                         .0,
             )),
-            BinaryOperatorKind::NotEquals => Ok(RainValue::new(
+            BinaryOperatorKind::NotEquals => Ok(Value::new(
                 left.downcast_ref::<RainInteger>()
                     .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
                     .0
@@ -372,7 +326,7 @@ impl Runner {
             )),
             BinaryOperatorKind::Dot => match left.rain_type_id() {
                 RainTypeId::Module => {
-                    let Some(module_value) = left.downcast_ref::<RainModule>() else {
+                    let Some(module_value) = left.downcast_ref::<Module>() else {
                         unreachable!()
                     };
                     match cx.module.get(op.right) {
@@ -391,11 +345,9 @@ impl Runner {
                 RainTypeId::Internal => match cx.module.get(op.right) {
                     Node::Ident(tls) => {
                         let name = tls.0.span.contents(&cx.module.src);
-                        match name {
-                            "print" => Ok(RainValue::new(RainInternalFunction::Print)),
-                            "import" => Ok(RainValue::new(RainInternalFunction::Import)),
-                            _ => Err(cx.err(tls.0.span, RunnerError::GenericTypeError)),
-                        }
+                        InternalFunction::evaluate_internal_function_name(name)
+                            .map(Value::new)
+                            .ok_or_else(|| cx.err(tls.0.span, RunnerError::GenericTypeError))
                     }
                     _ => Err(cx.err(op.op_span, RunnerError::GenericTypeError)),
                 },
@@ -420,7 +372,7 @@ impl Runner {
                     self.evaluate_node(cx, if_condition)
                 }
                 Some(AlternateCondition::ElseBlock(block)) => self.evaluate_node(cx, block),
-                None => Ok(RainValue::new(())),
+                None => Ok(Value::new(())),
             }
         }
     }

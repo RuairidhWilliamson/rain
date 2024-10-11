@@ -8,7 +8,10 @@ use lru::LruCache;
 
 use crate::ir::DeclarationId;
 
-use super::value::{RainFunction, RainHash, RainInternalFunction, RainValue};
+use super::{
+    internal::InternalFunction,
+    value::{RainFunction, RainHash, Value},
+};
 
 pub struct Cache {
     storage: LruCache<CacheKey, CacheEntry>,
@@ -24,7 +27,7 @@ impl Cache {
     pub fn function_key<'a>(
         &self,
         function: impl Into<FunctionDefinition>,
-        args: impl Iterator<Item = &'a RainValue>,
+        args: impl Iterator<Item = &'a Value>,
     ) -> CacheKey {
         let mut hasher = DefaultHasher::new();
         for a in args {
@@ -37,7 +40,7 @@ impl Cache {
         }
     }
 
-    pub fn get_value(&mut self, key: &CacheKey) -> Option<&RainValue> {
+    pub fn get_value(&mut self, key: &CacheKey) -> Option<&Value> {
         self.storage.get(key).map(|e| &e.value)
     }
 
@@ -46,7 +49,7 @@ impl Cache {
         key: CacheKey,
         execution_time: Duration,
         deps: Vec<CacheKey>,
-        value: RainValue,
+        value: Value,
     ) {
         self.storage.put(
             key,
@@ -68,7 +71,7 @@ pub struct CacheKey {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum FunctionDefinition {
     DeclarationId(DeclarationId),
-    Internal(RainInternalFunction),
+    Internal(InternalFunction),
 }
 
 impl From<&RainFunction> for FunctionDefinition {
@@ -77,8 +80,8 @@ impl From<&RainFunction> for FunctionDefinition {
     }
 }
 
-impl From<RainInternalFunction> for FunctionDefinition {
-    fn from(f: RainInternalFunction) -> Self {
+impl From<InternalFunction> for FunctionDefinition {
+    fn from(f: InternalFunction) -> Self {
         Self::Internal(f)
     }
 }
@@ -87,5 +90,5 @@ impl From<RainInternalFunction> for FunctionDefinition {
 struct CacheEntry {
     execution_time: Duration,
     deps: Vec<CacheKey>,
-    value: RainValue,
+    value: Value,
 }

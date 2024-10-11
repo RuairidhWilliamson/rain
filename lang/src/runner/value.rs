@@ -1,6 +1,7 @@
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
+    path::PathBuf,
     str::FromStr,
     sync::Arc,
 };
@@ -8,17 +9,17 @@ use std::{
 use crate::ir::{DeclarationId, ModuleId};
 
 #[derive(Clone)]
-pub struct RainValue {
-    value: Arc<dyn RainValueInner>,
+pub struct Value {
+    value: Arc<dyn ValueInner>,
 }
 
-impl std::fmt::Debug for RainValue {
+impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.value.fmt(f)
     }
 }
 
-impl std::fmt::Display for RainValue {
+impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(s) = self.downcast_ref::<String>() {
             std::fmt::Display::fmt(s, f)
@@ -28,8 +29,8 @@ impl std::fmt::Display for RainValue {
     }
 }
 
-impl RainValue {
-    pub fn new<T: RainValueInner>(value: T) -> Self {
+impl Value {
+    pub fn new<T: ValueInner>(value: T) -> Self {
         Self {
             value: Arc::new(value),
         }
@@ -43,7 +44,7 @@ impl RainValue {
         (*self.value).type_id()
     }
 
-    pub fn downcast<T: RainValueInner>(self) -> Option<Arc<T>> {
+    pub fn downcast<T: ValueInner>(self) -> Option<Arc<T>> {
         if self.any_type_id() == TypeId::of::<T>() {
             let ptr = Arc::into_raw(self.value);
             // Safety:
@@ -54,9 +55,9 @@ impl RainValue {
         }
     }
 
-    pub fn downcast_ref<T: RainValueInner>(&self) -> Option<&T> {
+    pub fn downcast_ref<T: ValueInner>(&self) -> Option<&T> {
         if self.any_type_id() == TypeId::of::<T>() {
-            let ptr = std::ptr::from_ref::<dyn RainValueInner>(self.value.as_ref());
+            let ptr = std::ptr::from_ref::<dyn ValueInner>(self.value.as_ref());
             // Safety:
             // We have checked this is of the right type already
             Some(unsafe { &*ptr.cast::<T>() })
@@ -74,25 +75,26 @@ pub enum RainTypeId {
     String,
     Function,
     Module,
+    FileArea,
     Internal,
     InternalFunction,
 }
 
-pub trait RainValueInner: Any + Debug + Send + Sync + RainHash {
+pub trait ValueInner: Any + Debug + Send + Sync + RainHash {
     fn rain_type_id(&self) -> RainTypeId;
 }
 
-impl RainValueInner for () {
+impl ValueInner for () {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Unit
     }
 }
-impl RainValueInner for bool {
+impl ValueInner for bool {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Boolean
     }
 }
-impl RainValueInner for String {
+impl ValueInner for String {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::String
     }
@@ -101,7 +103,7 @@ impl RainValueInner for String {
 #[derive(Hash)]
 pub struct RainInteger(pub num_bigint::BigInt);
 
-impl RainValueInner for RainInteger {
+impl ValueInner for RainInteger {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Integer
     }
@@ -125,41 +127,40 @@ pub struct RainFunction {
     pub id: DeclarationId,
 }
 
-impl RainValueInner for RainFunction {
+impl ValueInner for RainFunction {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Function
     }
 }
 
 #[derive(Debug, Hash)]
-pub struct RainModule {
+pub struct Module {
     pub id: ModuleId,
 }
 
-impl RainValueInner for RainModule {
+impl ValueInner for Module {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Module
     }
 }
 
 #[derive(Debug, Hash)]
-pub struct RainInternal;
+pub enum FileArea {
+    Local(PathBuf),
+}
 
-impl RainValueInner for RainInternal {
+impl ValueInner for FileArea {
     fn rain_type_id(&self) -> RainTypeId {
-        RainTypeId::Internal
+        RainTypeId::FileArea
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum RainInternalFunction {
-    Print,
-    Import,
-}
+#[derive(Debug, Hash)]
+pub struct RainInternal;
 
-impl RainValueInner for RainInternalFunction {
+impl ValueInner for RainInternal {
     fn rain_type_id(&self) -> RainTypeId {
-        RainTypeId::InternalFunction
+        RainTypeId::Internal
     }
 }
 
@@ -173,7 +174,7 @@ impl<T: std::hash::Hash> RainHash for T {
     }
 }
 
-impl RainHash for RainValue {
+impl RainHash for Value {
     fn hash(&self, state: &mut std::hash::DefaultHasher) {
         self.value.hash(state);
     }
