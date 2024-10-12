@@ -1,4 +1,4 @@
-use crate::ast::error::ParseError;
+use crate::{area::PathError, ast::error::ParseError};
 
 use super::value::RainTypeId;
 
@@ -9,6 +9,7 @@ pub enum RunnerError {
     ExpectedType(RainTypeId, &'static [RainTypeId]),
     InvalidIntegerLiteral,
     MaxCallDepth,
+    PathError(PathError),
     ImportResolve,
     ImportIOError(std::io::Error),
     ImportParseError(ParseError),
@@ -26,6 +27,7 @@ impl std::fmt::Display for RunnerError {
             Self::MaxCallDepth => {
                 f.write_str("reached max call depth probably due to infinite recursion")
             }
+            Self::PathError(err) => f.write_fmt(format_args!("path error: {err}")),
             Self::ImportResolve => f.write_fmt(format_args!("could not resolve import")),
             Self::ImportIOError(err) => f.write_fmt(format_args!("io error when importing: {err}")),
             Self::ImportParseError(err) => {
@@ -40,5 +42,11 @@ impl std::error::Error for RunnerError {}
 impl From<ParseError> for RunnerError {
     fn from(err: ParseError) -> Self {
         Self::ImportParseError(err)
+    }
+}
+
+impl From<PathError> for RunnerError {
+    fn from(err: PathError) -> Self {
+        Self::PathError(err)
     }
 }

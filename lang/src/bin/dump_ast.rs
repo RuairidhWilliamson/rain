@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use rain_lang::{ast::error::ParseError, local_span::ErrorLocalSpan};
+use rain_lang::{area::File, ast::error::ParseError, local_span::ErrorLocalSpan};
 
 fn main() -> ExitCode {
     let Some(src_path) = std::env::args().nth(1) else {
@@ -8,6 +8,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     let src_path = std::path::Path::new(&src_path);
+    let path = File::new_local(src_path).unwrap();
     let src = match std::fs::read_to_string(src_path) {
         Ok(src) => src,
         Err(err) => {
@@ -18,7 +19,7 @@ fn main() -> ExitCode {
         }
     };
     if let Err(err) = inner(&src) {
-        let resolved = err.resolve(Some(src_path), &src);
+        let resolved = err.resolve(Some(&path), &src);
         eprintln!("{resolved}");
         ExitCode::FAILURE
     } else {

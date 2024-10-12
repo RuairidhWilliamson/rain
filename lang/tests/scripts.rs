@@ -1,11 +1,12 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use rain_lang::{
+    area::File,
     ir::Rir,
     runner::{value::Value, Runner},
 };
 
-fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<Value> {
+fn run_inner(path: Option<File>, src: String) -> anyhow::Result<Value> {
     let module = rain_lang::ast::parser::parse_module(&src);
     let mut ir = Rir::new();
     let mid = ir.insert_module(path, src, module).map_err(|err| {
@@ -23,10 +24,11 @@ fn run_inner(path: Option<PathBuf>, src: String) -> anyhow::Result<Value> {
     Ok(value)
 }
 
-fn run(path: impl Into<PathBuf>) -> anyhow::Result<Value> {
-    let path: PathBuf = path.into();
-    let src = std::fs::read_to_string(&path)?;
-    run_inner(Some(path), src)
+fn run(path: impl AsRef<Path>) -> anyhow::Result<Value> {
+    let path: &Path = path.as_ref();
+    let src = std::fs::read_to_string(path)?;
+    let file = File::new_local(path).unwrap();
+    run_inner(Some(file), src)
 }
 
 #[test]

@@ -1,6 +1,7 @@
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
+    area::File,
     ast::{error::ParseError, Module, ModuleRoot, Node, NodeId},
     local_span::{ErrorLocalSpan, LocalSpan},
     span::ErrorSpan,
@@ -18,7 +19,7 @@ impl Rir {
 
     pub fn insert_module(
         &mut self,
-        path: Option<PathBuf>,
+        file: Option<File>,
         src: String,
         ast: Result<Module, ErrorLocalSpan<ParseError>>,
     ) -> Result<ModuleId, ErrorSpan<ParseError>> {
@@ -29,7 +30,7 @@ impl Rir {
         };
         self.modules.push(Arc::new(IrModule {
             id,
-            path,
+            file,
             src,
             module,
         }));
@@ -66,7 +67,7 @@ impl Rir {
 #[derive(Debug)]
 pub struct IrModule {
     pub id: ModuleId,
-    pub path: Option<PathBuf>,
+    pub file: Option<File>,
     pub src: String,
     module: Option<ParsedIrModule>,
 }

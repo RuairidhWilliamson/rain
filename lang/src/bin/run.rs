@@ -1,6 +1,6 @@
 use std::{path::PathBuf, process::ExitCode};
 
-use rain_lang::{ir::Rir, runner::Runner};
+use rain_lang::{area::File, ir::Rir, runner::Runner};
 
 fn main() -> ExitCode {
     let Some(src_path) = std::env::args().nth(1) else {
@@ -8,6 +8,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     let src_path = PathBuf::from(&src_path);
+    let file = File::new_local(&src_path).unwrap();
     let src = match std::fs::read_to_string(&src_path) {
         Ok(src) => src,
         Err(err) => {
@@ -17,7 +18,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    if inner(src_path, src).is_err() {
+    if inner(file, src).is_err() {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
@@ -28,10 +29,10 @@ fn print_help() {
     eprintln!("Usage: rain-run <src_path>");
 }
 
-fn inner(path: PathBuf, src: String) -> Result<(), ()> {
+fn inner(file: File, src: String) -> Result<(), ()> {
     let script = rain_lang::ast::parser::parse_module(&src);
     let mut rir = Rir::new();
-    let mid = rir.insert_module(Some(path), src, script).map_err(|err| {
+    let mid = rir.insert_module(Some(file), src, script).map_err(|err| {
         eprintln!("{}", err.resolve_ir(&rir));
     })?;
     let Some(main) = rir.resolve_global_declaration(mid, "main") else {

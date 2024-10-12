@@ -1,11 +1,9 @@
-use std::path::Path;
-
-use crate::local_span::LocalSpan;
+use crate::{area::File, local_span::LocalSpan};
 
 #[derive(Debug)]
 pub struct ResolvedError<'a> {
     pub err: &'a dyn std::error::Error,
-    pub path: Option<&'a Path>,
+    pub file: Option<&'a File>,
     pub src: &'a str,
     pub span: LocalSpan,
 }
@@ -15,14 +13,13 @@ impl std::fmt::Display for ResolvedError<'_> {
         use colored::Colorize;
         let Self {
             err,
-            path,
+            file,
             src,
             span,
             ..
         } = self;
         let (line, col) = span.line_col(src);
-        let path = path.unwrap_or(Path::new("<unknown>"));
-        let location = format!("{}:{}:{}\n", path.display(), line, col).blue();
+        let location = format!("{file:?}:{line}:{col}\n").blue();
         f.write_fmt(format_args!("{location}"))?;
         let [before, contents, after] = span.surrounding_lines(src, 2);
         let before = before.replace('\n', "\n| ");

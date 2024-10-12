@@ -1,12 +1,14 @@
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
-    path::PathBuf,
     str::FromStr,
     sync::Arc,
 };
 
-use crate::ir::{DeclarationId, ModuleId};
+use crate::{
+    area::{File, FileArea},
+    ir::{DeclarationId, ModuleId},
+};
 
 #[derive(Clone)]
 pub struct Value {
@@ -76,6 +78,7 @@ pub enum RainTypeId {
     Function,
     Module,
     FileArea,
+    File,
     Internal,
     InternalFunction,
 }
@@ -144,14 +147,15 @@ impl ValueInner for Module {
     }
 }
 
-#[derive(Debug, Hash)]
-pub enum FileArea {
-    Local(PathBuf),
-}
-
 impl ValueInner for FileArea {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::FileArea
+    }
+}
+
+impl ValueInner for File {
+    fn rain_type_id(&self) -> RainTypeId {
+        RainTypeId::File
     }
 }
 

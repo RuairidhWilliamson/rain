@@ -1,9 +1,7 @@
-use std::{
-    ops::{Add, AddAssign},
-    path::Path,
-};
+use std::ops::{Add, AddAssign};
 
 use crate::{
+    area::File,
     error::ResolvedError,
     ir::{ModuleId, Rir},
     span::{ErrorSpan, Span},
@@ -154,10 +152,10 @@ pub struct ErrorLocalSpan<E: std::error::Error> {
 }
 
 impl<E: std::error::Error> ErrorLocalSpan<E> {
-    pub fn resolve<'a>(&'a self, path: Option<&'a Path>, src: &'a str) -> ResolvedError<'a> {
+    pub fn resolve<'a>(&'a self, file: Option<&'a File>, src: &'a str) -> ResolvedError<'a> {
         ResolvedError {
             err: &self.err,
-            path,
+            file,
             src,
             span: self.span,
         }
@@ -165,7 +163,7 @@ impl<E: std::error::Error> ErrorLocalSpan<E> {
 
     pub fn resolve_ir<'a>(&'a self, ir: &'a Rir, module_id: ModuleId) -> ResolvedError<'a> {
         let module = ir.get_module(module_id);
-        self.resolve(module.path.as_deref(), &module.src)
+        self.resolve(module.file.as_ref(), &module.src)
     }
 
     pub fn upgrade(self, module_id: ModuleId) -> ErrorSpan<E> {

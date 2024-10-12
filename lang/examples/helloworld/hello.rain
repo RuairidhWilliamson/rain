@@ -1,5 +1,9 @@
 let print = internal.print
+let this_file = internal.module_file()
+
+let my_number = 4
 
 fn main() {
 	print("Hello world")
+	print("This file is", this_file)
 }

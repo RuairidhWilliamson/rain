@@ -1,6 +1,7 @@
 use std::{path::PathBuf, process::ExitCode};
 
 use clap::{Parser, Subcommand};
+use rain_lang::area::File;
 
 fn main() -> ExitCode {
     if fallible_main().is_ok() {
@@ -13,8 +14,8 @@ fn main() -> ExitCode {
 fn fallible_main() -> Result<(), ()> {
     let cli = Cli::parse();
     let RainCommand::Run { script } = cli.command;
-    let path = script;
-    let src = std::fs::read_to_string(&path).map_err(|err| {
+    let path = File::new_local(&script).unwrap();
+    let src = std::fs::read_to_string(&script).map_err(|err| {
         eprintln!("{err}");
     })?;
     let ast = rain_lang::ast::parser::parse_module(&src);
