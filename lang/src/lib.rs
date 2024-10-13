@@ -8,6 +8,7 @@ pub mod runner;
 pub mod span;
 pub mod tokens;
 
+#[expect(clippy::result_unit_err)]
 pub fn run_stderr(path: impl AsRef<std::path::Path>) -> Result<runner::value::Value, ()> {
     let file = area::File::new_local(path.as_ref()).map_err(|err| {
         eprintln!("could get file: {err}");
