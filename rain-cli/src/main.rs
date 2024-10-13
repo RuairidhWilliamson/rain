@@ -13,7 +13,7 @@ fn main() -> ExitCode {
 fn fallible_main() -> Result<(), ()> {
     let cli = Cli::parse();
     let RainCommand::Run { script } = cli.command;
-    let v = rain_lang::run_stderr(script)?;
+    let v = rain_lang::run_stderr(script, rain_lang::config::Config::default())?;
     eprintln!("{v:?}");
     Ok(())
 }

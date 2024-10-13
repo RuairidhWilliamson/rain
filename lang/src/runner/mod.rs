@@ -11,6 +11,7 @@ use value::{Module, RainFunction, RainInteger, RainInternal, RainTypeId, Value};
 
 use crate::{
     ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
+    config::Config,
     ir::{DeclarationId, IrModule, Rir},
     local_span::LocalSpan,
     span::ErrorSpan,
@@ -51,13 +52,15 @@ impl<'a> Cx<'a> {
 }
 
 pub struct Runner {
+    pub config: Config,
     pub rir: Rir,
     pub cache: cache::Cache,
 }
 
 impl Runner {
-    pub fn new(rir: Rir) -> Self {
+    pub fn new(config: Config, rir: Rir) -> Self {
         Self {
+            config,
             rir,
             cache: cache::Cache::new(CACHE_SIZE),
         }
@@ -198,7 +201,14 @@ impl Runner {
                     return Ok(v.clone());
                 }
                 let start = Instant::now();
-                let v = f.call_internal_function(&mut self.rir, cx, nid, fn_call, arg_values)?;
+                let v = f.call_internal_function(
+                    &self.config,
+                    &mut self.rir,
+                    cx,
+                    nid,
+                    fn_call,
+                    arg_values,
+                )?;
                 self.cache.put(key, start.elapsed(), vec![], v.clone());
                 Ok(v)
             }

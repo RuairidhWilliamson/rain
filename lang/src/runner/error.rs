@@ -11,6 +11,7 @@ pub enum RunnerError {
     MaxCallDepth,
     PathError(PathError),
     ImportResolve,
+    IllegalLocalArea,
     AreaIOError(std::io::Error),
     ImportIOError(std::io::Error),
     ImportParseError(ParseError),
@@ -30,6 +31,9 @@ impl std::fmt::Display for RunnerError {
             }
             Self::PathError(err) => f.write_fmt(format_args!("path error: {err}")),
             Self::ImportResolve => f.write_fmt(format_args!("could not resolve import")),
+            Self::IllegalLocalArea => {
+                f.write_str("local areas can only be created from local areas")
+            }
             Self::AreaIOError(err) => {
                 f.write_fmt(format_args!("io error when getting area: {err}"))
             }

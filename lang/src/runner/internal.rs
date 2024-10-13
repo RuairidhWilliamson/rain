@@ -3,6 +3,7 @@
 use crate::{
     area::{AbsolutePathBuf, File, FileArea, PathError},
     ast::{FnCall, NodeId},
+    config::Config,
     ir::Rir,
     span::ErrorSpan,
 };
@@ -20,6 +21,7 @@ pub enum InternalFunction {
     Import,
     ModuleFile,
     LocalArea,
+    EmptyArea,
 }
 
 impl ValueInner for InternalFunction {
@@ -36,12 +38,14 @@ impl InternalFunction {
             "import" => Some(Self::Import),
             "module_file" => Some(Self::ModuleFile),
             "local_area" => Some(Self::LocalArea),
+            "empty_area" => Some(Self::EmptyArea),
             _ => None,
         }
     }
 
     pub fn call_internal_function(
         self,
+        config: &Config,
         rir: &mut Rir,
         cx: &mut Cx,
         nid: NodeId,
@@ -51,9 +55,10 @@ impl InternalFunction {
         match self {
             Self::Print => print_implementation(arg_values),
             Self::GetFile => get_file_implementation(cx, nid, fn_call, arg_values),
-            Self::Import => import_implementation(rir, cx, nid, fn_call, arg_values),
+            Self::Import => import_implementation(config, rir, cx, nid, fn_call, arg_values),
             Self::ModuleFile => module_file_implementation(cx, fn_call, arg_values),
             Self::LocalArea => local_area_implementation(cx, nid, arg_values),
+            Self::EmptyArea => empty_area_implementation(cx, nid, arg_values),
         }
     }
 }
@@ -103,6 +108,7 @@ fn get_file_implementation(
 }
 
 fn import_implementation(
+    config: &Config,
     rir: &mut Rir,
     cx: &mut Cx,
     nid: NodeId,
@@ -114,7 +120,7 @@ fn import_implementation(
             let file: &File = file_value
                 .downcast_ref()
                 .ok_or_else(|| cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
-            let resolved_path = file.resolve();
+            let resolved_path = file.resolve(config);
             let src = std::fs::read_to_string(&resolved_path)
                 .map_err(|err| cx.nid_err(nid, RunnerError::ImportIOError(err)))?;
             let module = crate::ast::parser::parse_module(&src);
@@ -143,7 +149,9 @@ fn local_area_implementation(
     nid: NodeId,
     arg_values: Vec<(NodeId, Value)>,
 ) -> ResultValue {
-    let FileArea::Local(current_area_path) = &cx.module.file.area;
+    let FileArea::Local(current_area_path) = &cx.module.file.area else {
+        return Err(cx.nid_err(nid, RunnerError::IllegalLocalArea));
+    };
     let (path_nid, path_value) = arg_values
         .first()
         .ok_or_else(|| cx.nid_err(nid, RunnerError::GenericTypeError))?;
@@ -159,4 +167,15 @@ fn local_area_implementation(
         return Err(cx.nid_err(nid, RunnerError::GenericTypeError));
     }
     Ok(Value::new(FileArea::Local(area_path)))
+}
+
+fn empty_area_implementation(
+    cx: &mut Cx,
+    nid: NodeId,
+    arg_values: Vec<(NodeId, Value)>,
+) -> ResultValue {
+    if !arg_values.is_empty() {
+        return Err(cx.nid_err(nid, RunnerError::GenericTypeError));
+    }
+    Ok(Value::new(FileArea::Empty))
 }

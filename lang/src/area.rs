@@ -4,9 +4,38 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::config::Config;
+
 #[derive(Debug, Clone, Hash)]
 pub enum FileArea {
+    Empty,
     Local(AbsolutePathBuf),
+    Generated(GeneratedFileArea),
+}
+
+impl FileArea {
+    fn path(&self, config: &Config) -> Option<PathBuf> {
+        match self {
+            Self::Empty => None,
+            Self::Local(p) => Some(p.to_path_buf()),
+            Self::Generated(GeneratedFileArea { id }) => {
+                Some(config.base_generated_dir.join(id.to_string()))
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+pub struct GeneratedFileArea {
+    id: uuid::Uuid,
+}
+
+impl GeneratedFileArea {
+    pub fn new() -> Self {
+        Self {
+            id: uuid::Uuid::new_v4(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Hash)]
@@ -105,8 +134,8 @@ impl File {
         })
     }
 
-    pub fn resolve(&self) -> PathBuf {
-        let FileArea::Local(AbsolutePathBuf(area_path)) = &self.area;
+    pub fn resolve(&self, config: &Config) -> PathBuf {
+        let area_path = self.area.path(config).unwrap();
         let FilePath(path) = &self.path;
         let Some(path) = path.strip_prefix('/') else {
             unreachable!("file path must start with /");
@@ -117,7 +146,7 @@ impl File {
 
 impl std::fmt::Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}", self.resolve().display()))
+        f.write_fmt(format_args!("{:?}{}", &self.area, &self.path.0))
     }
 }
 
