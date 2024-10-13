@@ -1,7 +1,5 @@
 #![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
 
-use std::ops::Deref;
-
 use crate::{
     area::{AbsolutePathBuf, File, FileArea, PathError},
     ast::{FnCall, NodeId},
@@ -55,7 +53,7 @@ impl InternalFunction {
             Self::GetFile => get_file_implementation(cx, nid, fn_call, arg_values),
             Self::Import => import_implementation(rir, cx, nid, fn_call, arg_values),
             Self::ModuleFile => module_file_implementation(cx, fn_call, arg_values),
-            Self::LocalArea => local_area_implementation(cx, nid, fn_call, arg_values),
+            Self::LocalArea => local_area_implementation(cx, nid, arg_values),
         }
     }
 }
@@ -97,7 +95,7 @@ fn get_file_implementation(
             let absolute_path: &String = absolute_path_value
                 .downcast_ref()
                 .ok_or_else(|| cx.nid_err(*absolute_path_nid, RunnerError::GenericTypeError))?;
-            let file = File::new(area.clone(), &absolute_path)
+            let file = File::new(area.clone(), absolute_path)
                 .map_err(|err| cx.nid_err(nid, err.into()))?;
             Ok(Value::new(file))
         }
@@ -148,10 +146,14 @@ fn module_file_implementation(
 fn local_area_implementation(
     cx: &mut Cx,
     nid: NodeId,
-    _fn_call: &FnCall,
     arg_values: Vec<(NodeId, Value)>,
 ) -> ResultValue {
-    let FileArea::Local(current_area_path) = &cx.module.file.as_ref().unwrap().area;
+    let FileArea::Local(current_area_path) = &cx
+        .module
+        .file
+        .as_ref()
+        .ok_or_else(|| cx.nid_err(nid, RunnerError::GenericTypeError))?
+        .area;
     let (path_nid, path_value) = arg_values
         .first()
         .ok_or_else(|| cx.nid_err(nid, RunnerError::GenericTypeError))?;
@@ -161,7 +163,7 @@ fn local_area_implementation(
     let area_path = current_area_path.join(path);
     let area_path = AbsolutePathBuf::try_from(area_path.as_path())
         .map_err(|err| cx.nid_err(nid, RunnerError::AreaIOError(err)))?;
-    let metadata = std::fs::metadata(area_path.deref())
+    let metadata = std::fs::metadata(&*area_path)
         .map_err(|err| cx.nid_err(nid, RunnerError::AreaIOError(err)))?;
     if metadata.is_file() {
         return Err(cx.nid_err(nid, RunnerError::GenericTypeError));

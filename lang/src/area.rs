@@ -125,10 +125,10 @@ struct FilePath(String);
 impl FilePath {
     fn new(path: &str) -> Result<Self, PathError> {
         path_segments(path).try_for_each(valid_path_segment)?;
-        Ok(Self(if !is_absolute(path) {
-            String::from("/") + path
-        } else {
+        Ok(Self(if is_absolute(path) {
             path.to_owned()
+        } else {
+            String::from("/") + path
         }))
     }
 
