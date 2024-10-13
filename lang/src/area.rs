@@ -115,6 +115,12 @@ impl File {
     }
 }
 
+impl std::fmt::Display for File {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.resolve().display()))
+    }
+}
+
 /// Represents an absolute path in the file area
 ///
 /// Must start with /

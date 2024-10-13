@@ -19,7 +19,10 @@ impl std::fmt::Display for ResolvedError<'_> {
             ..
         } = self;
         let (line, col) = span.line_col(src);
-        let location = format!("{file:?}:{line}:{col}\n").blue();
+        let file_fmt = file
+            .map(|file| file.to_string())
+            .unwrap_or_else(|| String::from("unknown"));
+        let location = format!("{file_fmt}:{line}:{col}\n").blue();
         f.write_fmt(format_args!("{location}"))?;
         let [before, contents, after] = span.surrounding_lines(src, 2);
         let before = before.replace('\n', "\n| ");

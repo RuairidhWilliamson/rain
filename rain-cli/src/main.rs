@@ -1,7 +1,6 @@
 use std::{path::PathBuf, process::ExitCode};
 
 use clap::{Parser, Subcommand};
-use rain_lang::area::File;
 
 fn main() -> ExitCode {
     if fallible_main().is_ok() {
@@ -14,29 +13,7 @@ fn main() -> ExitCode {
 fn fallible_main() -> Result<(), ()> {
     let cli = Cli::parse();
     let RainCommand::Run { script } = cli.command;
-    let path = match File::new_local(&script) {
-        Ok(path) => path,
-        Err(err) => {
-            eprintln!("Path error");
-            eprintln!("{err:#}");
-            return Err(());
-        }
-    };
-    let src = std::fs::read_to_string(&script).map_err(|err| {
-        eprintln!("{err}");
-    })?;
-    let ast = rain_lang::ast::parser::parse_module(&src);
-    let mut rir = rain_lang::ir::Rir::new();
-    let mid = rir.insert_module(Some(path), src, ast).map_err(|err| {
-        eprintln!("{}", err.resolve_ir(&rir));
-    })?;
-    let main = rir.resolve_global_declaration(mid, "main").ok_or_else(|| {
-        eprintln!("main declaration not found, add `let main` or `fn main() {{}}`",);
-    })?;
-    let mut runner = rain_lang::runner::Runner::new(rir);
-    let v = runner.evaluate_and_call(main).map_err(|err| {
-        eprintln!("{}", err.resolve_ir(&runner.rir));
-    })?;
+    let v = rain_lang::run_stderr(script)?;
     eprintln!("{v:?}");
     Ok(())
 }

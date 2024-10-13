@@ -1,34 +1,9 @@
 use std::path::Path;
 
-use rain_lang::{
-    area::File,
-    ir::Rir,
-    runner::{value::Value, Runner},
-};
+use rain_lang::runner::value::Value;
 
-fn run_inner(path: Option<File>, src: String) -> anyhow::Result<Value> {
-    let module = rain_lang::ast::parser::parse_module(&src);
-    let mut ir = Rir::new();
-    let mid = ir.insert_module(path, src, module).map_err(|err| {
-        eprintln!("{}", err.resolve_ir(&ir));
-        err.err
-    })?;
-    let main = ir
-        .resolve_global_declaration(mid, "main")
-        .ok_or_else(|| anyhow::anyhow!("main declaration not found"))?;
-    let mut runner = Runner::new(ir);
-    let value = runner.evaluate_and_call(main).map_err(|err| {
-        eprintln!("{}", err.resolve_ir(&runner.rir));
-        err.err
-    })?;
-    Ok(value)
-}
-
-fn run(path: impl AsRef<Path>) -> anyhow::Result<Value> {
-    let path: &Path = path.as_ref();
-    let src = std::fs::read_to_string(path)?;
-    let file = File::new_local(path)?;
-    run_inner(Some(file), src)
+fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
+    rain_lang::run_stderr(path)
 }
 
 #[test]

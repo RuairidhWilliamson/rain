@@ -1,4 +1,4 @@
-let foo = internal.import("foo.rain")
+let foo = internal.import(internal.get_file("foo.rain"))
 
 fn main() {
 	foo.foo() + foo.bar
