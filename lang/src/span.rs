@@ -25,7 +25,7 @@ pub struct ErrorSpan<E: std::error::Error> {
 impl<E: std::error::Error> ErrorSpan<E> {
     pub fn resolve_ir<'a>(&'a self, ir: &'a Rir) -> ResolvedError<'a> {
         let module = ir.get_module(self.span.module);
-        let file = module.file.as_ref();
+        let file = &module.file;
         let src = &module.src;
         ResolvedError {
             err: &self.err,

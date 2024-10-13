@@ -1,8 +1,13 @@
+use std::path::Path;
+
+use crate::area::File;
+
 fn parse_display_script(src: &str) -> String {
+    let file = File::new_local(Path::new(file!())).unwrap();
     let s = match super::parser::parse_module(src) {
         Ok(s) => s,
         Err(err) => {
-            eprintln!("{}", err.resolve(None, src));
+            eprintln!("{}", err.resolve(&file, src));
             panic!("parse error");
         }
     };

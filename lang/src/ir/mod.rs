@@ -19,7 +19,7 @@ impl Rir {
 
     pub fn insert_module(
         &mut self,
-        file: Option<File>,
+        file: File,
         src: String,
         ast: Result<Module, ErrorLocalSpan<ParseError>>,
     ) -> Result<ModuleId, ErrorSpan<ParseError>> {
@@ -67,7 +67,7 @@ impl Rir {
 #[derive(Debug)]
 pub struct IrModule {
     pub id: ModuleId,
-    pub file: Option<File>,
+    pub file: File,
     pub src: String,
     module: Option<ParsedIrModule>,
 }

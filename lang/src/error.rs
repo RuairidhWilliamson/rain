@@ -3,10 +3,12 @@ use crate::{area::File, local_span::LocalSpan};
 #[derive(Debug)]
 pub struct ResolvedError<'a> {
     pub err: &'a dyn std::error::Error,
-    pub file: Option<&'a File>,
+    pub file: &'a File,
     pub src: &'a str,
     pub span: LocalSpan,
 }
+
+impl std::error::Error for ResolvedError<'_> {}
 
 impl std::fmt::Display for ResolvedError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -16,13 +18,9 @@ impl std::fmt::Display for ResolvedError<'_> {
             file,
             src,
             span,
-            ..
         } = self;
         let (line, col) = span.line_col(src);
-        let file_fmt = file
-            .map(std::string::ToString::to_string)
-            .unwrap_or_else(|| String::from("unknown"));
-        let location = format!("{file_fmt}:{line}:{col}\n").blue();
+        let location = format!("{file}:{line}:{col}\n").blue();
         f.write_fmt(format_args!("{location}"))?;
         let [before, contents, after] = span.surrounding_lines(src, 2);
         let before = before.replace('\n', "\n| ");

@@ -78,10 +78,9 @@ fn get_file_implementation(
             let relative_path: &String = relative_path_value
                 .downcast_ref()
                 .ok_or_else(|| cx.nid_err(*relative_path_nid, RunnerError::GenericTypeError))?;
-            let Some(file) = cx.module.file.as_ref() else {
-                panic!("cannot import when not in file");
-            };
-            let file = file
+            let file = cx
+                .module
+                .file
                 .parent()
                 .ok_or_else(|| cx.nid_err(nid, PathError::NoParentDirectory.into()))?
                 .join(relative_path)
@@ -120,7 +119,7 @@ fn import_implementation(
                 .map_err(|err| cx.nid_err(nid, RunnerError::ImportIOError(err)))?;
             let module = crate::ast::parser::parse_module(&src);
             let id = rir
-                .insert_module(Some(file.clone()), src, module)
+                .insert_module(file.clone(), src, module)
                 .map_err(ErrorSpan::convert)?;
             Ok(Value::new(Module { id }))
         }
@@ -136,11 +135,7 @@ fn module_file_implementation(
     if !arg_values.is_empty() {
         return Err(cx.err(fn_call.rparen_token, RunnerError::GenericTypeError));
     }
-    cx.module
-        .file
-        .clone()
-        .map(Value::new)
-        .ok_or_else(|| cx.err(fn_call.rparen_token, RunnerError::GenericTypeError))
+    Ok(Value::new(cx.module.file.clone()))
 }
 
 fn local_area_implementation(
@@ -148,12 +143,7 @@ fn local_area_implementation(
     nid: NodeId,
     arg_values: Vec<(NodeId, Value)>,
 ) -> ResultValue {
-    let FileArea::Local(current_area_path) = &cx
-        .module
-        .file
-        .as_ref()
-        .ok_or_else(|| cx.nid_err(nid, RunnerError::GenericTypeError))?
-        .area;
+    let FileArea::Local(current_area_path) = &cx.module.file.area;
     let (path_nid, path_value) = arg_values
         .first()
         .ok_or_else(|| cx.nid_err(nid, RunnerError::GenericTypeError))?;

@@ -329,7 +329,10 @@ pub fn get_token_precedence_associativity(token: Token) -> Option<(Precedence, A
 
 #[cfg(test)]
 mod test {
+    use std::path::Path;
+
     use crate::{
+        area::File,
         ast::{error::ParseError, parser::ModuleParser},
         local_span::{ErrorLocalSpan, LocalSpan},
     };
@@ -337,18 +340,19 @@ mod test {
     use super::parse_module;
 
     fn parse_display_expr(src: &str) -> String {
+        let file = File::new_local(Path::new(file!())).unwrap();
         let mut parser = ModuleParser::new(src);
         let id = match parser.parse_expr() {
             Ok(s) => s,
             Err(err) => {
-                eprintln!("{}", err.resolve(None, src));
+                eprintln!("{}", err.resolve(&file, src));
                 panic!("parse error");
             }
         };
         let nodes = match parser.complete() {
             Ok(nodes) => nodes,
             Err(err) => {
-                eprintln!("{}", err.resolve(None, src));
+                eprintln!("{}", err.resolve(&file, src));
                 panic!("parse error");
             }
         };
