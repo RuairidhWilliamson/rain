@@ -27,7 +27,7 @@ fn run_inner(path: Option<File>, src: String) -> anyhow::Result<Value> {
 fn run(path: impl AsRef<Path>) -> anyhow::Result<Value> {
     let path: &Path = path.as_ref();
     let src = std::fs::read_to_string(path)?;
-    let file = File::new_local(path).unwrap();
+    let file = File::new_local(path)?;
     run_inner(Some(file), src)
 }
 

@@ -11,6 +11,7 @@ pub enum RunnerError {
     MaxCallDepth,
     PathError(PathError),
     ImportResolve,
+    AreaIOError(std::io::Error),
     ImportIOError(std::io::Error),
     ImportParseError(ParseError),
 }
@@ -29,6 +30,9 @@ impl std::fmt::Display for RunnerError {
             }
             Self::PathError(err) => f.write_fmt(format_args!("path error: {err}")),
             Self::ImportResolve => f.write_fmt(format_args!("could not resolve import")),
+            Self::AreaIOError(err) => {
+                f.write_fmt(format_args!("io error when getting area: {err}"))
+            }
             Self::ImportIOError(err) => f.write_fmt(format_args!("io error when importing: {err}")),
             Self::ImportParseError(err) => {
                 f.write_fmt(format_args!("parse error when importing: {err}"))

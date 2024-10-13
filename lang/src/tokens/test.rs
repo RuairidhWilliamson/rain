@@ -172,7 +172,7 @@ fn tokenise_non_control_character_script(src: String) -> TestResult {
 #[expect(clippy::needless_pass_by_value)]
 #[quickcheck_macros::quickcheck]
 fn tokenise_string_literal(contents: String) -> TestResult {
-    if contents.contains(&['"', '\n']) {
+    if contents.contains(['"', '\n']) {
         return TestResult::discard();
     }
     let literal = format!("\"{contents}\"");

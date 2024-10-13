@@ -8,7 +8,14 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     let src_path = std::path::Path::new(&src_path);
-    let path = File::new_local(src_path).unwrap();
+    let path = match File::new_local(src_path) {
+        Ok(path) => path,
+        Err(err) => {
+            eprintln!("Path error");
+            eprintln!("{err:#}");
+            return ExitCode::FAILURE;
+        }
+    };
     let src = match std::fs::read_to_string(src_path) {
         Ok(src) => src,
         Err(err) => {

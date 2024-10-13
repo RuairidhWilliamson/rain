@@ -1,4 +1,9 @@
+#![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
+
+use std::ops::Deref;
+
 use crate::{
+    area::{AbsolutePathBuf, File, FileArea, PathError},
     ast::{FnCall, NodeId},
     ir::Rir,
     span::ErrorSpan,
@@ -15,6 +20,7 @@ pub enum InternalFunction {
     Print,
     Import,
     ModuleFile,
+    LocalArea,
 }
 
 impl ValueInner for InternalFunction {
@@ -29,6 +35,7 @@ impl InternalFunction {
             "print" => Some(Self::Print),
             "import" => Some(Self::Import),
             "module_file" => Some(Self::ModuleFile),
+            "local_area" => Some(Self::LocalArea),
             _ => None,
         }
     }
@@ -45,6 +52,7 @@ impl InternalFunction {
             Self::Print => print_implementation(arg_values),
             Self::Import => import_implementation(rir, cx, nid, fn_call, arg_values),
             Self::ModuleFile => module_file_implementation(cx, fn_call, arg_values),
+            Self::LocalArea => local_area_implementation(cx, nid, fn_call, arg_values),
         }
     }
 }
@@ -70,13 +78,12 @@ fn import_implementation(
             let relative_path: &String = relative_path_value
                 .downcast_ref()
                 .ok_or_else(|| cx.nid_err(*relative_path_nid, RunnerError::GenericTypeError))?;
-            let file = cx
-                .module
-                .file
-                .as_ref()
-                .unwrap()
+            let Some(file) = cx.module.file.as_ref() else {
+                panic!("cannot import when not in file");
+            };
+            let file = file
                 .parent()
-                .unwrap()
+                .ok_or_else(|| cx.nid_err(nid, PathError::NoParentDirectory.into()))?
                 .join(relative_path)
                 .map_err(|err| cx.nid_err(*relative_path_nid, err.into()))?;
             let resolved_path = file.resolve();
@@ -89,10 +96,22 @@ fn import_implementation(
             Ok(Value::new(Module { id }))
         }
         [(area_nid, area_value), (absolute_path_nid, absolute_path_value)] => {
-            let _absolute_path: &String = absolute_path_value
+            let area: &FileArea = area_value
+                .downcast_ref()
+                .ok_or_else(|| cx.nid_err(*area_nid, RunnerError::GenericTypeError))?;
+            let absolute_path: &String = absolute_path_value
                 .downcast_ref()
                 .ok_or_else(|| cx.nid_err(*absolute_path_nid, RunnerError::GenericTypeError))?;
-            todo!()
+            let file = File::new(area.clone(), &absolute_path)
+                .map_err(|err| cx.nid_err(nid, err.into()))?;
+            let resolved_path = file.resolve();
+            let src = std::fs::read_to_string(&resolved_path)
+                .map_err(|err| cx.nid_err(nid, RunnerError::ImportIOError(err)))?;
+            let module = crate::ast::parser::parse_module(&src);
+            let id = rir
+                .insert_module(Some(file), src, module)
+                .map_err(ErrorSpan::convert)?;
+            Ok(Value::new(Module { id }))
         }
         _ => Err(cx.err(fn_call.rparen_token, RunnerError::GenericTypeError)),
     }
@@ -115,8 +134,24 @@ fn module_file_implementation(
 
 fn local_area_implementation(
     cx: &mut Cx,
-    fn_call: &FnCall,
+    nid: NodeId,
+    _fn_call: &FnCall,
     arg_values: Vec<(NodeId, Value)>,
 ) -> ResultValue {
-    todo!()
+    let FileArea::Local(current_area_path) = &cx.module.file.as_ref().unwrap().area;
+    let (path_nid, path_value) = arg_values
+        .first()
+        .ok_or_else(|| cx.nid_err(nid, RunnerError::GenericTypeError))?;
+    let path: &String = path_value
+        .downcast_ref()
+        .ok_or_else(|| cx.nid_err(*path_nid, RunnerError::GenericTypeError))?;
+    let area_path = current_area_path.join(path);
+    let area_path = AbsolutePathBuf::try_from(area_path.as_path())
+        .map_err(|err| cx.nid_err(nid, RunnerError::AreaIOError(err)))?;
+    let metadata = std::fs::metadata(area_path.deref())
+        .map_err(|err| cx.nid_err(nid, RunnerError::AreaIOError(err)))?;
+    if metadata.is_file() {
+        return Err(cx.nid_err(nid, RunnerError::GenericTypeError));
+    }
+    Ok(Value::new(FileArea::Local(area_path)))
 }

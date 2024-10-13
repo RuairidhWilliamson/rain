@@ -1,4 +1,5 @@
 use std::{
+    error::Error,
     fmt::Display,
     path::{Path, PathBuf},
 };
@@ -19,13 +20,24 @@ impl TryFrom<&Path> for AbsolutePathBuf {
     }
 }
 
+impl std::ops::Deref for AbsolutePathBuf {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_path()
+    }
+}
+
 #[derive(Debug)]
 pub enum PathError {
     Dots,
     Backslash,
     NoParentDirectory,
+    NotUnicode,
     IOError(std::io::Error),
 }
+
+impl Error for PathError {}
 
 impl Display for PathError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -33,6 +45,7 @@ impl Display for PathError {
             Self::Dots => f.write_str("path cannot contain a segment that only has 3 or more dots"),
             Self::Backslash => f.write_str("path cannot contain backslash"),
             Self::NoParentDirectory => f.write_str("no parent directory"),
+            Self::NotUnicode => f.write_str("path is not unicode"),
             Self::IOError(err) => f.write_fmt(format_args!("io error: {err}")),
         }
     }
@@ -46,12 +59,12 @@ impl From<std::io::Error> for PathError {
 
 #[derive(Debug, Hash, Clone)]
 pub struct File {
-    area: FileArea,
+    pub area: FileArea,
     path: FilePath,
 }
 
 impl File {
-    pub fn new(area: FileArea, path: String) -> Result<Self, PathError> {
+    pub fn new(area: FileArea, path: &str) -> Result<Self, PathError> {
         Ok(Self {
             area,
             path: FilePath::new(path)?,
@@ -66,8 +79,13 @@ impl File {
                 .ok_or(PathError::NoParentDirectory)?
                 .to_path_buf(),
         );
-        let path: String = String::from("/") + absolute_path.file_name().unwrap().to_str().unwrap();
-        Self::new(FileArea::Local(dir), path)
+        let file_name = absolute_path
+            .file_name()
+            .ok_or(PathError::NoParentDirectory)?
+            .to_str()
+            .ok_or(PathError::NotUnicode)?;
+        let path: String = String::from("/") + file_name;
+        Self::new(FileArea::Local(dir), &path)
     }
 
     pub fn push(&mut self, path: &str) -> Result<(), PathError> {
@@ -90,7 +108,9 @@ impl File {
     pub fn resolve(&self) -> PathBuf {
         let FileArea::Local(AbsolutePathBuf(area_path)) = &self.area;
         let FilePath(path) = &self.path;
-        let path = path.strip_prefix('/').unwrap();
+        let Some(path) = path.strip_prefix('/') else {
+            unreachable!("file path must start with /");
+        };
         area_path.join(path)
     }
 }
@@ -103,17 +123,18 @@ impl File {
 struct FilePath(String);
 
 impl FilePath {
-    fn new(path: String) -> Result<FilePath, PathError> {
-        if !is_absolute(&path) {
-            panic!("path not absolute: {path}")
-        }
-        path_segments(&path).try_for_each(valid_path_segment)?;
-        Ok(Self(path.to_owned()))
+    fn new(path: &str) -> Result<Self, PathError> {
+        path_segments(path).try_for_each(valid_path_segment)?;
+        Ok(Self(if !is_absolute(path) {
+            String::from("/") + path
+        } else {
+            path.to_owned()
+        }))
     }
 
     fn push(&mut self, path: &str) -> Result<(), PathError> {
         if is_absolute(path) {
-            *self = FilePath::new(path.to_owned())?;
+            *self = Self::new(path)?;
             return Ok(());
         }
         // Resolve any dot segments
@@ -147,11 +168,11 @@ impl FilePath {
         Ok(())
     }
 
-    fn parent(&self) -> Option<FilePath> {
+    fn parent(&self) -> Option<Self> {
         if self.0.is_empty() {
             return None;
         }
-        let p = self.0.rsplit_once('/').map(|(p, _)| p).unwrap_or("/");
+        let p = self.0.rsplit_once('/').map_or("/", |(p, _)| p);
         Some(Self(p.to_owned()))
     }
 }
@@ -174,5 +195,5 @@ fn valid_path_segment(s: &str) -> Result<(), PathError> {
 }
 
 fn is_absolute(s: &str) -> bool {
-    s.starts_with("/")
+    s.starts_with('/')
 }

@@ -14,7 +14,14 @@ fn main() -> ExitCode {
 fn fallible_main() -> Result<(), ()> {
     let cli = Cli::parse();
     let RainCommand::Run { script } = cli.command;
-    let path = File::new_local(&script).unwrap();
+    let path = match File::new_local(&script) {
+        Ok(path) => path,
+        Err(err) => {
+            eprintln!("Path error");
+            eprintln!("{err:#}");
+            return Err(());
+        }
+    };
     let src = std::fs::read_to_string(&script).map_err(|err| {
         eprintln!("{err}");
     })?;
