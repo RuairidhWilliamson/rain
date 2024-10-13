@@ -1,5 +1,5 @@
 let hello_world_example_area = internal.local_area("../helloworld")
-let hello_world = internal.import(hello_world_example_area, "hello.rain")
+let hello_world = internal.import(internal.get_file(hello_world_example_area, "hello.rain"))
 
 fn main() {
 	internal.print("Hello world number:", hello_world.my_number)

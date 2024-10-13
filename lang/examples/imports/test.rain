@@ -1,7 +1,11 @@
+fn import(path) {
+	internal.import(internal.get_file(path))
+}
+
 let a = 5
 let b = a
-let foo = internal.import("foo.rain")
-let bar = internal.import("bar.rain")
+let foo = import("foo.rain")
+let bar = import("bar.rain")
 
 fn main() {
 	internal.print("foo.apples:", foo.apples)

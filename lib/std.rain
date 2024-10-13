@@ -1,2 +1,1 @@
-let import = internal.import
 let print = internal.print

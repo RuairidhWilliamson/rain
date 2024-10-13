@@ -18,6 +18,7 @@ use super::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InternalFunction {
     Print,
+    GetFile,
     Import,
     ModuleFile,
     LocalArea,
@@ -33,6 +34,7 @@ impl InternalFunction {
     pub fn evaluate_internal_function_name(name: &str) -> Option<Self> {
         match name {
             "print" => Some(Self::Print),
+            "get_file" => Some(Self::GetFile),
             "import" => Some(Self::Import),
             "module_file" => Some(Self::ModuleFile),
             "local_area" => Some(Self::LocalArea),
@@ -50,6 +52,7 @@ impl InternalFunction {
     ) -> ResultValue {
         match self {
             Self::Print => print_implementation(arg_values),
+            Self::GetFile => get_file_implementation(cx, nid, fn_call, arg_values),
             Self::Import => import_implementation(rir, cx, nid, fn_call, arg_values),
             Self::ModuleFile => module_file_implementation(cx, fn_call, arg_values),
             Self::LocalArea => local_area_implementation(cx, nid, fn_call, arg_values),
@@ -66,8 +69,7 @@ fn print_implementation(arg_values: Vec<(NodeId, Value)>) -> ResultValue {
     Ok(Value::new(()))
 }
 
-fn import_implementation(
-    rir: &mut Rir,
+fn get_file_implementation(
     cx: &mut Cx,
     nid: NodeId,
     fn_call: &FnCall,
@@ -86,14 +88,7 @@ fn import_implementation(
                 .ok_or_else(|| cx.nid_err(nid, PathError::NoParentDirectory.into()))?
                 .join(relative_path)
                 .map_err(|err| cx.nid_err(*relative_path_nid, err.into()))?;
-            let resolved_path = file.resolve();
-            let src = std::fs::read_to_string(&resolved_path)
-                .map_err(|err| cx.nid_err(nid, RunnerError::ImportIOError(err)))?;
-            let module = crate::ast::parser::parse_module(&src);
-            let id = rir
-                .insert_module(Some(file), src, module)
-                .map_err(ErrorSpan::convert)?;
-            Ok(Value::new(Module { id }))
+            Ok(Value::new(file))
         }
         [(area_nid, area_value), (absolute_path_nid, absolute_path_value)] => {
             let area: &FileArea = area_value
@@ -104,12 +99,30 @@ fn import_implementation(
                 .ok_or_else(|| cx.nid_err(*absolute_path_nid, RunnerError::GenericTypeError))?;
             let file = File::new(area.clone(), &absolute_path)
                 .map_err(|err| cx.nid_err(nid, err.into()))?;
+            Ok(Value::new(file))
+        }
+        _ => Err(cx.err(fn_call.rparen_token, RunnerError::GenericTypeError)),
+    }
+}
+
+fn import_implementation(
+    rir: &mut Rir,
+    cx: &mut Cx,
+    nid: NodeId,
+    fn_call: &FnCall,
+    arg_values: Vec<(NodeId, Value)>,
+) -> ResultValue {
+    match &arg_values[..] {
+        [(file_nid, file_value)] => {
+            let file: &File = file_value
+                .downcast_ref()
+                .ok_or_else(|| cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
             let resolved_path = file.resolve();
             let src = std::fs::read_to_string(&resolved_path)
                 .map_err(|err| cx.nid_err(nid, RunnerError::ImportIOError(err)))?;
             let module = crate::ast::parser::parse_module(&src);
             let id = rir
-                .insert_module(Some(file), src, module)
+                .insert_module(Some(file.clone()), src, module)
                 .map_err(ErrorSpan::convert)?;
             Ok(Value::new(Module { id }))
         }
