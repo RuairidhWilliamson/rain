@@ -6,4 +6,5 @@ fn main() {
 	unzipped_area = internal.extract(internal.get_file("area.zip"))
 	inner = internal.import(internal.get_file(unzipped_area, "inner.rain"))
 	internal.print("Inner value:", inner.value)
+	inner.value
 }
