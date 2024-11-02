@@ -25,13 +25,9 @@ struct ModuleParser<'src> {
 
 impl<'src> ModuleParser<'src> {
     pub fn new(s: &'src str) -> Self {
-        Self::new_from_stream(PeekTokenStream::new(s))
-    }
-
-    pub fn new_from_stream(stream: PeekTokenStream<'src>) -> Self {
         Self {
             nodes: NodeList::new(),
-            stream,
+            stream: PeekTokenStream::new(s),
         }
     }
 
