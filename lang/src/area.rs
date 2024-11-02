@@ -8,18 +8,16 @@ use crate::config::Config;
 
 #[derive(Debug, Clone, Hash)]
 pub enum FileArea {
-    Empty,
     Local(AbsolutePathBuf),
     Generated(GeneratedFileArea),
 }
 
 impl FileArea {
-    fn path(&self, config: &Config) -> Option<PathBuf> {
+    fn path(&self, config: &Config) -> PathBuf {
         match self {
-            Self::Empty => None,
-            Self::Local(p) => Some(p.to_path_buf()),
+            Self::Local(p) => p.to_path_buf(),
             Self::Generated(GeneratedFileArea { id }) => {
-                Some(config.base_generated_dir.join(id.to_string()))
+                config.base_generated_dir.join(id.to_string())
             }
         }
     }
@@ -28,9 +26,8 @@ impl FileArea {
 impl std::fmt::Display for FileArea {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FileArea::Empty => f.write_str("<empty>"),
-            FileArea::Local(path) => f.write_fmt(format_args!("<{}>", path.0.display())),
-            FileArea::Generated(GeneratedFileArea { id }) => f.write_fmt(format_args!("<{id}>")),
+            Self::Local(path) => f.write_fmt(format_args!("<{}>", path.0.display())),
+            Self::Generated(GeneratedFileArea { id }) => f.write_fmt(format_args!("<{id}>")),
         }
     }
 }
@@ -38,6 +35,12 @@ impl std::fmt::Display for FileArea {
 #[derive(Debug, Clone, Hash)]
 pub struct GeneratedFileArea {
     id: uuid::Uuid,
+}
+
+impl Default for GeneratedFileArea {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GeneratedFileArea {
@@ -144,8 +147,12 @@ impl File {
         })
     }
 
+    /// Resolves file path locally returning an absolute path
+    ///
+    /// # Panics
+    /// Panics if the file path is not absolute which should be checked when the file is created
     pub fn resolve(&self, config: &Config) -> PathBuf {
-        let area_path = self.area.path(config).unwrap();
+        let area_path = self.area.path(config);
         let FilePath(path) = &self.path;
         let Some(path) = path.strip_prefix('/') else {
             unreachable!("file path must start with /");

@@ -12,6 +12,8 @@ impl Default for Config {
 }
 
 impl Config {
+    /// # Panics
+    /// Panics if can't find user's cache directory
     pub fn new() -> Self {
         let base_cache_dir = dirs::cache_dir().expect("could not find user cache directory");
         let base_generated_dir = base_cache_dir.join("generated");

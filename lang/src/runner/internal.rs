@@ -21,7 +21,6 @@ pub enum InternalFunction {
     Import,
     ModuleFile,
     LocalArea,
-    EmptyArea,
     Extract,
 }
 
@@ -39,7 +38,6 @@ impl InternalFunction {
             "import" => Some(Self::Import),
             "module_file" => Some(Self::ModuleFile),
             "local_area" => Some(Self::LocalArea),
-            "empty_area" => Some(Self::EmptyArea),
             "extract" => Some(Self::Extract),
             _ => None,
         }
@@ -60,7 +58,6 @@ impl InternalFunction {
             Self::Import => import_implementation(config, rir, cx, nid, fn_call, arg_values),
             Self::ModuleFile => module_file_implementation(cx, fn_call, arg_values),
             Self::LocalArea => local_area_implementation(cx, nid, arg_values),
-            Self::EmptyArea => empty_area_implementation(cx, nid, arg_values),
             Self::Extract => extract_implementation(config, cx, nid, fn_call, arg_values),
         }
     }
@@ -170,17 +167,6 @@ fn local_area_implementation(
         return Err(cx.nid_err(nid, RunnerError::GenericTypeError));
     }
     Ok(Value::new(FileArea::Local(area_path)))
-}
-
-fn empty_area_implementation(
-    cx: &mut Cx,
-    nid: NodeId,
-    arg_values: Vec<(NodeId, Value)>,
-) -> ResultValue {
-    if !arg_values.is_empty() {
-        return Err(cx.nid_err(nid, RunnerError::GenericTypeError));
-    }
-    Ok(Value::new(FileArea::Empty))
 }
 
 fn extract_implementation(
