@@ -3,11 +3,7 @@ let hello_world = internal.import(internal.get_file(hello_world_example_area, "h
 
 fn main() {
 	internal.print("Hello world number:", hello_world.my_number)
-	unzipped_area = unzip_area(internal.get_file("area.zip"))
-}
-
-fn unzip_area(file) {
-	empty_area = internal.empty_area()
-	new_area = internal.extract(file, empty_area)
-	new_area
+	unzipped_area = internal.extract(internal.get_file("area.zip"))
+	inner = internal.import(internal.get_file(unzipped_area, "inner.rain"))
+	internal.print("Inner value:", inner.value)
 }

@@ -1,7 +1,7 @@
 #![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
 
 use crate::{
-    area::{AbsolutePathBuf, File, FileArea, PathError},
+    area::{AbsolutePathBuf, File, FileArea, GeneratedFileArea, PathError},
     ast::{FnCall, NodeId},
     config::Config,
     ir::Rir,
@@ -22,6 +22,7 @@ pub enum InternalFunction {
     ModuleFile,
     LocalArea,
     EmptyArea,
+    Extract,
 }
 
 impl ValueInner for InternalFunction {
@@ -39,6 +40,7 @@ impl InternalFunction {
             "module_file" => Some(Self::ModuleFile),
             "local_area" => Some(Self::LocalArea),
             "empty_area" => Some(Self::EmptyArea),
+            "extract" => Some(Self::Extract),
             _ => None,
         }
     }
@@ -59,6 +61,7 @@ impl InternalFunction {
             Self::ModuleFile => module_file_implementation(cx, fn_call, arg_values),
             Self::LocalArea => local_area_implementation(cx, nid, arg_values),
             Self::EmptyArea => empty_area_implementation(cx, nid, arg_values),
+            Self::Extract => extract_implementation(config, cx, nid, fn_call, arg_values),
         }
     }
 }
@@ -178,4 +181,46 @@ fn empty_area_implementation(
         return Err(cx.nid_err(nid, RunnerError::GenericTypeError));
     }
     Ok(Value::new(FileArea::Empty))
+}
+
+fn extract_implementation(
+    config: &Config,
+    cx: &mut Cx,
+    nid: NodeId,
+    fn_call: &FnCall,
+    arg_values: Vec<(NodeId, Value)>,
+) -> ResultValue {
+    match &arg_values[..] {
+        [(file_nid, file_value)] => {
+            let file: &File = file_value
+                .downcast_ref()
+                .ok_or_else(|| cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
+            let resolved_path = file.resolve(config);
+            let gen_area = GeneratedFileArea::new();
+            let area = FileArea::Generated(gen_area);
+            let output_dir = File::new(area.clone(), "/")
+                .map_err(|err| cx.nid_err(nid, RunnerError::PathError(err)))?;
+            let output_dir_path = output_dir.resolve(config);
+            std::fs::create_dir_all(&output_dir_path)
+                .map_err(|err| cx.nid_err(*file_nid, RunnerError::AreaIOError(err)))?;
+            let f = std::fs::File::open(resolved_path)
+                .map_err(|err| cx.nid_err(nid, RunnerError::AreaIOError(err)))?;
+            let mut zip = zip::read::ZipArchive::new(f)
+                .map_err(|err| cx.nid_err(nid, RunnerError::ZipError(err)))?;
+            for i in 0..zip.len() {
+                let mut zip_file = zip
+                    .by_index(i)
+                    .map_err(|err| cx.nid_err(nid, RunnerError::ZipError(err)))?;
+                let Some(name) = zip_file.enclosed_name() else {
+                    continue;
+                };
+                let mut out = std::fs::File::create_new(output_dir_path.join(name))
+                    .map_err(|err| cx.nid_err(nid, RunnerError::AreaIOError(err)))?;
+                std::io::copy(&mut zip_file, &mut out)
+                    .map_err(|err| cx.nid_err(nid, RunnerError::AreaIOError(err)))?;
+            }
+            Ok(Value::new(area))
+        }
+        _ => Err(cx.err(fn_call.rparen_token, RunnerError::GenericTypeError)),
+    }
 }

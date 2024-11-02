@@ -25,6 +25,16 @@ impl FileArea {
     }
 }
 
+impl std::fmt::Display for FileArea {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FileArea::Empty => f.write_str("<empty>"),
+            FileArea::Local(path) => f.write_fmt(format_args!("<{}>", path.0.display())),
+            FileArea::Generated(GeneratedFileArea { id }) => f.write_fmt(format_args!("<{id}>")),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Hash)]
 pub struct GeneratedFileArea {
     id: uuid::Uuid,
@@ -146,7 +156,7 @@ impl File {
 
 impl std::fmt::Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{:?}{}", &self.area, &self.path.0))
+        f.write_fmt(format_args!("{}{}", &self.area, &self.path.0))
     }
 }
 
