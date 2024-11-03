@@ -12,6 +12,7 @@ workspace = true
 [dependencies]
 colored = "2.1.0"
 dirs = "5.0.1"
+dircpy = { version = "0.3.19", default-features = false }
 lru = "0.12.4"
 num-bigint = "0.4.6"
 uuid.workspace = true

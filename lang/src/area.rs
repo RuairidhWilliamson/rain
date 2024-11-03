@@ -10,24 +10,15 @@ use crate::config::Config;
 pub enum FileArea {
     Local(AbsolutePathBuf),
     Generated(GeneratedFileArea),
-}
-
-impl FileArea {
-    fn path(&self, config: &Config) -> PathBuf {
-        match self {
-            Self::Local(p) => p.to_path_buf(),
-            Self::Generated(GeneratedFileArea { id }) => {
-                config.base_generated_dir.join(id.to_string())
-            }
-        }
-    }
+    Escape,
 }
 
 impl std::fmt::Display for FileArea {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Local(path) => f.write_fmt(format_args!("<{}>", path.0.display())),
-            Self::Generated(GeneratedFileArea { id }) => f.write_fmt(format_args!("<{id}>")),
+            Self::Local(path) => f.write_fmt(format_args!("{}", path.0.display())),
+            Self::Generated(GeneratedFileArea { id }) => f.write_fmt(format_args!("{id}")),
+            Self::Escape => f.write_str("escape"),
         }
     }
 }
@@ -152,18 +143,28 @@ impl File {
     /// # Panics
     /// Panics if the file path is not absolute which should be checked when the file is created
     pub fn resolve(&self, config: &Config) -> PathBuf {
-        let area_path = self.area.path(config);
-        let FilePath(path) = &self.path;
-        let Some(path) = path.strip_prefix('/') else {
+        let FilePath(abs_path) = &self.path;
+        let Some(rel_path) = abs_path.strip_prefix('/') else {
             unreachable!("file path must start with /");
         };
-        area_path.join(path)
+        match &self.area {
+            FileArea::Local(p) => p.join(rel_path),
+            FileArea::Generated(GeneratedFileArea { id }) => config
+                .base_generated_dir
+                .join(id.to_string())
+                .join(rel_path),
+            FileArea::Escape => PathBuf::from(abs_path),
+        }
+    }
+
+    pub fn exists(&self, config: &Config) -> std::io::Result<bool> {
+        std::fs::exists(self.resolve(config))
     }
 }
 
 impl std::fmt::Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}{}", &self.area, &self.path.0))
+        f.write_fmt(format_args!("<{}>{}", &self.area, &self.path.0))
     }
 }
 

@@ -1,5 +1,7 @@
 #![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
 
+use std::path::{Path, PathBuf};
+
 use crate::{
     area::{AbsolutePathBuf, File, FileArea, GeneratedFileArea, PathError},
     ast::{FnCall, NodeId},
@@ -24,6 +26,11 @@ pub enum InternalFunction {
     LocalArea,
     Extract,
     Args,
+    Run,
+    EscapeBin,
+    MainCommands,
+    Unit,
+    GetArea,
 }
 
 impl ValueInner for InternalFunction {
@@ -42,6 +49,11 @@ impl InternalFunction {
             "local_area" => Some(Self::LocalArea),
             "extract" => Some(Self::Extract),
             "args" => Some(Self::Args),
+            "run" => Some(Self::Run),
+            "escape_bin" => Some(Self::EscapeBin),
+            "main_commands" => Some(Self::MainCommands),
+            "unit" => Some(Self::Unit),
+            "get_area" => Some(Self::GetArea),
             _ => None,
         }
     }
@@ -71,6 +83,11 @@ impl InternalFunction {
             Self::LocalArea => local_area_implementation(icx),
             Self::Extract => extract_implementation(icx),
             Self::Args => args_implementation(icx),
+            Self::Run => run_implementation(icx),
+            Self::EscapeBin => escape_bin(icx),
+            Self::MainCommands => main_commands_helper(icx),
+            Self::Unit => unit(icx),
+            Self::GetArea => get_area(icx),
         }
     }
 }
@@ -109,6 +126,14 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
                 .ok_or_else(|| icx.cx.nid_err(icx.nid, PathError::NoParentDirectory.into()))?
                 .join(relative_path)
                 .map_err(|err| icx.cx.nid_err(*relative_path_nid, err.into()))?;
+            if !file.exists(icx.config).map_err(|err| {
+                icx.cx
+                    .nid_err(*relative_path_nid, RunnerError::AreaIOError(err))
+            })? {
+                return Err(icx
+                    .cx
+                    .nid_err(*relative_path_nid, RunnerError::GenericTypeError));
+            }
             Ok(Value::new(file))
         }
         [(area_nid, area_value), (absolute_path_nid, absolute_path_value)] => {
@@ -121,6 +146,14 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
             })?;
             let file = File::new(area.clone(), absolute_path)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err.into()))?;
+            if !file.exists(icx.config).map_err(|err| {
+                icx.cx
+                    .nid_err(*absolute_path_nid, RunnerError::AreaIOError(err))
+            })? {
+                return Err(icx
+                    .cx
+                    .nid_err(*absolute_path_nid, RunnerError::GenericTypeError));
+            }
             Ok(Value::new(file))
         }
         _ => Err(icx
@@ -223,4 +256,127 @@ fn extract_implementation(icx: InternalCx) -> ResultValue {
 fn args_implementation(_icx: InternalCx) -> ResultValue {
     let args: Vec<_> = std::env::args().skip(1).map(|s| Value::new(s)).collect();
     Ok(Value::new(RainList(args)))
+}
+
+fn run_implementation(icx: InternalCx) -> ResultValue {
+    match &icx.arg_values[..] {
+        [(area_nid, area_value), (file_nid, file_value), args @ ..] => {
+            let area = FileArea::Generated(GeneratedFileArea::new());
+            let output_dir = File::new(area.clone(), "/")
+                .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
+            let output_dir_path = output_dir.resolve(icx.config);
+            match area_value.rain_type_id() {
+                RainTypeId::Unit => {
+                    std::fs::create_dir_all(&output_dir_path)
+                        .map_err(|err| icx.cx.nid_err(*file_nid, RunnerError::AreaIOError(err)))?;
+                }
+                RainTypeId::FileArea => {
+                    let area: &FileArea = area_value
+                        .downcast_ref()
+                        .ok_or_else(|| icx.cx.nid_err(*area_nid, RunnerError::GenericTypeError))?;
+                    let input_dir = File::new(area.clone(), "/")
+                        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
+                    let input_dir_path = input_dir.resolve(icx.config);
+                    dircpy::copy_dir(input_dir_path, &output_dir_path).unwrap();
+                }
+                _ => Err(icx.cx.nid_err(*area_nid, RunnerError::GenericTypeError))?,
+            }
+            let file: &File = file_value
+                .downcast_ref()
+                .ok_or_else(|| icx.cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
+            let resolved_path = file.resolve(icx.config);
+            let args: Vec<String> = args
+                .iter()
+                .map(|(_, value)| match value.rain_type_id() {
+                    RainTypeId::String => value.downcast_ref::<String>().unwrap().to_string(),
+                    RainTypeId::File => value
+                        .downcast_ref::<File>()
+                        .unwrap()
+                        .resolve(icx.config)
+                        .display()
+                        .to_string(),
+                    _ => todo!(),
+                })
+                .collect();
+            let mut cmd = std::process::Command::new(resolved_path);
+            cmd.current_dir(output_dir_path);
+            cmd.args(args);
+            eprintln!("Running {cmd:?}");
+            cmd.status().unwrap();
+            Ok(Value::new(area))
+        }
+        _ => Err(icx
+            .cx
+            .err(icx.fn_call.rparen_token, RunnerError::GenericTypeError)),
+    }
+}
+
+#[cfg(target_family = "unix")]
+const PATH_SEPARATOR: char = ':';
+#[cfg(target_family = "windows")]
+const PATH_SEPARATOR: char = ';';
+
+fn find_bin_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
+    std::fs::read_dir(dir).ok()?.find_map(|e| {
+        let p = e.ok()?;
+        if p.file_name().to_str()? == name {
+            Some(p.path())
+        } else {
+            None
+        }
+    })
+}
+
+fn escape_bin(icx: InternalCx) -> ResultValue {
+    match &icx.arg_values[..] {
+        [(name_nid, name_value)] => {
+            let name: &String = name_value
+                .downcast_ref()
+                .ok_or_else(|| icx.cx.nid_err(*name_nid, RunnerError::GenericTypeError))?;
+            let path = std::env::var("PATH")
+                .unwrap()
+                .split(PATH_SEPARATOR)
+                .find_map(|p| find_bin_in_dir(Path::new(p), name))
+                .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericTypeError))?;
+            let f = File::new(FileArea::Escape, path.to_str().unwrap())
+                .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
+            Ok(Value::new(f))
+        }
+        _ => Err(icx
+            .cx
+            .err(icx.fn_call.rparen_token, RunnerError::GenericTypeError)),
+    }
+}
+
+fn main_commands_helper(icx: InternalCx) -> ResultValue {
+    let command = std::env::args().skip(1).next().unwrap();
+    let (_, command_value) = icx
+        .arg_values
+        .iter()
+        .find(|(nid, _)| {
+            let crate::ast::Node::Ident(tls) = icx.cx.module.get(*nid) else {
+                todo!("not an ident")
+            };
+            tls.0.span.contents(&icx.cx.module.src) == command
+        })
+        .unwrap();
+    Ok(command_value.clone())
+}
+
+fn unit(_icx: InternalCx) -> ResultValue {
+    Ok(Value::new(()))
+}
+
+fn get_area(icx: InternalCx) -> ResultValue {
+    match &icx.arg_values[..] {
+        [(file_nid, file_value)] => {
+            let file: &File = file_value
+                .downcast_ref()
+                .ok_or_else(|| icx.cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
+            Ok(Value::new(file.area.clone()))
+        }
+        _ => Err(icx
+            .cx
+            .err(icx.fn_call.rparen_token, RunnerError::GenericTypeError)),
+    }
 }

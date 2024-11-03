@@ -1,0 +1,9 @@
+let cargo = internal.escape_bin("cargo")
+
+fn clippy(area) {
+	internal.run(area, cargo, "clippy")
+}
+
+fn test(area) {
+	internal.run(area, cargo, "test")
+}

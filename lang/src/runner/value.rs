@@ -187,8 +187,13 @@ impl RainHash for Value {
     }
 }
 
-#[derive(Debug)]
 pub struct RainList(pub Vec<Value>);
+
+impl std::fmt::Debug for RainList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 impl RainHash for RainList {
     fn hash(&self, state: &mut std::hash::DefaultHasher) {
