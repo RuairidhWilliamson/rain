@@ -81,6 +81,7 @@ pub enum RainTypeId {
     File,
     Internal,
     InternalFunction,
+    List,
 }
 
 pub trait ValueInner: Any + Debug + Send + Sync + RainHash {
@@ -92,11 +93,13 @@ impl ValueInner for () {
         RainTypeId::Unit
     }
 }
+
 impl ValueInner for bool {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Boolean
     }
 }
+
 impl ValueInner for String {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::String
@@ -181,5 +184,22 @@ impl<T: std::hash::Hash> RainHash for T {
 impl RainHash for Value {
     fn hash(&self, state: &mut std::hash::DefaultHasher) {
         self.value.hash(state);
+    }
+}
+
+#[derive(Debug)]
+pub struct RainList(pub Vec<Value>);
+
+impl RainHash for RainList {
+    fn hash(&self, state: &mut std::hash::DefaultHasher) {
+        for v in &self.0 {
+            v.hash(state);
+        }
+    }
+}
+
+impl ValueInner for RainList {
+    fn rain_type_id(&self) -> RainTypeId {
+        RainTypeId::List
     }
 }

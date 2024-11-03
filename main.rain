@@ -1,0 +1,11 @@
+let std = internal.import(internal.get_file("lib/std.rain"))
+
+fn main() {
+	args = internal.args()
+	std.print(args)
+	build()
+}
+
+fn build() {
+	std.print("Building")
+}

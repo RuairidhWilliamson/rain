@@ -3,7 +3,7 @@ use std::path::Path;
 use rain_lang::runner::value::Value;
 
 fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
-    rain_lang::run_stderr(path, rain_lang::config::Config::default())
+    rain_lang::run_stderr(path, "main", rain_lang::config::Config::default())
 }
 
 #[test]

@@ -12,6 +12,7 @@ pub mod tokens;
 #[expect(clippy::result_unit_err)]
 pub fn run_stderr(
     path: impl AsRef<std::path::Path>,
+    declaration: &str,
     config: config::Config,
 ) -> Result<runner::value::Value, ()> {
     let file = area::File::new_local(path.as_ref()).map_err(|err| {
@@ -26,9 +27,11 @@ pub fn run_stderr(
     let mid = ir.insert_module(file, src, module).map_err(|err| {
         eprintln!("{}", err.resolve_ir(&ir));
     })?;
-    let main = ir.resolve_global_declaration(mid, "main").ok_or_else(|| {
-        eprintln!("main declaration not found");
-    })?;
+    let main = ir
+        .resolve_global_declaration(mid, declaration)
+        .ok_or_else(|| {
+            eprintln!("main declaration not found");
+        })?;
     let mut runner = runner::Runner::new(config, ir);
     let value = runner.evaluate_and_call(main).map_err(|err| {
         eprintln!("{}", err.resolve_ir(&runner.rir));

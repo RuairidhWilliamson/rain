@@ -11,35 +11,50 @@ fn main() -> ExitCode {
 }
 
 fn fallible_main() -> Result<(), ()> {
+    let process_arg = std::env::args_os().next().unwrap();
+    let p = std::path::Path::new(&process_arg);
+    let exe_name = p.file_stem().unwrap();
+    if exe_name == "rain" {
+        rain_command()
+    } else {
+        rainx_command()
+    }
+}
+
+fn rain_command() -> Result<(), ()> {
+    let config = rain_lang::config::Config::default();
+    let v = rain_lang::run_stderr("main.rain", "main", config)?;
+    eprintln!("{v:?}");
+    Ok(())
+}
+
+fn rainx_command() -> Result<(), ()> {
     let cli = Cli::parse();
+    let config = rain_lang::config::Config::default();
     match cli.command {
         RainCommand::RunScript { script } => {
-            let v = rain_lang::run_stderr(script, rain_lang::config::Config::default())?;
+            let v = rain_lang::run_stderr(script, "main", config)?;
             eprintln!("{v:?}");
-            Ok(())
+        }
+        RainCommand::Config => {
+            eprintln!("{config:#?}");
         }
         RainCommand::Clean => {
-            let config = rain_lang::config::Config::default();
             let clean_path = &config.base_cache_dir;
             eprintln!("removing {}", clean_path.display());
-            let metadata = match std::fs::metadata(clean_path) {
-                Ok(metadata) => metadata,
-                Err(err) => {
-                    eprintln!("could not stat cache directory: {err}");
-                    return Err(());
-                }
-            };
+            let metadata = std::fs::metadata(clean_path).map_err(|err| {
+                eprintln!("could not stat cache directory: {err}");
+            })?;
             if !metadata.is_dir() {
                 eprintln!("failed {} is not a directory", clean_path.display());
                 return Err(());
             }
-            if let Err(err) = std::fs::remove_dir_all(clean_path) {
+            std::fs::remove_dir_all(clean_path).map_err(|err| {
                 eprintln!("clean failed: {err}");
-                return Err(());
-            }
-            Ok(())
+            })?;
         }
     }
+    Ok(())
 }
 
 #[derive(Debug, Parser)]
@@ -51,6 +66,10 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum RainCommand {
+    /// Run a rain script
     RunScript { script: PathBuf },
+    /// View and manipulate rain config
+    Config,
+    /// Clean the rain cache
     Clean,
 }

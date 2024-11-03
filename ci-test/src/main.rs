@@ -116,7 +116,7 @@ mod tests {
         let server = axum_test::TestServer::new(super::router())?;
         let response = server
             .post("/event_handler")
-            .add_header("x-github-event".parse()?, "push".parse()?)
+            .add_header("x-github-event", "push")
             .json(&serde_json::from_str::<serde_json::Value>(include_str!(
                 "../testdata/push_main.json"
             ))?)
@@ -130,7 +130,7 @@ mod tests {
         let server = axum_test::TestServer::new(super::router())?;
         let response = server
             .post("/event_handler")
-            .add_header("x-github-event".parse()?, "push".parse()?)
+            .add_header("x-github-event", "push")
             .json(&serde_json::from_str::<serde_json::Value>(include_str!(
                 "../testdata/push_branch.json"
             ))?)
@@ -144,7 +144,7 @@ mod tests {
         let server = axum_test::TestServer::new(super::router())?;
         let response = server
             .post("/event_handler")
-            .add_header("x-github-event".parse()?, "create".parse()?)
+            .add_header("x-github-event", "create")
             .json(&serde_json::from_str::<serde_json::Value>(include_str!(
                 "../testdata/create_branch.json"
             ))?)
@@ -158,7 +158,7 @@ mod tests {
         let server = axum_test::TestServer::new(super::router())?;
         let response = server
             .post("/event_handler")
-            .add_header("x-github-event".parse()?, "create".parse()?)
+            .add_header("x-github-event", "create")
             .json(&serde_json::from_str::<serde_json::Value>(include_str!(
                 "../testdata/create_branch.json"
             ))?)

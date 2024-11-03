@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+#[derive(Debug)]
 pub struct Config {
     pub base_cache_dir: PathBuf,
     pub base_generated_dir: PathBuf,
