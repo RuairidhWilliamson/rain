@@ -254,7 +254,7 @@ fn extract_implementation(icx: InternalCx) -> ResultValue {
 }
 
 fn args_implementation(_icx: InternalCx) -> ResultValue {
-    let args: Vec<_> = std::env::args().skip(1).map(|s| Value::new(s)).collect();
+    let args: Vec<_> = std::env::args().skip(1).map(Value::new).collect();
     Ok(Value::new(RainList(args)))
 }
 
@@ -277,7 +277,8 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                     let input_dir = File::new(area.clone(), "/")
                         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
                     let input_dir_path = input_dir.resolve(icx.config);
-                    dircpy::copy_dir(input_dir_path, &output_dir_path).unwrap();
+                    dircpy::copy_dir(input_dir_path, &output_dir_path)
+                        .map_err(|err| icx.cx.nid_err(*area_nid, RunnerError::AreaIOError(err)))?;
                 }
                 _ => Err(icx.cx.nid_err(*area_nid, RunnerError::GenericTypeError))?,
             }
@@ -285,24 +286,28 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                 .downcast_ref()
                 .ok_or_else(|| icx.cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
             let resolved_path = file.resolve(icx.config);
-            let args: Vec<String> = args
+            let args = args
                 .iter()
-                .map(|(_, value)| match value.rain_type_id() {
-                    RainTypeId::String => value.downcast_ref::<String>().unwrap().to_string(),
-                    RainTypeId::File => value
+                .map(|(nid, value)| match value.rain_type_id() {
+                    RainTypeId::String => Ok(value
+                        .downcast_ref::<String>()
+                        .ok_or_else(|| icx.cx.nid_err(*nid, RunnerError::GenericTypeError))?
+                        .to_string()),
+                    RainTypeId::File => Ok(value
                         .downcast_ref::<File>()
-                        .unwrap()
+                        .ok_or_else(|| icx.cx.nid_err(*nid, RunnerError::GenericTypeError))?
                         .resolve(icx.config)
                         .display()
-                        .to_string(),
+                        .to_string()),
                     _ => todo!(),
                 })
-                .collect();
+                .collect::<Result<Vec<String>, ErrorSpan<RunnerError>>>()?;
             let mut cmd = std::process::Command::new(resolved_path);
             cmd.current_dir(output_dir_path);
             cmd.args(args);
             eprintln!("Running {cmd:?}");
-            cmd.status().unwrap();
+            cmd.status()
+                .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
             Ok(Value::new(area))
         }
         _ => Err(icx
@@ -334,11 +339,11 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
                 .downcast_ref()
                 .ok_or_else(|| icx.cx.nid_err(*name_nid, RunnerError::GenericTypeError))?;
             let path = std::env::var("PATH")
-                .unwrap()
+                .map_err(|_| icx.cx.nid_err(icx.nid, RunnerError::GenericTypeError))?
                 .split(PATH_SEPARATOR)
                 .find_map(|p| find_bin_in_dir(Path::new(p), name))
                 .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericTypeError))?;
-            let f = File::new(FileArea::Escape, path.to_str().unwrap())
+            let f = File::new(FileArea::Escape, path.to_string_lossy().as_ref())
                 .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
             Ok(Value::new(f))
         }
@@ -349,18 +354,20 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
 }
 
 fn main_commands_helper(icx: InternalCx) -> ResultValue {
-    let command = std::env::args().skip(1).next().unwrap();
+    let command = std::env::args()
+        .nth(1)
+        .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericTypeError))?;
     let (_, command_value) = icx
         .arg_values
-        .iter()
+        .into_iter()
         .find(|(nid, _)| {
             let crate::ast::Node::Ident(tls) = icx.cx.module.get(*nid) else {
                 todo!("not an ident")
             };
             tls.0.span.contents(&icx.cx.module.src) == command
         })
-        .unwrap();
-    Ok(command_value.clone())
+        .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericTypeError))?;
+    Ok(command_value)
 }
 
 fn unit(_icx: InternalCx) -> ResultValue {

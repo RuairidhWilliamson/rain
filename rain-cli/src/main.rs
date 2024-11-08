@@ -11,9 +11,13 @@ fn main() -> ExitCode {
 }
 
 fn fallible_main() -> Result<(), ()> {
-    let process_arg = std::env::args_os().next().unwrap();
+    let process_arg = std::env::args_os().next().ok_or_else(|| {
+        eprintln!("not enough process args");
+    })?;
     let p = std::path::Path::new(&process_arg);
-    let exe_name = p.file_stem().unwrap();
+    let exe_name = p.file_stem().ok_or_else(|| {
+        eprintln!("this process bad exe path");
+    })?;
     if exe_name == "rain" {
         rain_command()
     } else {
