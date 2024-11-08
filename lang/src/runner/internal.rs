@@ -13,7 +13,7 @@ use crate::{
 
 use super::{
     error::RunnerError,
-    value::{Module, RainTypeId, Value, ValueInner},
+    value::{Module, RainError, RainTypeId, Value, ValueInner},
     Cx, ResultValue,
 };
 
@@ -354,20 +354,35 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
 }
 
 fn main_commands_helper(icx: InternalCx) -> ResultValue {
-    let command = std::env::args()
-        .nth(1)
-        .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericTypeError))?;
-    let (_, command_value) = icx
+    let commands: Vec<(&str, Value)> = icx
         .arg_values
         .into_iter()
-        .find(|(nid, _)| {
-            let crate::ast::Node::Ident(tls) = icx.cx.module.get(*nid) else {
-                todo!("not an ident")
+        .map(|(nid, v)| {
+            let crate::ast::Node::Ident(tls) = icx.cx.module.get(nid) else {
+                todo!("main command helper support arg that is not an ident")
             };
-            tls.0.span.contents(&icx.cx.module.src) == command
+            let command_name = tls.0.span.contents(&icx.cx.module.src);
+            (command_name, v)
         })
-        .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericTypeError))?;
-    Ok(command_value)
+        .collect();
+    let command_help = || {
+        eprintln!("usage: rain <command>");
+        eprintln!("available commands:");
+        for (name, _) in &commands {
+            eprintln!("  {name}");
+        }
+    };
+    let Some(command) = std::env::args().nth(1) else {
+        eprintln!("no command specified");
+        command_help();
+        return Ok(Value::new(RainError("cli error".into())));
+    };
+    let Some((_, command_value)) = commands.iter().find(|(name, _)| *name == command) else {
+        eprintln!("unknown command: {command}");
+        command_help();
+        return Ok(Value::new(RainError("cli error".into())));
+    };
+    Ok(command_value.clone())
 }
 
 fn unit(_icx: InternalCx) -> ResultValue {

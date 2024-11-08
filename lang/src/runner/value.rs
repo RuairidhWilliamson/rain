@@ -82,6 +82,7 @@ pub enum RainTypeId {
     Internal,
     InternalFunction,
     List,
+    Error,
 }
 
 pub trait ValueInner: Any + Debug + Send + Sync + RainHash {
@@ -206,5 +207,14 @@ impl RainHash for RainList {
 impl ValueInner for RainList {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::List
+    }
+}
+
+#[derive(Debug, Hash)]
+pub struct RainError(pub std::borrow::Cow<'static, str>);
+
+impl ValueInner for RainError {
+    fn rain_type_id(&self) -> RainTypeId {
+        RainTypeId::Error
     }
 }

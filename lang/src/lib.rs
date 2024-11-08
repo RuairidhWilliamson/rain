@@ -1,3 +1,5 @@
+use runner::value::RainTypeId;
+
 pub mod append_vec;
 pub mod area;
 pub mod ast;
@@ -30,11 +32,15 @@ pub fn run_stderr(
     let main = ir
         .resolve_global_declaration(mid, declaration)
         .ok_or_else(|| {
-            eprintln!("main declaration not found");
+            eprintln!("{declaration} declaration not found");
         })?;
     let mut runner = runner::Runner::new(config, ir);
     let value = runner.evaluate_and_call(main).map_err(|err| {
         eprintln!("{}", err.resolve_ir(&runner.rir));
     })?;
+    if value.rain_type_id() == RainTypeId::Error {
+        eprintln!("{value:?}");
+        return Err(());
+    }
     Ok(value)
 }

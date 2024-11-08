@@ -36,8 +36,11 @@ fn rainx_command() -> Result<(), ()> {
     let cli = Cli::parse();
     let config = rain_lang::config::Config::default();
     match cli.command {
-        RainCommand::RunScript { script } => {
-            let v = rain_lang::run_stderr(script, "main", config)?;
+        RainCommand::Inspect {
+            script,
+            declaration,
+        } => {
+            let v = rain_lang::run_stderr(script, &declaration, config)?;
             eprintln!("{v:?}");
         }
         RainCommand::Config => {
@@ -70,8 +73,10 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum RainCommand {
-    /// Run a rain script
-    RunScript { script: PathBuf },
+    Inspect {
+        script: PathBuf,
+        declaration: String,
+    },
     /// View and manipulate rain config
     Config,
     /// Clean the rain cache
