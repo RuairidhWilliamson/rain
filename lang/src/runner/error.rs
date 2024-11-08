@@ -1,3 +1,5 @@
+use std::ops::RangeInclusive;
+
 use crate::{area::PathError, ast::error::ParseError};
 
 use super::value::RainTypeId;
@@ -5,6 +7,10 @@ use super::value::RainTypeId;
 #[derive(Debug)]
 pub enum RunnerError {
     GenericTypeError,
+    IncorrectArgs {
+        required: RangeInclusive<usize>,
+        actual: usize,
+    },
     UnknownIdent,
     ExpectedType(RainTypeId, &'static [RainTypeId]),
     InvalidIntegerLiteral,
@@ -22,6 +28,9 @@ impl std::fmt::Display for RunnerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::GenericTypeError => f.write_str("generic type error"),
+            Self::IncorrectArgs { required, actual } => f.write_fmt(format_args!(
+                "wrong number of args, requried {required:?} but got {actual}"
+            )),
             Self::UnknownIdent => f.write_str("unknown identifier"),
             Self::ExpectedType(actual, expected) => f.write_fmt(format_args!(
                 "type mismatch, expected {expected:?} actual {actual:?}"

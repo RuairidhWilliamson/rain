@@ -156,9 +156,13 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
             }
             Ok(Value::new(file))
         }
-        _ => Err(icx
-            .cx
-            .err(icx.fn_call.rparen_token, RunnerError::GenericTypeError)),
+        _ => Err(icx.cx.err(
+            icx.fn_call.rparen_token,
+            RunnerError::IncorrectArgs {
+                required: 1..=2,
+                actual: icx.arg_values.len(),
+            },
+        )),
     }
 }
 
@@ -178,17 +182,25 @@ fn import_implementation(icx: InternalCx) -> ResultValue {
                 .map_err(ErrorSpan::convert)?;
             Ok(Value::new(Module { id }))
         }
-        _ => Err(icx
-            .cx
-            .err(icx.fn_call.rparen_token, RunnerError::GenericTypeError)),
+        _ => Err(icx.cx.err(
+            icx.fn_call.rparen_token,
+            RunnerError::IncorrectArgs {
+                required: 1..=1,
+                actual: icx.arg_values.len(),
+            },
+        )),
     }
 }
 
 fn module_file_implementation(icx: InternalCx) -> ResultValue {
     if !icx.arg_values.is_empty() {
-        return Err(icx
-            .cx
-            .err(icx.fn_call.rparen_token, RunnerError::GenericTypeError));
+        return Err(icx.cx.err(
+            icx.fn_call.rparen_token,
+            RunnerError::IncorrectArgs {
+                required: 0..=0,
+                actual: icx.arg_values.len(),
+            },
+        ));
     }
     Ok(Value::new(icx.cx.module.file.clone()))
 }
@@ -197,10 +209,15 @@ fn local_area_implementation(icx: InternalCx) -> ResultValue {
     let FileArea::Local(current_area_path) = &icx.cx.module.file.area else {
         return Err(icx.cx.nid_err(icx.nid, RunnerError::IllegalLocalArea));
     };
-    let (path_nid, path_value) = icx
-        .arg_values
-        .first()
-        .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericTypeError))?;
+    let (path_nid, path_value) = icx.arg_values.first().ok_or_else(|| {
+        icx.cx.nid_err(
+            icx.nid,
+            RunnerError::IncorrectArgs {
+                required: 1..=1,
+                actual: icx.arg_values.len(),
+            },
+        )
+    })?;
     let path: &String = path_value
         .downcast_ref()
         .ok_or_else(|| icx.cx.nid_err(*path_nid, RunnerError::GenericTypeError))?;
@@ -247,9 +264,13 @@ fn extract_implementation(icx: InternalCx) -> ResultValue {
             }
             Ok(Value::new(area))
         }
-        _ => Err(icx
-            .cx
-            .err(icx.fn_call.rparen_token, RunnerError::GenericTypeError)),
+        _ => Err(icx.cx.err(
+            icx.fn_call.rparen_token,
+            RunnerError::IncorrectArgs {
+                required: 1..=1,
+                actual: icx.arg_values.len(),
+            },
+        )),
     }
 }
 
@@ -310,9 +331,13 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                 .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
             Ok(Value::new(area))
         }
-        _ => Err(icx
-            .cx
-            .err(icx.fn_call.rparen_token, RunnerError::GenericTypeError)),
+        _ => Err(icx.cx.err(
+            icx.fn_call.rparen_token,
+            RunnerError::IncorrectArgs {
+                required: 1..=2,
+                actual: icx.arg_values.len(),
+            },
+        )),
     }
 }
 
@@ -347,9 +372,13 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
                 .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
             Ok(Value::new(f))
         }
-        _ => Err(icx
-            .cx
-            .err(icx.fn_call.rparen_token, RunnerError::GenericTypeError)),
+        _ => Err(icx.cx.err(
+            icx.fn_call.rparen_token,
+            RunnerError::IncorrectArgs {
+                required: 1..=1,
+                actual: icx.arg_values.len(),
+            },
+        )),
     }
 }
 
@@ -397,8 +426,12 @@ fn get_area(icx: InternalCx) -> ResultValue {
                 .ok_or_else(|| icx.cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
             Ok(Value::new(file.area.clone()))
         }
-        _ => Err(icx
-            .cx
-            .err(icx.fn_call.rparen_token, RunnerError::GenericTypeError)),
+        _ => Err(icx.cx.err(
+            icx.fn_call.rparen_token,
+            RunnerError::IncorrectArgs {
+                required: 1..=1,
+                actual: icx.arg_values.len(),
+            },
+        )),
     }
 }
