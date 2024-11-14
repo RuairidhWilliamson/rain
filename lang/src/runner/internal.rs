@@ -31,6 +31,7 @@ pub enum InternalFunction {
     MainCommands,
     Unit,
     GetArea,
+    Download,
 }
 
 impl ValueInner for InternalFunction {
@@ -54,6 +55,7 @@ impl InternalFunction {
             "main_commands" => Some(Self::MainCommands),
             "unit" => Some(Self::Unit),
             "get_area" => Some(Self::GetArea),
+            "download" => Some(Self::Download),
             _ => None,
         }
     }
@@ -88,6 +90,7 @@ impl InternalFunction {
             Self::MainCommands => main_commands_helper(icx),
             Self::Unit => unit(icx),
             Self::GetArea => get_area(icx),
+            Self::Download => download(icx),
         }
     }
 }
@@ -425,6 +428,36 @@ fn get_area(icx: InternalCx) -> ResultValue {
                 .downcast_ref()
                 .ok_or_else(|| icx.cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
             Ok(Value::new(file.area.clone()))
+        }
+        _ => Err(icx.cx.err(
+            icx.fn_call.rparen_token,
+            RunnerError::IncorrectArgs {
+                required: 1..=1,
+                actual: icx.arg_values.len(),
+            },
+        )),
+    }
+}
+
+fn download(icx: InternalCx) -> ResultValue {
+    let client = reqwest::blocking::Client::new();
+    match &icx.arg_values[..] {
+        [(url_nid, url_value)] => {
+            let url: &String = url_value
+                .downcast_ref()
+                .ok_or_else(|| icx.cx.nid_err(*url_nid, RunnerError::GenericTypeError))?;
+            let request = client
+                .request(reqwest::Method::GET, url)
+                // .header(
+                //     reqwest::header::IF_NONE_MATCH,
+                //     "\"3b22f9fe438383527860677d34196a03d388c34822b85064d0e0f2a1683c91dc\"",
+                // )
+                .build()
+                .unwrap();
+            eprintln!("Sending request {request:?}");
+            let response = client.execute(request).unwrap();
+            eprintln!("Received response {response:?}");
+            Ok(Value::new(()))
         }
         _ => Err(icx.cx.err(
             icx.fn_call.rparen_token,

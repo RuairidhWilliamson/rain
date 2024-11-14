@@ -24,4 +24,5 @@ fn build() {
 fn run() {
 	binary = build()
 	internal.run(internal.unit(), binary)
+	internal.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore")
 }
