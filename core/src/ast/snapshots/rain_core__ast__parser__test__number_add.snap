@@ -1,0 +1,13 @@
+---
+source: core/src/ast/parser.rs
+expression: "parse_display_expr(\"1 + 1\")"
+---
+BinaryOp(
+ IntegerLiteral(
+  1
+ )
+ +
+ IntegerLiteral(
+  1
+ )
+)

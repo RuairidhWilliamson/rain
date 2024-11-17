@@ -78,16 +78,16 @@ fn find_root_rain() -> Result<PathBuf, ()> {
 }
 
 fn rain_command() -> Result<(), ()> {
-    let config = rain_lang::config::Config::default();
+    let config = rain_core::config::Config::default();
     let root = find_root_rain()?;
-    let v = rain_lang::run_stderr(root, "main", config)?;
+    let v = rain_core::run_stderr(root, "main", config)?;
     eprintln!("{v:?}");
     Ok(())
 }
 
 fn rain_ctl_command() -> Result<(), ()> {
     let cli = Cli::parse();
-    let config = rain_lang::config::Config::default();
+    let config = rain_core::config::Config::default();
     match cli.command {
         RainCtlCommand::Noctl(args) => {
             let Some((_, args)) = args.split_first() else {
@@ -107,7 +107,7 @@ fn rain_ctl_command() -> Result<(), ()> {
             script,
             declaration,
         } => {
-            let v = rain_lang::run_stderr(script, &declaration, config)?;
+            let v = rain_core::run_stderr(script, &declaration, config)?;
             eprintln!("{v:?}");
         }
         RainCtlCommand::Config => {

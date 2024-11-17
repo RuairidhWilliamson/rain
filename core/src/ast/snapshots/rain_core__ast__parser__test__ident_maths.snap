@@ -1,0 +1,31 @@
+---
+source: core/src/ast/parser.rs
+expression: "parse_display_expr(\"a + b - c * d / e\")"
+---
+BinaryOp(
+ BinaryOp(
+  Ident(
+   a
+  )
+  +
+  Ident(
+   b
+  )
+ )
+ -
+ BinaryOp(
+  BinaryOp(
+   Ident(
+    c
+   )
+   *
+   Ident(
+    d
+   )
+  )
+  /
+  Ident(
+   e
+  )
+ )
+)

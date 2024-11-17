@@ -1,0 +1,9 @@
+---
+source: core/src/ast/parser.rs
+expression: "parse_display_expr(\"foo()\")"
+---
+FnCall(
+ Ident(
+  foo
+ )
+)

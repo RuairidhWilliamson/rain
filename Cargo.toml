@@ -1,6 +1,6 @@
 [workspace]
 members = [
-  "lang",
+  "core",
   "smee-rs",
   "ci-test",
   "rain-cli",

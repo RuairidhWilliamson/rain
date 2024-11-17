@@ -1,0 +1,19 @@
+---
+source: core/src/ast/parser.rs
+expression: "parse_display_expr(\"5 * 2 + 3\")"
+---
+BinaryOp(
+ BinaryOp(
+  IntegerLiteral(
+   5
+  )
+  *
+  IntegerLiteral(
+   2
+  )
+ )
+ +
+ IntegerLiteral(
+  3
+ )
+)

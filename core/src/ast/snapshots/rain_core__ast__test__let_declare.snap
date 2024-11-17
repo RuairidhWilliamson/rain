@@ -1,0 +1,18 @@
+---
+source: core/src/ast/test.rs
+expression: "parse_display_script(\"\n        let a = 4\n        let asjldf = \\\"asjldf\\\"\n        \")"
+---
+ModuleRoot(
+ LetDeclare(
+  a
+  IntegerLiteral(
+   4
+  )
+ )
+ LetDeclare(
+  asjldf
+  StringLiteral(
+   "asjldf"
+  )
+ )
+)

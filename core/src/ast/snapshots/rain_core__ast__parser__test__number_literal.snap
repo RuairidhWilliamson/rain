@@ -1,0 +1,7 @@
+---
+source: core/src/ast/parser.rs
+expression: "parse_display_expr(\"4\")"
+---
+IntegerLiteral(
+ 4
+)

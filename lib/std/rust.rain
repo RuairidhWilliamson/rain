@@ -9,7 +9,7 @@ fn clippy(area) {
 }
 
 fn test(area) {
-	internal.run(area, cargo, "test")
+	internal.run(area, cargo, "test", "--quiet")
 }
 
 fn run(area, package, features) {

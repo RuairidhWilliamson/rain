@@ -1,0 +1,19 @@
+---
+source: core/src/ast/parser.rs
+expression: "parse_display_expr(\"(3 - b) * c\")"
+---
+BinaryOp(
+ BinaryOp(
+  IntegerLiteral(
+   3
+  )
+  -
+  Ident(
+   b
+  )
+ )
+ *
+ Ident(
+  c
+ )
+)
