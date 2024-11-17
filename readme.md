@@ -4,7 +4,7 @@
 ```bash
 git clone git@github.com:RuairidhWilliamson/rain.git
 cd rain
-cargo install --path rain-cli --locked
+cargo install --path cli --locked
 ln -s ~/.cargo/bin/rain-cli ~/.cargo/bin/rain
 ```
 
