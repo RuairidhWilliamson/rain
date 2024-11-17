@@ -75,7 +75,29 @@ impl Runner {
         let Some(f) = v.downcast_ref::<RainFunction>() else {
             return Ok(v);
         };
-        self.call_function(0, f, vec![])
+        let m = &Arc::clone(self.rir.get_module(f.id.module_id()));
+        let nid = m.get_declaration(f.id.local_id());
+        let node = m.get(nid);
+        match node {
+            Node::FnDeclare(fn_declare) => {
+                if !fn_declare.args.is_empty() {
+                    return Err(fn_declare.rparen_token.span.with_module(m.id).with_error(
+                        RunnerError::IncorrectArgs {
+                            required: fn_declare.args.len()..=fn_declare.args.len(),
+                            actual: 0,
+                        },
+                    ));
+                }
+                let mut cx = Cx {
+                    module: m,
+                    call_depth: 0,
+                    args: HashMap::new(),
+                    locals: HashMap::new(),
+                };
+                self.evaluate_node(&mut cx, fn_declare.block)
+            }
+            _ => unreachable!(),
+        }
     }
 
     pub fn evaluate_declaration(&mut self, id: DeclarationId) -> ResultValue {
@@ -181,9 +203,36 @@ impl Runner {
                     return Ok(v.clone());
                 }
                 let start = Instant::now();
-                let v = self.call_function(cx.call_depth + 1, f, arg_values)?;
-                self.cache.put(key, start.elapsed(), v.clone());
-                Ok(v)
+                let m = &Arc::clone(self.rir.get_module(f.id.module_id()));
+                let nid = m.get_declaration(f.id.local_id());
+                let node = m.get(nid);
+                let Node::FnDeclare(fn_declare) = node else {
+                    unreachable!();
+                };
+                if fn_declare.args.len() != fn_call.args.len() {
+                    return Err(cx.err(
+                        fn_call.rparen_token,
+                        RunnerError::IncorrectArgs {
+                            required: fn_declare.args.len()..=fn_declare.args.len(),
+                            actual: fn_call.args.len(),
+                        },
+                    ));
+                }
+                let args = fn_declare
+                    .args
+                    .iter()
+                    .zip(arg_values)
+                    .map(|(a, v)| (a.name.span.contents(&m.src), v))
+                    .collect();
+                let mut cx = Cx {
+                    module: m,
+                    call_depth: cx.call_depth + 1,
+                    args,
+                    locals: HashMap::new(),
+                };
+                let result = self.evaluate_node(&mut cx, fn_declare.block)?;
+                self.cache.put(key, start.elapsed(), result.clone());
+                Ok(result)
             }
             RainTypeId::InternalFunction => {
                 let Some(f) = v.downcast_ref::<InternalFunction>() else {
@@ -216,35 +265,6 @@ impl Runner {
                 fn_call.lparen_token,
                 RunnerError::ExpectedType(v.rain_type_id(), &[RainTypeId::Function]),
             )),
-        }
-    }
-
-    fn call_function(
-        &mut self,
-        call_depth: usize,
-        function: &RainFunction,
-        arg_values: Vec<Value>,
-    ) -> ResultValue {
-        let m = &Arc::clone(self.rir.get_module(function.id.module_id()));
-        let nid = m.get_declaration(function.id.local_id());
-        let node = m.get(nid);
-        match node {
-            Node::FnDeclare(fn_declare) => {
-                let args = fn_declare
-                    .args
-                    .iter()
-                    .zip(arg_values)
-                    .map(|(a, v)| (a.name.span.contents(&m.src), v))
-                    .collect();
-                let mut cx = Cx {
-                    module: m,
-                    call_depth,
-                    args,
-                    locals: HashMap::new(),
-                };
-                self.evaluate_node(&mut cx, fn_declare.block)
-            }
-            _ => unreachable!(),
         }
     }
 

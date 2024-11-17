@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use rain_core::{area::File, ast::error::ParseError, local_span::ErrorLocalSpan};
+use rain_core::{afs::file::File, ast::error::ParseError, local_span::ErrorLocalSpan};
 
 fn main() -> ExitCode {
     env_logger::init();

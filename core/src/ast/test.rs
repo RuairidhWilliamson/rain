@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::area::File;
+use crate::afs::file::File;
 
 fn parse_display_script(src: &str) -> String {
     let file = File::new_local(Path::new(file!())).unwrap();

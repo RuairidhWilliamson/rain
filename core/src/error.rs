@@ -1,4 +1,4 @@
-use crate::{area::File, local_span::LocalSpan};
+use crate::{afs::file::File, local_span::LocalSpan};
 
 #[derive(Debug)]
 pub struct ResolvedError<'a> {

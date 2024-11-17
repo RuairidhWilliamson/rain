@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::{
-    area::{File, FileArea},
+    afs::{area::FileArea, file::File},
     ir::{DeclarationId, ModuleId},
 };
 

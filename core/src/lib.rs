@@ -1,5 +1,5 @@
+pub mod afs;
 pub mod append_vec;
-pub mod area;
 pub mod ast;
 pub mod config;
 pub mod error;
@@ -15,7 +15,7 @@ pub fn run_stderr(
     declaration: &str,
     config: config::Config,
 ) -> Result<runner::value::Value, ()> {
-    let file = area::File::new_local(path.as_ref()).map_err(|err| {
+    let file = afs::file::File::new_local(path.as_ref()).map_err(|err| {
         log::error!("could not get file: {err}");
     })?;
     let path = file.resolve(&config);
@@ -44,10 +44,10 @@ pub fn run_stderr(
 }
 
 pub fn find_root_rain() -> Option<std::path::PathBuf> {
-    let mut directory = std::env::current_dir().unwrap();
+    let mut directory = std::env::current_dir().ok()?;
     loop {
         let p = directory.join("root.rain");
-        if p.try_exists().unwrap() {
+        if p.try_exists().is_ok_and(|b| b) {
             return Some(p);
         }
         if !directory.pop() {

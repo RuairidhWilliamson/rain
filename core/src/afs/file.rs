@@ -1,94 +1,12 @@
-use std::{
-    error::Error,
-    fmt::Display,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use crate::config::Config;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum FileArea {
-    Local(AbsolutePathBuf),
-    Generated(GeneratedFileArea),
-    Escape,
-}
-
-impl std::fmt::Display for FileArea {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Local(path) => f.write_fmt(format_args!("{}", path.0.display())),
-            Self::Generated(GeneratedFileArea { id }) => f.write_fmt(format_args!("{id}")),
-            Self::Escape => f.write_str("escape"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct GeneratedFileArea {
-    id: uuid::Uuid,
-}
-
-impl Default for GeneratedFileArea {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl GeneratedFileArea {
-    pub fn new() -> Self {
-        Self {
-            id: uuid::Uuid::new_v4(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AbsolutePathBuf(PathBuf);
-
-impl TryFrom<&Path> for AbsolutePathBuf {
-    type Error = std::io::Error;
-
-    fn try_from(path: &Path) -> Result<Self, Self::Error> {
-        std::path::absolute(path).map(Self)
-    }
-}
-
-impl std::ops::Deref for AbsolutePathBuf {
-    type Target = Path;
-
-    fn deref(&self) -> &Self::Target {
-        self.0.as_path()
-    }
-}
-
-#[derive(Debug)]
-pub enum PathError {
-    Dots,
-    Backslash,
-    NoParentDirectory,
-    NotUnicode,
-    IOError(std::io::Error),
-}
-
-impl Error for PathError {}
-
-impl Display for PathError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Dots => f.write_str("path cannot contain a segment that only has 3 or more dots"),
-            Self::Backslash => f.write_str("path cannot contain backslash"),
-            Self::NoParentDirectory => f.write_str("no parent directory"),
-            Self::NotUnicode => f.write_str("path is not unicode"),
-            Self::IOError(err) => f.write_fmt(format_args!("io error: {err}")),
-        }
-    }
-}
-
-impl From<std::io::Error> for PathError {
-    fn from(err: std::io::Error) -> Self {
-        Self::IOError(err)
-    }
-}
+use super::{
+    absolute::AbsolutePathBuf,
+    area::{FileArea, GeneratedFileArea},
+    error::PathError,
+};
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct File {

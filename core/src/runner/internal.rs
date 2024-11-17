@@ -3,7 +3,12 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    area::{AbsolutePathBuf, File, FileArea, GeneratedFileArea, PathError},
+    afs::{
+        absolute::AbsolutePathBuf,
+        area::{FileArea, GeneratedFileArea},
+        error::PathError,
+        file::File,
+    },
     ast::{FnCall, NodeId},
     config::Config,
     ir::Rir,
@@ -462,9 +467,21 @@ fn download(icx: InternalCx) -> ResultValue {
                 .build()
                 .unwrap();
             log::debug!("Sending request {request:?}");
-            let response = client.execute(request).unwrap();
+            let mut response = client.execute(request).unwrap();
             log::debug!("Received response {response:?}");
-            Ok(Value::new(RainUnit))
+            let gen_area = GeneratedFileArea::new();
+            let area = FileArea::Generated(gen_area);
+            let output = File::new(area, "/download")
+                .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
+            let output_path = output.resolve(icx.config);
+            let output_dir_path = output_path.parent().unwrap();
+            std::fs::create_dir_all(output_dir_path)
+                .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
+            let mut out = std::fs::File::create_new(output_path)
+                .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
+            std::io::copy(&mut response, &mut out)
+                .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
+            Ok(Value::new(output))
         }
         _ => Err(icx.cx.err(
             icx.fn_call.rparen_token,

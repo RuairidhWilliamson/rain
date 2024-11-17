@@ -1,7 +1,7 @@
 use std::ops::{Add, AddAssign};
 
 use crate::{
-    area::File,
+    afs::file::File,
     error::ResolvedError,
     ir::{ModuleId, Rir},
     span::{ErrorSpan, Span},

@@ -328,7 +328,7 @@ mod test {
     use std::path::Path;
 
     use crate::{
-        area::File,
+        afs::file::File,
         ast::{error::ParseError, parser::ModuleParser},
         local_span::{ErrorLocalSpan, LocalSpan},
     };

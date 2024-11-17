@@ -1,6 +1,6 @@
 use std::ops::RangeInclusive;
 
-use crate::{area::PathError, ast::error::ParseError};
+use crate::{afs::error::PathError, ast::error::ParseError};
 
 use super::value::RainTypeId;
 
