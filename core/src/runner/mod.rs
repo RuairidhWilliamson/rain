@@ -120,7 +120,11 @@ impl Runner {
             Node::FnDeclare(_) => panic!("can't evaluate fn declare"),
             Node::Block(block) => {
                 for nid in &block.statements[..block.statements.len() - 1] {
-                    self.evaluate_node(cx, *nid)?;
+                    let v = self.evaluate_node(cx, *nid)?;
+                    // Shortcut errors in block
+                    if v.rain_type_id() == RainTypeId::Error {
+                        return Ok(v);
+                    }
                 }
                 if let Some(nid) = block.statements.last() {
                     self.evaluate_node(cx, *nid)
