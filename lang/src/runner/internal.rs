@@ -105,13 +105,14 @@ struct InternalCx<'a, 'b> {
     arg_values: Vec<(NodeId, Value)>,
 }
 
+#[expect(clippy::print_stdout)]
 fn print_implementation(icx: InternalCx) -> ResultValue {
     let args: Vec<String> = icx
         .arg_values
         .into_iter()
         .map(|(_, a)| format!("{a}"))
         .collect();
-    log::info!("internal.print {}", args.join(" "));
+    println!("internal.print {}", args.join(" "));
     Ok(Value::new(()))
 }
 
@@ -331,8 +332,12 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
             cmd.current_dir(output_dir_path);
             cmd.args(args);
             log::debug!("Running {cmd:?}");
-            cmd.status()
+            let exit = cmd
+                .status()
                 .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
+            if !exit.success() {
+                return Ok(Value::new(RainError("command failed".into())));
+            }
             Ok(Value::new(area))
         }
         _ => Err(icx.cx.err(
@@ -386,6 +391,7 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
     }
 }
 
+#[expect(clippy::print_stderr)]
 fn main_commands_helper(icx: InternalCx) -> ResultValue {
     let commands: Vec<(&str, Value)> = icx
         .arg_values
@@ -399,19 +405,19 @@ fn main_commands_helper(icx: InternalCx) -> ResultValue {
         })
         .collect();
     let command_help = || {
-        log::error!("usage: rain <command>");
-        log::error!("available commands:");
+        eprintln!("usage: rain <command>");
+        eprintln!("available commands:");
         for (name, _) in &commands {
-            log::error!("  {name}");
+            eprintln!("  {name}");
         }
     };
     let Some(command) = std::env::args().nth(1) else {
-        log::error!("no command specified");
+        eprintln!("no command specified");
         command_help();
         return Ok(Value::new(RainError("cli error".into())));
     };
     let Some((_, command_value)) = commands.iter().find(|(name, _)| *name == command) else {
-        log::error!("unknown command: {command}");
+        eprintln!("unknown command: {command}");
         command_help();
         return Ok(Value::new(RainError("cli error".into())));
     };

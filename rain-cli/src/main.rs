@@ -3,9 +3,10 @@
 use std::{ffi::OsString, path::PathBuf, process::ExitCode};
 
 use clap::{Parser, Subcommand};
+use env_logger::Env;
 
 fn main() -> ExitCode {
-    env_logger::init();
+    env_logger::init_from_env(Env::new().filter("RAIN_LOG"));
     if fallible_main().is_ok() {
         ExitCode::SUCCESS
     } else {

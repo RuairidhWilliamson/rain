@@ -1,7 +1,11 @@
 let cargo = internal.escape_bin("cargo")
 
+fn check_fmt(area) {
+	internal.run(area, cargo, "fmt", "--check")
+}
+
 fn clippy(area) {
-	internal.run(area, cargo, "clippy")
+	internal.run(area, cargo, "clippy", "--", "-Dwarnings")
 }
 
 fn test(area) {
