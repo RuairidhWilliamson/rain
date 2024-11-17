@@ -1,5 +1,3 @@
-use runner::value::RainTypeId;
-
 pub mod append_vec;
 pub mod area;
 pub mod ast;
@@ -38,9 +36,22 @@ pub fn run_stderr(
     let value = runner.evaluate_and_call(main).map_err(|err| {
         log::error!("{}", err.resolve_ir(&runner.rir));
     })?;
-    if value.rain_type_id() == RainTypeId::Error {
+    if value.rain_type_id() == runner::value::RainTypeId::Error {
         log::error!("{value:?}");
         return Err(());
     }
     Ok(value)
+}
+
+pub fn find_root_rain() -> Option<std::path::PathBuf> {
+    let mut directory = std::env::current_dir().unwrap();
+    loop {
+        let p = directory.join("root.rain");
+        if p.try_exists().unwrap() {
+            return Some(p);
+        }
+        if !directory.pop() {
+            return None;
+        }
+    }
 }

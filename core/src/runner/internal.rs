@@ -7,7 +7,7 @@ use crate::{
     ast::{FnCall, NodeId},
     config::Config,
     ir::Rir,
-    runner::value_impl::RainError,
+    runner::value_impl::{RainError, RainUnit},
     span::ErrorSpan,
 };
 
@@ -113,7 +113,7 @@ fn print_implementation(icx: InternalCx) -> ResultValue {
         .map(|(_, a)| format!("{a}"))
         .collect();
     println!("internal.print {}", args.join(" "));
-    Ok(Value::new(()))
+    Ok(Value::new(RainUnit))
 }
 
 fn get_file_implementation(icx: InternalCx) -> ResultValue {
@@ -425,7 +425,7 @@ fn main_commands_helper(icx: InternalCx) -> ResultValue {
 }
 
 fn unit(_icx: InternalCx) -> ResultValue {
-    Ok(Value::new(()))
+    Ok(Value::new(RainUnit))
 }
 
 fn get_area(icx: InternalCx) -> ResultValue {
@@ -464,7 +464,7 @@ fn download(icx: InternalCx) -> ResultValue {
             log::debug!("Sending request {request:?}");
             let response = client.execute(request).unwrap();
             log::debug!("Received response {response:?}");
-            Ok(Value::new(()))
+            Ok(Value::new(RainUnit))
         }
         _ => Err(icx.cx.err(
             icx.fn_call.rparen_token,

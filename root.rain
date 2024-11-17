@@ -21,7 +21,7 @@ fn check() {
 }
 
 fn build() {
-	std.gcc.compile(std.get_file("lang/examples/run/foo.c"), "foo")
+	std.gcc.compile(std.get_file("core/examples/run/foo.c"), "foo")
 }
 
 fn run() {

@@ -10,7 +10,7 @@ use std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Instant};
 use error::RunnerError;
 use internal::InternalFunction;
 use value::{RainTypeId, Value};
-use value_impl::{Module, RainFunction, RainInteger, RainInternal};
+use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainUnit};
 
 use crate::{
     ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
@@ -103,7 +103,7 @@ impl Runner {
                 if let Some(nid) = block.statements.last() {
                     self.evaluate_node(cx, *nid)
                 } else {
-                    Ok(Value::new(()))
+                    Ok(Value::new(RainUnit))
                 }
             }
             Node::IfCondition(if_condition) => self.evaluate_if_condition(cx, if_condition),
@@ -112,7 +112,7 @@ impl Runner {
                 let v = self.evaluate_node(cx, assignment.expr)?;
                 let name = assignment.name.span.contents(&cx.module.src);
                 cx.locals.insert(name, v);
-                Ok(Value::new(()))
+                Ok(Value::new(RainUnit))
             }
             Node::BinaryOp(binary_op) => self.evaluate_binary_op(cx, binary_op),
             Node::Ident(tls) => self
@@ -382,7 +382,7 @@ impl Runner {
                     self.evaluate_node(cx, if_condition)
                 }
                 Some(AlternateCondition::ElseBlock(block)) => self.evaluate_node(cx, block),
-                None => Ok(Value::new(())),
+                None => Ok(Value::new(RainUnit)),
             }
         }
     }

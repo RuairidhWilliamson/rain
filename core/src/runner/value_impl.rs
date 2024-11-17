@@ -7,7 +7,16 @@ use crate::{
 
 use super::value::{RainTypeId, Value, ValueInner};
 
-impl ValueInner for () {
+#[derive(Hash, PartialEq, Eq)]
+pub struct RainUnit;
+
+impl std::fmt::Debug for RainUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("unit")
+    }
+}
+
+impl ValueInner for RainUnit {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Unit
     }

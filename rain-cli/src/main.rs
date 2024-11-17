@@ -64,22 +64,9 @@ fn fallible_main() -> Result<(), ()> {
     }
 }
 
-fn find_root_rain() -> Result<PathBuf, ()> {
-    let mut directory = std::env::current_dir().unwrap();
-    loop {
-        let p = directory.join("root.rain");
-        if p.try_exists().unwrap() {
-            return Ok(p);
-        }
-        if !directory.pop() {
-            return Err(());
-        }
-    }
-}
-
 fn rain_command() -> Result<(), ()> {
     let config = rain_core::config::Config::default();
-    let root = find_root_rain()?;
+    let root = rain_core::find_root_rain().ok_or(())?;
     let v = rain_core::run_stderr(root, "main", config)?;
     eprintln!("{v:?}");
     Ok(())

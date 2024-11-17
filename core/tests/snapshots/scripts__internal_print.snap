@@ -1,5 +1,5 @@
 ---
-source: lang/tests/scripts.rs
+source: core/tests/scripts.rs
 expression: "run(\"tests/scripts/internal_print.rain\").unwrap()"
 ---
-()
+unit
