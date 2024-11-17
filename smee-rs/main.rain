@@ -1,0 +1,6 @@
+let area = internal.get_area(internal.module_file())
+let std = internal.import(internal.get_file("../lib/std.rain"))
+
+fn run() {
+	std.rust.run(area, "smee-rs", "clap tokio")
+}

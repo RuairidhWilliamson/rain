@@ -1,0 +1,3 @@
+[alias]
+rain = "r -q -p rain-cli -- noctl"
+rainctl = "r -q -p rain-cli --"

@@ -28,8 +28,9 @@ impl std::fmt::Display for Value {
 }
 
 impl PartialEq for Value {
-    fn eq(&self, _other: &Self) -> bool {
-        todo!()
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.value, &other.value)
+            || self.value.rain_eq(other.value.as_ref())
     }
 }
 
@@ -37,7 +38,7 @@ impl Eq for Value {}
 
 impl std::hash::Hash for Value {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.rain_hash(state);
+        self.value.rain_hash(state);
     }
 }
 
@@ -52,7 +53,7 @@ impl Value {
         self.value.rain_type_id()
     }
 
-    pub fn any_type_id(&self) -> TypeId {
+    fn any_type_id(&self) -> TypeId {
         (*self.value).type_id()
     }
 
@@ -68,16 +69,20 @@ impl Value {
         }
     }
 
-    #[expect(unsafe_code)]
     pub fn downcast_ref<T: ValueInner>(&self) -> Option<&T> {
-        if self.any_type_id() == TypeId::of::<T>() {
-            let ptr = std::ptr::from_ref::<dyn ValueInner>(self.value.as_ref());
-            // Safety:
-            // We have checked this is of the right type already
-            Some(unsafe { &*ptr.cast::<T>() })
-        } else {
-            None
-        }
+        downcast_ref(self.value.as_ref())
+    }
+}
+
+#[expect(unsafe_code)]
+fn downcast_ref<T: Any>(v: &dyn ValueInner) -> Option<&T> {
+    if (*v).type_id() == TypeId::of::<T>() {
+        let ptr = std::ptr::from_ref::<dyn ValueInner>(v);
+        // Safety:
+        // We have checked this is of the right type already
+        Some(unsafe { &*ptr.cast::<T>() })
+    } else {
+        None
     }
 }
 
@@ -97,6 +102,22 @@ pub enum RainTypeId {
     Error,
 }
 
-pub trait ValueInner: Any + Debug + Send + Sync + RainHash {
+pub trait ValueInner: Any + Debug + Send + Sync + RainHash + RainEq {
     fn rain_type_id(&self) -> RainTypeId;
+}
+
+pub trait RainEq {
+    fn rain_eq(&self, other: &dyn ValueInner) -> bool;
+}
+
+impl<T> RainEq for T
+where
+    T: Eq + 'static,
+{
+    fn rain_eq(&self, other: &dyn ValueInner) -> bool {
+        let Some(o) = downcast_ref::<Self>(other) else {
+            return false;
+        };
+        self.eq(o)
+    }
 }

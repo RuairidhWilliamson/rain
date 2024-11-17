@@ -5,10 +5,7 @@ use crate::{
     ir::{DeclarationId, ModuleId},
 };
 
-use super::{
-    hash::RainHash,
-    value::{RainTypeId, Value, ValueInner},
-};
+use super::value::{RainTypeId, Value, ValueInner};
 
 impl ValueInner for () {
     fn rain_type_id(&self) -> RainTypeId {
@@ -93,19 +90,12 @@ impl ValueInner for RainInternal {
     }
 }
 
+#[derive(Hash, PartialEq, Eq)]
 pub struct RainList(pub Vec<Value>);
 
 impl std::fmt::Debug for RainList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
-    }
-}
-
-impl RainHash for RainList {
-    fn rain_hash(&self, state: &mut dyn std::hash::Hasher) {
-        for v in &self.0 {
-            v.rain_hash(state);
-        }
     }
 }
 

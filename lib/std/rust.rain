@@ -7,3 +7,7 @@ fn clippy(area) {
 fn test(area) {
 	internal.run(area, cargo, "test")
 }
+
+fn run(area, package, features) {
+	internal.run(area, cargo, "run", "-p", package, "-F", features)
+}

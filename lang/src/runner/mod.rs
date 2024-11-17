@@ -5,7 +5,7 @@ mod internal;
 pub mod value;
 pub mod value_impl;
 
-use std::{any::TypeId, collections::HashMap, num::NonZeroUsize, sync::Arc, time::Instant};
+use std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Instant};
 
 use error::RunnerError;
 use internal::InternalFunction;
@@ -72,14 +72,10 @@ impl Runner {
 
     pub fn evaluate_and_call(&mut self, id: DeclarationId) -> ResultValue {
         let v = self.evaluate_declaration(id)?;
-        if v.any_type_id() == TypeId::of::<RainFunction>() {
-            let Some(f) = v.downcast_ref::<RainFunction>() else {
-                unreachable!();
-            };
-            self.call_function(0, f, vec![])
-        } else {
-            Ok(v)
-        }
+        let Some(f) = v.downcast_ref::<RainFunction>() else {
+            return Ok(v);
+        };
+        self.call_function(0, f, vec![])
     }
 
     pub fn evaluate_declaration(&mut self, id: DeclarationId) -> ResultValue {
