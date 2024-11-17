@@ -7,13 +7,14 @@ use crate::{
     ast::{FnCall, NodeId},
     config::Config,
     ir::Rir,
-    runner::value::RainList,
+    runner::value_impl::RainError,
     span::ErrorSpan,
 };
 
 use super::{
     error::RunnerError,
-    value::{Module, RainError, RainTypeId, Value, ValueInner},
+    value::{RainTypeId, Value, ValueInner},
+    value_impl::{Module, RainList},
     Cx, ResultValue,
 };
 
@@ -110,7 +111,7 @@ fn print_implementation(icx: InternalCx) -> ResultValue {
         .into_iter()
         .map(|(_, a)| format!("{a}"))
         .collect();
-    println!("{}", args.join(" "));
+    log::info!("internal.print {}", args.join(" "));
     Ok(Value::new(()))
 }
 
@@ -329,7 +330,7 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
             let mut cmd = std::process::Command::new(resolved_path);
             cmd.current_dir(output_dir_path);
             cmd.args(args);
-            eprintln!("Running {cmd:?}");
+            log::debug!("Running {cmd:?}");
             cmd.status()
                 .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
             Ok(Value::new(area))
@@ -398,19 +399,19 @@ fn main_commands_helper(icx: InternalCx) -> ResultValue {
         })
         .collect();
     let command_help = || {
-        eprintln!("usage: rain <command>");
-        eprintln!("available commands:");
+        log::error!("usage: rain <command>");
+        log::error!("available commands:");
         for (name, _) in &commands {
-            eprintln!("  {name}");
+            log::error!("  {name}");
         }
     };
     let Some(command) = std::env::args().nth(1) else {
-        eprintln!("no command specified");
+        log::error!("no command specified");
         command_help();
         return Ok(Value::new(RainError("cli error".into())));
     };
     let Some((_, command_value)) = commands.iter().find(|(name, _)| *name == command) else {
-        eprintln!("unknown command: {command}");
+        log::error!("unknown command: {command}");
         command_help();
         return Ok(Value::new(RainError("cli error".into())));
     };
@@ -454,9 +455,9 @@ fn download(icx: InternalCx) -> ResultValue {
                 // )
                 .build()
                 .unwrap();
-            eprintln!("Sending request {request:?}");
+            log::debug!("Sending request {request:?}");
             let response = client.execute(request).unwrap();
-            eprintln!("Received response {response:?}");
+            log::debug!("Received response {response:?}");
             Ok(Value::new(()))
         }
         _ => Err(icx.cx.err(

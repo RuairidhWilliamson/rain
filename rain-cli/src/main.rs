@@ -1,8 +1,11 @@
+#![allow(clippy::print_stderr)]
+
 use std::{path::PathBuf, process::ExitCode};
 
 use clap::{Parser, Subcommand};
 
 fn main() -> ExitCode {
+    env_logger::init();
     if fallible_main().is_ok() {
         ExitCode::SUCCESS
     } else {
@@ -21,7 +24,7 @@ fn fallible_main() -> Result<(), ()> {
     if exe_name == "rain" {
         rain_command()
     } else {
-        rainx_command()
+        rain_cli_command()
     }
 }
 
@@ -32,7 +35,7 @@ fn rain_command() -> Result<(), ()> {
     Ok(())
 }
 
-fn rainx_command() -> Result<(), ()> {
+fn rain_cli_command() -> Result<(), ()> {
     let cli = Cli::parse();
     let config = rain_lang::config::Config::default();
     match cli.command {

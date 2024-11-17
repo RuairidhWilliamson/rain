@@ -50,15 +50,15 @@ impl Smee {
         let mut stream = se_client.stream();
         while let Some(event) = stream.try_next().await? {
             match event {
-                SSE::Connected(_) => eprintln!("connected"),
+                SSE::Connected(_) => log::info!("connected"),
                 SSE::Event(ev) => {
                     let Err(err) = self.handle_event(ev).await else {
                         continue;
                     };
-                    eprintln!("Error handling event");
-                    eprintln!("{err:#}");
+                    log::error!("Error handling event");
+                    log::error!("{err:#}");
                 }
-                SSE::Comment(comment) => eprintln!("comment {comment:?}"),
+                SSE::Comment(comment) => log::info!("comment {comment:?}"),
             }
         }
         Ok(())
@@ -67,7 +67,7 @@ impl Smee {
     async fn handle_event(&self, event: Event) -> Result<()> {
         match event.event_type.as_str() {
             "ready" => {
-                eprintln!("ready");
+                log::info!("ready");
             }
             "ping" => {}
             "message" => {
@@ -80,7 +80,7 @@ impl Smee {
                         headers.insert(k.parse::<HeaderName>()?, v.parse()?);
                     }
                 }
-                eprintln!("forwarding webhook of length {}", body.len());
+                log::info!("forwarding webhook of length {}", body.len());
                 self.client
                     .post(self.target.clone())
                     .headers(headers)
@@ -89,7 +89,7 @@ impl Smee {
                     .await?;
             }
             _ => {
-                eprintln!("unknown event: {event:?}");
+                log::error!("unknown event: {event:?}");
             }
         }
         Ok(())

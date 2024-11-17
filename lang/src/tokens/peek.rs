@@ -47,6 +47,7 @@ impl<'a> PeekTokenStream<'a> {
         Ok(self.peeked.front().copied())
     }
 
+    #[expect(unsafe_code)]
     pub fn peek_many<const N: usize>(
         &mut self,
     ) -> Result<Option<[TokenLocalSpan; N]>, ErrorLocalSpan<TokenError>> {

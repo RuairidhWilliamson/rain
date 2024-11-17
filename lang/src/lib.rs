@@ -18,28 +18,28 @@ pub fn run_stderr(
     config: config::Config,
 ) -> Result<runner::value::Value, ()> {
     let file = area::File::new_local(path.as_ref()).map_err(|err| {
-        eprintln!("could not get file: {err}");
+        log::error!("could not get file: {err}");
     })?;
     let path = file.resolve(&config);
     let src = std::fs::read_to_string(&path).map_err(|err| {
-        eprintln!("could not read file {}: {err}", path.display());
+        log::error!("could not read file {}: {err}", path.display());
     })?;
     let module = ast::parser::parse_module(&src);
     let mut ir = ir::Rir::new();
     let mid = ir.insert_module(file, src, module).map_err(|err| {
-        eprintln!("{}", err.resolve_ir(&ir));
+        log::error!("{}", err.resolve_ir(&ir));
     })?;
     let main = ir
         .resolve_global_declaration(mid, declaration)
         .ok_or_else(|| {
-            eprintln!("{declaration} declaration not found");
+            log::error!("{declaration} declaration not found");
         })?;
     let mut runner = runner::Runner::new(config, ir);
     let value = runner.evaluate_and_call(main).map_err(|err| {
-        eprintln!("{}", err.resolve_ir(&runner.rir));
+        log::error!("{}", err.resolve_ir(&runner.rir));
     })?;
     if value.rain_type_id() == RainTypeId::Error {
-        eprintln!("{value:?}");
+        log::error!("{value:?}");
         return Err(());
     }
     Ok(value)

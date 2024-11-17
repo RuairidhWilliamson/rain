@@ -1,13 +1,16 @@
 pub mod cache;
 pub mod error;
+pub mod hash;
 mod internal;
 pub mod value;
+pub mod value_impl;
 
 use std::{any::TypeId, collections::HashMap, num::NonZeroUsize, sync::Arc, time::Instant};
 
 use error::RunnerError;
 use internal::InternalFunction;
-use value::{Module, RainFunction, RainInteger, RainInternal, RainTypeId, Value};
+use value::{RainTypeId, Value};
+use value_impl::{Module, RainFunction, RainInteger, RainInternal};
 
 use crate::{
     ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
@@ -18,6 +21,7 @@ use crate::{
 };
 
 const MAX_CALL_DEPTH: usize = 500;
+#[expect(unsafe_code)]
 const CACHE_SIZE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1024) };
 
 type ResultValue = Result<Value, ErrorSpan<RunnerError>>;
@@ -69,10 +73,10 @@ impl Runner {
     pub fn evaluate_and_call(&mut self, id: DeclarationId) -> ResultValue {
         let v = self.evaluate_declaration(id)?;
         if v.any_type_id() == TypeId::of::<RainFunction>() {
-            let Some(f) = v.downcast::<RainFunction>() else {
+            let Some(f) = v.downcast_ref::<RainFunction>() else {
                 unreachable!();
             };
-            self.call_function(0, &f, vec![])
+            self.call_function(0, f, vec![])
         } else {
             Ok(v)
         }
@@ -175,14 +179,14 @@ impl Runner {
                     .iter()
                     .map(|a| self.evaluate_node(cx, *a))
                     .collect::<Result<_, _>>()?;
-                let key = self.cache.function_key(f, arg_values.iter());
+                let key = self.cache.function_key(f, arg_values.clone());
 
                 if let Some(v) = self.cache.get_value(&key) {
                     return Ok(v.clone());
                 }
                 let start = Instant::now();
                 let v = self.call_function(cx.call_depth + 1, f, arg_values)?;
-                self.cache.put(key, start.elapsed(), vec![], v.clone());
+                self.cache.put(key, start.elapsed(), v.clone());
                 Ok(v)
             }
             RainTypeId::InternalFunction => {
@@ -196,7 +200,7 @@ impl Runner {
                     .collect::<Result<_, _>>()?;
                 let key = self
                     .cache
-                    .function_key(*f, arg_values.iter().map(|(_, a)| a));
+                    .function_key(*f, arg_values.iter().map(|(_, a)| a.clone()).collect());
                 if let Some(v) = self.cache.get_value(&key) {
                     return Ok(v.clone());
                 }
@@ -209,7 +213,7 @@ impl Runner {
                     fn_call,
                     arg_values,
                 )?;
-                self.cache.put(key, start.elapsed(), vec![], v.clone());
+                self.cache.put(key, start.elapsed(), v.clone());
                 Ok(v)
             }
             _ => Err(cx.err(

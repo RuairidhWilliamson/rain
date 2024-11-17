@@ -341,14 +341,14 @@ mod test {
         let id = match parser.parse_expr() {
             Ok(s) => s,
             Err(err) => {
-                eprintln!("{}", err.resolve(&file, src));
+                log::error!("{}", err.resolve(&file, src));
                 panic!("parse error");
             }
         };
         let nodes = match parser.complete() {
             Ok(nodes) => nodes,
             Err(err) => {
-                eprintln!("{}", err.resolve(&file, src));
+                log::error!("{}", err.resolve(&file, src));
                 panic!("parse error");
             }
         };
@@ -500,7 +500,7 @@ mod test {
     fn invalid_scripts() {
         fn parse_display_module(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
             parse_module(src).map(|m| {
-                eprintln!("{}", m.display(src));
+                log::error!("{}", m.display(src));
             })
         }
         assert!(parse_display_module("fn foo() {5 6}").is_err());

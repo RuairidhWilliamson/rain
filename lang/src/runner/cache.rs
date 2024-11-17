@@ -1,17 +1,11 @@
-use std::{
-    hash::{DefaultHasher, Hasher},
-    num::NonZeroUsize,
-    time::Duration,
-};
+use std::{num::NonZeroUsize, time::Duration};
 
+use chrono::{DateTime, Utc};
 use lru::LruCache;
 
 use crate::ir::DeclarationId;
 
-use super::{
-    internal::InternalFunction,
-    value::{RainFunction, RainHash, Value},
-};
+use super::{internal::InternalFunction, value::Value, value_impl::RainFunction};
 
 pub struct Cache {
     storage: LruCache<CacheKey, CacheEntry>,
@@ -24,19 +18,14 @@ impl Cache {
         }
     }
 
-    pub fn function_key<'a>(
+    pub fn function_key(
         &self,
         function: impl Into<FunctionDefinition>,
-        args: impl Iterator<Item = &'a Value>,
+        args: Vec<Value>,
     ) -> CacheKey {
-        let mut hasher = DefaultHasher::new();
-        for a in args {
-            RainHash::hash(a, &mut hasher);
-        }
-        let args_hash = hasher.finish();
         CacheKey {
             definition: function.into(),
-            args_hash,
+            args,
         }
     }
 
@@ -44,18 +33,12 @@ impl Cache {
         self.storage.get(key).map(|e| &e.value)
     }
 
-    pub fn put(
-        &mut self,
-        key: CacheKey,
-        execution_time: Duration,
-        deps: Vec<CacheKey>,
-        value: Value,
-    ) {
+    pub fn put(&mut self, key: CacheKey, execution_time: Duration, value: Value) {
         self.storage.put(
             key,
             CacheEntry {
                 execution_time,
-                deps,
+                expires: None,
                 value,
             },
         );
@@ -65,7 +48,7 @@ impl Cache {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct CacheKey {
     definition: FunctionDefinition,
-    args_hash: u64,
+    args: Vec<Value>,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -86,9 +69,10 @@ impl From<InternalFunction> for FunctionDefinition {
     }
 }
 
-#[expect(dead_code)]
 struct CacheEntry {
+    #[expect(dead_code)]
     execution_time: Duration,
-    deps: Vec<CacheKey>,
+    #[expect(dead_code)]
+    expires: Option<DateTime<Utc>>,
     value: Value,
 }

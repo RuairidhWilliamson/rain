@@ -10,9 +10,12 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+chrono = "0.4.38"
 colored = "2.1.0"
-dirs = "5.0.1"
 dircpy = { version = "0.3.19", default-features = false }
+dirs = "5.0.1"
+env_logger.workspace = true
+log.workspace = true
 lru = "0.12.4"
 num-bigint = "0.4.6"
 reqwest = { version = "0.12.9", features = ["blocking"] }

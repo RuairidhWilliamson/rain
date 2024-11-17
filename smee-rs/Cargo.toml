@@ -12,6 +12,7 @@ workspace = true
 anyhow.workspace = true
 clap = { workspace = true, optional = true }
 serde_json.workspace = true
+log.workspace = true
 
 eventsource-client = "0.13.0"
 futures = "0.3.30"

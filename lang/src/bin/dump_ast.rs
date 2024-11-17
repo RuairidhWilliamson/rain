@@ -3,6 +3,7 @@ use std::process::ExitCode;
 use rain_lang::{area::File, ast::error::ParseError, local_span::ErrorLocalSpan};
 
 fn main() -> ExitCode {
+    env_logger::init();
     let Some(src_path) = std::env::args().nth(1) else {
         print_help();
         return ExitCode::FAILURE;
@@ -11,8 +12,8 @@ fn main() -> ExitCode {
     let path = match File::new_local(src_path) {
         Ok(path) => path,
         Err(err) => {
-            eprintln!("Path error");
-            eprintln!("{err:#}");
+            log::error!("Path error");
+            log::error!("{err:#}");
             return ExitCode::FAILURE;
         }
     };
@@ -20,14 +21,14 @@ fn main() -> ExitCode {
         Ok(src) => src,
         Err(err) => {
             print_help();
-            eprintln!("src_path = {src_path:?}");
-            eprintln!("{err:#}");
+            log::error!("src_path = {src_path:?}");
+            log::error!("{err:#}");
             return ExitCode::FAILURE;
         }
     };
     if let Err(err) = inner(&src) {
         let resolved = err.resolve(&path, &src);
-        eprintln!("{resolved}");
+        log::error!("{resolved}");
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
@@ -35,12 +36,12 @@ fn main() -> ExitCode {
 }
 
 fn print_help() {
-    eprintln!("Usage: dump_ast <src_path>");
+    log::info!("Usage: dump_ast <src_path>");
 }
 
 fn inner(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
     let module = rain_lang::ast::parser::parse_module(src)?;
     let out = module.display(src);
-    println!("{out}");
+    log::info!("{out}");
     Ok(())
 }

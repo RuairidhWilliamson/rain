@@ -6,7 +6,7 @@ use std::{
 
 use crate::config::Config;
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FileArea {
     Local(AbsolutePathBuf),
     Generated(GeneratedFileArea),
@@ -23,7 +23,7 @@ impl std::fmt::Display for FileArea {
     }
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GeneratedFileArea {
     id: uuid::Uuid,
 }
@@ -42,7 +42,7 @@ impl GeneratedFileArea {
     }
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AbsolutePathBuf(PathBuf);
 
 impl TryFrom<&Path> for AbsolutePathBuf {
@@ -90,7 +90,7 @@ impl From<std::io::Error> for PathError {
     }
 }
 
-#[derive(Debug, Hash, Clone)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct File {
     pub area: FileArea,
     path: FilePath,
@@ -172,7 +172,7 @@ impl std::fmt::Display for File {
 ///
 /// Must start with /
 /// Path segments are separated by /
-#[derive(Debug, Hash, Clone)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 struct FilePath(String);
 
 impl FilePath {

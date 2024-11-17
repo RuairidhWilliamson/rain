@@ -1,5 +1,5 @@
 [package]
-name = "rain"
+name = "rain-cli"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,4 +11,6 @@ workspace = true
 
 [dependencies]
 clap.workspace = true
+env_logger.workspace = true
+log.workspace = true
 rain-lang = { path = "../lang" }

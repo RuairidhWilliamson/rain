@@ -7,7 +7,7 @@ fn parse_display_script(src: &str) -> String {
     let s = match super::parser::parse_module(src) {
         Ok(s) => s,
         Err(err) => {
-            eprintln!("{}", err.resolve(&file, src));
+            log::error!("{}", err.resolve(&file, src));
             panic!("parse error");
         }
     };
