@@ -1,9 +1,18 @@
 #![allow(clippy::print_stderr)]
 
-use std::{ffi::OsString, path::PathBuf, process::ExitCode};
+mod client;
+mod msg;
+mod server;
+
+use std::{
+    ffi::{OsStr, OsString},
+    path::PathBuf,
+    process::ExitCode,
+};
 
 use clap::{Parser, Subcommand};
 use env_logger::Env;
+use rain_core::config::Config;
 
 fn main() -> ExitCode {
     env_logger::init_from_env(Env::new().filter("RAIN_LOG"));
@@ -43,38 +52,40 @@ impl RainCtlDecisionMode {
 }
 
 fn fallible_main() -> Result<(), ()> {
-    let process_arg = std::env::args_os().next().ok_or_else(|| {
-        eprintln!("not enough process args");
-    })?;
-    let p = std::path::Path::new(&process_arg);
-    let exe_name = p.file_stem().ok_or_else(|| {
-        eprintln!("this process bad exe path");
-    })?;
+    let config = rain_core::config::Config::default();
+    if std::env::var_os("RAIN_SERVER").as_deref() == Some(OsStr::new("1")) {
+        return server::rain_server(config);
+    }
     let decision_mode = RainCtlDecisionMode::get()?;
     match decision_mode {
         RainCtlDecisionMode::Auto => {
+            let process_arg = std::env::args_os().next().ok_or_else(|| {
+                eprintln!("not enough process args");
+            })?;
+            let p = std::path::Path::new(&process_arg);
+            let exe_name = p.file_stem().ok_or_else(|| {
+                eprintln!("this process bad exe path");
+            })?;
             if exe_name == "rain" {
-                rain_command()
+                rain_command(config)
             } else {
-                rain_ctl_command()
+                rain_ctl_command(config)
             }
         }
-        RainCtlDecisionMode::Always => rain_ctl_command(),
-        RainCtlDecisionMode::Never => rain_command(),
+        RainCtlDecisionMode::Always => rain_ctl_command(config),
+        RainCtlDecisionMode::Never => rain_command(config),
     }
 }
 
-fn rain_command() -> Result<(), ()> {
-    let config = rain_core::config::Config::default();
+fn rain_command(config: Config) -> Result<(), ()> {
     let root = rain_core::find_root_rain().ok_or(())?;
     let v = rain_core::run_stderr(root, "main", config)?;
     eprintln!("{v:?}");
     Ok(())
 }
 
-fn rain_ctl_command() -> Result<(), ()> {
+fn rain_ctl_command(config: Config) -> Result<(), ()> {
     let cli = Cli::parse();
-    let config = rain_core::config::Config::default();
     match cli.command {
         RainCtlCommand::Noctl(args) => {
             let Some((_, args)) = args.split_first() else {
@@ -96,6 +107,12 @@ fn rain_ctl_command() -> Result<(), ()> {
         } => {
             let v = rain_core::run_stderr(script, &declaration, config)?;
             eprintln!("{v:?}");
+        }
+        RainCtlCommand::Info => {
+            client::make_request_or_start(config, &msg::Request::Info).unwrap();
+        }
+        RainCtlCommand::Shutdown => {
+            client::make_request_or_start(config, &msg::Request::Shutdown).unwrap();
         }
         RainCtlCommand::Config => {
             eprintln!("{config:#?}");
@@ -133,6 +150,8 @@ pub enum RainCtlCommand {
         script: PathBuf,
         declaration: String,
     },
+    Info,
+    Shutdown,
     /// View and manipulate rain config
     Config,
     /// Clean the rain cache

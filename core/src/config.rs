@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-#[derive(Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub base_cache_dir: PathBuf,
     pub base_generated_dir: PathBuf,
@@ -24,5 +26,13 @@ impl Config {
             base_cache_dir,
             base_generated_dir,
         }
+    }
+
+    pub fn server_socket_path(&self) -> PathBuf {
+        self.base_cache_dir.join("server.socket")
+    }
+
+    pub fn server_stderr_path(&self) -> PathBuf {
+        self.base_cache_dir.join("server.stderr")
     }
 }
