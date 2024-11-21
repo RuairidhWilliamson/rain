@@ -5,7 +5,7 @@ use std::{
 
 use crate::{config::Config, remote::msg::RestartReason};
 
-use super::msg::{Request, RequestHeader, Response, ResponseWrapper, ServerInfo};
+use super::msg::{Request, RequestHeader, RequestTrait, ResponseWrapper};
 
 pub fn rain_server(config: Config) -> Result<(), ()> {
     let exe_stat = std::fs::metadata(std::env::current_exe().unwrap()).unwrap();
@@ -45,31 +45,38 @@ impl ClientHandler<'_> {
         if hdr.modified_time != self.server.modified_time {
             log::info!("Restarting because modified time does not match");
             std::fs::remove_file(self.server.config.server_socket_path()).unwrap();
-            let response = ResponseWrapper::RestartPls(RestartReason::RainBinaryChanged);
+            let response: ResponseWrapper<()> =
+                ResponseWrapper::RestartPls(RestartReason::RainBinaryChanged);
             ciborium::into_writer(&response, &mut self.stream).unwrap();
             std::process::exit(0)
         }
         let request: Request = ciborium::from_reader(&mut self.stream).unwrap();
         log::info!("Header {hdr:?}");
         log::info!("Request {request:?}");
-        self.handle_request(&request);
+        self.handle_request(request);
     }
 
-    fn handle_request(self, req: &Request) {
+    fn handle_request(self, req: Request) {
         match req {
-            Request::Info => self.send_response(Response::Info(ServerInfo {
-                pid: std::process::id(),
-            })),
-            Request::Shutdown => {
+            Request::Info(req) => self.send_response(
+                req,
+                super::msg::info::InfoResponse {
+                    pid: std::process::id(),
+                },
+            ),
+            Request::Shutdown(req) => {
                 log::info!("Goodbye");
-                self.send_response(Response::Goodbye);
+                self.send_response(req, super::msg::shutdown::Goodbye);
                 std::process::exit(0);
             }
         }
     }
 
-    fn send_response(mut self, response: impl Into<ResponseWrapper>) {
-        let wrapped: ResponseWrapper = response.into();
+    fn send_response<Req>(mut self, _req: Req, response: Req::Response)
+    where
+        Req: RequestTrait,
+    {
+        let wrapped = ResponseWrapper::Response(response);
         ciborium::into_writer(&wrapped, &mut self.stream).unwrap();
     }
 }

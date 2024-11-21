@@ -12,7 +12,7 @@ use rain_core::{
     config::Config,
     remote::{
         client::make_request_or_start,
-        msg::{Request, Response},
+        msg::{info::InfoRequest, shutdown::ShutdownRequest},
     },
 };
 
@@ -111,19 +111,11 @@ fn rain_ctl_command(config: Config) -> Result<(), ()> {
             eprintln!("{v:?}");
         }
         RainCtlCommand::Info => {
-            let response = make_request_or_start(config, &Request::Info).unwrap();
-            let rain_core::remote::msg::Response::Info(info) = response else {
-                eprintln!("server returned unexpected response");
-                return Err(());
-            };
+            let info = make_request_or_start(config, InfoRequest).unwrap();
             println!("{info:#?}");
         }
         RainCtlCommand::Shutdown => {
-            let response = make_request_or_start(config, &Request::Shutdown).unwrap();
-            let Response::Goodbye = response else {
-                eprintln!("server returned unexpected response");
-                return Err(());
-            };
+            make_request_or_start(config, ShutdownRequest).unwrap();
             println!("Server shutdown");
         }
         RainCtlCommand::Config => {

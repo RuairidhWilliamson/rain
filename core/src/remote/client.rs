@@ -1,10 +1,15 @@
 use std::{os::unix::net::UnixStream, process::Stdio, time::Duration};
 
+use serde::de::DeserializeOwned;
+
 use crate::config::Config;
 
-use super::msg::{Request, RequestHeader, Response, ResponseWrapper};
+use super::msg::{Request, RequestHeader, RequestTrait, ResponseWrapper};
 
-pub fn make_request_or_start(config: Config, request: &Request) -> std::io::Result<Response> {
+pub fn make_request_or_start<Req>(config: Config, request: Req) -> std::io::Result<Req::Response>
+where
+    Req: RequestTrait,
+{
     log::info!("Connecting");
     let stream: UnixStream;
     match UnixStream::connect(config.server_socket_path()) {
@@ -24,12 +29,13 @@ pub fn make_request_or_start(config: Config, request: &Request) -> std::io::Resu
             return Err(err);
         }
     }
-    let response = make_request(stream, config.clone(), request)?;
+    let request: Request = request.into();
+    let response: ResponseWrapper<Req::Response> = make_request(stream, config.clone(), &request)?;
     match response {
         ResponseWrapper::RestartPls(reason) => {
             log::info!("server requested restart, reason {reason:?}");
             let stream = start_server(&config)?;
-            match make_request(stream, config, request)? {
+            match make_request(stream, config, &request)? {
                 ResponseWrapper::Response(resp) => Ok(resp),
                 ResponseWrapper::RestartPls(reason) => {
                     panic!("second restart request, reason: {reason:?}")
@@ -65,11 +71,14 @@ fn start_server(config: &Config) -> std::io::Result<UnixStream> {
     panic!("timeout waiting for server to start");
 }
 
-fn make_request(
+fn make_request<Resp>(
     mut stream: UnixStream,
     config: Config,
     request: &Request,
-) -> std::io::Result<ResponseWrapper> {
+) -> std::io::Result<ResponseWrapper<Resp>>
+where
+    Resp: std::fmt::Debug + DeserializeOwned,
+{
     let hdr = RequestHeader {
         config,
         modified_time: std::fs::metadata(std::env::current_exe().unwrap())
@@ -79,7 +88,7 @@ fn make_request(
     };
     ciborium::into_writer(&hdr, &mut stream).unwrap();
     ciborium::into_writer(request, &mut stream).unwrap();
-    let response: ResponseWrapper = ciborium::from_reader(&mut stream).unwrap();
+    let response: ResponseWrapper<Resp> = ciborium::from_reader(&mut stream).unwrap();
     log::info!("Got repsonse {response:?}");
     Ok(response)
 }
