@@ -1,8 +1,8 @@
 use std::{os::unix::net::UnixStream, process::Stdio, time::Duration};
 
-use rain_core::config::Config;
+use crate::config::Config;
 
-use crate::msg::{Request, RequestHeader, Response, ResponseWrapper};
+use super::msg::{Request, RequestHeader, Response, ResponseWrapper};
 
 pub fn make_request_or_start(config: Config, request: &Request) -> std::io::Result<Response> {
     log::info!("Connecting");
@@ -26,12 +26,13 @@ pub fn make_request_or_start(config: Config, request: &Request) -> std::io::Resu
     }
     let response = make_request(stream, config.clone(), request)?;
     match response {
-        ResponseWrapper::RestartRequest => {
+        ResponseWrapper::RestartPls(reason) => {
+            log::info!("server requested restart, reason {reason:?}");
             let stream = start_server(&config)?;
             match make_request(stream, config, request)? {
                 ResponseWrapper::Response(resp) => Ok(resp),
-                ResponseWrapper::RestartRequest => {
-                    panic!("second restart request")
+                ResponseWrapper::RestartPls(reason) => {
+                    panic!("second restart request, reason: {reason:?}")
                 }
             }
         }
@@ -61,7 +62,7 @@ fn start_server(config: &Config) -> std::io::Result<UnixStream> {
             }
         }
     }
-    todo!("timeout waiting for server to start");
+    panic!("timeout waiting for server to start");
 }
 
 fn make_request(

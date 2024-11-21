@@ -10,7 +10,6 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-ciborium = "0.2.2"
 clap.workspace = true
 env_logger.workspace = true
 log.workspace = true

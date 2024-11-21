@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 chrono = "0.4.38"
+ciborium = "0.2.2"
 colored = "2.1.0"
 dircpy = { version = "0.3.19", default-features = false }
 dirs = "5.0.1"

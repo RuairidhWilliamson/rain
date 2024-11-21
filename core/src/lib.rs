@@ -5,6 +5,7 @@ pub mod config;
 pub mod error;
 pub mod ir;
 pub mod local_span;
+pub mod remote;
 pub mod runner;
 pub mod span;
 pub mod tokens;

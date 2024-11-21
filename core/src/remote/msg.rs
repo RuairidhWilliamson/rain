@@ -1,6 +1,6 @@
-use std::time::SystemTime;
+use std::{fmt::Debug, time::SystemTime};
 
-use rain_core::config::Config;
+use crate::config::Config;
 
 use serde::{Deserialize, Serialize};
 
@@ -19,17 +19,27 @@ pub enum Request {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ResponseWrapper {
     Response(Response),
-    RestartRequest,
+    RestartPls(RestartReason),
 }
 
 impl From<Response> for ResponseWrapper {
-    fn from(response: Response) -> Self {
-        Self::Response(response)
+    fn from(resp: Response) -> Self {
+        Self::Response(resp)
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum RestartReason {
+    RainBinaryChanged,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Response {
-    Success,
-    Failure,
+    Info(ServerInfo),
+    Goodbye,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ServerInfo {
+    pub pid: u32,
 }

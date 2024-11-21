@@ -1,9 +1,5 @@
 #![allow(clippy::print_stderr)]
 
-mod client;
-mod msg;
-mod server;
-
 use std::{
     ffi::{OsStr, OsString},
     path::PathBuf,
@@ -12,7 +8,13 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use env_logger::Env;
-use rain_core::config::Config;
+use rain_core::{
+    config::Config,
+    remote::{
+        client::make_request_or_start,
+        msg::{Request, Response},
+    },
+};
 
 fn main() -> ExitCode {
     env_logger::init_from_env(Env::new().filter("RAIN_LOG"));
@@ -54,7 +56,7 @@ impl RainCtlDecisionMode {
 fn fallible_main() -> Result<(), ()> {
     let config = rain_core::config::Config::default();
     if std::env::var_os("RAIN_SERVER").as_deref() == Some(OsStr::new("1")) {
-        return server::rain_server(config);
+        return rain_core::remote::server::rain_server(config);
     }
     let decision_mode = RainCtlDecisionMode::get()?;
     match decision_mode {
@@ -109,10 +111,20 @@ fn rain_ctl_command(config: Config) -> Result<(), ()> {
             eprintln!("{v:?}");
         }
         RainCtlCommand::Info => {
-            client::make_request_or_start(config, &msg::Request::Info).unwrap();
+            let response = make_request_or_start(config, &Request::Info).unwrap();
+            let rain_core::remote::msg::Response::Info(info) = response else {
+                eprintln!("server returned unexpected response");
+                return Err(());
+            };
+            println!("{info:#?}");
         }
         RainCtlCommand::Shutdown => {
-            client::make_request_or_start(config, &msg::Request::Shutdown).unwrap();
+            let response = make_request_or_start(config, &Request::Shutdown).unwrap();
+            let Response::Goodbye = response else {
+                eprintln!("server returned unexpected response");
+                return Err(());
+            };
+            println!("Server shutdown");
         }
         RainCtlCommand::Config => {
             eprintln!("{config:#?}");

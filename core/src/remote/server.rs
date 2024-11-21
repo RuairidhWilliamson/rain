@@ -3,9 +3,9 @@ use std::{
     time::SystemTime,
 };
 
-use rain_core::config::Config;
+use crate::{config::Config, remote::msg::RestartReason};
 
-use crate::msg::{Request, RequestHeader, Response, ResponseWrapper};
+use super::msg::{Request, RequestHeader, Response, ResponseWrapper, ServerInfo};
 
 pub fn rain_server(config: Config) -> Result<(), ()> {
     let exe_stat = std::fs::metadata(std::env::current_exe().unwrap()).unwrap();
@@ -45,7 +45,7 @@ impl ClientHandler<'_> {
         if hdr.modified_time != self.server.modified_time {
             log::info!("Restarting because modified time does not match");
             std::fs::remove_file(self.server.config.server_socket_path()).unwrap();
-            let response = ResponseWrapper::RestartRequest;
+            let response = ResponseWrapper::RestartPls(RestartReason::RainBinaryChanged);
             ciborium::into_writer(&response, &mut self.stream).unwrap();
             std::process::exit(0)
         }
@@ -57,16 +57,19 @@ impl ClientHandler<'_> {
 
     fn handle_request(self, req: &Request) {
         match req {
-            Request::Info => self.send_response(Response::Success),
+            Request::Info => self.send_response(Response::Info(ServerInfo {
+                pid: std::process::id(),
+            })),
             Request::Shutdown => {
                 log::info!("Goodbye");
-                self.send_response(Response::Success);
+                self.send_response(Response::Goodbye);
                 std::process::exit(0);
             }
         }
     }
 
     fn send_response(mut self, response: impl Into<ResponseWrapper>) {
-        ciborium::into_writer(&response.into(), &mut self.stream).unwrap();
+        let wrapped: ResponseWrapper = response.into();
+        ciborium::into_writer(&wrapped, &mut self.stream).unwrap();
     }
 }
