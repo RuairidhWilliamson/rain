@@ -3,6 +3,7 @@ pub mod append_vec;
 pub mod ast;
 pub mod config;
 pub mod error;
+pub mod exe;
 pub mod ir;
 pub mod local_span;
 pub mod remote;

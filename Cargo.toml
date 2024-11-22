@@ -37,7 +37,7 @@ string_to_string = "warn"
 undocumented_unsafe_blocks = "warn"
 unused_result_ok = "warn"
 unused_trait_names = "warn"
-# unwrap_used = "warn"
+unwrap_used = "warn"
 print_stderr = "warn"
 print_stdout = "warn"
 

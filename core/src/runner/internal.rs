@@ -451,6 +451,8 @@ fn get_area(icx: InternalCx) -> ResultValue {
     }
 }
 
+// TODO: Remove unwraps
+#[expect(clippy::unwrap_used)]
 fn download(icx: InternalCx) -> ResultValue {
     let client = reqwest::blocking::Client::new();
     match &icx.arg_values[..] {

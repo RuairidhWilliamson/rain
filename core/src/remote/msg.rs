@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::config::Config;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestHeader {
     pub config: Config,
     pub modified_time: SystemTime,
@@ -54,6 +54,7 @@ pub mod info {
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct InfoResponse {
         pub pid: u32,
+        pub config: crate::config::Config,
     }
 }
 

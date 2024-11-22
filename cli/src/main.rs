@@ -1,4 +1,4 @@
-#![allow(clippy::print_stderr)]
+#![allow(clippy::print_stderr, clippy::print_stdout)]
 
 use std::{
     ffi::{OsStr, OsString},
@@ -56,7 +56,9 @@ impl RainCtlDecisionMode {
 fn fallible_main() -> Result<(), ()> {
     let config = rain_core::config::Config::default();
     if std::env::var_os("RAIN_SERVER").as_deref() == Some(OsStr::new("1")) {
-        return rain_core::remote::server::rain_server(config);
+        return rain_core::remote::server::rain_server(config).map_err(|err| {
+            eprintln!("rain server error: {err:?}");
+        });
     }
     let decision_mode = RainCtlDecisionMode::get()?;
     match decision_mode {
@@ -93,11 +95,13 @@ fn rain_ctl_command(config: Config) -> Result<(), ()> {
             let Some((_, args)) = args.split_first() else {
                 unreachable!("cannot remove first arg")
             };
-            if !std::process::Command::new(std::env::current_exe().unwrap())
+            if !std::process::Command::new(rain_core::exe::current_exe().ok_or(())?)
                 .env("RAIN_CTL", "never")
                 .args(args)
                 .status()
-                .unwrap()
+                .map_err(|err| {
+                    eprintln!("Failed to start noctl self: {err:?}");
+                })?
                 .success()
             {
                 return Err(());
@@ -111,11 +115,15 @@ fn rain_ctl_command(config: Config) -> Result<(), ()> {
             eprintln!("{v:?}");
         }
         RainCtlCommand::Info => {
-            let info = make_request_or_start(config, InfoRequest).unwrap();
+            let info = make_request_or_start(&config, InfoRequest).map_err(|err| {
+                eprintln!("{err:?}");
+            })?;
             println!("{info:#?}");
         }
         RainCtlCommand::Shutdown => {
-            make_request_or_start(config, ShutdownRequest).unwrap();
+            make_request_or_start(&config, ShutdownRequest).map_err(|err| {
+                eprintln!("{err:?}");
+            })?;
             println!("Server shutdown");
         }
         RainCtlCommand::Config => {
