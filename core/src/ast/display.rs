@@ -52,7 +52,7 @@ pub struct NodeBuilder<'b, 'a: 'b> {
     result: Result,
 }
 
-impl<'b, 'a> NodeBuilder<'b, 'a> {
+impl<'a> NodeBuilder<'_, 'a> {
     pub fn child_fn(&mut self, f: impl FnOnce(&mut AstFormatter<'a>) -> Result) -> &mut Self {
         self.result = self.result.and_then(|()| {
             self.fmt.write_indent()?;

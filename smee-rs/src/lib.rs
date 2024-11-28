@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use eventsource_client::{Client as _, Event, ReconnectOptions, SSE};
-use futures::TryStreamExt;
+use futures::TryStreamExt as _;
 use reqwest::{
     header::{HeaderMap, HeaderName},
     redirect::Policy,
