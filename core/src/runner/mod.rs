@@ -267,7 +267,10 @@ impl Runner {
             }
             _ => Err(cx.err(
                 fn_call.lparen_token,
-                RunnerError::ExpectedType(v.rain_type_id(), &[RainTypeId::Function]),
+                RunnerError::ExpectedType {
+                    actual: v.rain_type_id(),
+                    expected: &[RainTypeId::Function],
+                },
             )),
         }
     }
@@ -395,7 +398,10 @@ impl Runner {
         let Some(condition_bool): Option<&bool> = condition_value.downcast_ref() else {
             return Err(cx.err(
                 LocalSpan::default(),
-                RunnerError::ExpectedType(condition_value.rain_type_id(), &[RainTypeId::Boolean]),
+                RunnerError::ExpectedType {
+                    actual: condition_value.rain_type_id(),
+                    expected: &[RainTypeId::Boolean],
+                },
             ));
         };
         if *condition_bool {

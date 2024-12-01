@@ -124,10 +124,9 @@ fn print_implementation(icx: InternalCx) -> ResultValue {
 fn get_file_implementation(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(relative_path_nid, relative_path_value)] => {
-            let relative_path: &String = relative_path_value.downcast_ref().ok_or_else(|| {
-                icx.cx
-                    .nid_err(*relative_path_nid, RunnerError::GenericTypeError)
-            })?;
+            let relative_path: &String = relative_path_value
+                .downcast_ref_error(&[RainTypeId::String])
+                .map_err(|err| icx.cx.nid_err(*relative_path_nid, err))?;
             let file = icx
                 .cx
                 .module
@@ -148,12 +147,11 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
         }
         [(area_nid, area_value), (absolute_path_nid, absolute_path_value)] => {
             let area: &FileArea = area_value
-                .downcast_ref()
-                .ok_or_else(|| icx.cx.nid_err(*area_nid, RunnerError::GenericTypeError))?;
-            let absolute_path: &String = absolute_path_value.downcast_ref().ok_or_else(|| {
-                icx.cx
-                    .nid_err(*absolute_path_nid, RunnerError::GenericTypeError)
-            })?;
+                .downcast_ref_error(&[RainTypeId::FileArea])
+                .map_err(|err| icx.cx.nid_err(*area_nid, err))?;
+            let absolute_path: &String = absolute_path_value
+                .downcast_ref_error(&[RainTypeId::String])
+                .map_err(|err| icx.cx.nid_err(*absolute_path_nid, err))?;
             let file = File::new(area.clone(), absolute_path)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err.into()))?;
             if !file.exists(icx.config).map_err(|err| {
@@ -180,8 +178,8 @@ fn import_implementation(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(file_nid, file_value)] => {
             let file: &File = file_value
-                .downcast_ref()
-                .ok_or_else(|| icx.cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
+                .downcast_ref_error(&[RainTypeId::File])
+                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
             let resolved_path = file.resolve(icx.config);
             let src = std::fs::read_to_string(&resolved_path)
                 .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::ImportIOError(err)))?;
@@ -229,8 +227,8 @@ fn local_area_implementation(icx: InternalCx) -> ResultValue {
         )
     })?;
     let path: &String = path_value
-        .downcast_ref()
-        .ok_or_else(|| icx.cx.nid_err(*path_nid, RunnerError::GenericTypeError))?;
+        .downcast_ref_error(&[RainTypeId::String])
+        .map_err(|err| icx.cx.nid_err(*path_nid, err))?;
     let area_path = current_area_path.join(path);
     let area_path = AbsolutePathBuf::try_from(area_path.as_path())
         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
@@ -246,8 +244,8 @@ fn extract_implementation(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(file_nid, file_value)] => {
             let file: &File = file_value
-                .downcast_ref()
-                .ok_or_else(|| icx.cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
+                .downcast_ref_error(&[RainTypeId::File])
+                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
             let resolved_path = file.resolve(icx.config);
             let gen_area = GeneratedFileArea::new();
             let area = FileArea::Generated(gen_area);
@@ -303,8 +301,8 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                 }
                 RainTypeId::FileArea => {
                     let area: &FileArea = area_value
-                        .downcast_ref()
-                        .ok_or_else(|| icx.cx.nid_err(*area_nid, RunnerError::GenericTypeError))?;
+                        .downcast_ref_error(&[RainTypeId::FileArea])
+                        .map_err(|err| icx.cx.nid_err(*area_nid, err))?;
                     let input_dir = File::new(area.clone(), "/")
                         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
                     let input_dir_path = input_dir.resolve(icx.config);
@@ -314,23 +312,29 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                 _ => Err(icx.cx.nid_err(*area_nid, RunnerError::GenericTypeError))?,
             }
             let file: &File = file_value
-                .downcast_ref()
-                .ok_or_else(|| icx.cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
+                .downcast_ref_error(&[RainTypeId::File])
+                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
             let resolved_path = file.resolve(icx.config);
             let args = args
                 .iter()
                 .map(|(nid, value)| match value.rain_type_id() {
                     RainTypeId::String => Ok(value
-                        .downcast_ref::<String>()
-                        .ok_or_else(|| icx.cx.nid_err(*nid, RunnerError::GenericTypeError))?
+                        .downcast_ref_error::<String>(&[RainTypeId::String])
+                        .map_err(|err| icx.cx.nid_err(*nid, err))?
                         .to_string()),
                     RainTypeId::File => Ok(value
-                        .downcast_ref::<File>()
-                        .ok_or_else(|| icx.cx.nid_err(*nid, RunnerError::GenericTypeError))?
+                        .downcast_ref_error::<File>(&[RainTypeId::File])
+                        .map_err(|err| icx.cx.nid_err(*nid, err))?
                         .resolve(icx.config)
                         .display()
                         .to_string()),
-                    _ => todo!(),
+                    type_id => Err(icx.cx.nid_err(
+                        *nid,
+                        RunnerError::ExpectedType {
+                            actual: type_id,
+                            expected: &[RainTypeId::String, RainTypeId::File],
+                        },
+                    )),
                 })
                 .collect::<Result<Vec<String>, ErrorSpan<RunnerError>>>()?;
             let mut cmd = std::process::Command::new(resolved_path);
@@ -375,8 +379,8 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(name_nid, name_value)] => {
             let name: &String = name_value
-                .downcast_ref()
-                .ok_or_else(|| icx.cx.nid_err(*name_nid, RunnerError::GenericTypeError))?;
+                .downcast_ref_error(&[RainTypeId::String])
+                .map_err(|err| icx.cx.nid_err(*name_nid, err))?;
             let path = std::env::var("PATH")
                 .map_err(|_| icx.cx.nid_err(icx.nid, RunnerError::GenericTypeError))?
                 .split(PATH_SEPARATOR)
@@ -437,8 +441,8 @@ fn get_area(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(file_nid, file_value)] => {
             let file: &File = file_value
-                .downcast_ref()
-                .ok_or_else(|| icx.cx.nid_err(*file_nid, RunnerError::GenericTypeError))?;
+                .downcast_ref_error(&[RainTypeId::File])
+                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
             Ok(Value::new(file.area.clone()))
         }
         _ => Err(icx.cx.err(
@@ -458,8 +462,8 @@ fn download(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(url_nid, url_value)] => {
             let url: &String = url_value
-                .downcast_ref()
-                .ok_or_else(|| icx.cx.nid_err(*url_nid, RunnerError::GenericTypeError))?;
+                .downcast_ref_error(&[RainTypeId::String])
+                .map_err(|err| icx.cx.nid_err(*url_nid, err))?;
             let request = client
                 .request(reqwest::Method::GET, url)
                 // .header(

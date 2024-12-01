@@ -5,7 +5,7 @@ fn check_fmt(area) {
 }
 
 fn clippy(area) {
-	internal.run(area, cargo, "clippy", "--", "-Dwarnings")
+	internal.run(area, cargo, "clippy", "--quiet", "--", "-Dwarnings")
 }
 
 fn test(area) {
@@ -13,5 +13,10 @@ fn test(area) {
 }
 
 fn run(area, package, features) {
-	internal.run(area, cargo, "run", "-p", package, "-F", features)
+	internal.run(area, cargo, "run", "--package", package, "--features", features)
+}
+
+fn build(area, package, features) {
+	area = internal.run(area, cargo, "build", "--package", package, "--features", features, "--target-dir", "target")
+	internal.get_file(area, "target/debug")
 }

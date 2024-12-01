@@ -12,7 +12,10 @@ pub enum RunnerError {
         actual: usize,
     },
     UnknownIdent,
-    ExpectedType(RainTypeId, &'static [RainTypeId]),
+    ExpectedType {
+        actual: RainTypeId,
+        expected: &'static [RainTypeId],
+    },
     InvalidIntegerLiteral,
     MaxCallDepth,
     PathError(PathError),
@@ -32,7 +35,7 @@ impl std::fmt::Display for RunnerError {
                 "wrong number of args, requried {required:?} but got {actual}"
             )),
             Self::UnknownIdent => f.write_str("unknown identifier"),
-            Self::ExpectedType(actual, expected) => f.write_fmt(format_args!(
+            Self::ExpectedType { actual, expected } => f.write_fmt(format_args!(
                 "type mismatch, expected {expected:?} actual {actual:?}"
             )),
             Self::InvalidIntegerLiteral => f.write_str("invalid integer literal"),

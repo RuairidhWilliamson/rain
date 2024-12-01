@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use super::hash::RainHash;
+use super::{error::RunnerError, hash::RainHash};
 
 #[derive(Clone)]
 pub struct Value {
@@ -71,6 +71,15 @@ impl Value {
 
     pub fn downcast_ref<T: ValueInner>(&self) -> Option<&T> {
         downcast_ref(self.value.as_ref())
+    }
+
+    pub fn downcast_ref_error<T: ValueInner>(
+        &self,
+        expected: &'static [RainTypeId],
+    ) -> Result<&T, RunnerError> {
+        let actual = self.rain_type_id();
+        self.downcast_ref::<T>()
+            .ok_or(RunnerError::ExpectedType { actual, expected })
     }
 }
 

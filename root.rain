@@ -21,11 +21,15 @@ fn check() {
 }
 
 fn build() {
+	std.rust.build(area, "rain-core", "")
+}
+
+fn build_c() {
 	std.gcc.compile(std.get_file("core/examples/run/foo.c"), "foo")
 }
 
 fn run() {
-	binary = build()
+	binary = build_c()
 	internal.run(internal.unit(), binary)
 }
 
