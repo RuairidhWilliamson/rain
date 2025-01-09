@@ -64,7 +64,11 @@ impl<'a> NodeBuilder<'_, 'a> {
     }
 
     pub fn child_contents(&mut self, span: LocalSpan) -> &mut Self {
-        self.child_fn(|f| f.buf.write_str(span.contents(self.fmt.src)))
+        self.child_str(span.contents(self.fmt.src))
+    }
+
+    pub fn child_str(&mut self, str: &str) -> &mut Self {
+        self.child_fn(|f| f.buf.write_str(str))
     }
 
     pub fn child(&mut self, id: NodeId) -> &mut Self {

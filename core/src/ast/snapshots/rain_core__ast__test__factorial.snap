@@ -4,6 +4,7 @@ expression: "parse_display_script(\"\n        let assert = std.test.assert\n    
 ---
 ModuleRoot(
  LetDeclare(
+  private
   assert
   BinaryOp(
    BinaryOp(
@@ -22,6 +23,7 @@ ModuleRoot(
   )
  )
  LetDeclare(
+  private
   eq
   BinaryOp(
    BinaryOp(
@@ -40,6 +42,7 @@ ModuleRoot(
   )
  )
  FnDeclare(
+  private
   main
   Block(
    FnCall(
@@ -61,6 +64,7 @@ ModuleRoot(
   )
  )
  FnDeclare(
+  private
   factorial
   Block(
    IfCondition(

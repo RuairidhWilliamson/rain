@@ -136,6 +136,7 @@ impl TokenStream<'_> {
         }
         let s = &self.source[start..self.index];
         let token = match s {
+            "pub" => Token::Pub,
             "fn" => Token::Fn,
             "let" => Token::Let,
             "if" => Token::If,

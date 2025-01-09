@@ -24,7 +24,7 @@ impl std::fmt::Display for ResolvedError<'_> {
         f.write_fmt(format_args!("{location}"))?;
         let [before, contents, after] = span.surrounding_lines(src, 2);
         let before = before.replace('\n', "\n| ");
-        let contents = contents.replace('\n', "\\n");
+        let contents = contents.replace('\n', "\\n").red();
         f.write_fmt(format_args!("| {before}{contents}{after}\n"))?;
         let arrows = span.arrow_line(src, 2).red();
         let err = format!("{err}").red();

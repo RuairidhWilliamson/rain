@@ -4,6 +4,7 @@ expression: "parse_display_script(\"\n        let val = foo(3)\n        let val 
 ---
 ModuleRoot(
  LetDeclare(
+  private
   val
   FnCall(
    Ident(
@@ -15,6 +16,7 @@ ModuleRoot(
   )
  )
  LetDeclare(
+  private
   val
   FnCall(
    Ident(

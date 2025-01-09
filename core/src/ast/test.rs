@@ -7,8 +7,7 @@ fn parse_display_script(src: &str) -> String {
     let s = match super::parser::parse_module(src) {
         Ok(s) => s,
         Err(err) => {
-            log::error!("{}", err.resolve(&file, src));
-            panic!("parse error");
+            panic!("parse error:\n{}", err.resolve(&file, src));
         }
     };
     s.display(src)
@@ -75,6 +74,24 @@ fn comment() {
         // This is silly
         let a = b // Very silly
         // Hehe
+        "
+    ));
+}
+
+#[test]
+fn pub_fn() {
+    insta::assert_snapshot!(parse_display_script(
+        "
+        pub fn foo() {}
+        "
+    ));
+}
+
+#[test]
+fn pub_let() {
+    insta::assert_snapshot!(parse_display_script(
+        "
+        pub let foo = 5
         "
     ));
 }

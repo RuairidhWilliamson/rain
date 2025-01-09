@@ -123,7 +123,17 @@ fn double_quote_literal() {
 
 #[test]
 fn keywords() {
-    assert_tokens!("fn let", Token::Fn, Token::Let);
+    assert_tokens!(
+        "fn let pub if else true false internal",
+        Token::Fn,
+        Token::Let,
+        Token::Pub,
+        Token::If,
+        Token::Else,
+        Token::True,
+        Token::False,
+        Token::Internal
+    );
 }
 
 #[test]

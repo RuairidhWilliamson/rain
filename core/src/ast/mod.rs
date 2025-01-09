@@ -145,6 +145,7 @@ impl AstNode for ModuleRoot {
 
 #[derive(Debug)]
 pub struct LetDeclare {
+    pub pub_token: Option<TokenLocalSpan>,
     pub let_token: TokenLocalSpan,
     pub name: TokenLocalSpan,
     pub equals_token: TokenLocalSpan,
@@ -159,19 +160,28 @@ impl From<LetDeclare> for Node {
 
 impl AstNode for LetDeclare {
     fn span(&self, list: &NodeList) -> LocalSpan {
-        self.let_token.span + list.span(self.expr)
+        let first = if let Some(t) = &self.pub_token {
+            t.span
+        } else {
+            self.let_token.span
+        };
+        first + list.span(self.expr)
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        f.node("LetDeclare")
-            .child_contents(self.name.span)
-            .child(self.expr)
-            .finish()
+        let mut b = f.node("LetDeclare");
+        if let Some(t) = &self.pub_token {
+            b.child_contents(t.span);
+        } else {
+            b.child_str("private");
+        }
+        b.child_contents(self.name.span).child(self.expr).finish()
     }
 }
 
 #[derive(Debug)]
 pub struct FnDeclare {
+    pub pub_token: Option<TokenLocalSpan>,
     pub fn_token: TokenLocalSpan,
     pub name: TokenLocalSpan,
     pub lparen_token: TokenLocalSpan,
@@ -188,14 +198,22 @@ impl From<FnDeclare> for Node {
 
 impl AstNode for FnDeclare {
     fn span(&self, list: &NodeList) -> LocalSpan {
-        self.fn_token.span + list.span(self.block)
+        let first = if let Some(t) = &self.pub_token {
+            t.span
+        } else {
+            self.fn_token.span
+        };
+        first + list.span(self.block)
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        f.node("FnDeclare")
-            .child_contents(self.name.span)
-            .child(self.block)
-            .finish()
+        let mut b = f.node("FnDeclare");
+        if let Some(t) = &self.pub_token {
+            b.child_contents(t.span);
+        } else {
+            b.child_str("private");
+        }
+        b.child_contents(self.name.span).child(self.block).finish()
     }
 }
 

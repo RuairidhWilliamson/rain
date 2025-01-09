@@ -45,7 +45,12 @@ impl<'src> ModuleParser<'src> {
 
     fn parse_module_root(&mut self) -> ParseResult<ModuleRoot> {
         let mut declarations = Vec::new();
-        while let Some(peek) = self.stream.peek()? {
+        while let Some([peek1, peek2]) = self.stream.peek_many::<2>()? {
+            let peek = if peek1.token == Token::Pub {
+                peek2
+            } else {
+                peek1
+            };
             match peek.token {
                 Token::NewLine | Token::Comment => {
                     self.stream.parse_next()?;
@@ -64,15 +69,27 @@ impl<'src> ModuleParser<'src> {
                 }
             }
         }
+        // Consume trailing new line
+        if let Some(t) = self.stream.peek()? {
+            if let Token::NewLine | Token::Comment = t.token {
+                self.stream.parse_next()?;
+            }
+        }
         Ok(ModuleRoot { declarations })
     }
 
     fn parse_let_declare(&mut self) -> ParseResult<NodeId> {
-        let let_token = self.stream.expect_parse_next(&[Token::Let])?;
+        let token = self.stream.expect_parse_next(&[Token::Pub, Token::Let])?;
+        let (pub_token, let_token) = if token.token == Token::Pub {
+            (Some(token), self.stream.expect_parse_next(&[Token::Let])?)
+        } else {
+            (None, token)
+        };
         let name = self.stream.expect_parse_next(&[Token::Ident])?;
         let equals_token = self.stream.expect_parse_next(&[Token::Assign])?;
         let expr = self.parse_expr()?;
         Ok(self.push(LetDeclare {
+            pub_token,
             let_token,
             name,
             equals_token,
@@ -81,7 +98,12 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_fn_declare(&mut self) -> ParseResult<NodeId> {
-        let fn_token = self.stream.expect_parse_next(&[Token::Fn])?;
+        let token = self.stream.expect_parse_next(&[Token::Pub, Token::Fn])?;
+        let (pub_token, fn_token) = if token.token == Token::Pub {
+            (Some(token), self.stream.expect_parse_next(&[Token::Fn])?)
+        } else {
+            (None, token)
+        };
         let name = self.stream.expect_parse_next(&[Token::Ident])?;
         let lparen_token = self.stream.expect_parse_next(&[Token::LParen])?;
         let mut args = Vec::new();
@@ -107,6 +129,7 @@ impl<'src> ModuleParser<'src> {
         let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?;
         let block = self.parse_block()?;
         Ok(self.push(FnDeclare {
+            pub_token,
             fn_token,
             name,
             lparen_token,

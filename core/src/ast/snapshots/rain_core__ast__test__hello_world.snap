@@ -4,6 +4,7 @@ expression: "parse_display_script(\"\n        fn main() {\n            print(\\\
 ---
 ModuleRoot(
  FnDeclare(
+  private
   main
   Block(
    FnCall(

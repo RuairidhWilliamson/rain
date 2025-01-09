@@ -4,12 +4,14 @@ expression: "parse_display_script(\"\n        let b = 2\n        // This is sill
 ---
 ModuleRoot(
  LetDeclare(
+  private
   b
   IntegerLiteral(
    2
   )
  )
  LetDeclare(
+  private
   a
   Ident(
    b
