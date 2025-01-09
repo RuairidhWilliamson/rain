@@ -25,6 +25,7 @@ pub enum RestartReason {
 pub enum Request {
     Info(info::InfoRequest),
     Shutdown(shutdown::ShutdownRequest),
+    Clean(clean::CleanRequest),
 }
 
 pub trait RequestTrait: Into<Request> + private::Sealed {
@@ -54,6 +55,7 @@ pub mod info {
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct InfoResponse {
         pub pid: u32,
+        pub start_time: chrono::DateTime<chrono::Utc>,
         pub config: crate::config::Config,
     }
 }
@@ -76,4 +78,25 @@ pub mod shutdown {
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct Goodbye;
+}
+
+pub mod clean {
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct CleanRequest;
+
+    impl From<CleanRequest> for super::Request {
+        fn from(req: CleanRequest) -> Self {
+            Self::Clean(req)
+        }
+    }
+
+    impl super::private::Sealed for CleanRequest {}
+
+    impl super::RequestTrait for CleanRequest {
+        type Response = Cleaned;
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct Cleaned;
 }

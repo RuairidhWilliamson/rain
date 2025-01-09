@@ -75,6 +75,7 @@ where
 }
 
 fn start_server(config: &Config) -> Result<UnixStream, Error> {
+    std::fs::create_dir_all(&config.base_cache_dir)?;
     log::info!("Starting server...");
     let p = std::process::Command::new(crate::exe::current_exe().ok_or(Error::CurrentExe)?)
         .env("RAIN_SERVER", "1")

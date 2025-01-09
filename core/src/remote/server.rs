@@ -10,6 +10,7 @@ use super::msg::{Request, RequestHeader, RequestTrait, ResponseWrapper};
 #[derive(Debug)]
 pub enum Error {
     CurrentExe,
+    RainCacheNotADirectory,
     IO(std::io::Error),
     Encode(ciborium::ser::Error<std::io::Error>),
     Decode(ciborium::de::Error<std::io::Error>),
@@ -39,6 +40,7 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
     let s = Server {
         config,
         modified_time,
+        start_time: chrono::Utc::now(),
     };
     let l = UnixListener::bind(s.config.server_socket_path())?;
     for stream in l.incoming() {
@@ -57,7 +59,9 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
 
 struct Server {
     config: Config,
+    /// Time the rain binary was modified, used to check if we should restart the server if the file on disk is newer
     modified_time: SystemTime,
+    start_time: chrono::DateTime<chrono::Utc>,
 }
 
 struct ClientHandler<'a> {
@@ -87,6 +91,7 @@ impl ClientHandler<'_> {
                 let resp = super::msg::info::InfoResponse {
                     pid: std::process::id(),
                     config: self.server.config.clone(),
+                    start_time: self.server.start_time,
                 };
                 self.send_response(&req, resp)?;
                 Ok(())
@@ -94,6 +99,20 @@ impl ClientHandler<'_> {
             Request::Shutdown(req) => {
                 log::info!("Goodbye");
                 self.send_response(&req, super::msg::shutdown::Goodbye)?;
+                std::process::exit(0);
+            }
+            Request::Clean(req) => {
+                log::info!("Cleaning");
+                let clean_path = &self.server.config.base_cache_dir;
+                log::info!("removing {}", clean_path.display());
+                let metadata = std::fs::metadata(clean_path)?;
+                if !metadata.is_dir() {
+                    log::error!("failed {} is not a directory", clean_path.display());
+                    return Err(Error::RainCacheNotADirectory);
+                }
+                std::fs::remove_dir_all(clean_path)?;
+                log::info!("Goodbye");
+                self.send_response(&req, super::msg::clean::Cleaned)?;
                 std::process::exit(0);
             }
         }

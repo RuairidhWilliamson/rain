@@ -11,6 +11,6 @@ ln -s ~/.cargo/bin/rain-cli ~/.cargo/bin/rain
 ### Usage
 ```bash
 rain
-rainx --help
+rain-cli --help
 ```
 

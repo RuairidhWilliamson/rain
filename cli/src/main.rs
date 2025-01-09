@@ -2,7 +2,6 @@
 
 use std::{
     ffi::{OsStr, OsString},
-    path::PathBuf,
     process::ExitCode,
 };
 
@@ -12,7 +11,7 @@ use rain_core::{
     config::Config,
     remote::{
         client::make_request_or_start,
-        msg::{info::InfoRequest, shutdown::ShutdownRequest},
+        msg::{clean::CleanRequest, info::InfoRequest, shutdown::ShutdownRequest},
     },
 };
 
@@ -73,10 +72,10 @@ fn fallible_main() -> Result<(), ()> {
             if exe_name == "rain" {
                 rain_command(config)
             } else {
-                rain_ctl_command(config)
+                rain_ctl_command(&config)
             }
         }
-        RainCtlDecisionMode::Always => rain_ctl_command(config),
+        RainCtlDecisionMode::Always => rain_ctl_command(&config),
         RainCtlDecisionMode::Never => rain_command(config),
     }
 }
@@ -88,7 +87,7 @@ fn rain_command(config: Config) -> Result<(), ()> {
     Ok(())
 }
 
-fn rain_ctl_command(config: Config) -> Result<(), ()> {
+fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     let cli = Cli::parse();
     match cli.command {
         RainCtlCommand::Noctl(args) => {
@@ -107,21 +106,14 @@ fn rain_ctl_command(config: Config) -> Result<(), ()> {
                 return Err(());
             }
         }
-        RainCtlCommand::Inspect {
-            script,
-            declaration,
-        } => {
-            let v = rain_core::run_stderr(script, &declaration, config)?;
-            eprintln!("{v:?}");
-        }
         RainCtlCommand::Info => {
-            let info = make_request_or_start(&config, InfoRequest).map_err(|err| {
+            let info = make_request_or_start(config, InfoRequest).map_err(|err| {
                 eprintln!("{err:?}");
             })?;
             println!("{info:#?}");
         }
         RainCtlCommand::Shutdown => {
-            make_request_or_start(&config, ShutdownRequest).map_err(|err| {
+            make_request_or_start(config, ShutdownRequest).map_err(|err| {
                 eprintln!("{err:?}");
             })?;
             println!("Server shutdown");
@@ -130,18 +122,10 @@ fn rain_ctl_command(config: Config) -> Result<(), ()> {
             eprintln!("{config:#?}");
         }
         RainCtlCommand::Clean => {
-            let clean_path = &config.base_cache_dir;
-            eprintln!("removing {}", clean_path.display());
-            let metadata = std::fs::metadata(clean_path).map_err(|err| {
-                eprintln!("could not stat cache directory: {err}");
+            make_request_or_start(config, CleanRequest).map_err(|err| {
+                eprintln!("{err:?}");
             })?;
-            if !metadata.is_dir() {
-                eprintln!("failed {} is not a directory", clean_path.display());
-                return Err(());
-            }
-            std::fs::remove_dir_all(clean_path).map_err(|err| {
-                eprintln!("clean failed: {err}");
-            })?;
+            println!("Cleaned");
         }
     }
     Ok(())
@@ -158,10 +142,6 @@ struct Cli {
 pub enum RainCtlCommand {
     #[command(external_subcommand)]
     Noctl(Vec<OsString>),
-    Inspect {
-        script: PathBuf,
-        declaration: String,
-    },
     Info,
     Shutdown,
     /// View and manipulate rain config
