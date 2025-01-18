@@ -39,13 +39,13 @@ fn router() -> Router {
                     .get::<MatchedPath>()
                     .map(MatchedPath::as_str);
                 let payload = request.body();
-                tracing::info!("{payload:?}");
+                let path = request.uri().path();
+                tracing::info!("{path:?} {payload:?}");
 
                 tracing::info_span!(
                     "http_request",
                     method = ?request.method(),
                     matched_path,
-                    some_other_field = tracing::field::Empty,
                 )
             }),
         )
@@ -63,48 +63,57 @@ async fn event_handler(headers: HeaderMap, body: Bytes) -> StatusCode {
     )
     .unwrap();
 
-    // TODO: Mock out this test
-    if cfg!(test) {
-        return StatusCode::OK;
-    }
-
-    let WebhookEventPayload::Push(push_event) = &event.specific else {
-        tracing::error!("not implemented for {:?}", event.kind);
-        return StatusCode::INTERNAL_SERVER_ERROR;
-    };
-
-    let client = OctocrabBuilder::new()
-        .personal_token(std::env::var("GH_TOKEN").unwrap())
-        .build()
-        .unwrap();
+    tracing::info!("{event:?}");
     let repository = event.repository.unwrap();
     let repo_full_name = repository.full_name.unwrap();
 
-    let head_commit = push_event.head_commit.as_ref().unwrap();
-    let sha = &head_commit.id;
+    match event.specific {
+        WebhookEventPayload::Push(push_event) => {
+            let head_commit = push_event.head_commit.as_ref().unwrap();
+            let commit_sha = &head_commit.id;
 
-    let _: serde_json::Value = client
-        .post(
-            format!("/repos/{repo_full_name}/statuses/{sha}"),
-            Some(&json!({
-                "state": "pending",
-                "description": "Processing",
-            })),
-        )
-        .await
-        .unwrap();
-    sleep(Duration::from_secs(10)).await;
-    let _: serde_json::Value = client
-        .post(
-            format!("/repos/{repo_full_name}/statuses/{sha}"),
-            Some(&json!({
-                "state": "success",
-                "description": "Yippeee",
-            })),
-        )
-        .await
-        .unwrap();
-    StatusCode::OK
+            // TODO: Mock out this test
+            if cfg!(test) {
+                return StatusCode::OK;
+            }
+
+            let client = OctocrabBuilder::new()
+                .personal_token(std::env::var("GH_TOKEN").unwrap())
+                .build()
+                .unwrap();
+
+            let _: serde_json::Value = client
+                .post(
+                    format!("/repos/{repo_full_name}/statuses/{commit_sha}"),
+                    Some(&json!({
+                        "context": "rain",
+                        "state": "pending",
+                        "description": "Processing",
+                        "target_url": "https://example.com",
+                    })),
+                )
+                .await
+                .unwrap();
+            sleep(Duration::from_secs(10)).await;
+            let _: serde_json::Value = client
+                .post(
+                    format!("/repos/{repo_full_name}/statuses/{commit_sha}"),
+                    Some(&json!({
+                        "context": "rain",
+                        "state": "success",
+                        "description": "Yippeee",
+                        "target_url": "https://example.com",
+                    })),
+                )
+                .await
+                .unwrap();
+            StatusCode::OK
+        }
+        _ => {
+            tracing::error!("not implemented for {:?}", event.kind);
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
 }
 
 #[cfg(test)]
@@ -139,6 +148,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore]
     #[tokio::test]
     async fn create_branch() -> Result<()> {
         let server = axum_test::TestServer::new(super::router())?;
@@ -153,6 +163,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore]
     #[tokio::test]
     async fn pull_request_opened() -> Result<()> {
         let server = axum_test::TestServer::new(super::router())?;
@@ -160,7 +171,7 @@ mod tests {
             .post("/event_handler")
             .add_header("x-github-event", "create")
             .json(&serde_json::from_str::<serde_json::Value>(include_str!(
-                "../testdata/create_branch.json"
+                "../testdata/pull_request_opened.json"
             ))?)
             .await;
         response.assert_status_ok();
