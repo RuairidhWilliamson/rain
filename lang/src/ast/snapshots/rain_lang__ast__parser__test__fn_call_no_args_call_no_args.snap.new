@@ -1,0 +1,13 @@
+---
+source: lang/src/ast/parser.rs
+assertion_line: 473
+expression: "parse_display_expr(\"foo()()\")"
+snapshot_kind: text
+---
+FnCall(
+ FnCall(
+  Ident(
+   foo
+  )
+ )
+)

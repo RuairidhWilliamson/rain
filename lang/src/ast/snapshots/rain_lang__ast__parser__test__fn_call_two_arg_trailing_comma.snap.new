@@ -1,0 +1,17 @@
+---
+source: lang/src/ast/parser.rs
+assertion_line: 493
+expression: "parse_display_expr(\"foo(1, 2,)\")"
+snapshot_kind: text
+---
+FnCall(
+ Ident(
+  foo
+ )
+ IntegerLiteral(
+  1
+ )
+ IntegerLiteral(
+  2
+ )
+)

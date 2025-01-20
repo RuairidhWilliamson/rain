@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 chrono = { version = "0.4.38", features = ["serde"] }
 ciborium = "0.2.2"
-colored = "2.1.0"
+colored.workspace = true
 dircpy = { version = "0.3.19", default-features = false }
 dirs = "5.0.1"
 env_logger.workspace = true
@@ -24,7 +24,9 @@ serde.workspace = true
 uuid.workspace = true
 zip = "2.2.0"
 
+rain-lang.path = "../lang"
+
 [dev-dependencies]
-insta = { version = "1.39.0", features = ["colors"], default-features = false }
-quickcheck = "1.0.3"
-quickcheck_macros = "1.0.0"
+insta.workspace = true
+quickcheck.workspace = true
+quickcheck_macros.workspace = true

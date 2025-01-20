@@ -1,7 +1,0 @@
----
-source: core/src/ast/parser.rs
-expression: "parse_display_expr(\"\\\"asldjf\\\"\")"
----
-StringLiteral(
- "asldjf"
-)

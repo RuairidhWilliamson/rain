@@ -1,31 +1,24 @@
-pub mod afs;
-pub mod append_vec;
-pub mod ast;
+use rain_lang::afs::file_system::FileSystem as _;
+
 pub mod config;
-pub mod error;
 pub mod exe;
-pub mod ir;
-pub mod local_span;
 pub mod remote;
-pub mod runner;
-pub mod span;
-pub mod tokens;
 
 #[expect(clippy::result_unit_err)]
 pub fn run_stderr(
     path: impl AsRef<std::path::Path>,
     declaration: &str,
     config: config::Config,
-) -> Result<runner::value::Value, ()> {
-    let file = afs::file::File::new_local(path.as_ref()).map_err(|err| {
+) -> Result<rain_lang::runner::value::Value, ()> {
+    let file = rain_lang::afs::file::File::new_local(path.as_ref()).map_err(|err| {
         log::error!("could not get file: {err}");
     })?;
-    let path = file.resolve(&config);
+    let path = config.resolve_file(&file);
     let src = std::fs::read_to_string(&path).map_err(|err| {
         log::error!("could not read file {}: {err}", path.display());
     })?;
-    let module = ast::parser::parse_module(&src);
-    let mut ir = ir::Rir::new();
+    let module = rain_lang::ast::parser::parse_module(&src);
+    let mut ir = rain_lang::ir::Rir::new();
     let mid = ir.insert_module(file, src, module).map_err(|err| {
         log::error!("{}", err.resolve_ir(&ir));
     })?;
@@ -34,11 +27,12 @@ pub fn run_stderr(
         .ok_or_else(|| {
             log::error!("{declaration} declaration not found");
         })?;
-    let mut runner = runner::Runner::new(config, ir);
+    let file_system = Box::new(config);
+    let mut runner = rain_lang::runner::Runner::new(ir, file_system);
     let value = runner.evaluate_and_call(main).map_err(|err| {
         log::error!("{}", err.resolve_ir(&runner.rir));
     })?;
-    if value.rain_type_id() == runner::value::RainTypeId::Error {
+    if value.rain_type_id() == rain_lang::runner::value::RainTypeId::Error {
         log::error!("{value:?}");
         return Err(());
     }

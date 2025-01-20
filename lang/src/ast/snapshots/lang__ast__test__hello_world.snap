@@ -1,0 +1,20 @@
+---
+source: lang/src/ast/test.rs
+expression: "parse_display_script(\"\n        fn main() {\n            print(\\\"Hello world\\\")\n        }\n        \")"
+---
+ModuleRoot(
+ FnDeclare(
+  private
+  main
+  Block(
+   FnCall(
+    Ident(
+     print
+    )
+    StringLiteral(
+     "Hello world"
+    )
+   )
+  )
+ )
+)

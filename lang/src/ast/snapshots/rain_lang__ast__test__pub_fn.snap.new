@@ -1,0 +1,14 @@
+---
+source: lang/src/ast/test.rs
+assertion_line: 83
+expression: "parse_display_script(\"\n        pub fn foo() {}\n        \")"
+snapshot_kind: text
+---
+ModuleRoot(
+ FnDeclare(
+  pub
+  foo
+  Block(
+  )
+ )
+)

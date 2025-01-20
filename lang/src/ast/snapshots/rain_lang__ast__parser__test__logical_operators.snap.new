@@ -1,0 +1,49 @@
+---
+source: lang/src/ast/parser.rs
+assertion_line: 498
+expression: "parse_display_expr(\"true || a == b && 1 != 1 && (false || a != b)\")"
+snapshot_kind: text
+---
+BinaryOp(
+ TrueLiteral(
+ )
+ ||
+ BinaryOp(
+  BinaryOp(
+   BinaryOp(
+    Ident(
+     a
+    )
+    ==
+    Ident(
+     b
+    )
+   )
+   &&
+   BinaryOp(
+    IntegerLiteral(
+     1
+    )
+    !=
+    IntegerLiteral(
+     1
+    )
+   )
+  )
+  &&
+  BinaryOp(
+   FalseLiteral(
+   )
+   ||
+   BinaryOp(
+    Ident(
+     a
+    )
+    !=
+    Ident(
+     b
+    )
+   )
+  )
+ )
+)

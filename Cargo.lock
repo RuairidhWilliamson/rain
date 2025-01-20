@@ -1825,10 +1825,26 @@ dependencies = [
  "num-bigint",
  "quickcheck",
  "quickcheck_macros",
+ "rain-lang",
  "reqwest",
  "serde",
  "uuid",
  "zip",
+]
+
+[[package]]
+name = "rain-lang"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "colored",
+ "insta",
+ "log",
+ "lru",
+ "num-bigint",
+ "quickcheck",
+ "quickcheck_macros",
+ "uuid",
 ]
 
 [[package]]
@@ -2954,7 +2970,7 @@ name = "web-editor"
 version = "0.0.0"
 dependencies = [
  "console_error_panic_hook",
- "rain-core",
+ "rain-lang",
  "wasm-bindgen",
 ]
 

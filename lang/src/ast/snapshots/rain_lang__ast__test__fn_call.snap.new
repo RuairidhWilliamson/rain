@@ -1,0 +1,37 @@
+---
+source: lang/src/ast/test.rs
+assertion_line: 39
+expression: "parse_display_script(\"\n        let val = foo(3)\n        let val = foo(bar(4))\n        \")"
+snapshot_kind: text
+---
+ModuleRoot(
+ LetDeclare(
+  private
+  val
+  FnCall(
+   Ident(
+    foo
+   )
+   IntegerLiteral(
+    3
+   )
+  )
+ )
+ LetDeclare(
+  private
+  val
+  FnCall(
+   Ident(
+    foo
+   )
+   FnCall(
+    Ident(
+     bar
+    )
+    IntegerLiteral(
+     4
+    )
+   )
+  )
+ )
+)

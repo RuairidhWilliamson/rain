@@ -1,0 +1,21 @@
+---
+source: lang/src/ast/parser.rs
+assertion_line: 448
+expression: "parse_display_expr(\"foo.bar.baz\")"
+snapshot_kind: text
+---
+BinaryOp(
+ BinaryOp(
+  Ident(
+   foo
+  )
+  .
+  Ident(
+   bar
+  )
+ )
+ .
+ Ident(
+  baz
+ )
+)

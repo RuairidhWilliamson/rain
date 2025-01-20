@@ -1,0 +1,22 @@
+---
+source: lang/src/ast/test.rs
+assertion_line: 71
+expression: "parse_display_script(\"\n        let b = 2\n        // This is silly\n        let a = b // Very silly\n        // Hehe\n        \")"
+snapshot_kind: text
+---
+ModuleRoot(
+ LetDeclare(
+  private
+  b
+  IntegerLiteral(
+   2
+  )
+ )
+ LetDeclare(
+  private
+  a
+  Ident(
+   b
+  )
+ )
+)

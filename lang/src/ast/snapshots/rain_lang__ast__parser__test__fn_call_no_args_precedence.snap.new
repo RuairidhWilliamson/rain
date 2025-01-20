@@ -1,0 +1,17 @@
+---
+source: lang/src/ast/parser.rs
+assertion_line: 478
+expression: "parse_display_expr(\"foo.bar()\")"
+snapshot_kind: text
+---
+FnCall(
+ BinaryOp(
+  Ident(
+   foo
+  )
+  .
+  Ident(
+   bar
+  )
+ )
+)

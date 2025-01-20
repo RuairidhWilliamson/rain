@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use rain_core::{afs::file::File, ast::error::ParseError, local_span::ErrorLocalSpan};
+use rain_lang::{afs::file::File, ast::error::ParseError, local_span::ErrorLocalSpan};
 
 fn main() -> ExitCode {
     env_logger::init();
@@ -40,7 +40,7 @@ fn print_help() {
 }
 
 fn inner(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
-    let module = rain_core::ast::parser::parse_module(src)?;
+    let module = rain_lang::ast::parser::parse_module(src)?;
     let out = module.display(src);
     log::info!("{out}");
     Ok(())

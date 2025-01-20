@@ -1,0 +1,15 @@
+---
+source: lang/src/ast/test.rs
+assertion_line: 92
+expression: "parse_display_script(\"\n        pub let foo = 5\n        \")"
+snapshot_kind: text
+---
+ModuleRoot(
+ LetDeclare(
+  pub
+  foo
+  IntegerLiteral(
+   5
+  )
+ )
+)

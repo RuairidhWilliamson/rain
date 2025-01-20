@@ -1,0 +1,15 @@
+---
+source: lang/src/ast/parser.rs
+assertion_line: 443
+expression: "parse_display_expr(\"foo.bar\")"
+snapshot_kind: text
+---
+BinaryOp(
+ Ident(
+  foo
+ )
+ .
+ Ident(
+  bar
+ )
+)

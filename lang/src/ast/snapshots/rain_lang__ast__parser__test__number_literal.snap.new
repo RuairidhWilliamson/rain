@@ -1,0 +1,9 @@
+---
+source: lang/src/ast/parser.rs
+assertion_line: 383
+expression: "parse_display_expr(\"4\")"
+snapshot_kind: text
+---
+IntegerLiteral(
+ 4
+)

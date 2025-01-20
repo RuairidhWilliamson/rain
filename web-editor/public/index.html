@@ -2,19 +2,11 @@
 
 <head>
   <script type="module">
-    import init, {greet} from "./rain/rain.js";
-
-    async function run() {
-      await init();
-
-      console.log(greet());
-    }
-    run();
   </script>
   <style type="text/css">
     #editor {
       position: absolute;
-      top: 0;
+      top: 50px;
       bottom: 0;
       left: 0;
       right: 0;
@@ -23,10 +15,19 @@
 </head>
 
 <body>
-  <div id="editor">fn hello_world() { print(Hello world") }"</div>
+  <button id="run">Run</button>
+  <div id="editor">fn main() { print("Hello world") }</div>
   <script type="module">
+    import init, {run_source} from "./rain/rain.js";
     import ace from "https://cdn.jsdelivr.net/npm/ace-builds@1.37.5/+esm";
-    ace.edit("editor");
+    const editor = ace.edit("editor");
+
+    init();
+    document.querySelector("#run").addEventListener("click", () => {
+      const source = editor.getValue();
+      const output = run_source(source);
+      console.log(output);
+    });
   </script>
 
 </body>
