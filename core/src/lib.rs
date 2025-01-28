@@ -10,7 +10,7 @@ pub mod remote;
 pub fn run_stderr(
     path: impl AsRef<std::path::Path>,
     declaration: &str,
-    file_system: FileSystemImpl,
+    file_system: &FileSystemImpl,
 ) -> Result<rain_lang::runner::value::Value, ()> {
     let file = rain_lang::afs::file::File::new_local(path.as_ref()).map_err(|err| {
         log::error!("could not get file: {err}");
@@ -43,7 +43,7 @@ pub fn run_stderr(
 pub fn run(
     path: impl AsRef<std::path::Path>,
     declaration: &str,
-    file_system: FileSystemImpl,
+    file_system: &FileSystemImpl,
 ) -> Result<rain_lang::runner::value::Value, String> {
     let file = rain_lang::afs::file::File::new_local(path.as_ref())
         .map_err(|err| format!("could not get file: {err}"))?;

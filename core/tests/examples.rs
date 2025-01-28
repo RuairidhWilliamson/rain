@@ -8,9 +8,7 @@ fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
     rain_core::run_stderr(
         path,
         "main",
-        FileSystemImpl {
-            config: rain_core::config::Config::default(),
-        },
+        &FileSystemImpl::new(rain_core::config::Config::default()),
     )
 }
 

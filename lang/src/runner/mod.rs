@@ -55,14 +55,14 @@ impl<'a> Cx<'a> {
     }
 }
 
-pub struct Runner<FS> {
+pub struct Runner<'a, FS> {
     pub rir: Rir,
     pub cache: cache::Cache,
-    pub file_system: FS,
+    pub file_system: &'a FS,
 }
 
-impl<FS: FileSystem> Runner<FS> {
-    pub fn new(rir: Rir, file_system: FS) -> Self {
+impl<'a, FS: FileSystem> Runner<'a, FS> {
+    pub fn new(rir: Rir, file_system: &'a FS) -> Self {
         Self {
             rir,
             cache: cache::Cache::new(CACHE_SIZE),
@@ -255,7 +255,7 @@ impl<FS: FileSystem> Runner<FS> {
                 }
                 let start = web_time::Instant::now();
                 let v = f.call_internal_function(
-                    &self.file_system,
+                    self.file_system,
                     &mut self.rir,
                     cx,
                     nid,

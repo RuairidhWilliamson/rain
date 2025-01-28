@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 
 use rain_lang::afs::{
     area::{FileArea, GeneratedFileArea},
@@ -10,6 +13,16 @@ use crate::config::Config;
 
 pub struct FileSystemImpl {
     pub config: Config,
+    pub prints: Mutex<Vec<String>>,
+}
+
+impl FileSystemImpl {
+    pub fn new(config: Config) -> Self {
+        Self {
+            config,
+            prints: Mutex::default(),
+        }
+    }
 }
 
 impl FileSystem for FileSystemImpl {
@@ -42,9 +55,9 @@ impl FileSystem for FileSystemImpl {
             .find_map(|p| find_bin_in_dir(Path::new(p), name))
     }
 
-    #[expect(clippy::print_stdout)]
+    #[expect(clippy::unwrap_used)]
     fn print(&self, message: String) {
-        println!("{message}");
+        self.prints.lock().unwrap().push(message);
     }
 
     fn extract(&self, file: &File) -> Result<FileArea, Box<dyn std::error::Error>> {

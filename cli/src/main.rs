@@ -40,6 +40,9 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
                 make_request_or_start(config, RunRequest { root, target }).map_err(|err| {
                     eprintln!("{err:?}");
                 })?;
+            for p in run_response.prints {
+                println!("{p}");
+            }
             let result = run_response.output;
             match result {
                 Ok(s) => {
@@ -90,7 +93,7 @@ pub enum RainCtlCommand {
         target: String,
     },
     Shutdown,
-    /// View and manipulate rain config
+    /// View rain config
     Config,
     /// Clean the rain cache
     Clean,

@@ -36,7 +36,7 @@ pub fn run_source(source: String) -> Result<ExecuteOutput, String> {
     let main = ir
         .resolve_global_declaration(mid, "main")
         .ok_or_else(|| "no main item found".to_owned())?;
-    let mut runner = rain_lang::runner::Runner::new(ir, file_system);
+    let mut runner = rain_lang::runner::Runner::new(ir, &file_system);
     let value = runner
         .evaluate_and_call(main)
         .map_err(|err| format!("evaluate error: {}", err.resolve_ir(&runner.rir)))?;

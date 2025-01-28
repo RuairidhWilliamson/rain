@@ -85,18 +85,20 @@ impl ClientHandler<'_> {
         self.handle_request(request)
     }
 
+    #[expect(clippy::unwrap_used)]
     fn handle_request(self, req: Request) -> Result<(), Error> {
         match req {
             Request::Run(req) => {
-                let result = crate::run(
-                    &req.root,
-                    &req.target,
-                    FileSystemImpl {
-                        config: self.server.config.clone(),
+                let fs = FileSystemImpl::new(self.server.config.clone());
+                let result = crate::run(&req.root, &req.target, &fs).map(|v| v.to_string());
+                let prints = fs.prints.into_inner().unwrap();
+                self.send_response(
+                    &req,
+                    RunResponse {
+                        prints,
+                        output: result,
                     },
-                )
-                .map(|v| v.to_string());
-                self.send_response(&req, RunResponse { output: result })?;
+                )?;
                 Ok(())
             }
             Request::Info(req) => {

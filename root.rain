@@ -38,3 +38,10 @@ fn download_test() {
 fn smee_run() {
 	smee.run()
 }
+
+fn print_some_stuff() {
+	print("Whats up")
+	print("Whats up")
+	print("Whats up")
+	print("Whats up")
+}

@@ -60,6 +60,7 @@ pub mod run {
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunResponse {
+        pub prints: Vec<String>,
         pub output: Result<String, String>,
     }
 }
