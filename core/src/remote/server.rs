@@ -1,8 +1,4 @@
-use std::{
-    os::unix::net::{UnixListener, UnixStream},
-    sync::Mutex,
-    time::SystemTime,
-};
+use std::{sync::Mutex, time::SystemTime};
 
 use rain_lang::runner::cache::Cache;
 
@@ -47,7 +43,7 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
         start_time: chrono::Utc::now(),
         cache,
     };
-    let l = UnixListener::bind(s.config.server_socket_path())?;
+    let l = crate::ipc::Listener::bind(s.config.server_socket_path())?;
     for stream in l.incoming() {
         match stream {
             Ok(stream) => {
@@ -74,7 +70,7 @@ struct Server {
 
 struct ClientHandler<'a> {
     server: &'a Server,
-    stream: UnixStream,
+    stream: crate::ipc::Connection,
 }
 
 impl ClientHandler<'_> {

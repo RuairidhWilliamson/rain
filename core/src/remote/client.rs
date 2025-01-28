@@ -1,4 +1,4 @@
-use std::{os::unix::net::UnixStream, process::Stdio, time::Duration};
+use std::{process::Stdio, time::Duration};
 
 use serde::de::DeserializeOwned;
 
@@ -39,7 +39,7 @@ where
     Req: RequestTrait,
 {
     log::info!("Connecting");
-    let stream = match UnixStream::connect(config.server_socket_path()) {
+    let stream = match crate::ipc::Client::connect(config.server_socket_path()) {
         Ok(s) => s,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             log::info!("No socket at path");
@@ -74,7 +74,7 @@ where
     }
 }
 
-fn start_server(config: &Config) -> Result<UnixStream, Error> {
+fn start_server(config: &Config) -> Result<crate::ipc::Client, Error> {
     std::fs::create_dir_all(&config.base_cache_dir)?;
     log::info!("Starting server...");
     let p = std::process::Command::new(crate::exe::current_exe().ok_or(Error::CurrentExe)?)
@@ -87,7 +87,7 @@ fn start_server(config: &Config) -> Result<UnixStream, Error> {
     log::info!("Started {}", p.id());
     // Wait for the socket to be created
     for _ in 0..10 {
-        match UnixStream::connect(config.server_socket_path()) {
+        match crate::ipc::Client::connect(config.server_socket_path()) {
             Ok(stream) => return Ok(stream),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 std::thread::sleep(Duration::from_millis(100));
@@ -102,7 +102,7 @@ fn start_server(config: &Config) -> Result<UnixStream, Error> {
 }
 
 fn make_request<Resp>(
-    mut stream: UnixStream,
+    mut stream: crate::ipc::Client,
     hdr: &RequestHeader,
     request: &Request,
 ) -> Result<ResponseWrapper<Resp>, Error>

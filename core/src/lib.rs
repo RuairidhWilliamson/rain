@@ -7,6 +7,7 @@ use rain_lang::{
 pub mod config;
 pub mod exe;
 pub mod file_system;
+pub mod ipc;
 pub mod remote;
 
 #[expect(clippy::result_unit_err)]
