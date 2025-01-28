@@ -1,8 +1,6 @@
 ---
 source: lang/src/ast/parser.rs
-assertion_line: 458
 expression: "parse_display_expr(\"1 - (a + 3) * 4\")"
-snapshot_kind: text
 ---
 BinaryOp(
  IntegerLiteral(

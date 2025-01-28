@@ -69,6 +69,31 @@ impl FileSystem for Config {
             .split(PATH_SEPARATOR)
             .find_map(|p| find_bin_in_dir(Path::new(p), name))
     }
+
+    #[expect(clippy::print_stdout)]
+    fn print(&self, message: String) {
+        println!("{message}");
+    }
+
+    fn extract(&self, file: &File) -> Result<FileArea, Box<dyn std::error::Error>> {
+        let resolved_path = self.resolve_file(file);
+        let gen_area = GeneratedFileArea::new();
+        let area = FileArea::Generated(gen_area);
+        let output_dir = File::new(area.clone(), "/")?;
+        let output_dir_path = self.resolve_file(&output_dir);
+        std::fs::create_dir_all(&output_dir_path)?;
+        let f = std::fs::File::open(resolved_path)?;
+        let mut zip = zip::read::ZipArchive::new(f)?;
+        for i in 0..zip.len() {
+            let mut zip_file = zip.by_index(i)?;
+            let Some(name) = zip_file.enclosed_name() else {
+                continue;
+            };
+            let mut out = std::fs::File::create_new(output_dir_path.join(name))?;
+            std::io::copy(&mut zip_file, &mut out)?;
+        }
+        Ok(area)
+    }
 }
 
 #[cfg(target_family = "unix")]

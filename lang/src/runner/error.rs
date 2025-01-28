@@ -24,7 +24,8 @@ pub enum RunnerError {
     AreaIOError(std::io::Error),
     ImportIOError(std::io::Error),
     ImportParseError(ParseError),
-    ZipError(Box<dyn std::error::Error>),
+    ExtractError(Box<dyn std::error::Error>),
+    FileDoesNotExist,
 }
 
 impl std::fmt::Display for RunnerError {
@@ -54,7 +55,8 @@ impl std::fmt::Display for RunnerError {
             Self::ImportParseError(err) => {
                 f.write_fmt(format_args!("parse error when importing: {err}"))
             }
-            Self::ZipError(err) => f.write_fmt(format_args!("zip error: {err}")),
+            Self::ExtractError(err) => f.write_fmt(format_args!("zip error: {err}")),
+            Self::FileDoesNotExist => f.write_str("file does not exist"),
         }
     }
 }

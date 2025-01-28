@@ -1,8 +1,6 @@
 ---
 source: lang/src/ast/test.rs
-assertion_line: 49
 expression: "parse_display_script(\"\n        let assert = std.test.assert\n        let eq = std.ops.eq\n\n        fn main() {\n        \tassert(factorial(5), 12)\n        }\n\n        fn factorial(n) {\n            if n == 0 {\n                1\n            } else {\n            \tfactorial(n - 1) * n\n        \t}\n        }\n        \")"
-snapshot_kind: text
 ---
 ModuleRoot(
  LetDeclare(

@@ -1,8 +1,6 @@
 ---
 source: lang/src/ast/test.rs
-assertion_line: 18
 expression: "parse_display_script(\"\n        fn main() {\n            print(\\\"Hello world\\\")\n        }\n        \")"
-snapshot_kind: text
 ---
 ModuleRoot(
  FnDeclare(

@@ -1,8 +1,6 @@
 ---
 source: lang/src/ast/parser.rs
-assertion_line: 453
 expression: "parse_display_expr(\"a.b.c + 3 * d.e\")"
-snapshot_kind: text
 ---
 BinaryOp(
  BinaryOp(

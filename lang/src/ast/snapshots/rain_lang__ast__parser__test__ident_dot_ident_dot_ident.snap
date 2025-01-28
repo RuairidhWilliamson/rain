@@ -1,10 +1,8 @@
 ---
 source: lang/src/ast/parser.rs
-assertion_line: 478
-expression: "parse_display_expr(\"foo.bar()\")"
-snapshot_kind: text
+expression: "parse_display_expr(\"foo.bar.baz\")"
 ---
-FnCall(
+BinaryOp(
  BinaryOp(
   Ident(
    foo
@@ -13,5 +11,9 @@ FnCall(
   Ident(
    bar
   )
+ )
+ .
+ Ident(
+  baz
  )
 )

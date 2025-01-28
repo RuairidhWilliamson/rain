@@ -1,8 +1,6 @@
 ---
 source: lang/src/ast/parser.rs
-assertion_line: 493
-expression: "parse_display_expr(\"foo(1, 2,)\")"
-snapshot_kind: text
+expression: "parse_display_expr(\"foo(1, 2)\")"
 ---
 FnCall(
  Ident(

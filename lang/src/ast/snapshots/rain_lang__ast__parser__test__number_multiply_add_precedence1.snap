@@ -1,15 +1,13 @@
 ---
 source: lang/src/ast/parser.rs
-assertion_line: 398
-expression: "parse_display_expr(\"1 + 2 + 3\")"
-snapshot_kind: text
+expression: "parse_display_expr(\"5 * 2 + 3\")"
 ---
 BinaryOp(
  BinaryOp(
   IntegerLiteral(
-   1
+   5
   )
-  +
+  *
   IntegerLiteral(
    2
   )

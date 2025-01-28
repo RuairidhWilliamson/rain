@@ -1,8 +1,6 @@
 ---
 source: lang/src/ast/test.rs
-assertion_line: 39
 expression: "parse_display_script(\"\n        let val = foo(3)\n        let val = foo(bar(4))\n        \")"
-snapshot_kind: text
 ---
 ModuleRoot(
  LetDeclare(

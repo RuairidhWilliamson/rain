@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::file::File;
+use super::{area::FileArea, file::File};
 
 pub trait FileSystem {
     /// Resolves file path locally returning an absolute path
@@ -9,4 +9,8 @@ pub trait FileSystem {
     fn exists(&self, file: &File) -> Result<bool, std::io::Error>;
 
     fn escape_bin(&self, name: &str) -> Option<PathBuf>;
+
+    fn print(&self, message: String);
+
+    fn extract(&self, file: &File) -> Result<FileArea, Box<dyn std::error::Error>>;
 }

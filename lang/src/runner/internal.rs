@@ -108,14 +108,13 @@ struct InternalCx<'a, 'b> {
     arg_values: Vec<(NodeId, Value)>,
 }
 
-#[expect(clippy::print_stdout)]
 fn print_implementation(icx: InternalCx) -> ResultValue {
     let args: Vec<String> = icx
         .arg_values
         .into_iter()
         .map(|(_, a)| format!("{a}"))
         .collect();
-    println!("internal.print {}", args.join(" "));
+    icx.file_system.print(args.join(" "));
     Ok(Value::new(RainUnit))
 }
 
@@ -133,13 +132,13 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
                 .ok_or_else(|| icx.cx.nid_err(icx.nid, PathError::NoParentDirectory.into()))?
                 .join(relative_path)
                 .map_err(|err| icx.cx.nid_err(*relative_path_nid, err.into()))?;
-            if icx.file_system.exists(&file).map_err(|err| {
+            if !icx.file_system.exists(&file).map_err(|err| {
                 icx.cx
                     .nid_err(*relative_path_nid, RunnerError::AreaIOError(err))
             })? {
                 return Err(icx
                     .cx
-                    .nid_err(*relative_path_nid, RunnerError::GenericTypeError));
+                    .nid_err(*relative_path_nid, RunnerError::FileDoesNotExist));
             }
             Ok(Value::new(file))
         }
@@ -152,13 +151,13 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
                 .map_err(|err| icx.cx.nid_err(*absolute_path_nid, err))?;
             let file = File::new(area.clone(), absolute_path)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err.into()))?;
-            if icx.file_system.exists(&file).map_err(|err| {
+            if !icx.file_system.exists(&file).map_err(|err| {
                 icx.cx
                     .nid_err(*absolute_path_nid, RunnerError::AreaIOError(err))
             })? {
                 return Err(icx
                     .cx
-                    .nid_err(*absolute_path_nid, RunnerError::GenericTypeError));
+                    .nid_err(*absolute_path_nid, RunnerError::FileDoesNotExist));
             }
             Ok(Value::new(file))
         }
@@ -241,35 +240,14 @@ fn local_area_implementation(icx: InternalCx) -> ResultValue {
 fn extract_implementation(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(file_nid, file_value)] => {
-            todo!("extract_impl {:?} {:?}", file_nid, file_value);
-            // let file: &File = file_value
-            //     .downcast_ref_error(&[RainTypeId::File])
-            //     .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
-            // let resolved_path = icx.file_system.resolve_file(file);
-            // let gen_area = GeneratedFileArea::new();
-            // let area = FileArea::Generated(gen_area);
-            // let output_dir = File::new(area.clone(), "/")
-            //     .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
-            // let output_dir_path = icx.file_system.resolve_file(&output_dir);
-            // std::fs::create_dir_all(&output_dir_path)
-            //     .map_err(|err| icx.cx.nid_err(*file_nid, RunnerError::AreaIOError(err)))?;
-            // let f = std::fs::File::open(resolved_path)
-            //     .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
-            // let mut zip = zip::read::ZipArchive::new(f)
-            //     .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::ZipError(err)))?;
-            // for i in 0..zip.len() {
-            //     let mut zip_file = zip
-            //         .by_index(i)
-            //         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::ZipError(err)))?;
-            //     let Some(name) = zip_file.enclosed_name() else {
-            //         continue;
-            //     };
-            //     let mut out = std::fs::File::create_new(output_dir_path.join(name))
-            //         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
-            //     std::io::copy(&mut zip_file, &mut out)
-            //         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
-            // }
-            // Ok(Value::new(area))
+            let file: &File = file_value
+                .downcast_ref_error(&[RainTypeId::File])
+                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
+            let area = icx
+                .file_system
+                .extract(file)
+                .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::ExtractError(err)))?;
+            Ok(Value::new(area))
         }
         _ => Err(icx.cx.err(
             icx.fn_call.rparen_token,

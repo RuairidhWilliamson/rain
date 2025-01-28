@@ -20,9 +20,5 @@ rain-lang = { path = "../lang" }
 # code size when deploying.
 console_error_panic_hook = { version = "0.1.7" }
 
-[profile.release]
-# Tell `rustc` to optimize for small code size.
-opt-level = "s"
-
 [lints]
 workspace = true

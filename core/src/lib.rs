@@ -27,8 +27,7 @@ pub fn run_stderr(
         .ok_or_else(|| {
             log::error!("{declaration} declaration not found");
         })?;
-    let file_system = Box::new(config);
-    let mut runner = rain_lang::runner::Runner::new(ir, file_system);
+    let mut runner = rain_lang::runner::Runner::new(ir, config);
     let value = runner.evaluate_and_call(main).map_err(|err| {
         log::error!("{}", err.resolve_ir(&runner.rir));
     })?;

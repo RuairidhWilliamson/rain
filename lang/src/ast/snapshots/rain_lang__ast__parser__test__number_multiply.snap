@@ -1,8 +1,6 @@
 ---
 source: lang/src/ast/parser.rs
-assertion_line: 403
 expression: "parse_display_expr(\"1 * 2\")"
-snapshot_kind: text
 ---
 BinaryOp(
  IntegerLiteral(
