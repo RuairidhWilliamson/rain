@@ -7,7 +7,7 @@
 
 use std::sync::Mutex;
 
-use rain_lang::afs::{area::FileArea, file::File, file_system::FileSystem};
+use rain_lang::afs::{area::FileArea, file::File, file_system::FileSystemTrait};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -58,7 +58,7 @@ struct FileSystemImpl {
     prints: Mutex<Vec<String>>,
 }
 
-impl FileSystem for FileSystemImpl {
+impl FileSystemTrait for FileSystemImpl {
     fn resolve_file(&self, _file: &File) -> std::path::PathBuf {
         todo!()
     }
@@ -77,6 +77,19 @@ impl FileSystem for FileSystemImpl {
     }
 
     fn extract(&self, _file: &File) -> Result<FileArea, Box<dyn std::error::Error>> {
+        todo!()
+    }
+
+    fn run(
+        &self,
+        _area: Option<&FileArea>,
+        _bin: &File,
+        _args: Vec<String>,
+    ) -> rain_lang::afs::file_system::RunStatus {
+        todo!()
+    }
+
+    fn download(&self, _url: &str) -> File {
         todo!()
     }
 }

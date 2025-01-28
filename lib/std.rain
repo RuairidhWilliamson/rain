@@ -1,11 +1,4 @@
 let print = internal.print
-let get_file = internal.get_file
-let import = internal.import
-let module_file = internal.module_file
-let local_area = internal.local_area
-let extract = internal.extract
-let args = internal.args
-let run = internal.run
 
 let gcc = import(get_file("std/gcc.rain"))
 let rust = import(get_file("std/rust.rain"))

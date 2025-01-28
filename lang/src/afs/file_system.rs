@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use super::{area::FileArea, file::File};
 
-pub trait FileSystem {
+pub trait FileSystemTrait {
     /// Resolves file path locally returning an absolute path
     fn resolve_file(&self, file: &File) -> PathBuf;
 
@@ -13,4 +13,14 @@ pub trait FileSystem {
     fn print(&self, message: String);
 
     fn extract(&self, file: &File) -> Result<FileArea, Box<dyn std::error::Error>>;
+
+    fn run(&self, area: Option<&FileArea>, bin: &File, args: Vec<String>) -> RunStatus;
+
+    fn download(&self, url: &str) -> File;
+}
+
+pub struct RunStatus {
+    pub success: bool,
+    pub exit_code: Option<i32>,
+    pub area: FileArea,
 }

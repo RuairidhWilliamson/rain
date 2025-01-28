@@ -1,5 +1,5 @@
 use file_system::FileSystemImpl;
-use rain_lang::afs::file_system::FileSystem as _;
+use rain_lang::afs::file_system::FileSystemTrait as _;
 
 pub mod config;
 pub mod exe;
