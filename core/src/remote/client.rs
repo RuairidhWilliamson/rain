@@ -79,6 +79,7 @@ fn start_server(config: &Config) -> Result<UnixStream, Error> {
     log::info!("Starting server...");
     let p = std::process::Command::new(crate::exe::current_exe().ok_or(Error::CurrentExe)?)
         .env("RAIN_SERVER", "1")
+        .env("RAIN_LOG", "debug")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(std::fs::File::create(config.server_stderr_path())?)

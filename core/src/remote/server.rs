@@ -66,6 +66,7 @@ struct Server {
     config: Config,
     /// Time the rain binary was modified, used to check if we should restart the server if the file on disk is newer
     modified_time: SystemTime,
+    /// Time the server was started
     start_time: chrono::DateTime<chrono::Utc>,
     // TODO: Get rid of this mutex, it is a hacky way to reuse the cache but prevents running multiple runs at once
     cache: Mutex<Cache>,
