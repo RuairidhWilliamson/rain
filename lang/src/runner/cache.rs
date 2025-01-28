@@ -7,6 +7,11 @@ use crate::ir::DeclarationId;
 
 use super::{internal::InternalFunction, value::Value, value_impl::RainFunction};
 
+#[expect(unsafe_code)]
+// Safety:
+// The number is bigger than zero
+pub const CACHE_SIZE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1024) };
+
 pub struct Cache {
     storage: LruCache<CacheKey, CacheEntry>,
 }

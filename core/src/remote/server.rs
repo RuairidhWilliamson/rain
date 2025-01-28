@@ -1,7 +1,10 @@
 use std::{
     os::unix::net::{UnixListener, UnixStream},
+    sync::Mutex,
     time::SystemTime,
 };
+
+use rain_lang::runner::cache::Cache;
 
 use crate::{config::Config, file_system::FileSystemImpl, remote::msg::RestartReason};
 
@@ -37,10 +40,12 @@ impl From<ciborium::de::Error<std::io::Error>> for Error {
 pub fn rain_server(config: Config) -> Result<(), Error> {
     let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
     let modified_time = exe_stat.modified()?;
+    let cache = Mutex::new(Cache::new(crate::CACHE_SIZE));
     let s = Server {
         config,
         modified_time,
         start_time: chrono::Utc::now(),
+        cache,
     };
     let l = UnixListener::bind(s.config.server_socket_path())?;
     for stream in l.incoming() {
@@ -62,6 +67,8 @@ struct Server {
     /// Time the rain binary was modified, used to check if we should restart the server if the file on disk is newer
     modified_time: SystemTime,
     start_time: chrono::DateTime<chrono::Utc>,
+    // TODO: Get rid of this mutex, it is a hacky way to reuse the cache but prevents running multiple runs at once
+    cache: Mutex<Cache>,
 }
 
 struct ClientHandler<'a> {
@@ -90,7 +97,9 @@ impl ClientHandler<'_> {
         match req {
             Request::Run(req) => {
                 let fs = FileSystemImpl::new(self.server.config.clone());
-                let result = crate::run(&req.root, &req.target, &fs).map(|v| v.to_string());
+                let mut cache = self.server.cache.lock().unwrap();
+                let result =
+                    crate::run(&req.root, &req.target, &mut cache, &fs).map(|v| v.to_string());
                 let prints = fs.prints.into_inner().unwrap();
                 self.send_response(
                     &req,

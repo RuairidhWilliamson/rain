@@ -7,7 +7,10 @@
 
 use std::sync::Mutex;
 
-use rain_lang::afs::{area::FileArea, file::File, file_system::FileSystemTrait};
+use rain_lang::{
+    afs::{area::FileArea, file::File, file_system::FileSystemTrait},
+    runner::cache::Cache,
+};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -36,7 +39,8 @@ pub fn run_source(source: String) -> Result<ExecuteOutput, String> {
     let main = ir
         .resolve_global_declaration(mid, "main")
         .ok_or_else(|| "no main item found".to_owned())?;
-    let mut runner = rain_lang::runner::Runner::new(ir, &file_system);
+    let mut cache = Cache::new(rain_lang::runner::cache::CACHE_SIZE);
+    let mut runner = rain_lang::runner::Runner::new(ir, &mut cache, &file_system);
     let value = runner
         .evaluate_and_call(main)
         .map_err(|err| format!("evaluate error: {}", err.resolve_ir(&runner.rir)))?;

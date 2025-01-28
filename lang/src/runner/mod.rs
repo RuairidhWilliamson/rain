@@ -5,7 +5,7 @@ mod internal;
 pub mod value;
 pub mod value_impl;
 
-use std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Instant};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use error::RunnerError;
 use internal::InternalFunction;
@@ -21,8 +21,6 @@ use crate::{
 };
 
 const MAX_CALL_DEPTH: usize = 500;
-#[expect(unsafe_code)]
-const CACHE_SIZE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1024) };
 
 type ResultValue = Result<Value, ErrorSpan<RunnerError>>;
 
@@ -57,15 +55,15 @@ impl<'a> Cx<'a> {
 
 pub struct Runner<'a, FS> {
     pub rir: Rir,
-    pub cache: cache::Cache,
+    pub cache: &'a mut cache::Cache,
     pub file_system: &'a FS,
 }
 
 impl<'a, FS: FileSystemTrait> Runner<'a, FS> {
-    pub fn new(rir: Rir, file_system: &'a FS) -> Self {
+    pub fn new(rir: Rir, cache: &'a mut cache::Cache, file_system: &'a FS) -> Self {
         Self {
             rir,
-            cache: cache::Cache::new(CACHE_SIZE),
+            cache,
             file_system,
         }
     }
