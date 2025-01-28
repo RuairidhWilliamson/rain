@@ -6,7 +6,7 @@ use super::value::RainTypeId;
 
 #[derive(Debug)]
 pub enum RunnerError {
-    GenericTypeError,
+    GenericRunError,
     IncorrectArgs {
         required: RangeInclusive<usize>,
         actual: usize,
@@ -31,7 +31,7 @@ pub enum RunnerError {
 impl std::fmt::Display for RunnerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::GenericTypeError => f.write_str("generic type error"),
+            Self::GenericRunError => f.write_str("generic run error"),
             Self::IncorrectArgs { required, actual } => f.write_fmt(format_args!(
                 "wrong number of args, requried {required:?} but got {actual}"
             )),

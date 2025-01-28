@@ -282,83 +282,83 @@ impl<FS: FileSystem> Runner<FS> {
             BinaryOperatorKind::Addition => Ok(Value::new(RainInteger(
                 &left
                     .downcast_ref::<RainInteger>()
-                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                     .0
                     + &self
                         .evaluate_node(cx, op.right)?
                         .downcast_ref::<RainInteger>()
-                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                         .0,
             ))),
             BinaryOperatorKind::Subtraction => Ok(Value::new(RainInteger(
                 &left
                     .downcast_ref::<RainInteger>()
-                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                     .0
                     - &self
                         .evaluate_node(cx, op.right)?
                         .downcast_ref::<RainInteger>()
-                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                         .0,
             ))),
             BinaryOperatorKind::Multiplication => Ok(Value::new(RainInteger(
                 &left
                     .downcast_ref::<RainInteger>()
-                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                     .0
                     * &self
                         .evaluate_node(cx, op.right)?
                         .downcast_ref::<RainInteger>()
-                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                         .0,
             ))),
             BinaryOperatorKind::Division => Ok(Value::new(RainInteger(
                 &left
                     .downcast_ref::<RainInteger>()
-                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                     .0
                     / &self
                         .evaluate_node(cx, op.right)?
                         .downcast_ref::<RainInteger>()
-                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                         .0,
             ))),
             BinaryOperatorKind::LogicalAnd => Ok(Value::new(
                 *left
                     .downcast_ref::<bool>()
-                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                     && *self
                         .evaluate_node(cx, op.right)?
                         .downcast_ref::<bool>()
-                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?,
+                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?,
             )),
             BinaryOperatorKind::LogicalOr => Ok(Value::new(
                 *left
                     .downcast_ref::<bool>()
-                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                     || *self
                         .evaluate_node(cx, op.right)?
                         .downcast_ref::<bool>()
-                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?,
+                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?,
             )),
             BinaryOperatorKind::Equals => Ok(Value::new(
                 left.downcast_ref::<RainInteger>()
-                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                     .0
                     == self
                         .evaluate_node(cx, op.right)?
                         .downcast_ref::<RainInteger>()
-                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                         .0,
             )),
             BinaryOperatorKind::NotEquals => Ok(Value::new(
                 left.downcast_ref::<RainInteger>()
-                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                    .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                     .0
                     != self
                         .evaluate_node(cx, op.right)?
                         .downcast_ref::<RainInteger>()
-                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericTypeError))?
+                        .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?
                         .0,
             )),
             BinaryOperatorKind::Dot => match left.rain_type_id() {
@@ -376,7 +376,7 @@ impl<FS: FileSystem> Runner<FS> {
                             };
                             self.evaluate_declaration(did)
                         }
-                        _ => Err(cx.err(op.op_span, RunnerError::GenericTypeError)),
+                        _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
                     }
                 }
                 RainTypeId::Internal => match cx.module.get(op.right) {
@@ -384,11 +384,11 @@ impl<FS: FileSystem> Runner<FS> {
                         let name = tls.0.span.contents(&cx.module.src);
                         InternalFunction::evaluate_internal_function_name(name)
                             .map(Value::new)
-                            .ok_or_else(|| cx.err(tls.0.span, RunnerError::GenericTypeError))
+                            .ok_or_else(|| cx.err(tls.0.span, RunnerError::GenericRunError))
                     }
-                    _ => Err(cx.err(op.op_span, RunnerError::GenericTypeError)),
+                    _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
                 },
-                _ => Err(cx.err(op.op_span, RunnerError::GenericTypeError)),
+                _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
             },
         }
     }

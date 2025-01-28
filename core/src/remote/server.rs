@@ -5,7 +5,7 @@ use std::{
 
 use crate::{config::Config, remote::msg::RestartReason};
 
-use super::msg::{Request, RequestHeader, RequestTrait, ResponseWrapper};
+use super::msg::{run::RunResponse, Request, RequestHeader, RequestTrait, ResponseWrapper};
 
 #[derive(Debug)]
 pub enum Error {
@@ -87,6 +87,12 @@ impl ClientHandler<'_> {
 
     fn handle_request(self, req: Request) -> Result<(), Error> {
         match req {
+            Request::Run(req) => {
+                let result = crate::run(&req.root, &req.target, self.server.config.clone())
+                    .map(|v| v.to_string());
+                self.send_response(&req, RunResponse { output: result })?;
+                Ok(())
+            }
             Request::Info(req) => {
                 let resp = super::msg::info::InfoResponse {
                     pid: std::process::id(),

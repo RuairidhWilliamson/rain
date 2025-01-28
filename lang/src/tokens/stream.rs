@@ -144,6 +144,7 @@ impl TokenStream<'_> {
             "true" => Token::True,
             "false" => Token::False,
             "internal" => Token::Internal,
+            "unit" => Token::Reserved,
             _ => Token::Ident,
         };
         TokenLocalSpan {

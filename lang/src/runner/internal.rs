@@ -229,7 +229,7 @@ fn local_area_implementation(icx: InternalCx) -> ResultValue {
     let metadata = std::fs::metadata(&*area_path)
         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
     if metadata.is_file() {
-        return Err(icx.cx.nid_err(icx.nid, RunnerError::GenericTypeError));
+        return Err(icx.cx.nid_err(icx.nid, RunnerError::GenericRunError));
     }
     Ok(Value::new(FileArea::Local(area_path)))
 }
@@ -284,7 +284,7 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                     // dircpy::copy_dir(input_dir_path, &output_dir_path)
                     //     .map_err(|err| icx.cx.nid_err(*area_nid, RunnerError::AreaIOError(err)))?;
                 }
-                _ => Err(icx.cx.nid_err(*area_nid, RunnerError::GenericTypeError))?,
+                _ => Err(icx.cx.nid_err(*area_nid, RunnerError::GenericRunError))?,
             }
             let file: &File = file_value
                 .downcast_ref_error(&[RainTypeId::File])
@@ -348,7 +348,7 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
             let path = icx
                 .file_system
                 .escape_bin(name)
-                .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericTypeError))?;
+                .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericRunError))?;
             let f = File::new(FileArea::Escape, path.to_string_lossy().as_ref())
                 .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
             Ok(Value::new(f))

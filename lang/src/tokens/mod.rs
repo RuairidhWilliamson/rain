@@ -22,6 +22,8 @@ pub enum Token {
     True,
     False,
     Internal,
+    // Keywords that maybe used in the future
+    Reserved,
 
     // Symbols
     Dot,

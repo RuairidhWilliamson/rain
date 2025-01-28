@@ -8,7 +8,7 @@ use rain_core::{
     config::Config,
     remote::{
         client::make_request_or_start,
-        msg::{clean::CleanRequest, info::InfoRequest, shutdown::ShutdownRequest},
+        msg::{clean::CleanRequest, info::InfoRequest, run::RunRequest, shutdown::ShutdownRequest},
     },
 };
 
@@ -36,8 +36,20 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     match cli.command {
         RainCtlCommand::Run { target } => {
             let root = rain_core::find_root_rain().ok_or(())?;
-            let v = rain_core::run_stderr(root, &target, config.clone())?;
-            eprintln!("{v:?}");
+            let run_response =
+                make_request_or_start(config, RunRequest { root, target }).map_err(|err| {
+                    eprintln!("{err:?}");
+                })?;
+            let result = run_response.output;
+            match result {
+                Ok(s) => {
+                    println!("{s}");
+                }
+                Err(s) => {
+                    println!("{s}");
+                    return Err(());
+                }
+            }
         }
         RainCtlCommand::Info => {
             let info = make_request_or_start(config, InfoRequest).map_err(|err| {

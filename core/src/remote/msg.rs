@@ -23,6 +23,7 @@ pub enum RestartReason {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Request {
+    Run(run::RunRequest),
     Info(info::InfoRequest),
     Shutdown(shutdown::ShutdownRequest),
     Clean(clean::CleanRequest),
@@ -34,6 +35,33 @@ pub trait RequestTrait: Into<Request> + private::Sealed {
 
 mod private {
     pub trait Sealed {}
+}
+
+pub mod run {
+    use std::path::PathBuf;
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct RunRequest {
+        pub root: PathBuf,
+        pub target: String,
+    }
+
+    impl From<RunRequest> for super::Request {
+        fn from(req: RunRequest) -> Self {
+            Self::Run(req)
+        }
+    }
+
+    impl super::private::Sealed for RunRequest {}
+
+    impl super::RequestTrait for RunRequest {
+        type Response = RunResponse;
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct RunResponse {
+        pub output: Result<String, String>,
+    }
 }
 
 pub mod info {
