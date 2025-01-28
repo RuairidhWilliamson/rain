@@ -4,8 +4,6 @@ let print = std.print
 
 let smee = internal.import(internal.get_file("smee-rs/main.rain"))
 
-let main = internal.main_commands(lint, test, check, build, run, smee_run, download_test)
-
 fn lint() {
 	std.rust.check_fmt(area)
 	std.rust.clippy(area)

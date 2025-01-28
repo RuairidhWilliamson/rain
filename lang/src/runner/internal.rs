@@ -32,7 +32,6 @@ pub enum InternalFunction {
     Args,
     Run,
     EscapeBin,
-    MainCommands,
     Unit,
     GetArea,
     Download,
@@ -56,7 +55,6 @@ impl InternalFunction {
             "args" => Some(Self::Args),
             "run" => Some(Self::Run),
             "escape_bin" => Some(Self::EscapeBin),
-            "main_commands" => Some(Self::MainCommands),
             "unit" => Some(Self::Unit),
             "get_area" => Some(Self::GetArea),
             "download" => Some(Self::Download),
@@ -91,7 +89,6 @@ impl InternalFunction {
             Self::Args => args_implementation(icx),
             Self::Run => run_implementation(icx),
             Self::EscapeBin => escape_bin(icx),
-            Self::MainCommands => main_commands_helper(icx),
             Self::Unit => unit(icx),
             Self::GetArea => get_area(icx),
             Self::Download => download(icx),
@@ -321,6 +318,8 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
             let mut cmd = std::process::Command::new(resolved_path);
             cmd.current_dir(output_dir_path);
             cmd.args(args);
+            // TODO: It would be nice to remove env vars but for the moment this causes too many problems
+            // cmd.env_clear();
             log::debug!("Running {cmd:?}");
             let exit = cmd
                 .status()
@@ -362,39 +361,6 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
             },
         )),
     }
-}
-
-#[expect(clippy::print_stderr)]
-fn main_commands_helper(icx: InternalCx) -> ResultValue {
-    let commands: Vec<(&str, Value)> = icx
-        .arg_values
-        .into_iter()
-        .map(|(nid, v)| {
-            let crate::ast::Node::Ident(tls) = icx.cx.module.get(nid) else {
-                todo!("main command helper support arg that is not an ident")
-            };
-            let command_name = tls.0.span.contents(&icx.cx.module.src);
-            (command_name, v)
-        })
-        .collect();
-    let command_help = || {
-        eprintln!("usage: rain <command>");
-        eprintln!("available commands:");
-        for (name, _) in &commands {
-            eprintln!("  {name}");
-        }
-    };
-    let Some(command) = std::env::args().nth(1) else {
-        eprintln!("no command specified");
-        command_help();
-        return Ok(Value::new(RainError("cli error".into())));
-    };
-    let Some((_, command_value)) = commands.iter().find(|(name, _)| *name == command) else {
-        eprintln!("unknown command: {command}");
-        command_help();
-        return Ok(Value::new(RainError("cli error".into())));
-    };
-    Ok(command_value.clone())
 }
 
 fn unit(_icx: InternalCx) -> ResultValue {
