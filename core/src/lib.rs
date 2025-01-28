@@ -1,19 +1,21 @@
+use file_system::FileSystemImpl;
 use rain_lang::afs::file_system::FileSystem as _;
 
 pub mod config;
 pub mod exe;
+pub mod file_system;
 pub mod remote;
 
 #[expect(clippy::result_unit_err)]
 pub fn run_stderr(
     path: impl AsRef<std::path::Path>,
     declaration: &str,
-    config: config::Config,
+    file_system: FileSystemImpl,
 ) -> Result<rain_lang::runner::value::Value, ()> {
     let file = rain_lang::afs::file::File::new_local(path.as_ref()).map_err(|err| {
         log::error!("could not get file: {err}");
     })?;
-    let path = config.resolve_file(&file);
+    let path = file_system.resolve_file(&file);
     let src = std::fs::read_to_string(&path).map_err(|err| {
         log::error!("could not read file {}: {err}", path.display());
     })?;
@@ -27,7 +29,7 @@ pub fn run_stderr(
         .ok_or_else(|| {
             log::error!("{declaration} declaration not found");
         })?;
-    let mut runner = rain_lang::runner::Runner::new(ir, config);
+    let mut runner = rain_lang::runner::Runner::new(ir, file_system);
     let value = runner.evaluate_and_call(main).map_err(|err| {
         log::error!("{}", err.resolve_ir(&runner.rir));
     })?;
@@ -41,11 +43,11 @@ pub fn run_stderr(
 pub fn run(
     path: impl AsRef<std::path::Path>,
     declaration: &str,
-    config: config::Config,
+    file_system: FileSystemImpl,
 ) -> Result<rain_lang::runner::value::Value, String> {
     let file = rain_lang::afs::file::File::new_local(path.as_ref())
         .map_err(|err| format!("could not get file: {err}"))?;
-    let path = config.resolve_file(&file);
+    let path = file_system.resolve_file(&file);
     let src = std::fs::read_to_string(&path)
         .map_err(|err| format!("could not read file {}: {err}", path.display()))?;
     let module = rain_lang::ast::parser::parse_module(&src);
@@ -56,7 +58,7 @@ pub fn run(
     let main = ir
         .resolve_global_declaration(mid, declaration)
         .ok_or_else(|| format!("{declaration} declaration not found"))?;
-    let mut runner = rain_lang::runner::Runner::new(ir, config);
+    let mut runner = rain_lang::runner::Runner::new(ir, file_system);
     let value = runner
         .evaluate_and_call(main)
         .map_err(|err| err.resolve_ir(&runner.rir).to_string())?;

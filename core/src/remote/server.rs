@@ -3,7 +3,7 @@ use std::{
     time::SystemTime,
 };
 
-use crate::{config::Config, remote::msg::RestartReason};
+use crate::{config::Config, file_system::FileSystemImpl, remote::msg::RestartReason};
 
 use super::msg::{run::RunResponse, Request, RequestHeader, RequestTrait, ResponseWrapper};
 
@@ -88,8 +88,14 @@ impl ClientHandler<'_> {
     fn handle_request(self, req: Request) -> Result<(), Error> {
         match req {
             Request::Run(req) => {
-                let result = crate::run(&req.root, &req.target, self.server.config.clone())
-                    .map(|v| v.to_string());
+                let result = crate::run(
+                    &req.root,
+                    &req.target,
+                    FileSystemImpl {
+                        config: self.server.config.clone(),
+                    },
+                )
+                .map(|v| v.to_string());
                 self.send_response(&req, RunResponse { output: result })?;
                 Ok(())
             }

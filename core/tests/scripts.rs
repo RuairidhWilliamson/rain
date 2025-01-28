@@ -1,9 +1,16 @@
 use std::path::Path;
 
+use rain_core::file_system::FileSystemImpl;
 use rain_lang::runner::value::Value;
 
 fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
-    rain_core::run_stderr(path, "main", rain_core::config::Config::default())
+    rain_core::run_stderr(
+        path,
+        "main",
+        FileSystemImpl {
+            config: rain_core::config::Config::default(),
+        },
+    )
 }
 
 #[test]
