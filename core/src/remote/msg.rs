@@ -14,6 +14,7 @@ pub struct RequestHeader {
 pub enum ResponseWrapper<R> {
     Response(R),
     RestartPls(RestartReason),
+    ServerPanic,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -40,6 +41,8 @@ mod private {
 pub mod run {
     use std::path::PathBuf;
 
+    use rain_lang::error::OwnedResolvedError;
+
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunRequest {
         pub root: PathBuf,
@@ -61,7 +64,7 @@ pub mod run {
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunResponse {
         pub prints: Vec<String>,
-        pub output: Result<String, String>,
+        pub output: Result<String, OwnedResolvedError>,
     }
 }
 

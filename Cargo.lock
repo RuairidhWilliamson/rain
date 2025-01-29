@@ -1846,6 +1846,7 @@ dependencies = [
  "num-bigint",
  "quickcheck",
  "quickcheck_macros",
+ "serde",
  "uuid",
  "web-time",
 ]

@@ -86,11 +86,19 @@ impl ClientHandler<'_> {
         let request: Request = ciborium::from_reader(&mut self.stream)?;
         log::info!("Header {hdr:?}");
         log::info!("Request {request:?}");
-        self.handle_request(request)
+        match std::thread::scope(|s| s.spawn(|| self.handle_request(request)).join()) {
+            Err(err) => {
+                log::error!("panic during handle request");
+                self.send_panic()?;
+                std::panic::resume_unwind(err)
+            }
+            Ok(Err(err)) => Err(err),
+            Ok(Ok(())) => Ok(()),
+        }
     }
 
     #[expect(clippy::unwrap_used)]
-    fn handle_request(self, req: Request) -> Result<(), Error> {
+    fn handle_request(&mut self, req: Request) -> Result<(), Error> {
         match req {
             Request::Run(req) => {
                 let fs = FileSystemImpl::new(self.server.config.clone());
@@ -139,7 +147,7 @@ impl ClientHandler<'_> {
     }
 
     fn send_response<Req>(
-        mut self,
+        &mut self,
         _req: &Req,
         response: Req::Response,
     ) -> Result<(), ciborium::ser::Error<std::io::Error>>
@@ -147,6 +155,13 @@ impl ClientHandler<'_> {
         Req: RequestTrait,
     {
         let wrapped = ResponseWrapper::Response(response);
+        ciborium::into_writer(&wrapped, &mut self.stream)
+    }
+
+    fn send_panic(&mut self) -> Result<(), ciborium::ser::Error<std::io::Error>> {
+        // This doesn't feel safe to use generic () here but maybe it is ok
+        // It might depend on the serde backend we are using
+        let wrapped = ResponseWrapper::<()>::ServerPanic;
         ciborium::into_writer(&wrapped, &mut self.stream)
     }
 }

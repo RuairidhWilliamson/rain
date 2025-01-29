@@ -14,6 +14,7 @@ pub enum Error {
     IO(std::io::Error),
     Encode(ciborium::ser::Error<std::io::Error>),
     Decode(ciborium::de::Error<std::io::Error>),
+    ServerPanic,
 }
 
 impl From<std::io::Error> for Error {
@@ -68,9 +69,17 @@ where
             match make_request(stream, &hdr, &request)? {
                 ResponseWrapper::Response(resp) => Ok(resp),
                 ResponseWrapper::RestartPls(reason) => Err(Error::RestartLoop(reason)),
+                ResponseWrapper::ServerPanic => {
+                    log::error!("server panic");
+                    Err(Error::ServerPanic)
+                }
             }
         }
         ResponseWrapper::Response(resp) => Ok(resp),
+        ResponseWrapper::ServerPanic => {
+            log::error!("server panic");
+            Err(Error::ServerPanic)
+        }
     }
 }
 

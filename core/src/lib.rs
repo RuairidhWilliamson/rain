@@ -1,6 +1,7 @@
 use file_system::FileSystemImpl;
 use rain_lang::{
     afs::file_system::FileSystemTrait as _,
+    error::OwnedResolvedError,
     runner::cache::{Cache, CACHE_SIZE},
 };
 
@@ -22,32 +23,25 @@ pub fn run_stderr(
     })
 }
 
+// TODO: Get rid of unwraps
+#[expect(clippy::unwrap_used)]
 pub fn run(
     path: impl AsRef<std::path::Path>,
     declaration: &str,
     cache: &mut Cache,
     file_system: &FileSystemImpl,
-) -> Result<rain_lang::runner::value::Value, String> {
-    let file = rain_lang::afs::file::File::new_local(path.as_ref())
-        .map_err(|err| format!("could not get file: {err}"))?;
+) -> Result<rain_lang::runner::value::Value, OwnedResolvedError> {
+    let file = rain_lang::afs::file::File::new_local(path.as_ref()).unwrap();
     let path = file_system.resolve_file(&file);
-    let src = std::fs::read_to_string(&path)
-        .map_err(|err| format!("could not read file {}: {err}", path.display()))?;
+    let src = std::fs::read_to_string(&path).unwrap();
     let module = rain_lang::ast::parser::parse_module(&src);
     let mut ir = rain_lang::ir::Rir::new();
     let mid = ir
         .insert_module(file, src, module)
-        .map_err(|err| err.resolve_ir(&ir).to_string())?;
-    let main = ir
-        .resolve_global_declaration(mid, declaration)
-        .ok_or_else(|| format!("{declaration} declaration not found"))?;
+        .map_err(|err| err.resolve_ir(&ir).into_owned())?;
+    let main = ir.resolve_global_declaration(mid, declaration).unwrap();
     let mut runner = rain_lang::runner::Runner::new(ir, cache, file_system);
-    let value = runner
-        .evaluate_and_call(main)
-        .map_err(|err| err.resolve_ir(&runner.rir).to_string())?;
-    if value.rain_type_id() == rain_lang::runner::value::RainTypeId::Error {
-        return Err(format!("{value:?}"));
-    }
+    let value = runner.evaluate_and_call(main).unwrap();
     Ok(value)
 }
 

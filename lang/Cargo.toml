@@ -17,6 +17,7 @@ lru.workspace = true
 num-bigint.workspace = true
 uuid.workspace = true
 web-time.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
