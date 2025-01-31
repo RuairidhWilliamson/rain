@@ -1,13 +1,13 @@
-use file_system::FileSystemImpl;
+use driver::DriverImpl;
 use rain_lang::{
-    afs::file_system::FileSystemTrait as _,
+    afs::driver::DriverTrait as _,
     error::OwnedResolvedError,
     runner::cache::{Cache, CACHE_SIZE},
 };
 
 pub mod config;
+pub mod driver;
 pub mod exe;
-pub mod file_system;
 pub mod ipc;
 pub mod remote;
 
@@ -15,7 +15,7 @@ pub mod remote;
 pub fn run_stderr(
     path: impl AsRef<std::path::Path>,
     declaration: &str,
-    file_system: &FileSystemImpl,
+    file_system: &DriverImpl,
 ) -> Result<rain_lang::runner::value::Value, ()> {
     let mut cache = Cache::new(CACHE_SIZE);
     run(path, declaration, &mut cache, file_system).map_err(|err| {
@@ -29,7 +29,7 @@ pub fn run(
     path: impl AsRef<std::path::Path>,
     declaration: &str,
     cache: &mut Cache,
-    file_system: &FileSystemImpl,
+    file_system: &DriverImpl,
 ) -> Result<rain_lang::runner::value::Value, OwnedResolvedError> {
     let file = rain_lang::afs::file::File::new_local(path.as_ref()).unwrap();
     let path = file_system.resolve_file(&file);

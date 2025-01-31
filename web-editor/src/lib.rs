@@ -8,7 +8,7 @@
 use std::sync::Mutex;
 
 use rain_lang::{
-    afs::{area::FileArea, file::File, file_system::FileSystemTrait},
+    afs::{area::FileArea, file::File, driver::DriverTrait},
     runner::cache::Cache,
 };
 use wasm_bindgen::prelude::*;
@@ -62,7 +62,7 @@ struct FileSystemImpl {
     prints: Mutex<Vec<String>>,
 }
 
-impl FileSystemTrait for FileSystemImpl {
+impl DriverTrait for FileSystemImpl {
     fn resolve_file(&self, _file: &File) -> std::path::PathBuf {
         todo!()
     }
@@ -89,7 +89,7 @@ impl FileSystemTrait for FileSystemImpl {
         _area: Option<&FileArea>,
         _bin: &File,
         _args: Vec<String>,
-    ) -> rain_lang::afs::file_system::RunStatus {
+    ) -> rain_lang::afs::driver::RunStatus {
         todo!()
     }
 

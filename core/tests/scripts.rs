@@ -1,13 +1,13 @@
 use std::path::Path;
 
-use rain_core::file_system::FileSystemImpl;
+use rain_core::driver::DriverImpl;
 use rain_lang::runner::value::Value;
 
 fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
     rain_core::run_stderr(
         path,
         "main",
-        &FileSystemImpl::new(rain_core::config::Config::default()),
+        &DriverImpl::new(rain_core::config::Config::default()),
     )
 }
 

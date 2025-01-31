@@ -5,18 +5,18 @@ use std::{
 
 use rain_lang::afs::{
     area::{FileArea, GeneratedFileArea},
+    driver::{DriverTrait, RunStatus},
     file::File,
-    file_system::{FileSystemTrait, RunStatus},
 };
 
 use crate::config::Config;
 
-pub struct FileSystemImpl {
+pub struct DriverImpl {
     pub config: Config,
     pub prints: Mutex<Vec<String>>,
 }
 
-impl FileSystemImpl {
+impl DriverImpl {
     pub fn new(config: Config) -> Self {
         Self {
             config,
@@ -25,7 +25,7 @@ impl FileSystemImpl {
     }
 }
 
-impl FileSystemTrait for FileSystemImpl {
+impl DriverTrait for DriverImpl {
     fn resolve_file(&self, file: &File) -> PathBuf {
         let abs_path = file.path();
         let Some(rel_path) = abs_path.strip_prefix('/') else {

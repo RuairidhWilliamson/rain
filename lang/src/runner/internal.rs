@@ -3,7 +3,7 @@
 use crate::{
     afs::{
         absolute::AbsolutePathBuf, area::FileArea, error::PathError, file::File,
-        file_system::FileSystemTrait,
+        driver::DriverTrait,
     },
     ast::{FnCall, NodeId},
     ir::Rir,
@@ -61,7 +61,7 @@ impl InternalFunction {
 
     pub fn call_internal_function(
         self,
-        file_system: &dyn FileSystemTrait,
+        file_system: &dyn DriverTrait,
         rir: &mut Rir,
         cx: &mut Cx,
         nid: NodeId,
@@ -94,7 +94,7 @@ impl InternalFunction {
 }
 
 struct InternalCx<'a, 'b> {
-    file_system: &'a dyn FileSystemTrait,
+    file_system: &'a dyn DriverTrait,
     rir: &'a mut Rir,
     cx: &'a mut Cx<'b>,
     nid: NodeId,

@@ -13,7 +13,7 @@ use value::{RainTypeId, Value};
 use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainUnit};
 
 use crate::{
-    afs::file_system::FileSystemTrait,
+    afs::driver::DriverTrait,
     ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
     ir::{DeclarationId, IrModule, Rir},
     local_span::LocalSpan,
@@ -59,7 +59,7 @@ pub struct Runner<'a, FS> {
     pub file_system: &'a FS,
 }
 
-impl<'a, FS: FileSystemTrait> Runner<'a, FS> {
+impl<'a, FS: DriverTrait> Runner<'a, FS> {
     pub fn new(rir: Rir, cache: &'a mut cache::Cache, file_system: &'a FS) -> Self {
         Self {
             rir,

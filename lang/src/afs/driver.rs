@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use super::{area::FileArea, file::File};
 
-pub trait FileSystemTrait {
+pub trait DriverTrait {
     /// Resolves file path locally returning an absolute path
     fn resolve_file(&self, file: &File) -> PathBuf;
 

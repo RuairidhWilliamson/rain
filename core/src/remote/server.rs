@@ -2,7 +2,7 @@ use std::{sync::Mutex, time::SystemTime};
 
 use rain_lang::runner::cache::Cache;
 
-use crate::{config::Config, file_system::FileSystemImpl, remote::msg::RestartReason};
+use crate::{config::Config, driver::DriverImpl, remote::msg::RestartReason};
 
 use super::msg::{run::RunResponse, Request, RequestHeader, RequestTrait, ResponseWrapper};
 
@@ -101,7 +101,7 @@ impl ClientHandler<'_> {
     fn handle_request(&mut self, req: Request) -> Result<(), Error> {
         match req {
             Request::Run(req) => {
-                let fs = FileSystemImpl::new(self.server.config.clone());
+                let fs = DriverImpl::new(self.server.config.clone());
                 let mut cache = self.server.cache.lock().unwrap();
                 let result =
                     crate::run(&req.root, &req.target, &mut cache, &fs).map(|v| v.to_string());
