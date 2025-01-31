@@ -43,8 +43,8 @@ pub fn run_source(source: String) -> Result<ExecuteOutput, String> {
     let mut runner = rain_lang::runner::Runner::new(ir, &mut cache, &file_system);
     let value = runner
         .evaluate_and_call(main)
-        .map_err(|err| format!("evaluate error: {}", err.resolve_ir(&runner.rir)))?;
-    let prints = runner.file_system.prints.lock().unwrap();
+        .map_err(|err| format!("evaluate error: {}", err.resolve_ir(&runner.ir)))?;
+    let prints = runner.driver.prints.lock().unwrap();
     Ok(ExecuteOutput {
         prints: prints.join("\n"),
         output: value.to_string(),

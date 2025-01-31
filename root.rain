@@ -40,7 +40,7 @@ fn smee_run() {
 }
 
 fn print_some_stuff() {
-	print("Whats up")
+	print("Whats up" + " " + "dog")
 	print("Whats up")
 	print("Whats up")
 	print("Whats up")

@@ -41,7 +41,9 @@ pub fn run(
         .map_err(|err| err.resolve_ir(&ir).into_owned())?;
     let main = ir.resolve_global_declaration(mid, declaration).unwrap();
     let mut runner = rain_lang::runner::Runner::new(ir, cache, file_system);
-    let value = runner.evaluate_and_call(main).unwrap();
+    let value = runner
+        .evaluate_and_call(main)
+        .map_err(|err| err.resolve_ir(&runner.ir).into_owned())?;
     Ok(value)
 }
 

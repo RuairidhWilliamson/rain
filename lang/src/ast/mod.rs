@@ -407,7 +407,7 @@ impl AstNode for Assignment {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOperatorKind {
     Addition,
     Subtraction,
