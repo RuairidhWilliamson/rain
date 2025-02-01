@@ -34,13 +34,20 @@ impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::TokenError(err) => std::fmt::Display::fmt(err, f),
-            Self::ExpectedToken(tokens) => f.write_fmt(format_args!("expected one of {tokens:?}")),
-            Self::ExpectedTokenAfter(tokens) => {
-                f.write_fmt(format_args!("expected one of {tokens:?} after"))
+            Self::ExpectedToken(tokens) if tokens.len() == 1 => {
+                f.write_fmt(format_args!("bad syntax: expected {:?}", tokens[0]))
             }
-            Self::UnmatchedPair(token) => f.write_fmt(format_args!("unmatched pair {token:?}")),
-            Self::ExpectedExpression => f.write_str("expected expression"),
-            Self::InputNotFullConsumed => f.write_str("input not fully consumed"),
+            Self::ExpectedToken(tokens) => {
+                f.write_fmt(format_args!("bad syntax: expected one of {tokens:?}"))
+            }
+            Self::ExpectedTokenAfter(tokens) => {
+                f.write_fmt(format_args!("bad syntax: expected one of {tokens:?} after"))
+            }
+            Self::UnmatchedPair(token) => {
+                f.write_fmt(format_args!("bad syntax: unmatched pair {token:?}"))
+            }
+            Self::ExpectedExpression => f.write_str("bad syntax: expected expression"),
+            Self::InputNotFullConsumed => f.write_str("bad syntax: input not fully consumed"),
         }
     }
 }

@@ -1,9 +1,10 @@
+#![expect(clippy::print_stdout)]
+
 use std::process::ExitCode;
 
 use rain_lang::{afs::file::File, ast::error::ParseError, local_span::ErrorLocalSpan};
 
 fn main() -> ExitCode {
-    env_logger::init();
     let Some(src_path) = std::env::args().nth(1) else {
         print_help();
         return ExitCode::FAILURE;
@@ -21,14 +22,14 @@ fn main() -> ExitCode {
         Ok(src) => src,
         Err(err) => {
             print_help();
-            log::error!("src_path = {src_path:?}");
-            log::error!("{err:#}");
+            println!("src_path = {src_path:?}");
+            println!("{err:#}");
             return ExitCode::FAILURE;
         }
     };
     if let Err(err) = inner(&src) {
         let resolved = err.resolve(&path, &src);
-        log::error!("{resolved}");
+        println!("{resolved}");
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
@@ -36,12 +37,12 @@ fn main() -> ExitCode {
 }
 
 fn print_help() {
-    log::info!("Usage: dump_ast <src_path>");
+    println!("Usage: dump_ast <src_path>");
 }
 
 fn inner(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
     let module = rain_lang::ast::parser::parse_module(src)?;
     let out = module.display(src);
-    log::info!("{out}");
+    println!("{out}");
     Ok(())
 }

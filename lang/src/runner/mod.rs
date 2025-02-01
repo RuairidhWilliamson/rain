@@ -149,10 +149,15 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 }),
             Node::InternalLiteral(_) => Ok(Value::new(RainInternal)),
             Node::StringLiteral(lit) => match lit.prefix() {
-                Some(crate::tokens::StringLiteralPrefix::Format) => todo!("format string"),
-                None => Ok(Value::new(
-                    lit.content_span().contents(&cx.module.src).to_owned(),
-                )),
+                Some(crate::tokens::StringLiteralPrefix::Format) => {
+                    log::info!("{lit:?}");
+                    let contents = lit.content_span().contents(&cx.module.src);
+                    todo!("format strings not implemented: {contents}")
+                }
+                None => {
+                    let contents = lit.content_span().contents(&cx.module.src);
+                    Ok(Value::new(contents.to_owned()))
+                }
             },
             Node::IntegerLiteral(tls) => Ok(Value::new(
                 tls.0

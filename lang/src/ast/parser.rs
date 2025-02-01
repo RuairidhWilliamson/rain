@@ -145,7 +145,7 @@ impl<'src> ModuleParser<'src> {
         let mut expecting_statement = true;
         while let Some(peek) = self.stream.peek()? {
             match peek.token {
-                Token::NewLine => {
+                Token::NewLine | Token::Comment => {
                     self.stream.parse_next()?;
                     expecting_statement = true;
                     continue;

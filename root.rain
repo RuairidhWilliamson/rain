@@ -41,7 +41,7 @@ fn smee_run() {
 
 fn print_some_stuff() {
 	print("Whats up" + " " + "dog")
-	print("Whats up")
-	print("Whats up")
+	print("Whats \n up")
+	// print("Whats \"dog\" up")
 	print("Whats up")
 }
