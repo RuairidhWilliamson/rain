@@ -81,3 +81,5 @@ impl std::fmt::Display for OwnedResolvedError {
         Ok(())
     }
 }
+
+impl std::error::Error for OwnedResolvedError {}

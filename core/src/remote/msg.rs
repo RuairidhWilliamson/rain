@@ -41,7 +41,7 @@ mod private {
 pub mod run {
     use std::path::PathBuf;
 
-    use rain_lang::error::OwnedResolvedError;
+    use crate::CoreError;
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunRequest {
@@ -64,7 +64,7 @@ pub mod run {
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunResponse {
         pub prints: Vec<String>,
-        pub output: Result<String, OwnedResolvedError>,
+        pub output: Result<String, CoreError>,
     }
 }
 
