@@ -3,10 +3,12 @@ use std::{
     sync::Mutex,
 };
 
-use rain_lang::afs::{
-    area::{FileArea, GeneratedFileArea},
+use rain_lang::{
+    afs::{
+        area::{FileArea, GeneratedFileArea},
+        file::File,
+    },
     driver::{DriverTrait, RunStatus},
-    file::File,
 };
 
 use crate::config::Config;

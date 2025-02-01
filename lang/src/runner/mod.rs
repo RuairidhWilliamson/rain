@@ -13,8 +13,8 @@ use value::{RainTypeId, Value, ValueInner};
 use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainUnit};
 
 use crate::{
-    afs::driver::DriverTrait,
     ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
+    driver::DriverTrait,
     ir::{DeclarationId, IrModule, Rir},
     local_span::LocalSpan,
     span::ErrorSpan,

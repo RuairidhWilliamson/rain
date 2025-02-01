@@ -1,11 +1,9 @@
 #![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
 
 use crate::{
-    afs::{
-        absolute::AbsolutePathBuf, area::FileArea, error::PathError, file::File,
-        driver::DriverTrait,
-    },
+    afs::{absolute::AbsolutePathBuf, area::FileArea, error::PathError, file::File},
     ast::{FnCall, NodeId},
+    driver::DriverTrait,
     ir::Rir,
     runner::value_impl::{RainError, RainUnit},
     span::ErrorSpan,

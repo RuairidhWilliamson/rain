@@ -8,7 +8,8 @@
 use std::sync::Mutex;
 
 use rain_lang::{
-    afs::{area::FileArea, file::File, driver::DriverTrait},
+    afs::{area::FileArea, file::File},
+    driver::DriverTrait,
     runner::cache::Cache,
 };
 use wasm_bindgen::prelude::*;
@@ -89,7 +90,7 @@ impl DriverTrait for FileSystemImpl {
         _area: Option<&FileArea>,
         _bin: &File,
         _args: Vec<String>,
-    ) -> rain_lang::afs::driver::RunStatus {
+    ) -> rain_lang::driver::RunStatus {
         todo!()
     }
 

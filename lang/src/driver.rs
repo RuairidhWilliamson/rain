@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{area::FileArea, file::File};
+use crate::afs::{area::FileArea, file::File};
 
 pub trait DriverTrait {
     /// Resolves file path locally returning an absolute path

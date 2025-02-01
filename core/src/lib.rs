@@ -1,6 +1,6 @@
 use driver::DriverImpl;
 use rain_lang::{
-    afs::driver::DriverTrait as _,
+    driver::DriverTrait as _,
     error::OwnedResolvedError,
     runner::cache::{Cache, CACHE_SIZE},
 };
