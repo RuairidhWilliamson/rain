@@ -66,8 +66,9 @@ impl TokenStream<'_> {
                     continue;
                 }
                 (b'a'..=b'z', Some(b'\'')) => self.single_quote_literal()?,
-                (b'a'..=b'z', Some(b'\"')) => self.double_quote_literal()?,
-                (b'\"', _) => self.double_quote_literal()?,
+                (b'a'..=b'z', Some(b'"')) => self.double_quote_literal()?,
+                (b'\'', _) => self.single_quote_literal()?,
+                (b'"', _) => self.double_quote_literal()?,
                 (b'a'..=b'z' | b'A'..=b'Z' | b'_', _) => self.ident(),
                 (b'0'..=b'9', _) => self.number(),
                 (c, _) if c.is_ascii() => {
@@ -172,7 +173,7 @@ impl TokenStream<'_> {
         let start = self.index;
         let prefix_symbol = self.source.as_bytes().get(self.index).copied();
         let prefix = match prefix_symbol {
-            Some(b'"') => None,
+            Some(b'\'') => None,
             Some(b @ b'a'..=b'z') => {
                 // Skip over the string modifier
                 self.index += 1;
@@ -181,6 +182,7 @@ impl TokenStream<'_> {
             _ => unreachable!("single_quote_literal"),
         };
         self.index += 1;
+        let mut escape = false;
         loop {
             let Some(c) = self.source.as_bytes().get(self.index) else {
                 return Err(
@@ -191,8 +193,16 @@ impl TokenStream<'_> {
                 self.index += 1;
                 continue;
             }
+            if escape {
+                self.index += 1;
+                escape = false;
+                continue;
+            }
             match c {
-                b'\"' => {
+                b'\\' => {
+                    escape = true;
+                }
+                b'\'' => {
                     self.index += 1;
                     break;
                 }
@@ -223,6 +233,7 @@ impl TokenStream<'_> {
             _ => unreachable!("double_quote_literal"),
         };
         self.index += 1;
+        let mut escape = false;
         loop {
             let Some(c) = self.source.as_bytes().get(self.index) else {
                 return Err(
@@ -233,8 +244,16 @@ impl TokenStream<'_> {
                 self.index += 1;
                 continue;
             }
+            if escape {
+                self.index += 1;
+                escape = false;
+                continue;
+            }
             match c {
-                b'\"' => {
+                b'\\' => {
+                    escape = true;
+                }
+                b'"' => {
                     self.index += 1;
                     break;
                 }

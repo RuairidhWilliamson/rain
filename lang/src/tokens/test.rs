@@ -105,6 +105,18 @@ fn space() {
 }
 
 #[test]
+fn single_quote_literal() {
+    assert_tokens!("'hei'", Token::SingleQuoteLiteral(None));
+    assert!(str_tokens("'hei").is_err());
+    assert!(str_tokens("'hei\n'").is_err());
+    assert_tokens!("'😀 普通话 abc普通话😀'", Token::SingleQuoteLiteral(None));
+    assert_tokens!(
+        "f'{aljskdfa}'",
+        Token::SingleQuoteLiteral(Some(crate::tokens::StringLiteralPrefix::Format))
+    );
+}
+
+#[test]
 fn double_quote_literal() {
     assert_tokens!("\"hei\"", Token::DoubleQuoteLiteral(None));
     assert!(str_tokens("\"hei").is_err());
@@ -114,11 +126,9 @@ fn double_quote_literal() {
         "f\"{aljskdfa}\"",
         Token::DoubleQuoteLiteral(Some(crate::tokens::StringLiteralPrefix::Format))
     );
-
-    // TODO: Escape characters in string literals
-    // assert_tokens!("\"he\\\"i\"", Token::DoubleQuoteLiteral);
-    // assert_tokens!("\"he\\ni\"", Token::DoubleQuoteLiteral);
-    // assert_tokens!("\"he\\\ni\"", Token::DoubleQuoteLiteral);
+    assert_tokens!("\"he\\\"i\"", Token::DoubleQuoteLiteral(None));
+    assert_tokens!("\"he\\ni\"", Token::DoubleQuoteLiteral(None));
+    assert_tokens!("\"he\\\ni\"", Token::DoubleQuoteLiteral(None));
 }
 
 #[test]
@@ -182,7 +192,7 @@ fn tokenise_non_control_character_script(src: String) -> TestResult {
 #[expect(clippy::needless_pass_by_value)]
 #[quickcheck_macros::quickcheck]
 fn tokenise_string_literal(contents: String) -> TestResult {
-    if contents.contains(['"', '\n']) {
+    if contents.contains(['"', '\n', '\\']) {
         return TestResult::discard();
     }
     let literal = format!("\"{contents}\"");

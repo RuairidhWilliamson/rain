@@ -330,7 +330,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     &left,
                     &right,
                     |left: &RainInteger, right: &RainInteger| {
-                        Value::new(RainInteger(&left.0 - &right.0))
+                        Value::new(RainInteger(&left.0 + &right.0))
                     },
                 )
             }
