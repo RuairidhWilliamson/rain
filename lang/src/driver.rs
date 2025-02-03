@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use crate::afs::{area::FileArea, file::File};
+use crate::{
+    afs::{area::FileArea, file::File},
+    runner::error::RunnerError,
+};
 
 pub trait DriverTrait {
     /// Resolves file path locally returning an absolute path
@@ -14,9 +17,14 @@ pub trait DriverTrait {
 
     fn extract(&self, file: &File) -> Result<FileArea, Box<dyn std::error::Error>>;
 
-    fn run(&self, area: Option<&FileArea>, bin: &File, args: Vec<String>) -> RunStatus;
+    fn run(
+        &self,
+        area: Option<&FileArea>,
+        bin: &File,
+        args: Vec<String>,
+    ) -> Result<RunStatus, RunnerError>;
 
-    fn download(&self, url: &str) -> File;
+    fn download(&self, url: &str) -> Result<File, RunnerError>;
 }
 
 pub struct RunStatus {

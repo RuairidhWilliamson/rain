@@ -9,7 +9,19 @@ pub struct File {
 }
 
 impl File {
-    pub fn new(area: FileArea, path: &str) -> Result<Self, PathError> {
+    /// # Panics
+    /// Panics if path is not starting with /
+    pub fn new(area: FileArea, path: &'static str) -> Self {
+        let path = match FilePath::new(path) {
+            Ok(path) => path,
+            Err(err) => {
+                panic!("filepath invalid: {err}");
+            }
+        };
+        Self { area, path }
+    }
+
+    pub fn new_checked(area: FileArea, path: &str) -> Result<Self, PathError> {
         Ok(Self {
             area,
             path: FilePath::new(path)?,
@@ -30,7 +42,10 @@ impl File {
             .to_str()
             .ok_or(PathError::NotUnicode)?;
         let path: String = String::from("/") + file_name;
-        Self::new(FileArea::Local(dir), &path)
+        Ok(Self {
+            area: FileArea::Local(dir),
+            path: FilePath(path),
+        })
     }
 
     pub fn push(&mut self, path: &str) -> Result<(), PathError> {

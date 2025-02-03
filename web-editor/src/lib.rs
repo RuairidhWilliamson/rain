@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use rain_lang::{
     afs::{area::FileArea, file::File},
     driver::DriverTrait,
-    runner::cache::Cache,
+    runner::{cache::Cache, error::RunnerError},
 };
 use wasm_bindgen::prelude::*;
 
@@ -32,8 +32,7 @@ pub fn run_source(source: String) -> Result<ExecuteOutput, String> {
     let file_system = FileSystemImpl::default();
     let module = rain_lang::ast::parser::parse_module(&source);
     let mut ir = rain_lang::ir::Rir::new();
-    let file = File::new(FileArea::Escape, "/main.rain")
-        .map_err(|err| format!("could not get file: {err}"))?;
+    let file = File::new(FileArea::Escape, "/main.rain");
     let mid = ir
         .insert_module(file, source, module)
         .map_err(|err| format!("load module failed: {}", err.resolve_ir(&ir)))?;
@@ -90,11 +89,11 @@ impl DriverTrait for FileSystemImpl {
         _area: Option<&FileArea>,
         _bin: &File,
         _args: Vec<String>,
-    ) -> rain_lang::driver::RunStatus {
+    ) -> Result<rain_lang::driver::RunStatus, RunnerError> {
         todo!()
     }
 
-    fn download(&self, _url: &str) -> File {
+    fn download(&self, _url: &str) -> Result<File, RunnerError> {
         todo!()
     }
 }

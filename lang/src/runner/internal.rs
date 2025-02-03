@@ -141,7 +141,7 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
             let absolute_path: &String = absolute_path_value
                 .downcast_ref_error(&[RainTypeId::String])
                 .map_err(|err| icx.cx.nid_err(*absolute_path_nid, err))?;
-            let file = File::new(area.clone(), absolute_path)
+            let file = File::new_checked(area.clone(), absolute_path)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err.into()))?;
             if !icx.file_system.exists(&file).map_err(|err| {
                 icx.cx
@@ -297,7 +297,10 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                     )),
                 })
                 .collect::<Result<Vec<String>, ErrorSpan<RunnerError>>>()?;
-            let status = icx.file_system.run(overlay_area, file, args);
+            let status = icx
+                .file_system
+                .run(overlay_area, file, args)
+                .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
             if !status.success {
                 return Ok(Value::new(RainError("command failed".into())));
             }
@@ -323,7 +326,7 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
                 .file_system
                 .escape_bin(name)
                 .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericRunError))?;
-            let f = File::new(FileArea::Escape, path.to_string_lossy().as_ref())
+            let f = File::new_checked(FileArea::Escape, path.to_string_lossy().as_ref())
                 .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
             Ok(Value::new(f))
         }
@@ -366,7 +369,9 @@ fn download(icx: InternalCx) -> ResultValue {
                 .downcast_ref_error(&[RainTypeId::String])
                 .map_err(|err| icx.cx.nid_err(*url_nid, err))?;
             let download_file = icx.file_system.download(url);
-            Ok(Value::new(download_file))
+            Ok(Value::new(
+                download_file.map_err(|err| icx.cx.nid_err(icx.nid, err))?,
+            ))
         }
         _ => Err(icx.cx.err(
             icx.fn_call.rparen_token,

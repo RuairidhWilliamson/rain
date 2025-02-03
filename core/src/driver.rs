@@ -9,6 +9,7 @@ use rain_lang::{
         file::File,
     },
     driver::{DriverTrait, RunStatus},
+    runner::error::RunnerError,
 };
 
 use crate::config::Config;
@@ -24,6 +25,24 @@ impl DriverImpl {
             config,
             prints: Mutex::default(),
         }
+    }
+
+    fn create_area(&self) -> Result<FileArea, RunnerError> {
+        let area = FileArea::Generated(GeneratedFileArea::new());
+        let output_dir = File::new(area.clone(), "/");
+        let output_dir_path = self.resolve_file(&output_dir);
+        std::fs::create_dir_all(&output_dir_path).map_err(RunnerError::AreaIOError)?;
+        Ok(area)
+    }
+
+    fn create_overlay_area(&self, overlay_area: &FileArea) -> Result<FileArea, RunnerError> {
+        let area = FileArea::Generated(GeneratedFileArea::new());
+        let output_dir = File::new(area.clone(), "/");
+        let output_dir_path = self.resolve_file(&output_dir);
+        let input_dir = File::new(overlay_area.clone(), "/");
+        let input_dir_path = self.resolve_file(&input_dir);
+        dircpy::copy_dir(input_dir_path, &output_dir_path).map_err(RunnerError::AreaIOError)?;
+        Ok(area)
     }
 }
 
@@ -62,13 +81,12 @@ impl DriverTrait for DriverImpl {
         self.prints.lock().unwrap().push(message);
     }
 
+    #[expect(clippy::unwrap_used)]
     fn extract(&self, file: &File) -> Result<FileArea, Box<dyn std::error::Error>> {
         let resolved_path = self.resolve_file(file);
-        let gen_area = GeneratedFileArea::new();
-        let area = FileArea::Generated(gen_area);
-        let output_dir = File::new(area.clone(), "/")?;
+        let area = self.create_area().unwrap();
+        let output_dir = File::new(area.clone(), "/");
         let output_dir_path = self.resolve_file(&output_dir);
-        std::fs::create_dir_all(&output_dir_path)?;
         let f = std::fs::File::open(resolved_path)?;
         let mut zip = zip::read::ZipArchive::new(f)?;
         for i in 0..zip.len() {
@@ -83,17 +101,19 @@ impl DriverTrait for DriverImpl {
     }
 
     #[expect(clippy::unwrap_used)]
-    fn run(&self, overlay_area: Option<&FileArea>, bin: &File, args: Vec<String>) -> RunStatus {
-        let output_area = FileArea::Generated(GeneratedFileArea::new());
-        let output_dir = File::new(output_area.clone(), "/").unwrap();
-        let output_dir_path = self.resolve_file(&output_dir);
-        if let Some(overlay_area) = overlay_area {
-            let input_dir = File::new(overlay_area.clone(), "/").unwrap();
-            let input_dir_path = self.resolve_file(&input_dir);
-            dircpy::copy_dir(input_dir_path, &output_dir_path).unwrap();
+    fn run(
+        &self,
+        overlay_area: Option<&FileArea>,
+        bin: &File,
+        args: Vec<String>,
+    ) -> Result<RunStatus, RunnerError> {
+        let output_area = if let Some(overlay_area) = overlay_area {
+            self.create_overlay_area(overlay_area)?
         } else {
-            std::fs::create_dir_all(&output_dir_path).unwrap();
+            self.create_area()?
         };
+        let output_dir = File::new(output_area.clone(), "/");
+        let output_dir_path = self.resolve_file(&output_dir);
         let mut cmd = std::process::Command::new(self.resolve_file(bin));
         cmd.current_dir(output_dir_path);
         cmd.args(args);
@@ -103,15 +123,15 @@ impl DriverTrait for DriverImpl {
         let exit = cmd.status().unwrap();
         let success = exit.success();
         let exit_code = exit.code();
-        RunStatus {
+        Ok(RunStatus {
             success,
             exit_code,
             area: output_area,
-        }
+        })
     }
 
     #[expect(clippy::unwrap_used)]
-    fn download(&self, url: &str) -> File {
+    fn download(&self, url: &str) -> Result<File, RunnerError> {
         let client = reqwest::blocking::Client::new();
         let request = client
             .request(reqwest::Method::GET, url)
@@ -127,15 +147,12 @@ impl DriverTrait for DriverImpl {
         log::debug!("Sending request {request:?}");
         let mut response = client.execute(request).unwrap();
         log::debug!("Received response {response:?}");
-        let gen_area = GeneratedFileArea::new();
-        let area = FileArea::Generated(gen_area);
-        let output = File::new(area, "/download").unwrap();
+        let area = self.create_area()?;
+        let output = File::new(area, "/download");
         let output_path = self.resolve_file(&output);
-        let output_dir_path = output_path.parent().unwrap();
-        std::fs::create_dir_all(output_dir_path).unwrap();
         let mut out = std::fs::File::create_new(output_path).unwrap();
         std::io::copy(&mut response, &mut out).unwrap();
-        output
+        Ok(output)
     }
 }
 
