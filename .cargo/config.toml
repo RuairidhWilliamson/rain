@@ -1,3 +1,2 @@
 [alias]
-rain = "run --quiet --package rain-cli -- noctl"
-rainctl = "run --quiet --package rain-cli --"
+rain = "run --quiet --package rain --"

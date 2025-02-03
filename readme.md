@@ -12,3 +12,7 @@ cargo install --path cli --locked
 rain
 ```
 
+### Development
+```bash
+cargo rain check
+```
