@@ -16,15 +16,16 @@ colored.workspace = true
 dircpy = { version = "0.3.19", default-features = false }
 dirs = "5.0.1"
 env_logger.workspace = true
+libc.workspace = true
 log.workspace = true
 lru = "0.12.4"
 num-bigint = "0.4.6"
 reqwest = { version = "0.12.9", features = ["blocking"] }
 serde.workspace = true
-uuid.workspace = true
-zip = "2.2.0"
-web-time.workspace = true
 thiserror.workspace = true
+uuid.workspace = true
+web-time.workspace = true
+zip = "2.2.0"
 
 rain-lang.path = "../lang"
 

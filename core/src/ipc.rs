@@ -8,8 +8,14 @@ mod ipc_impl {
     pub struct Listener(UnixListener);
 
     impl Listener {
+        #[expect(unsafe_code, clippy::undocumented_unsafe_blocks)]
         pub fn bind(path: impl AsRef<Path>) -> std::io::Result<Self> {
-            UnixListener::bind(path).map(Self)
+            // Set the socket file to have rwx------ so that only the owner can access it
+            // FIXME: This can race other threads affecting their create files
+            let prev = unsafe { libc::umask(0o077) };
+            let res = UnixListener::bind(path).map(Self);
+            unsafe { libc::umask(prev) };
+            res
         }
 
         pub fn incoming(&self) -> Incoming<'_> {

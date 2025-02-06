@@ -109,6 +109,7 @@ pub enum RainTypeId {
     InternalFunction,
     List,
     Error,
+    Record,
 }
 
 pub trait ValueInner: Any + Debug + Send + Sync + RainHash + RainEq {

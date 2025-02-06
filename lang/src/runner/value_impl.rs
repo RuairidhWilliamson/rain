@@ -1,11 +1,14 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use crate::{
     afs::{area::FileArea, file::File},
     ir::{DeclarationId, ModuleId},
 };
 
-use super::value::{RainTypeId, Value, ValueInner};
+use super::{
+    hash::RainHash,
+    value::{RainTypeId, Value, ValueInner},
+};
 
 #[derive(Hash, PartialEq, Eq)]
 pub struct RainUnit;
@@ -120,5 +123,23 @@ pub struct RainError(pub std::borrow::Cow<'static, str>);
 impl ValueInner for RainError {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Error
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct RainRecord(pub HashMap<String, Value>);
+
+impl ValueInner for RainRecord {
+    fn rain_type_id(&self) -> RainTypeId {
+        RainTypeId::Record
+    }
+}
+
+impl RainHash for RainRecord {
+    fn rain_hash(&self, state: &mut dyn std::hash::Hasher) {
+        for (k, v) in &self.0 {
+            k.rain_hash(state);
+            v.rain_hash(state);
+        }
     }
 }

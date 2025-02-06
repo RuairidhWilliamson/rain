@@ -65,6 +65,7 @@ clap = { version = "4.5", features = ["derive"] }
 colored = "2.1.0"
 env_logger = "0.11.5"
 insta = { version = "1.39.0", features = ["colors"], default-features = false }
+libc = "0.2.169"
 log = "0.4.22"
 lru = "0.12.4"
 num-bigint = "0.4.6"
