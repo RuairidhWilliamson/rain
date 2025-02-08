@@ -26,6 +26,7 @@ uuid.workspace = true
 web-time.workspace = true
 zip = "2.2.0"
 
+poison_panic.path = "../poison_panic"
 rain-lang.path = "../lang"
 
 [dev-dependencies]

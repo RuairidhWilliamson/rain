@@ -5,6 +5,7 @@ members = [
   "smee-rs",
   "ci-test",
   "cli",
+  "poison_panic",
   "web-editor",
 ]
 resolver = "2"

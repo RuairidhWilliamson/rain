@@ -5,16 +5,18 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use crate::config::Config;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RequestHeader {
+pub struct RequestWrapper {
     pub config: Config,
     pub modified_time: SystemTime,
+    pub request: Vec<u8>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum ResponseWrapper<R> {
-    Response(R),
-    RestartPls(RestartReason),
+pub enum Message {
     ServerPanic,
+    RestartPls(RestartReason),
+    Intermediate(Vec<u8>),
+    Response(Vec<u8>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,6 +33,7 @@ pub enum Request {
 }
 
 pub trait RequestTrait: Into<Request> + private::Sealed {
+    type Intermediate: std::fmt::Debug + Serialize + DeserializeOwned;
     type Response: std::fmt::Debug + Serialize + DeserializeOwned;
 }
 
@@ -58,12 +61,17 @@ pub mod run {
     impl super::private::Sealed for RunRequest {}
 
     impl super::RequestTrait for RunRequest {
+        type Intermediate = RunProgress;
         type Response = RunResponse;
     }
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub enum RunProgress {
+        Print(String),
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunResponse {
-        pub prints: Vec<String>,
         pub output: Result<String, CoreError>,
     }
 }
@@ -81,6 +89,7 @@ pub mod info {
     impl super::private::Sealed for InfoRequest {}
 
     impl super::RequestTrait for InfoRequest {
+        type Intermediate = ();
         type Response = InfoResponse;
     }
 
@@ -112,6 +121,7 @@ pub mod shutdown {
     impl super::private::Sealed for ShutdownRequest {}
 
     impl super::RequestTrait for ShutdownRequest {
+        type Intermediate = ();
         type Response = Goodbye;
     }
 
@@ -133,6 +143,7 @@ pub mod clean {
     impl super::private::Sealed for CleanRequest {}
 
     impl super::RequestTrait for CleanRequest {
+        type Intermediate = ();
         type Response = Cleaned;
     }
 

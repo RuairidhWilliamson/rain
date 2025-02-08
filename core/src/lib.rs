@@ -1,3 +1,4 @@
+use config::Config;
 use driver::DriverImpl;
 use rain_lang::{
     driver::DriverTrait as _,
@@ -16,10 +17,10 @@ pub mod remote;
 pub fn run_log(
     path: impl AsRef<std::path::Path>,
     declaration: &str,
-    file_system: &DriverImpl,
 ) -> Result<rain_lang::runner::value::Value, ()> {
+    let driver = DriverImpl::new(Config::default());
     let mut cache = Cache::new(CACHE_SIZE);
-    run(path, declaration, &mut cache, file_system).map_err(|err| {
+    run(path, declaration, &mut cache, &driver).map_err(|err| {
         log::error!("{err}");
     })
 }

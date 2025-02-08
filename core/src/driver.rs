@@ -14,16 +14,18 @@ use rain_lang::{
 
 use crate::config::Config;
 
-pub struct DriverImpl {
+pub struct DriverImpl<'a> {
     pub config: Config,
     pub prints: Mutex<Vec<String>>,
+    pub print_handler: Option<Box<dyn Fn(&str) + 'a>>,
 }
 
-impl DriverImpl {
+impl DriverImpl<'_> {
     pub fn new(config: Config) -> Self {
         Self {
             config,
             prints: Mutex::default(),
+            print_handler: None,
         }
     }
 
@@ -46,7 +48,7 @@ impl DriverImpl {
     }
 }
 
-impl DriverTrait for DriverImpl {
+impl DriverTrait for DriverImpl<'_> {
     fn resolve_file(&self, file: &File) -> PathBuf {
         let abs_path = file.path();
         let Some(rel_path) = abs_path.strip_prefix('/') else {
@@ -78,6 +80,9 @@ impl DriverTrait for DriverImpl {
 
     #[expect(clippy::unwrap_used)]
     fn print(&self, message: String) {
+        if let Some(ph) = &self.print_handler {
+            ph(&message);
+        }
         self.prints.lock().unwrap().push(message);
     }
 

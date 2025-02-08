@@ -6,11 +6,19 @@ use std::{
     time::SystemTime,
 };
 
+use poison_panic::MutexExt;
 use rain_lang::runner::cache::Cache;
 
-use crate::{config::Config, driver::DriverImpl, remote::msg::RestartReason};
+use crate::{
+    config::Config,
+    driver::DriverImpl,
+    remote::msg::{RequestWrapper, RestartReason},
+};
 
-use super::msg::{run::RunResponse, Request, RequestHeader, RequestTrait, ResponseWrapper};
+use super::msg::{
+    run::{RunProgress, RunResponse},
+    Message, Request, RequestTrait,
+};
 
 #[derive(Debug)]
 pub enum Error {
@@ -42,7 +50,7 @@ impl From<ciborium::de::Error<std::io::Error>> for Error {
 pub fn rain_server(config: Config) -> Result<(), Error> {
     let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
     let modified_time = exe_stat.modified()?;
-    let cache = Mutex::new(Cache::new(crate::CACHE_SIZE));
+    let cache = Cache::new(crate::CACHE_SIZE);
     let s = Server {
         config,
         modified_time,
@@ -71,8 +79,7 @@ struct Server {
     modified_time: SystemTime,
     /// Time the server was started
     start_time: chrono::DateTime<chrono::Utc>,
-    // TODO: Get rid of this mutex, it is a hacky way to reuse the cache but prevents running multiple runs at once
-    cache: Mutex<Cache>,
+    cache: Cache,
     stats: Stats,
 }
 
@@ -89,16 +96,16 @@ struct ClientHandler<'a> {
 
 impl ClientHandler<'_> {
     fn handle_client(mut self) -> Result<(), Error> {
-        let hdr: RequestHeader = ciborium::from_reader(&mut self.stream)?;
+        let hdr: RequestWrapper = ciborium::from_reader(&mut self.stream)?;
         if hdr.modified_time != self.server.modified_time {
             log::info!("Restarting because modified time does not match");
             std::fs::remove_file(self.server.config.server_socket_path())?;
-            let response = ResponseWrapper::<()>::RestartPls(RestartReason::RainBinaryChanged);
+            let response = Message::RestartPls(RestartReason::RainBinaryChanged);
             ciborium::into_writer(&response, &mut self.stream)?;
             std::process::exit(0)
         }
-        let request: Request = ciborium::from_reader(&mut self.stream)?;
         log::info!("Header {hdr:?}");
+        let request: Request = ciborium::from_reader(std::io::Cursor::new(hdr.request))?;
         log::info!("Request {request:?}");
         self.server
             .stats
@@ -115,22 +122,28 @@ impl ClientHandler<'_> {
         }
     }
 
-    #[expect(clippy::unwrap_used)]
     fn handle_request(&mut self, req: Request) -> Result<(), Error> {
         match req {
             Request::Run(req) => {
-                let fs = DriverImpl::new(self.server.config.clone());
-                let mut cache = self.server.cache.lock().unwrap();
-                let result =
-                    crate::run(&req.root, &req.target, &mut cache, &fs).map(|v| v.to_string());
-                let prints = fs.prints.into_inner().unwrap();
-                self.send_response(
-                    &req,
-                    RunResponse {
-                        prints,
-                        output: result,
-                    },
-                )?;
+                let config = self.server.config.clone();
+                let mut cache = self.server.cache.clone();
+                let s = Mutex::new(self);
+                let result;
+                {
+                    let fs = DriverImpl {
+                        config,
+                        prints: Mutex::default(),
+                        print_handler: Some(Box::new(|m| {
+                            s.plock()
+                                .send_intermediate(&req, &RunProgress::Print(m.to_owned()))
+                                .unwrap();
+                        })),
+                    };
+                    result =
+                        crate::run(&req.root, &req.target, &mut cache, &fs).map(|v| v.to_string());
+                }
+                let s = s.pinto_inner();
+                s.send_response(&req, &RunResponse { output: result })?;
                 Ok(())
             }
             Request::Info(req) => {
@@ -147,12 +160,12 @@ impl ClientHandler<'_> {
                         responses_sent: self.server.stats.responses_sent.load(Ordering::Relaxed),
                     },
                 };
-                self.send_response(&req, resp)?;
+                self.send_response(&req, &resp)?;
                 Ok(())
             }
             Request::Shutdown(req) => {
                 log::info!("Goodbye");
-                self.send_response(&req, super::msg::shutdown::Goodbye)?;
+                self.send_response(&req, &super::msg::shutdown::Goodbye)?;
                 std::process::exit(0);
             }
             Request::Clean(req) => {
@@ -166,21 +179,39 @@ impl ClientHandler<'_> {
                 }
                 std::fs::remove_dir_all(clean_path)?;
                 log::info!("Goodbye");
-                self.send_response(&req, super::msg::clean::Cleaned)?;
+                self.send_response(&req, &super::msg::clean::Cleaned)?;
                 std::process::exit(0);
             }
         }
     }
 
-    fn send_response<Req>(
+    fn send_intermediate<Req>(
         &mut self,
         _req: &Req,
-        response: Req::Response,
+        intermediate: &Req::Intermediate,
     ) -> Result<(), ciborium::ser::Error<std::io::Error>>
     where
         Req: RequestTrait,
     {
-        let wrapped = ResponseWrapper::Response(response);
+        let mut buf = Vec::new();
+        ciborium::into_writer(&intermediate, &mut buf)?;
+
+        let wrapped = Message::Intermediate(buf);
+        ciborium::into_writer(&wrapped, &mut self.stream)
+    }
+
+    fn send_response<Req>(
+        &mut self,
+        _req: &Req,
+        response: &Req::Response,
+    ) -> Result<(), ciborium::ser::Error<std::io::Error>>
+    where
+        Req: RequestTrait,
+    {
+        let mut buf = Vec::new();
+        ciborium::into_writer(&response, &mut buf)?;
+
+        let wrapped = Message::Response(buf);
         self.server
             .stats
             .responses_sent
@@ -191,7 +222,7 @@ impl ClientHandler<'_> {
     fn send_panic(&mut self) -> Result<(), ciborium::ser::Error<std::io::Error>> {
         // This doesn't feel safe to use generic () here but maybe it is ok
         // It might depend on the serde backend we are using
-        let wrapped = ResponseWrapper::<()>::ServerPanic;
+        let wrapped = Message::ServerPanic;
         ciborium::into_writer(&wrapped, &mut self.stream)
     }
 }

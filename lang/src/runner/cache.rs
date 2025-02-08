@@ -1,7 +1,12 @@
-use std::{num::NonZeroUsize, time::Duration};
+use std::{
+    num::NonZeroUsize,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use chrono::{DateTime, Utc};
 use lru::LruCache;
+use poison_panic::MutexExt as _;
 
 use crate::ir::DeclarationId;
 
@@ -12,14 +17,15 @@ use super::{internal::InternalFunction, value::Value, value_impl::RainFunction};
 // The number is bigger than zero
 pub const CACHE_SIZE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1024) };
 
+#[derive(Clone)]
 pub struct Cache {
-    storage: LruCache<CacheKey, CacheEntry>,
+    storage: Arc<Mutex<LruCache<CacheKey, CacheEntry>>>,
 }
 
 impl Cache {
     pub fn new(size: NonZeroUsize) -> Self {
         Self {
-            storage: LruCache::new(size),
+            storage: Arc::new(Mutex::new(LruCache::new(size))),
         }
     }
 
@@ -34,12 +40,12 @@ impl Cache {
         }
     }
 
-    pub fn get_value(&mut self, key: &CacheKey) -> Option<&Value> {
-        self.storage.get(key).map(|e| &e.value)
+    pub fn get_value(&mut self, key: &CacheKey) -> Option<Value> {
+        self.storage.plock().get(key).map(|e| e.value.clone())
     }
 
     pub fn put(&mut self, key: CacheKey, execution_time: Duration, value: Value) {
-        self.storage.put(
+        self.storage.plock().put(
             key,
             CacheEntry {
                 execution_time,

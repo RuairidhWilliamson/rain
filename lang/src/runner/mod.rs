@@ -207,7 +207,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 let key = self.cache.function_key(f, arg_values.clone());
 
                 if let Some(v) = self.cache.get_value(&key) {
-                    return Ok(v.clone());
+                    return Ok(v);
                 }
                 let start = Instant::now();
                 let m = &Arc::clone(self.ir.get_module(f.id.module_id()));
@@ -254,7 +254,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     .cache
                     .function_key(*f, arg_values.iter().map(|(_, a)| a.clone()).collect());
                 if let Some(v) = self.cache.get_value(&key) {
-                    return Ok(v.clone());
+                    return Ok(v);
                 }
                 let start = web_time::Instant::now();
                 let v = f.call_internal_function(

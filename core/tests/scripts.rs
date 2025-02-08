@@ -4,11 +4,7 @@ use rain_core::driver::DriverImpl;
 use rain_lang::runner::value::Value;
 
 fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
-    rain_core::run_log(
-        path,
-        "main",
-        &DriverImpl::new(rain_core::config::Config::default()),
-    )
+    rain_core::run_log(path, "main")
 }
 
 #[test]

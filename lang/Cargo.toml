@@ -19,6 +19,8 @@ termcolor.workspace = true
 uuid.workspace = true
 web-time.workspace = true
 
+poison_panic.path = "../poison_panic"
+
 [dev-dependencies]
 insta.workspace = true
 quickcheck_macros.workspace = true

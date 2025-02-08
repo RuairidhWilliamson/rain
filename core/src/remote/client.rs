@@ -1,10 +1,10 @@
 use std::{process::Stdio, time::Duration};
 
-use serde::de::DeserializeOwned;
+use crate::{config::Config, remote::msg::RequestWrapper};
 
-use crate::config::Config;
+use super::msg::{Message, Request, RequestTrait, RestartReason};
 
-use super::msg::{Request, RequestHeader, RequestTrait, ResponseWrapper, RestartReason};
+const MAX_RESTARTS: usize = 1;
 
 #[derive(Debug)]
 pub enum Error {
@@ -35,12 +35,16 @@ impl From<ciborium::de::Error<std::io::Error>> for Error {
     }
 }
 
-pub fn make_request_or_start<Req>(config: &Config, request: Req) -> Result<Req::Response, Error>
+pub fn make_request_or_start<Req>(
+    config: &Config,
+    request: Req,
+    handle: impl Fn(Req::Intermediate),
+) -> Result<Req::Response, Error>
 where
     Req: RequestTrait,
 {
     log::info!("Connecting");
-    let stream = match crate::ipc::Client::connect(config.server_socket_path()) {
+    let mut stream = match crate::ipc::Client::connect(config.server_socket_path()) {
         Ok(s) => s,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             log::info!("No socket at path");
@@ -56,29 +60,44 @@ where
         }
     };
     let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
-    let hdr = RequestHeader {
+    let request: Request = request.into();
+    let mut buf = Vec::new();
+    ciborium::into_writer(&request, &mut buf)?;
+    let req = RequestWrapper {
         config: config.clone(),
         modified_time: exe_stat.modified()?,
+        request: buf,
     };
-    let request: Request = request.into();
-    let response: ResponseWrapper<Req::Response> = make_request(stream, &hdr, &request)?;
-    match response {
-        ResponseWrapper::RestartPls(reason) => {
-            log::info!("server requested restart, reason {reason:?}");
-            let stream = start_server(config)?;
-            match make_request(stream, &hdr, &request)? {
-                ResponseWrapper::Response(resp) => Ok(resp),
-                ResponseWrapper::RestartPls(reason) => Err(Error::RestartLoop(reason)),
-                ResponseWrapper::ServerPanic => {
+    let mut restart_attempt = 0;
+    loop {
+        log::debug!("sending request {req:?}");
+        ciborium::into_writer(&req, &mut stream)?;
+        loop {
+            let msg: Message = ciborium::from_reader(&mut stream)?;
+            match msg {
+                Message::Intermediate(im) => {
+                    let im: <Req as RequestTrait>::Intermediate =
+                        ciborium::from_reader(std::io::Cursor::new(im))?;
+                    handle(im);
+                    continue;
+                }
+                Message::ServerPanic => {
                     log::error!("server panic");
-                    Err(Error::ServerPanic)
+                    return Err(Error::ServerPanic);
+                }
+                Message::RestartPls(reason) => {
+                    if restart_attempt > MAX_RESTARTS {
+                        return Err(Error::RestartLoop(reason));
+                    }
+                    restart_attempt += 1;
+                    log::info!("server requested restart, reason {reason:?}");
+                    stream = start_server(config)?;
+                    break;
+                }
+                Message::Response(response) => {
+                    return Ok(ciborium::from_reader(std::io::Cursor::new(response))?)
                 }
             }
-        }
-        ResponseWrapper::Response(resp) => Ok(resp),
-        ResponseWrapper::ServerPanic => {
-            log::error!("server panic");
-            Err(Error::ServerPanic)
         }
     }
 }
@@ -108,19 +127,4 @@ fn start_server(config: &Config) -> Result<crate::ipc::Client, Error> {
         }
     }
     Err(Error::TimeoutWaitingForServer)
-}
-
-fn make_request<Resp>(
-    mut stream: crate::ipc::Client,
-    hdr: &RequestHeader,
-    request: &Request,
-) -> Result<ResponseWrapper<Resp>, Error>
-where
-    Resp: std::fmt::Debug + DeserializeOwned,
-{
-    ciborium::into_writer(hdr, &mut stream)?;
-    ciborium::into_writer(request, &mut stream)?;
-    let response: ResponseWrapper<Resp> = ciborium::from_reader(&mut stream)?;
-    log::info!("Got repsonse {response:?}");
-    Ok(response)
 }
