@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use termcolor::{NoColor, WriteColor};
 
 use crate::{afs::file::File, local_span::LocalSpan};
 
@@ -38,13 +39,19 @@ impl ResolvedError<'_> {
     }
 }
 
-impl std::error::Error for ResolvedError<'_> {}
+impl ResolvedError<'_> {
+    pub fn write_color(&self, bufwtr: &mut impl WriteColor) -> std::io::Result<()> {
+        self.into_owned().write_color(bufwtr)
+    }
+}
 
 impl std::fmt::Display for ResolvedError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.into_owned().fmt(f)
     }
 }
+
+impl std::error::Error for ResolvedError<'_> {}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OwnedResolvedError {
@@ -58,9 +65,9 @@ pub struct OwnedResolvedError {
     pub err: String,
 }
 
-impl std::fmt::Display for OwnedResolvedError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use colored::Colorize as _;
+impl OwnedResolvedError {
+    pub fn write_color(&self, writer: &mut impl WriteColor) -> std::io::Result<()> {
+        use termcolor::{Color, ColorSpec};
         let Self {
             file_name,
             line,
@@ -71,14 +78,24 @@ impl std::fmt::Display for OwnedResolvedError {
             arrows,
             err,
         } = self;
-        let location = format!("{file_name}:{line}:{col}\n").blue();
-        f.write_fmt(format_args!("{location}"))?;
-        let contents = contents.red();
-        f.write_fmt(format_args!("| {before}{contents}{after}\n"))?;
-        let err = err.red();
-        let arrows = arrows.red();
-        f.write_fmt(format_args!("  {arrows} {err}"))?;
+        writer.set_color(ColorSpec::new().set_fg(Some(Color::Blue)))?;
+        writeln!(writer, "{file_name}:{line}:{col}")?;
+        writer.set_color(ColorSpec::new().set_fg(None))?;
+        writeln!(writer, "| {before}{contents}{after}")?;
+        writer.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
+        writeln!(writer, "  {arrows} {err}")?;
         Ok(())
+    }
+}
+
+impl std::fmt::Display for OwnedResolvedError {
+    #[expect(clippy::unwrap_used)]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut data = Vec::new();
+        let mut buf = NoColor::new(&mut data);
+        self.write_color(&mut buf).unwrap();
+        let s = std::str::from_utf8(&data).unwrap();
+        f.write_str(s)
     }
 }
 

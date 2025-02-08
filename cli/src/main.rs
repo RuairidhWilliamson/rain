@@ -49,7 +49,18 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
                     println!("{s}");
                 }
                 Err(s) => {
-                    println!("{s}");
+                    match s {
+                        rain_core::CoreError::LangError(owned_resolved_error) => {
+                            let mut stdout =
+                                termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
+                            owned_resolved_error
+                                .write_color(&mut stdout)
+                                .expect("write stdout");
+                        }
+                        rain_core::CoreError::Other(s) => {
+                            println!("{s}");
+                        }
+                    }
                     return Err(());
                 }
             }

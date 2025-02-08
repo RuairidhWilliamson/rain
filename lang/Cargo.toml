@@ -11,13 +11,13 @@ workspace = true
 
 [dependencies]
 chrono.workspace = true
-colored.workspace = true
 log.workspace = true
 lru.workspace = true
 num-bigint.workspace = true
+serde.workspace = true
+termcolor.workspace = true
 uuid.workspace = true
 web-time.workspace = true
-serde.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
