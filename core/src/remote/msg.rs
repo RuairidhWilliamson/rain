@@ -89,6 +89,13 @@ pub mod info {
         pub pid: u32,
         pub start_time: chrono::DateTime<chrono::Utc>,
         pub config: crate::config::Config,
+        pub stats: Stats,
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct Stats {
+        pub requests_received: usize,
+        pub responses_sent: usize,
     }
 }
 

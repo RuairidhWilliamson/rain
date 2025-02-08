@@ -13,7 +13,7 @@ pub mod ipc;
 pub mod remote;
 
 #[expect(clippy::result_unit_err)]
-pub fn run_stderr(
+pub fn run_log(
     path: impl AsRef<std::path::Path>,
     declaration: &str,
     file_system: &DriverImpl,

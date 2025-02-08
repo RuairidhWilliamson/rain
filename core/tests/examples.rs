@@ -5,7 +5,7 @@ use rain_lang::runner::value::Value;
 use test_log::test;
 
 fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
-    rain_core::run_stderr(
+    rain_core::run_log(
         path,
         "main",
         &DriverImpl::new(rain_core::config::Config::default()),

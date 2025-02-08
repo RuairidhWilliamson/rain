@@ -1,4 +1,10 @@
-use std::{sync::Mutex, time::SystemTime};
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Mutex,
+    },
+    time::SystemTime,
+};
 
 use rain_lang::runner::cache::Cache;
 
@@ -42,6 +48,7 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
         modified_time,
         start_time: chrono::Utc::now(),
         cache,
+        stats: Stats::default(),
     };
     let l = crate::ipc::Listener::bind(s.config.server_socket_path())?;
     for stream in l.incoming() {
@@ -66,6 +73,13 @@ struct Server {
     start_time: chrono::DateTime<chrono::Utc>,
     // TODO: Get rid of this mutex, it is a hacky way to reuse the cache but prevents running multiple runs at once
     cache: Mutex<Cache>,
+    stats: Stats,
+}
+
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+struct Stats {
+    pub requests_received: AtomicUsize,
+    pub responses_sent: AtomicUsize,
 }
 
 struct ClientHandler<'a> {
@@ -86,6 +100,10 @@ impl ClientHandler<'_> {
         let request: Request = ciborium::from_reader(&mut self.stream)?;
         log::info!("Header {hdr:?}");
         log::info!("Request {request:?}");
+        self.server
+            .stats
+            .requests_received
+            .fetch_add(1, Ordering::Relaxed);
         match std::thread::scope(|s| s.spawn(|| self.handle_request(request)).join()) {
             Err(err) => {
                 log::error!("panic during handle request");
@@ -118,8 +136,16 @@ impl ClientHandler<'_> {
             Request::Info(req) => {
                 let resp = super::msg::info::InfoResponse {
                     pid: std::process::id(),
-                    config: self.server.config.clone(),
                     start_time: self.server.start_time,
+                    config: self.server.config.clone(),
+                    stats: super::msg::info::Stats {
+                        requests_received: self
+                            .server
+                            .stats
+                            .requests_received
+                            .load(Ordering::Relaxed),
+                        responses_sent: self.server.stats.responses_sent.load(Ordering::Relaxed),
+                    },
                 };
                 self.send_response(&req, resp)?;
                 Ok(())
@@ -155,6 +181,10 @@ impl ClientHandler<'_> {
         Req: RequestTrait,
     {
         let wrapped = ResponseWrapper::Response(response);
+        self.server
+            .stats
+            .responses_sent
+            .fetch_add(1, Ordering::Relaxed);
         ciborium::into_writer(&wrapped, &mut self.stream)
     }
 
