@@ -14,10 +14,12 @@ use rain_lang::{
 
 use crate::config::Config;
 
+pub type PrintHandler<'a> = Box<dyn Fn(&str) + 'a>;
+
 pub struct DriverImpl<'a> {
     pub config: Config,
     pub prints: Mutex<Vec<String>>,
-    pub print_handler: Option<Box<dyn Fn(&str) + 'a>>,
+    pub print_handler: Option<PrintHandler<'a>>,
 }
 
 impl DriverImpl<'_> {

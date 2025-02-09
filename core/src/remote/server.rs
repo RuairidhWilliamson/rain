@@ -6,7 +6,7 @@ use std::{
     time::SystemTime,
 };
 
-use poison_panic::MutexExt;
+use poison_panic::MutexExt as _;
 use rain_lang::runner::cache::Cache;
 
 use crate::{
@@ -134,9 +134,12 @@ impl ClientHandler<'_> {
                         config,
                         prints: Mutex::default(),
                         print_handler: Some(Box::new(|m| {
-                            s.plock()
-                                .send_intermediate(&req, &RunProgress::Print(m.to_owned()))
-                                .unwrap();
+                            let send_result = s
+                                .plock()
+                                .send_intermediate(&req, &RunProgress::Print(m.to_owned()));
+                            if let Err(err) = send_result {
+                                log::error!("send intermediate print: {err}");
+                            }
                         })),
                     };
                     result =
@@ -220,8 +223,6 @@ impl ClientHandler<'_> {
     }
 
     fn send_panic(&mut self) -> Result<(), ciborium::ser::Error<std::io::Error>> {
-        // This doesn't feel safe to use generic () here but maybe it is ok
-        // It might depend on the serde backend we are using
         let wrapped = Message::ServerPanic;
         ciborium::into_writer(&wrapped, &mut self.stream)
     }

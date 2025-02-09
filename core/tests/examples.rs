@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use rain_core::driver::DriverImpl;
 use rain_lang::runner::value::Value;
 use test_log::test;
 
