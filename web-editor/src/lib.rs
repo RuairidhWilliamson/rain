@@ -9,7 +9,7 @@ use std::sync::Mutex;
 
 use rain_lang::{
     afs::{area::FileArea, file::File},
-    driver::DriverTrait,
+    driver::{DownloadStatus, DriverTrait},
     runner::{cache::Cache, error::RunnerError},
 };
 use wasm_bindgen::prelude::*;
@@ -93,7 +93,7 @@ impl DriverTrait for FileSystemImpl {
         todo!()
     }
 
-    fn download(&self, _url: &str) -> Result<File, RunnerError> {
+    fn download(&self, _url: &str) -> Result<DownloadStatus, RunnerError> {
         todo!()
     }
 }

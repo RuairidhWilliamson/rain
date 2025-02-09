@@ -1988,6 +1988,7 @@ dependencies = [
  "quickcheck_macros",
  "serde",
  "termcolor",
+ "thiserror 1.0.69",
  "uuid",
  "web-time",
 ]

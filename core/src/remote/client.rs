@@ -1,4 +1,4 @@
-use std::{process::Stdio, time::Duration};
+use std::{path::PathBuf, process::Stdio, time::Duration};
 
 use crate::{config::Config, remote::msg::RequestWrapper};
 
@@ -6,15 +6,22 @@ use super::msg::{Message, Request, RequestTrait, RestartReason};
 
 const MAX_RESTARTS: usize = 1;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("could not fetch current executable")]
     CurrentExe,
+    #[error("detected server restart loop due to {0:?}")]
     RestartLoop(RestartReason),
+    #[error("timeout waiting for server to start")]
     TimeoutWaitingForServer,
+    #[error("io error: {0}")]
     IO(std::io::Error),
+    #[error("encode error: {0}")]
     Encode(ciborium::ser::Error<std::io::Error>),
+    #[error("decode error: {0}")]
     Decode(ciborium::de::Error<std::io::Error>),
-    ServerPanic,
+    #[error("server panic see log: {0}")]
+    ServerPanic(PathBuf),
 }
 
 impl From<std::io::Error> for Error {
@@ -83,7 +90,14 @@ where
                 }
                 Message::ServerPanic => {
                     log::error!("server panic");
-                    return Err(Error::ServerPanic);
+                    let panic_path = config.server_panic_path(uuid::Uuid::new_v4());
+                    match std::fs::hard_link(config.server_stderr_path(), &panic_path) {
+                        Err(err) => {
+                            log::error!("failed to hardlink panic: {err}");
+                            return Err(Error::ServerPanic(config.server_stderr_path()));
+                        }
+                        Ok(()) => return Err(Error::ServerPanic(panic_path)),
+                    }
                 }
                 Message::RestartPls(reason) => {
                     if restart_attempt > MAX_RESTARTS {
@@ -105,12 +119,13 @@ where
 fn start_server(config: &Config) -> Result<crate::ipc::Client, Error> {
     std::fs::create_dir_all(&config.base_cache_dir)?;
     log::info!("Starting server...");
+    let _ = std::fs::remove_file(config.server_stderr_path());
     let p = std::process::Command::new(crate::exe::current_exe().ok_or(Error::CurrentExe)?)
         .env("RAIN_SERVER", "1")
         .env("RAIN_LOG", "debug")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(std::fs::File::create(config.server_stderr_path())?)
+        .stderr(std::fs::File::create_new(config.server_stderr_path())?)
         .spawn()?;
     log::info!("Started {}", p.id());
     // Wait for the socket to be created

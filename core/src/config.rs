@@ -35,4 +35,9 @@ impl Config {
     pub fn server_stderr_path(&self) -> PathBuf {
         self.base_cache_dir.join("server.stderr")
     }
+
+    pub fn server_panic_path(&self, id: uuid::Uuid) -> PathBuf {
+        self.base_cache_dir
+            .join(format!("server-panic-{id}.stderr"))
+    }
 }

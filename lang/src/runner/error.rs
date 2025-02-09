@@ -4,73 +4,42 @@ use crate::{afs::error::PathError, ast::error::ParseError};
 
 use super::value::RainTypeId;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum RunnerError {
+    #[error("generic run error")]
     GenericRunError,
+    #[error("wrong number of args, required {required:?} but got {actual}")]
     IncorrectArgs {
         required: RangeInclusive<usize>,
         actual: usize,
     },
+    #[error("unknown identifier")]
     UnknownIdent,
+    #[error("type mismatch, expected {expected:?} actual {actual:?}")]
     ExpectedType {
         actual: RainTypeId,
         expected: &'static [RainTypeId],
     },
+    #[error("invalid integer literal")]
     InvalidIntegerLiteral,
+    #[error("reached max call depth possibly due to infinite recursion")]
     MaxCallDepth,
-    PathError(PathError),
+    #[error("path error: {0}")]
+    PathError(#[from] PathError),
+    #[error("could not resolve import")]
     ImportResolve,
+    #[error("local areas can only be created from local areas")]
     IllegalLocalArea,
+    #[error("io error when getting area: {0}")]
     AreaIOError(std::io::Error),
+    #[error("io error when importing: {0}")]
     ImportIOError(std::io::Error),
-    ImportParseError(ParseError),
+    #[error("parse error when importing: {0}")]
+    ImportParseError(#[from] ParseError),
+    #[error("zip error: {0}")]
     ExtractError(Box<dyn std::error::Error>),
+    #[error("file does not exist")]
     FileDoesNotExist,
-}
-
-impl std::fmt::Display for RunnerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::GenericRunError => f.write_str("generic run error"),
-            Self::IncorrectArgs { required, actual } => f.write_fmt(format_args!(
-                "wrong number of args, requried {required:?} but got {actual}"
-            )),
-            Self::UnknownIdent => f.write_str("unknown identifier"),
-            Self::ExpectedType { actual, expected } => f.write_fmt(format_args!(
-                "type mismatch, expected {expected:?} actual {actual:?}"
-            )),
-            Self::InvalidIntegerLiteral => f.write_str("invalid integer literal"),
-            Self::MaxCallDepth => {
-                f.write_str("reached max call depth probably due to infinite recursion")
-            }
-            Self::PathError(err) => f.write_fmt(format_args!("path error: {err}")),
-            Self::ImportResolve => f.write_fmt(format_args!("could not resolve import")),
-            Self::IllegalLocalArea => {
-                f.write_str("local areas can only be created from local areas")
-            }
-            Self::AreaIOError(err) => {
-                f.write_fmt(format_args!("io error when getting area: {err}"))
-            }
-            Self::ImportIOError(err) => f.write_fmt(format_args!("io error when importing: {err}")),
-            Self::ImportParseError(err) => {
-                f.write_fmt(format_args!("parse error when importing: {err}"))
-            }
-            Self::ExtractError(err) => f.write_fmt(format_args!("zip error: {err}")),
-            Self::FileDoesNotExist => f.write_str("file does not exist"),
-        }
-    }
-}
-
-impl std::error::Error for RunnerError {}
-
-impl From<ParseError> for RunnerError {
-    fn from(err: ParseError) -> Self {
-        Self::ImportParseError(err)
-    }
-}
-
-impl From<PathError> for RunnerError {
-    fn from(err: PathError) -> Self {
-        Self::PathError(err)
-    }
+    #[error("record does not contain entry: {name}")]
+    RecordMissingEntry { name: String },
 }

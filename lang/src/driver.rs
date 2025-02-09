@@ -24,11 +24,17 @@ pub trait DriverTrait {
         args: Vec<String>,
     ) -> Result<RunStatus, RunnerError>;
 
-    fn download(&self, url: &str) -> Result<File, RunnerError>;
+    fn download(&self, url: &str) -> Result<DownloadStatus, RunnerError>;
 }
 
 pub struct RunStatus {
     pub success: bool,
     pub exit_code: Option<i32>,
     pub area: FileArea,
+}
+
+pub struct DownloadStatus {
+    pub ok: bool,
+    pub status_code: Option<u16>,
+    pub file: Option<File>,
 }

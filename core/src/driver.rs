@@ -8,7 +8,7 @@ use rain_lang::{
         area::{FileArea, GeneratedFileArea},
         file::File,
     },
-    driver::{DriverTrait, RunStatus},
+    driver::{DownloadStatus, DriverTrait, RunStatus},
     runner::error::RunnerError,
 };
 
@@ -138,7 +138,7 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     #[expect(clippy::unwrap_used)]
-    fn download(&self, url: &str) -> Result<File, RunnerError> {
+    fn download(&self, url: &str) -> Result<DownloadStatus, RunnerError> {
         let client = reqwest::blocking::Client::new();
         let request = client
             .request(reqwest::Method::GET, url)
@@ -159,7 +159,11 @@ impl DriverTrait for DriverImpl<'_> {
         let output_path = self.resolve_file(&output);
         let mut out = std::fs::File::create_new(output_path).unwrap();
         std::io::copy(&mut response, &mut out).unwrap();
-        Ok(output)
+        Ok(DownloadStatus {
+            ok: response.status().is_success(),
+            status_code: Some(response.status().as_u16()),
+            file: Some(output),
+        })
     }
 }
 

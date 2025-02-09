@@ -18,6 +18,7 @@ serde.workspace = true
 termcolor.workspace = true
 uuid.workspace = true
 web-time.workspace = true
+thiserror.workspace = true
 
 poison_panic.path = "../poison_panic"
 

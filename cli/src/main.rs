@@ -41,7 +41,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
                     rain_core::remote::msg::run::RunProgress::Print(s) => println!("{s}"),
                 })
                 .map_err(|err| {
-                    eprintln!("{err:?}");
+                    eprintln!("{err}");
                 })?;
             let result = run_response.output;
             match result {
@@ -67,13 +67,13 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
         }
         RainCtlCommand::Info => {
             let info = make_request_or_start(config, InfoRequest, |()| {}).map_err(|err| {
-                eprintln!("{err:?}");
+                eprintln!("{err}");
             })?;
             println!("{info:#?}");
         }
         RainCtlCommand::Shutdown => {
             make_request_or_start(config, ShutdownRequest, |()| {}).map_err(|err| {
-                eprintln!("{err:?}");
+                eprintln!("{err}");
             })?;
             println!("Server shutdown");
         }
@@ -82,7 +82,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
         }
         RainCtlCommand::Clean => {
             make_request_or_start(config, CleanRequest, |()| {}).map_err(|err| {
-                eprintln!("{err:?}");
+                eprintln!("{err}");
             })?;
             println!("Cleaned");
         }

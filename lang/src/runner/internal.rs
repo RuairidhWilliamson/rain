@@ -1,9 +1,11 @@
 #![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
 
+use std::collections::HashMap;
+
 use crate::{
     afs::{absolute::AbsolutePathBuf, area::FileArea, error::PathError, file::File},
     ast::{FnCall, NodeId},
-    driver::DriverTrait,
+    driver::{DownloadStatus, DriverTrait},
     ir::Rir,
     runner::value_impl::{RainError, RainUnit},
     span::ErrorSpan,
@@ -12,7 +14,7 @@ use crate::{
 use super::{
     error::RunnerError,
     value::{RainTypeId, Value, ValueInner},
-    value_impl::{Module, RainList},
+    value_impl::{Module, RainInteger, RainList, RainRecord},
     Cx, ResultValue,
 };
 
@@ -304,7 +306,14 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
             if !status.success {
                 return Ok(Value::new(RainError("command failed".into())));
             }
-            Ok(Value::new(status.area))
+            let mut m = HashMap::new();
+            m.insert("success".to_owned(), Value::new(status.success));
+            m.insert(
+                "exit_code".to_owned(),
+                Value::new(RainInteger(status.exit_code.unwrap_or(-1).into())),
+            );
+            m.insert("area".to_owned(), Value::new(status.area));
+            Ok(Value::new(RainRecord(m)))
         }
         _ => Err(icx.cx.err(
             icx.fn_call.rparen_token,
@@ -368,10 +377,26 @@ fn download(icx: InternalCx) -> ResultValue {
             let url: &String = url_value
                 .downcast_ref_error(&[RainTypeId::String])
                 .map_err(|err| icx.cx.nid_err(*url_nid, err))?;
-            let download_file = icx.file_system.download(url);
-            Ok(Value::new(
-                download_file.map_err(|err| icx.cx.nid_err(icx.nid, err))?,
-            ))
+            let DownloadStatus {
+                ok,
+                status_code,
+                file,
+            } = icx
+                .file_system
+                .download(url)
+                .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
+            let mut m = HashMap::new();
+            m.insert("ok".to_owned(), Value::new(ok));
+            m.insert(
+                "status_code".to_owned(),
+                Value::new(RainInteger(status_code.unwrap_or_default().into())),
+            );
+            if let Some(file) = file {
+                m.insert("file".to_owned(), Value::new(file));
+            } else {
+                m.insert("file".to_owned(), Value::new(RainUnit));
+            }
+            Ok(Value::new(RainRecord(m)))
         }
         _ => Err(icx.cx.err(
             icx.fn_call.rparen_token,

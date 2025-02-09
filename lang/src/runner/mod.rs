@@ -10,7 +10,7 @@ use std::{collections::HashMap, sync::Arc, time::Instant};
 use error::RunnerError;
 use internal::InternalFunction;
 use value::{RainTypeId, Value, ValueInner};
-use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainUnit};
+use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainRecord, RainUnit};
 
 use crate::{
     ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
@@ -308,6 +308,23 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         InternalFunction::evaluate_internal_function_name(name)
                             .map(Value::new)
                             .ok_or_else(|| cx.err(tls.0.span, RunnerError::GenericRunError))
+                    }
+                    _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
+                },
+                RainTypeId::Record => match cx.module.get(op.right) {
+                    Node::Ident(tls) => {
+                        let Some(record_value) = left.downcast_ref::<RainRecord>() else {
+                            unreachable!()
+                        };
+                        let name = tls.0.span.contents(&cx.module.src);
+                        record_value.0.get(name).cloned().ok_or_else(|| {
+                            cx.err(
+                                tls.0.span,
+                                RunnerError::RecordMissingEntry {
+                                    name: name.to_owned(),
+                                },
+                            )
+                        })
                     }
                     _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
                 },
