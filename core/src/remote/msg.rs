@@ -68,6 +68,8 @@ pub mod run {
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub enum RunProgress {
         Print(String),
+        EnterCall(String),
+        ExitCall(String),
     }
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]

@@ -45,3 +45,11 @@ fn print_some_stuff() {
 	// print("Whats \"dog\" up")
 	print("Whats up")
 }
+
+fn everything() {
+	check()
+	build()
+	run()
+	download_test()
+	print_some_stuff()
+}

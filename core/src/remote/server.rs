@@ -144,6 +144,22 @@ impl ClientHandler<'_> {
                                 log::error!("send intermediate print: {err}");
                             }
                         })),
+                        enter_handler: Some(Box::new(|m| {
+                            let send_result = s
+                                .plock()
+                                .send_intermediate(&req, &RunProgress::EnterCall(m.to_owned()));
+                            if let Err(err) = send_result {
+                                log::error!("send intermediate enter call: {err}");
+                            }
+                        })),
+                        exit_handler: Some(Box::new(|m| {
+                            let send_result = s
+                                .plock()
+                                .send_intermediate(&req, &RunProgress::ExitCall(m.to_owned()));
+                            if let Err(err) = send_result {
+                                log::error!("send intermediate exit call: {err}");
+                            }
+                        })),
                     };
                     result =
                         crate::run(&req.root, &req.target, &mut cache, &fs).map(|v| v.to_string());

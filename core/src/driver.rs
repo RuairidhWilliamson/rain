@@ -10,7 +10,7 @@ use rain_lang::{
         file::File,
     },
     driver::{DownloadStatus, DriverTrait, RunStatus},
-    runner::error::RunnerError,
+    runner::{error::RunnerError, internal::InternalFunction},
 };
 
 use crate::config::Config;
@@ -20,6 +20,8 @@ pub type PrintHandler<'a> = Box<dyn Fn(&str) + 'a>;
 pub struct DriverImpl<'a> {
     pub config: Config,
     pub prints: Mutex<Vec<String>>,
+    pub enter_handler: Option<PrintHandler<'a>>,
+    pub exit_handler: Option<PrintHandler<'a>>,
     pub print_handler: Option<PrintHandler<'a>>,
 }
 
@@ -28,6 +30,8 @@ impl DriverImpl<'_> {
         Self {
             config,
             prints: Mutex::default(),
+            enter_handler: None,
+            exit_handler: None,
             print_handler: None,
         }
     }
@@ -167,6 +171,30 @@ impl DriverTrait for DriverImpl<'_> {
             status_code: Some(response.status().as_u16()),
             file: Some(output),
         })
+    }
+
+    fn enter_call(&self, s: &str) {
+        if let Some(ph) = &self.enter_handler {
+            ph(s);
+        }
+    }
+
+    fn exit_call(&self, s: &str) {
+        if let Some(ph) = &self.exit_handler {
+            ph(s);
+        }
+    }
+
+    fn enter_internal_call(&self, f: &InternalFunction) {
+        if let Some(ph) = &self.enter_handler {
+            ph(&format!("internal.{f:?}"));
+        }
+    }
+
+    fn exit_internal_call(&self, f: &InternalFunction) {
+        if let Some(ph) = &self.exit_handler {
+            ph(&format!("internal.{f:?}"));
+        }
     }
 }
 

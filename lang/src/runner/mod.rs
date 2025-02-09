@@ -1,7 +1,7 @@
 pub mod cache;
 pub mod error;
 pub mod hash;
-mod internal;
+pub mod internal;
 pub mod value;
 pub mod value_impl;
 
@@ -216,6 +216,8 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 let Node::FnDeclare(fn_declare) = node else {
                     unreachable!();
                 };
+                let function_name = fn_declare.name.span.contents(&m.src);
+                self.driver.enter_call(function_name);
                 if fn_declare.args.len() != fn_call.args.len() {
                     return Err(cx.err(
                         fn_call.rparen_token,
@@ -238,6 +240,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     locals: HashMap::new(),
                 };
                 let result = self.evaluate_node(&mut cx, fn_declare.block)?;
+                self.driver.exit_call(function_name);
                 self.cache.put(key, start.elapsed(), result.clone());
                 Ok(result)
             }
@@ -257,6 +260,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     return Ok(v);
                 }
                 let start = web_time::Instant::now();
+                self.driver.enter_internal_call(f);
                 let v = f.call_internal_function(
                     self.driver,
                     &mut self.ir,
@@ -265,6 +269,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     fn_call,
                     arg_values,
                 )?;
+                self.driver.exit_internal_call(f);
                 self.cache.put(key, start.elapsed(), v.clone());
                 Ok(v)
             }
