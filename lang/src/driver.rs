@@ -15,7 +15,7 @@ pub trait DriverTrait {
 
     fn print(&self, message: String);
 
-    fn extract(&self, file: &File) -> Result<FileArea, Box<dyn std::error::Error>>;
+    fn extract(&self, file: &File) -> Result<FileArea, RunnerError>;
 
     fn run(
         &self,

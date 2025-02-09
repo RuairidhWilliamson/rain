@@ -80,7 +80,7 @@ impl DriverTrait for FileSystemImpl {
         self.prints.lock().unwrap().push(message);
     }
 
-    fn extract(&self, _file: &File) -> Result<FileArea, Box<dyn std::error::Error>> {
+    fn extract(&self, _file: &File) -> Result<FileArea, RunnerError> {
         todo!()
     }
 

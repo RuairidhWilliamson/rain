@@ -1,4 +1,8 @@
-use std::{path::PathBuf, process::Stdio, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    process::Stdio,
+    time::Duration,
+};
 
 use crate::{config::Config, remote::msg::RequestWrapper};
 
@@ -42,6 +46,7 @@ impl From<ciborium::de::Error<std::io::Error>> for Error {
     }
 }
 
+#[expect(clippy::missing_panics_doc)]
 pub fn make_request_or_start<Req>(
     config: &Config,
     request: Req,
@@ -91,6 +96,7 @@ where
                 Message::ServerPanic => {
                     log::error!("server panic");
                     let panic_path = config.server_panic_path(uuid::Uuid::new_v4());
+                    let _ = std::fs::create_dir_all(panic_path.parent().expect("parent path"));
                     match std::fs::hard_link(config.server_stderr_path(), &panic_path) {
                         Err(err) => {
                             log::error!("failed to hardlink panic: {err}");
@@ -117,15 +123,13 @@ where
 }
 
 fn start_server(config: &Config) -> Result<crate::ipc::Client, Error> {
-    std::fs::create_dir_all(&config.base_cache_dir)?;
     log::info!("Starting server...");
-    let _ = std::fs::remove_file(config.server_stderr_path());
     let p = std::process::Command::new(crate::exe::current_exe().ok_or(Error::CurrentExe)?)
         .env("RAIN_SERVER", "1")
         .env("RAIN_LOG", "debug")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(std::fs::File::create_new(config.server_stderr_path())?)
+        .stderr(create_new_unlink(config.server_stderr_path())?)
         .spawn()?;
     log::info!("Started {}", p.id());
     // Wait for the socket to be created
@@ -142,4 +146,11 @@ fn start_server(config: &Config) -> Result<crate::ipc::Client, Error> {
         }
     }
     Err(Error::TimeoutWaitingForServer)
+}
+
+fn create_new_unlink(path: impl AsRef<Path>) -> std::io::Result<std::fs::File> {
+    let path: &Path = path.as_ref();
+    std::fs::create_dir_all(path.parent().expect("path parent"))?;
+    let _ = std::fs::remove_file(path);
+    std::fs::File::create_new(path)
 }

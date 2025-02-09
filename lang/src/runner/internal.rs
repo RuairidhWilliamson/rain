@@ -240,7 +240,7 @@ fn extract_implementation(icx: InternalCx) -> ResultValue {
             let area = icx
                 .file_system
                 .extract(file)
-                .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::ExtractError(err)))?;
+                .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
             Ok(Value::new(area))
         }
         _ => Err(icx.cx.err(

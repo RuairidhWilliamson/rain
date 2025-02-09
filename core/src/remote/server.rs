@@ -47,6 +47,7 @@ impl From<ciborium::de::Error<std::io::Error>> for Error {
     }
 }
 
+#[expect(clippy::missing_panics_doc)]
 pub fn rain_server(config: Config) -> Result<(), Error> {
     let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
     let modified_time = exe_stat.modified()?;
@@ -58,7 +59,9 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
         cache,
         stats: Stats::default(),
     };
-    let l = crate::ipc::Listener::bind(s.config.server_socket_path())?;
+    let socket_path = s.config.server_socket_path();
+    std::fs::create_dir_all(socket_path.parent().expect("path parent"))?;
+    let l = crate::ipc::Listener::bind(socket_path)?;
     for stream in l.incoming() {
         match stream {
             Ok(stream) => {

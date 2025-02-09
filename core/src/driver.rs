@@ -3,6 +3,7 @@ use std::{
     sync::Mutex,
 };
 
+use poison_panic::MutexExt as _;
 use rain_lang::{
     afs::{
         area::{FileArea, GeneratedFileArea},
@@ -80,29 +81,31 @@ impl DriverTrait for DriverImpl<'_> {
             .find_map(|p| find_bin_in_dir(Path::new(p), name))
     }
 
-    #[expect(clippy::unwrap_used)]
     fn print(&self, message: String) {
         if let Some(ph) = &self.print_handler {
             ph(&message);
         }
-        self.prints.lock().unwrap().push(message);
+        self.prints.plock().push(message);
     }
 
-    #[expect(clippy::unwrap_used)]
-    fn extract(&self, file: &File) -> Result<FileArea, Box<dyn std::error::Error>> {
+    fn extract(&self, file: &File) -> Result<FileArea, RunnerError> {
         let resolved_path = self.resolve_file(file);
-        let area = self.create_area().unwrap();
+        let area = self.create_area()?;
         let output_dir = File::new(area.clone(), "/");
         let output_dir_path = self.resolve_file(&output_dir);
-        let f = std::fs::File::open(resolved_path)?;
-        let mut zip = zip::read::ZipArchive::new(f)?;
+        let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
+        let mut zip = zip::read::ZipArchive::new(f)
+            .map_err(|err| RunnerError::ExtractError(Box::new(err)))?;
         for i in 0..zip.len() {
-            let mut zip_file = zip.by_index(i)?;
+            let mut zip_file = zip
+                .by_index(i)
+                .map_err(|err| RunnerError::ExtractError(Box::new(err)))?;
             let Some(name) = zip_file.enclosed_name() else {
                 continue;
             };
-            let mut out = std::fs::File::create_new(output_dir_path.join(name))?;
-            std::io::copy(&mut zip_file, &mut out)?;
+            let mut out = std::fs::File::create_new(output_dir_path.join(name))
+                .map_err(RunnerError::AreaIOError)?;
+            std::io::copy(&mut zip_file, &mut out).map_err(RunnerError::AreaIOError)?;
         }
         Ok(area)
     }
