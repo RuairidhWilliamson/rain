@@ -9,7 +9,7 @@ use std::sync::Mutex;
 
 use rain_lang::{
     afs::{area::FileArea, file::File},
-    driver::{DownloadStatus, DriverTrait},
+    driver::{DownloadStatus, DriverTrait, MonitoringTrait},
     runner::{cache::Cache, error::RunnerError},
 };
 use wasm_bindgen::prelude::*;
@@ -29,7 +29,7 @@ pub fn init_panic_hook() {
 
 #[wasm_bindgen]
 pub fn run_source(source: String) -> Result<ExecuteOutput, String> {
-    let file_system = FileSystemImpl::default();
+    let file_system = DriverImpl::default();
     let module = rain_lang::ast::parser::parse_module(&source);
     let mut ir = rain_lang::ir::Rir::new();
     let file = File::new(FileArea::Escape, "/main.rain");
@@ -58,11 +58,11 @@ pub struct ExecuteOutput {
 }
 
 #[derive(Default)]
-struct FileSystemImpl {
+struct DriverImpl {
     prints: Mutex<Vec<String>>,
 }
 
-impl DriverTrait for FileSystemImpl {
+impl DriverTrait for DriverImpl {
     fn resolve_file(&self, _file: &File) -> std::path::PathBuf {
         todo!()
     }
@@ -97,3 +97,5 @@ impl DriverTrait for FileSystemImpl {
         todo!()
     }
 }
+
+impl MonitoringTrait for DriverImpl {}

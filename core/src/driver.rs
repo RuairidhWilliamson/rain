@@ -9,7 +9,7 @@ use rain_lang::{
         area::{FileArea, GeneratedFileArea},
         file::File,
     },
-    driver::{DownloadStatus, DriverTrait, RunStatus},
+    driver::{DownloadStatus, DriverTrait, MonitoringTrait, RunStatus},
     runner::{error::RunnerError, internal::InternalFunction},
 };
 
@@ -20,9 +20,9 @@ pub type PrintHandler<'a> = Box<dyn Fn(&str) + 'a>;
 pub struct DriverImpl<'a> {
     pub config: Config,
     pub prints: Mutex<Vec<String>>,
+    pub print_handler: Option<PrintHandler<'a>>,
     pub enter_handler: Option<PrintHandler<'a>>,
     pub exit_handler: Option<PrintHandler<'a>>,
-    pub print_handler: Option<PrintHandler<'a>>,
 }
 
 impl DriverImpl<'_> {
@@ -30,9 +30,9 @@ impl DriverImpl<'_> {
         Self {
             config,
             prints: Mutex::default(),
+            print_handler: None,
             enter_handler: None,
             exit_handler: None,
-            print_handler: None,
         }
     }
 
@@ -172,7 +172,9 @@ impl DriverTrait for DriverImpl<'_> {
             file: Some(output),
         })
     }
+}
 
+impl MonitoringTrait for DriverImpl<'_> {
     fn enter_call(&self, s: &str) {
         if let Some(ph) = &self.enter_handler {
             ph(s);

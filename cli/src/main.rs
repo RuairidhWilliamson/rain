@@ -39,13 +39,21 @@ fn fallible_main() -> Result<(), ()> {
 fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     let cli = Cli::parse();
     match cli.command {
-        RainCtlCommand::Run { target } => {
+        RainCtlCommand::Run { target, monitor } => {
             let root = rain_core::find_root_rain().ok_or(())?;
             let run_response =
                 make_request_or_start(config, RunRequest { root, target }, |im| match im {
                     RunProgress::Print(s) => println!("{s}"),
-                    RunProgress::EnterCall(s) => println!("+ {s}"),
-                    RunProgress::ExitCall(s) => println!("- {s}"),
+                    RunProgress::EnterCall(s) => {
+                        if monitor {
+                            println!("+ {s}");
+                        }
+                    }
+                    RunProgress::ExitCall(s) => {
+                        if monitor {
+                            println!("- {s}");
+                        }
+                    }
                 })
                 .map_err(|err| {
                     eprintln!("{err}");
@@ -109,6 +117,9 @@ pub enum RainCtlCommand {
     Info,
     Run {
         target: String,
+
+        #[arg(long)]
+        monitor: bool,
     },
     Shutdown,
     /// View rain config

@@ -5,12 +5,12 @@ use crate::{
     runner::{error::RunnerError, internal::InternalFunction},
 };
 
-pub trait DriverTrait {
+pub trait DriverTrait: MonitoringTrait {
     /// Resolves file path locally returning an absolute path
     fn resolve_file(&self, file: &File) -> PathBuf;
     fn exists(&self, file: &File) -> Result<bool, std::io::Error>;
-    fn escape_bin(&self, name: &str) -> Option<PathBuf>;
     fn print(&self, message: String);
+    fn escape_bin(&self, name: &str) -> Option<PathBuf>;
     fn extract(&self, file: &File) -> Result<FileArea, RunnerError>;
     fn run(
         &self,
@@ -19,6 +19,9 @@ pub trait DriverTrait {
         args: Vec<String>,
     ) -> Result<RunStatus, RunnerError>;
     fn download(&self, url: &str) -> Result<DownloadStatus, RunnerError>;
+}
+
+pub trait MonitoringTrait {
     fn enter_call(&self, _s: &str) {}
     fn exit_call(&self, _s: &str) {}
     fn enter_internal_call(&self, _f: &InternalFunction) {}
