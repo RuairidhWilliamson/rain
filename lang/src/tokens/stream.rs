@@ -145,6 +145,9 @@ impl TokenStream<'_> {
             "true" => Token::True,
             "false" => Token::False,
             "internal" => Token::Internal,
+            "throw" | "try" | "type" | "for" | "in" | "while" | "match" | "record" => {
+                Token::Reserved
+            }
             _ => Token::Ident,
         };
         TokenLocalSpan {

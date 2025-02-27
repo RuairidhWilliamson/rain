@@ -12,18 +12,7 @@ pub enum Token {
     SingleQuoteLiteral(Option<StringLiteralPrefix>),
     DoubleQuoteLiteral(Option<StringLiteralPrefix>),
     Comment,
-
-    // Keywords
-    Fn,
-    Let,
-    Pub,
-    If,
-    Else,
-    True,
-    False,
-    Internal,
-    // Keywords that maybe used in the future
-    Reserved,
+    NewLine,
 
     // Symbols
     Dot,
@@ -63,7 +52,17 @@ pub enum Token {
     LogicalAnd,
     LogicalOr,
 
-    NewLine,
+    // Keywords that maybe used in the future
+    Reserved,
+    // Keywords
+    Fn,
+    Let,
+    Pub,
+    If,
+    Else,
+    True,
+    False,
+    Internal,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
