@@ -1,5 +1,5 @@
 fn compile(src, outname) {
-	gcc = internal.escape_bin("gcc")
-	result = internal.run(internal.unit(), gcc, src, "-o", outname)
-	internal.get_file(result.area, outname)
+	gcc = internal._escape_bin("gcc")
+	result = internal._run(internal._unit(), gcc, src, "-o", outname)
+	internal._get_file(result.area, outname)
 }

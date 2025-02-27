@@ -189,13 +189,13 @@ impl MonitoringTrait for DriverImpl<'_> {
 
     fn enter_internal_call(&self, f: &InternalFunction) {
         if let Some(ph) = &self.enter_handler {
-            ph(&format!("internal.{f:?}"));
+            ph(&format!("internal._{f:?}"));
         }
     }
 
     fn exit_internal_call(&self, f: &InternalFunction) {
         if let Some(ph) = &self.exit_handler {
-            ph(&format!("internal.{f:?}"));
+            ph(&format!("internal._{f:?}"));
         }
     }
 }

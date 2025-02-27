@@ -1,5 +1,5 @@
-let print = internal.print
-let this_file = internal.module_file()
+let print = internal._print
+let this_file = internal._module_file()
 
 let my_number = 4
 

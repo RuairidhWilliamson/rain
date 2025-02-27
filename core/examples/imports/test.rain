@@ -1,5 +1,5 @@
 fn import(path) {
-	internal.import(internal.get_file(path))
+	internal._import(internal._get_file(path))
 }
 
 let a = 5
@@ -8,8 +8,8 @@ let foo = import("foo.rain")
 let bar = import("bar.rain")
 
 fn main() {
-	internal.print("foo.apples:", foo.apples)
-	internal.print("foo.bananas:", foo.bananas)
-	internal.print("bar.apples:", bar.apples)
-	internal.print("bar.bananas:", bar.bananas)
+	internal._print("foo.apples:", foo.apples)
+	internal._print("foo.bananas:", foo.bananas)
+	internal._print("bar.apples:", bar.apples)
+	internal._print("bar.bananas:", bar.bananas)
 }

@@ -1,22 +1,22 @@
-let cargo = internal.escape_bin("cargo")
+let cargo = internal._escape_bin("cargo")
 
 fn check_fmt(area) {
-	internal.run(area, cargo, "fmt", "--check")
+	internal._run(area, cargo, "fmt", "--check")
 }
 
 fn clippy(area) {
-	internal.run(area, cargo, "clippy", "--quiet", "--", "-Dwarnings")
+	internal._run(area, cargo, "clippy", "--quiet", "--", "-Dwarnings")
 }
 
 fn test(area) {
-	internal.run(area, cargo, "test", "--quiet")
+	internal._run(area, cargo, "test", "--quiet")
 }
 
 fn run(area, package, features) {
-	internal.run(area, cargo, "run", "--package", package, "--features", features)
+	internal._run(area, cargo, "run", "--package", package, "--features", features)
 }
 
 fn build(area, package, features) {
-	run_result = internal.run(area, cargo, "build", "--package", package, "--features", features, "--target-dir", "target")
-	internal.get_file(run_result.area, "target/debug")
+	run_result = internal._run(area, cargo, "build", "--package", package, "--features", features, "--target-dir", "target")
+	internal._get_file(run_result.area, "target/debug")
 }

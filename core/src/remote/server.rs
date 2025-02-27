@@ -1,7 +1,7 @@
 use std::{
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Mutex,
+        atomic::{AtomicUsize, Ordering},
     },
     time::SystemTime,
 };
@@ -16,8 +16,8 @@ use crate::{
 };
 
 use super::msg::{
-    run::{RunProgress, RunResponse},
     Message, Request, RequestTrait,
+    run::{RunProgress, RunResponse},
 };
 
 #[derive(Debug)]

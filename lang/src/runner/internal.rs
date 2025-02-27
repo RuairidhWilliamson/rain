@@ -12,10 +12,10 @@ use crate::{
 };
 
 use super::{
+    Cx, Result, ResultValue,
     error::RunnerError,
     value::{RainTypeId, Value, ValueInner},
     value_impl::{Module, RainInteger, RainList, RainRecord},
-    Cx, Result, ResultValue,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -44,18 +44,18 @@ impl ValueInner for InternalFunction {
 impl InternalFunction {
     pub fn evaluate_internal_function_name(name: &str) -> Option<Self> {
         match name {
-            "print" => Some(Self::Print),
-            "get_file" => Some(Self::GetFile),
-            "import" => Some(Self::Import),
-            "module_file" => Some(Self::ModuleFile),
-            "local_area" => Some(Self::LocalArea),
-            "extract" => Some(Self::Extract),
-            "args" => Some(Self::Args),
-            "run" => Some(Self::Run),
-            "escape_bin" => Some(Self::EscapeBin),
-            "unit" => Some(Self::Unit),
-            "get_area" => Some(Self::GetArea),
-            "download" => Some(Self::Download),
+            "_print" => Some(Self::Print),
+            "_get_file" => Some(Self::GetFile),
+            "_import" => Some(Self::Import),
+            "_module_file" => Some(Self::ModuleFile),
+            "_local_area" => Some(Self::LocalArea),
+            "_extract" => Some(Self::Extract),
+            "_args" => Some(Self::Args),
+            "_run" => Some(Self::Run),
+            "_escape_bin" => Some(Self::EscapeBin),
+            "_unit" => Some(Self::Unit),
+            "_get_area" => Some(Self::GetArea),
+            "_download" => Some(Self::Download),
             "_throw" => Some(Self::Throw),
             _ => None,
         }
@@ -139,7 +139,10 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
             }
             Ok(Value::new(file))
         }
-        [(area_nid, area_value), (absolute_path_nid, absolute_path_value)] => {
+        [
+            (area_nid, area_value),
+            (absolute_path_nid, absolute_path_value),
+        ] => {
             let area: &FileArea = area_value
                 .downcast_ref_error(&[RainTypeId::FileArea])
                 .map_err(|err| icx.cx.nid_err(*area_nid, err))?;

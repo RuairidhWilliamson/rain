@@ -1,5 +1,5 @@
 fn import(path) {
-	internal.import(internal.get_file(path))
+	internal._import(internal._get_file(path))
 }
 
 let bar = import("/bar.rain")
