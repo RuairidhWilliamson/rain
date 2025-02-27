@@ -1,0 +1,3 @@
+fn main() {
+	internal._throw("test")
+}

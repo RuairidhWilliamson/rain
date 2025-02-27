@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use rain_core::CoreError;
 use rain_lang::runner::value::Value;
 use test_log::test;
 
@@ -20,4 +21,17 @@ fn imports() {
 #[test]
 fn areas() {
     run("examples/areas/area.rain").unwrap();
+}
+
+#[test]
+fn error_throwing() {
+    let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::default());
+    let mut cache = rain_lang::runner::cache::Cache::new(rain_lang::runner::cache::CACHE_SIZE);
+    let res = rain_core::run("examples/errors/throwing.rain", "main", &mut cache, &driver);
+    match res {
+        Err(CoreError::LangError(err)) => {
+            assert_eq!(err.err, "test");
+        }
+        _ => panic!("wrong error {res:?}"),
+    }
 }

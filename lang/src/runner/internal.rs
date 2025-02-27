@@ -15,7 +15,7 @@ use super::{
     error::RunnerError,
     value::{RainTypeId, Value, ValueInner},
     value_impl::{Module, RainInteger, RainList, RainRecord},
-    Cx, ResultValue,
+    Cx, Result, ResultValue,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -32,6 +32,7 @@ pub enum InternalFunction {
     Unit,
     GetArea,
     Download,
+    Throw,
 }
 
 impl ValueInner for InternalFunction {
@@ -55,6 +56,7 @@ impl InternalFunction {
             "unit" => Some(Self::Unit),
             "get_area" => Some(Self::GetArea),
             "download" => Some(Self::Download),
+            "_throw" => Some(Self::Throw),
             _ => None,
         }
     }
@@ -89,6 +91,7 @@ impl InternalFunction {
             Self::Unit => unit(icx),
             Self::GetArea => get_area(icx),
             Self::Download => download(icx),
+            Self::Throw => throw(icx),
         }
     }
 }
@@ -298,7 +301,7 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                         },
                     )),
                 })
-                .collect::<Result<Vec<String>, ErrorSpan<RunnerError>>>()?;
+                .collect::<Result<Vec<String>>>()?;
             let status = icx
                 .file_system
                 .run(overlay_area, file, args)
@@ -398,6 +401,24 @@ fn download(icx: InternalCx) -> ResultValue {
             }
             Ok(Value::new(RainRecord(m)))
         }
+        _ => Err(icx.cx.err(
+            icx.fn_call.rparen_token,
+            RunnerError::IncorrectArgs {
+                required: 1..=1,
+                actual: icx.arg_values.len(),
+            },
+        )),
+    }
+}
+
+fn throw(icx: InternalCx) -> ResultValue {
+    match &icx.arg_values[..] {
+        [(_, err_value)] => Err(icx
+            .cx
+            .module
+            .span(icx.nid)
+            .with_module(icx.cx.module.id)
+            .with_error(super::error::Throwing::Recoverable(err_value.clone()))),
         _ => Err(icx.cx.err(
             icx.fn_call.rparen_token,
             RunnerError::IncorrectArgs {

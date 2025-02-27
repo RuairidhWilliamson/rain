@@ -5,6 +5,20 @@ use crate::{afs::error::PathError, ast::error::ParseError};
 use super::value::RainTypeId;
 
 #[derive(Debug, thiserror::Error)]
+pub enum Throwing {
+    #[error("{0}")]
+    Recoverable(super::value::Value),
+    #[error("unrecoverable error: {0}")]
+    Unrecoverable(#[from] RunnerError),
+}
+
+impl From<ParseError> for Throwing {
+    fn from(err: ParseError) -> Self {
+        Self::Unrecoverable(RunnerError::from(err))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum RunnerError {
     #[error("generic run error")]
     GenericRunError,

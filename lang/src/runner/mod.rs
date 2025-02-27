@@ -7,7 +7,7 @@ pub mod value_impl;
 
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
-use error::RunnerError;
+use error::{RunnerError, Throwing};
 use internal::InternalFunction;
 use value::{RainTypeId, Value, ValueInner};
 use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainRecord, RainUnit};
@@ -22,7 +22,8 @@ use crate::{
 
 const MAX_CALL_DEPTH: usize = 500;
 
-type ResultValue = Result<Value, ErrorSpan<RunnerError>>;
+type ResultValue = Result<Value>;
+type Result<T, E = ErrorSpan<Throwing>> = core::result::Result<T, E>;
 
 pub struct Cx<'a> {
     module: &'a Arc<IrModule>,
@@ -41,15 +42,15 @@ impl<'a> Cx<'a> {
         }
     }
 
-    fn err(&self, s: impl Into<LocalSpan>, err: RunnerError) -> ErrorSpan<RunnerError> {
-        s.into().with_module(self.module.id).with_error(err)
+    fn err(&self, s: impl Into<LocalSpan>, err: RunnerError) -> ErrorSpan<Throwing> {
+        s.into().with_module(self.module.id).with_error(err.into())
     }
 
-    fn nid_err(&self, nid: NodeId, err: RunnerError) -> ErrorSpan<RunnerError> {
+    fn nid_err(&self, nid: NodeId, err: RunnerError) -> ErrorSpan<Throwing> {
         self.module
             .span(nid)
             .with_module(self.module.id)
-            .with_error(err)
+            .with_error(err.into())
     }
 }
 
@@ -83,7 +84,8 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         RunnerError::IncorrectArgs {
                             required: fn_declare.args.len()..=fn_declare.args.len(),
                             actual: 0,
-                        },
+                        }
+                        .into(),
                     ));
                 }
                 let mut cx = Cx {
@@ -145,7 +147,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     tls.0
                         .span
                         .with_module(cx.module.id)
-                        .with_error(RunnerError::UnknownIdent)
+                        .with_error(RunnerError::UnknownIdent.into())
                 }),
             Node::InternalLiteral(_) => Ok(Value::new(RainInternal)),
             Node::StringLiteral(lit) => match lit.prefix() {
@@ -171,11 +173,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         }
     }
 
-    fn resolve_ident(
-        &mut self,
-        cx: &mut Cx,
-        ident: &str,
-    ) -> Result<Option<Value>, ErrorSpan<RunnerError>> {
+    fn resolve_ident(&mut self, cx: &mut Cx, ident: &str) -> Result<Option<Value>> {
         if let Some(v) = cx.locals.get(ident) {
             return Ok(Some(v.clone()));
         }
