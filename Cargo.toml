@@ -8,7 +8,7 @@ members = [
   "poison_panic",
   "web-editor",
 ]
-resolver = "2"
+resolver = "3"
 
 [profile.release]
 lto = true
