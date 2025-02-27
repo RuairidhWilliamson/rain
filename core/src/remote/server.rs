@@ -99,16 +99,24 @@ struct ClientHandler<'a> {
 
 impl ClientHandler<'_> {
     fn handle_client(mut self) -> Result<(), Error> {
-        let hdr: RequestWrapper = ciborium::from_reader(&mut self.stream)?;
-        if hdr.modified_time != self.server.modified_time {
+        let RequestWrapper { header, request } = ciborium::from_reader(&mut self.stream)?;
+        let mut restart = false;
+        if header.exe != std::fs::read_link("/proc/self/exe")? {
+            log::info!("Restarting because exe symlink changed");
+            restart = true;
+        }
+        if header.modified_time != self.server.modified_time {
             log::info!("Restarting because modified time does not match");
+            restart = true;
+        }
+        if restart {
             std::fs::remove_file(self.server.config.server_socket_path())?;
             let response = Message::RestartPls(RestartReason::RainBinaryChanged);
             ciborium::into_writer(&response, &mut self.stream)?;
             std::process::exit(0)
         }
-        log::info!("Header {hdr:?}");
-        let request: Request = ciborium::from_reader(std::io::Cursor::new(hdr.request))?;
+        log::info!("Header {header:?}");
+        let request: Request = ciborium::from_reader(std::io::Cursor::new(request))?;
         log::info!("Request {request:?}");
         self.server
             .stats
@@ -180,6 +188,7 @@ impl ClientHandler<'_> {
                             .requests_received
                             .load(Ordering::Relaxed),
                         responses_sent: self.server.stats.responses_sent.load(Ordering::Relaxed),
+                        cache_size: self.server.cache.len(),
                     },
                 };
                 self.send_response(&req, &resp)?;

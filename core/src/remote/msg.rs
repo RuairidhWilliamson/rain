@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::{path::PathBuf, time::SystemTime};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -6,9 +6,15 @@ use crate::config::Config;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestWrapper {
+    pub header: RequestHeader,
+    pub request: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequestHeader {
     pub config: Config,
     pub modified_time: SystemTime,
-    pub request: Vec<u8>,
+    pub exe: PathBuf,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -107,6 +113,7 @@ pub mod info {
     pub struct Stats {
         pub requests_received: usize,
         pub responses_sent: usize,
+        pub cache_size: usize,
     }
 }
 

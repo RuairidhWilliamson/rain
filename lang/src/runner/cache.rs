@@ -29,6 +29,14 @@ impl Cache {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.storage.plock().is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.storage.plock().len()
+    }
+
     pub fn function_key(
         &self,
         function: impl Into<FunctionDefinition>,

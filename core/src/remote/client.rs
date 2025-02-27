@@ -4,7 +4,10 @@ use std::{
     time::Duration,
 };
 
-use crate::{config::Config, remote::msg::RequestWrapper};
+use crate::{
+    config::Config,
+    remote::msg::{RequestHeader, RequestWrapper},
+};
 
 use super::msg::{Message, Request, RequestTrait, RestartReason};
 
@@ -76,8 +79,11 @@ where
     let mut buf = Vec::new();
     ciborium::into_writer(&request, &mut buf)?;
     let req = RequestWrapper {
-        config: config.clone(),
-        modified_time: exe_stat.modified()?,
+        header: RequestHeader {
+            config: config.clone(),
+            modified_time: exe_stat.modified()?,
+            exe: std::fs::read_link("/proc/self/exe")?,
+        },
         request: buf,
     };
     let mut restart_attempt = 0;
@@ -125,6 +131,7 @@ where
 fn start_server(config: &Config) -> Result<crate::ipc::Client, Error> {
     log::info!("Starting server...");
     let p = std::process::Command::new(crate::exe::current_exe().ok_or(Error::CurrentExe)?)
+        .arg("server")
         .env("RAIN_SERVER", "1")
         .env("RAIN_LOG", "debug")
         .stdin(Stdio::null())
