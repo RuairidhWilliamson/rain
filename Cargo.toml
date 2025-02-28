@@ -2,11 +2,11 @@
 members = [
   "core",
   "lang",
-  "smee-rs",
-  "ci-test",
+  "smee_rs",
+  "ci_test",
   "cli",
   "poison_panic",
-  "web-editor",
+  "web_editor",
 ]
 resolver = "3"
 

@@ -7,7 +7,7 @@ let module_file = std.utils.module_file
 
 let area = get_area(module_file())
 
-let smee = _import(get_file("smee-rs/main.rain"))
+let smee = _import(get_file("smee_rs/main.rain"))
 
 fn lint() {
 	std.rust.check_fmt(area)
