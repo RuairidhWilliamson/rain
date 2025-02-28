@@ -44,6 +44,11 @@ fn smee_run() {
 	smee.run()
 }
 
+fn simple() {
+	std = internal._import(internal._get_file("lib/std.rain"))
+	std.utils
+}
+
 fn print_some_stuff() {
 	print("Whats up" + " " + "dog")
 	print("Whats \n up")

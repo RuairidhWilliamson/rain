@@ -68,6 +68,10 @@ impl ValueInner for RainFunction {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Function
     }
+
+    fn storeable(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]
@@ -78,6 +82,10 @@ pub struct Module {
 impl ValueInner for Module {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Module
+    }
+
+    fn storeable(&self) -> bool {
+        false
     }
 }
 

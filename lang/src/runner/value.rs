@@ -49,6 +49,10 @@ impl Value {
         }
     }
 
+    pub fn storeable(&self) -> bool {
+        self.value.storeable()
+    }
+
     pub fn rain_type_id(&self) -> RainTypeId {
         self.value.rain_type_id()
     }
@@ -114,6 +118,10 @@ pub enum RainTypeId {
 
 pub trait ValueInner: Any + Debug + Send + Sync + RainHash + RainEq {
     fn rain_type_id(&self) -> RainTypeId;
+
+    fn storeable(&self) -> bool {
+        true
+    }
 }
 
 pub trait RainEq {

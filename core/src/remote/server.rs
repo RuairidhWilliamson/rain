@@ -147,7 +147,7 @@ impl ClientHandler<'_> {
                 let s = Mutex::new(self);
                 let result;
                 {
-                    let fs = DriverImpl {
+                    let driver = DriverImpl {
                         config,
                         prints: Mutex::default(),
                         print_handler: Some(Box::new(|m| {
@@ -175,8 +175,8 @@ impl ClientHandler<'_> {
                             }
                         })),
                     };
-                    result =
-                        crate::run(&req.root, &req.target, &mut cache, &fs).map(|v| v.to_string());
+                    result = crate::run(&req.root, &req.target, &mut cache, &driver)
+                        .map(|v| v.to_string());
                 }
                 let s = s.pinto_inner();
                 s.send_response(&req, &RunResponse { output: result })?;

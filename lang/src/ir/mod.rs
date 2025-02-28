@@ -39,7 +39,6 @@ impl Rir {
 
     pub fn get_module(&self, module_id: ModuleId) -> &Arc<IrModule> {
         let Some(m) = self.modules.get(module_id.0) else {
-            // TODO: This is somehow reachable sometimes :'(
             unreachable!("id is always valid")
         };
         m

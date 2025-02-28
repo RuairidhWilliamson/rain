@@ -53,14 +53,21 @@ impl Cache {
     }
 
     pub fn put(&mut self, key: CacheKey, execution_time: Duration, value: Value) {
-        self.storage.plock().put(
-            key,
-            CacheEntry {
-                execution_time,
-                expires: None,
-                value,
-            },
-        );
+        if value.storeable() {
+            self.storage.plock().put(
+                key,
+                CacheEntry {
+                    execution_time,
+                    expires: None,
+                    value,
+                },
+            );
+        } else {
+            log::debug!(
+                "attempted to store {:?} in cache but it is not storeable",
+                value.rain_type_id()
+            );
+        }
     }
 }
 
