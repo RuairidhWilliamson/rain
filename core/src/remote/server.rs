@@ -122,7 +122,13 @@ impl ClientHandler<'_> {
             .stats
             .requests_received
             .fetch_add(1, Ordering::Relaxed);
-        match std::thread::scope(|s| s.spawn(|| self.handle_request(request)).join()) {
+        match std::thread::scope(|s| {
+            std::thread::Builder::new()
+                .name(String::from("handle_request"))
+                .spawn_scoped(s, || self.handle_request(request))
+                .expect("spawn thread")
+                .join()
+        }) {
             Err(err) => {
                 log::error!("panic during handle request");
                 self.send_panic()?;

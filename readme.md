@@ -14,5 +14,6 @@ rain
 
 ### Development
 ```bash
-cargo rain check
+cargo rain run check
+cargo rain run check
 ```
