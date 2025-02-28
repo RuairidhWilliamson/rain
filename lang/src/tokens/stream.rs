@@ -20,6 +20,17 @@ impl<'a> TokenStream<'a> {
 
 impl TokenStream<'_> {
     pub fn parse_next(&mut self) -> Result<Option<TokenLocalSpan>, ErrorLocalSpan<TokenError>> {
+        // Turns Token::Reserved into an error
+        match self.parse_next_inner() {
+            Ok(Some(TokenLocalSpan {
+                token: Token::Reserved,
+                span,
+            })) => Err(span.with_error(TokenError::ReservedKeyword)),
+            other => other,
+        }
+    }
+
+    fn parse_next_inner(&mut self) -> Result<Option<TokenLocalSpan>, ErrorLocalSpan<TokenError>> {
         loop {
             let bytes = self.source.as_bytes();
             let Some(&c) = bytes.get(self.index) else {
@@ -145,7 +156,7 @@ impl TokenStream<'_> {
             "true" => Token::True,
             "false" => Token::False,
             "internal" => Token::Internal,
-            "throw" | "try" | "type" | "for" | "in" | "while" | "match" | "record" => {
+            "throw" | "try" | "type" | "for" | "in" | "while" | "match" | "record" | "import" => {
                 Token::Reserved
             }
             _ => Token::Ident,

@@ -1,2 +1,2 @@
 [alias]
-rain = "run --quiet --package rain --"
+rain = "run --package rain --"

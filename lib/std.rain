@@ -1,7 +1,3 @@
-let print = internal._print
-let import = internal._import
-let get_file = internal._get_file
-
-let gcc = import(get_file("std/gcc.rain"))
-let rust = import(get_file("std/rust.rain"))
-let utils = import(get_file("std/utils.rain"))
+let gcc = internal._import(internal._get_file("std/gcc.rain"))
+let rust = internal._import(internal._get_file("std/rust.rain"))
+let utils = internal._import(internal._get_file("std/utils.rain"))

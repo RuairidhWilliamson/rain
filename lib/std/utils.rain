@@ -1,3 +1,18 @@
+// utils.rain is designed to be removed in the future but provides useful APIs
+
+let print = internal._print
+let run = internal._run
+let escape_bin = internal._escape_bin
+let get_file = internal._get_file
+let get_area = internal._get_area
+let unit = internal._unit()
+let module_file = internal._module_file
+let download = internal._download
+
+// Reserved keywords are prefixed with _
+let _import = internal._import
+let _throw = internal._throw
+
 fn not(b) {
 	if b {
 		false

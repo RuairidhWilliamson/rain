@@ -1,9 +1,9 @@
-fn import(path) {
+fn _import(path) {
 	internal._import(internal._get_file(path))
 }
 
-let bar = import("/bar.rain")
-let baz = import("subdir/baz.rain")
+let bar = _import("/bar.rain")
+let baz = _import("subdir/baz.rain")
 
 let apples = 5
 let bananas = 6 + bar.bananas + baz.bananas

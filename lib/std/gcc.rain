@@ -1,11 +1,17 @@
-let utils = import(get_file("utils.rain"))
+let utils = internal._import(internal._get_file("utils.rain"))
+
 let not = utils.not
+let get_file = utils.get_file
+let escape_bin = utils.escape_bin
+let run = utils.run
+let unit = utils.unit
+let _throw = utils._throw
 
 fn compile(src, outname) {
-	gcc = internal._escape_bin("gcc")
-	result = internal._run(internal._unit(), gcc, src, "-o", outname)
+	gcc = escape_bin("gcc")
+	result = run(unit, gcc, src, "-o", outname)
 	if not(result.success) {
-		internal._throw(result)
+		_throw(result)
 	}
-	internal._get_file(result.area, outname)
+	get_file(result.area, outname)
 }

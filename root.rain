@@ -1,8 +1,13 @@
-let area = internal._get_area(internal._module_file())
 let std = internal._import(internal._get_file("lib/std.rain"))
-let print = std._print
+let print = std.utils.print
+let _import = std.utils._import
+let get_file = std.utils.get_file
+let get_area = std.utils.get_area
+let module_file = std.utils.module_file
 
-let smee = internal._import(internal._get_file("smee-rs/main.rain"))
+let area = get_area(module_file())
+
+let smee = _import(get_file("smee-rs/main.rain"))
 
 fn lint() {
 	std.rust.check_fmt(area)
@@ -23,16 +28,16 @@ fn build() {
 }
 
 fn build_c() {
-	std.gcc.compile(std.get_file("core/examples/run/foo.c"), "foo")
+	std.gcc.compile(get_file("core/examples/run/foo.c"), "foo")
 }
 
 fn run() {
 	binary = build_c()
-	internal._run(internal._unit(), binary)
+	std.utils.run(std.utils.unit, binary)
 }
 
 fn download_test() {
-	internal._download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore")
+	std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore")
 }
 
 fn smee_run() {

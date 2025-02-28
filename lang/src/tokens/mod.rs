@@ -84,6 +84,7 @@ pub enum TokenError {
     UnclosedSingleQuote,
     UnclosedDoubleQuote,
     IllegalChar,
+    ReservedKeyword,
 }
 
 impl std::fmt::Display for TokenError {
@@ -92,6 +93,7 @@ impl std::fmt::Display for TokenError {
             Self::UnclosedSingleQuote => f.write_str("unclosed single quotes"),
             Self::UnclosedDoubleQuote => f.write_str("unclosed double quotes"),
             Self::IllegalChar => f.write_fmt(format_args!("illegal char")),
+            Self::ReservedKeyword => f.write_str("reserved keyword"),
         }
     }
 }
