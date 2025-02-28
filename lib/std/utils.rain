@@ -1,0 +1,7 @@
+fn not(b) {
+	if b {
+		false
+	} else {
+		true
+	}
+}

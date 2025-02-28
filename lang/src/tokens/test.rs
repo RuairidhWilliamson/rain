@@ -5,7 +5,7 @@ use crate::{
     tokens::Token,
 };
 
-use super::{stream::TokenStream, TokenError};
+use super::{TokenError, stream::TokenStream};
 
 macro_rules! assert_tokens {
     ($s:expr_2021) => {

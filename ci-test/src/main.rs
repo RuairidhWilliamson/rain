@@ -2,15 +2,15 @@ use std::time::Duration;
 
 use anyhow::Result;
 use axum::{
+    Router,
     body::Bytes,
     extract::MatchedPath,
     http::{HeaderMap, Request, StatusCode},
     routing::{get, post},
-    Router,
 };
 use octocrab::{
-    models::webhook_events::{WebhookEvent, WebhookEventPayload},
     OctocrabBuilder,
+    models::webhook_events::{WebhookEvent, WebhookEventPayload},
 };
 use serde_json::json;
 use tokio::time::sleep;

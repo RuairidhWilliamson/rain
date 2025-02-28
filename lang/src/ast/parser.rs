@@ -1,7 +1,7 @@
 use crate::{
     ast::error::{ParseError, ParseResult},
     local_span::ErrorLocalSpan,
-    tokens::{peek::PeekTokenStream, Token, TokenLocalSpan},
+    tokens::{Token, TokenLocalSpan, peek::PeekTokenStream},
 };
 
 use super::{
@@ -65,7 +65,7 @@ impl<'src> ModuleParser<'src> {
                 _ => {
                     return Err(peek
                         .span
-                        .with_error(ParseError::ExpectedToken(&[Token::Fn, Token::Let])))
+                        .with_error(ParseError::ExpectedToken(&[Token::Fn, Token::Let])));
                 }
             }
         }
@@ -158,7 +158,7 @@ impl<'src> ModuleParser<'src> {
                 _ => {
                     return Err(peek
                         .span
-                        .with_error(ParseError::ExpectedToken(&[Token::NewLine, Token::RBrace])))
+                        .with_error(ParseError::ExpectedToken(&[Token::NewLine, Token::RBrace])));
                 }
             }
         }

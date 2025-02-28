@@ -5,7 +5,7 @@ use crate::{
     local_span::{ErrorLocalSpan, LocalSpan},
 };
 
-use super::{stream::TokenStream, Token, TokenError, TokenLocalSpan};
+use super::{Token, TokenError, TokenLocalSpan, stream::TokenStream};
 
 pub struct PeekTokenStream<'a> {
     stream: TokenStream<'a>,

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     afs::file::File,
-    ast::{error::ParseError, Module, ModuleRoot, Node, NodeId},
+    ast::{Module, ModuleRoot, Node, NodeId, error::ParseError},
     local_span::{ErrorLocalSpan, LocalSpan},
     span::ErrorSpan,
 };

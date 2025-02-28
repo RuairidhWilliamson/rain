@@ -211,7 +211,7 @@ impl TokenStream<'_> {
                 }
                 b'\n' => {
                     return Err(LocalSpan::new(start, self.index)
-                        .with_error(TokenError::UnclosedSingleQuote))
+                        .with_error(TokenError::UnclosedSingleQuote));
                 }
                 _ => {}
             }
@@ -262,7 +262,7 @@ impl TokenStream<'_> {
                 }
                 b'\n' => {
                     return Err(LocalSpan::new(start, self.index)
-                        .with_error(TokenError::UnclosedDoubleQuote))
+                        .with_error(TokenError::UnclosedDoubleQuote));
                 }
                 _ => {}
             }

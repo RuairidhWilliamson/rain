@@ -7,7 +7,7 @@ use crate::{
     ast::{FnCall, NodeId},
     driver::{DownloadStatus, DriverTrait},
     ir::Rir,
-    runner::value_impl::{RainError, RainUnit},
+    runner::value_impl::RainUnit,
     span::ErrorSpan,
 };
 
@@ -309,9 +309,6 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                 .file_system
                 .run(overlay_area, file, args)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
-            if !status.success {
-                return Ok(Value::new(RainError("command failed".into())));
-            }
             let mut m = HashMap::new();
             m.insert("success".to_owned(), Value::new(status.success));
             m.insert(
@@ -319,6 +316,8 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                 Value::new(RainInteger(status.exit_code.unwrap_or(-1).into())),
             );
             m.insert("area".to_owned(), Value::new(status.area));
+            m.insert("stdout".to_owned(), Value::new(status.stdout));
+            m.insert("stderr".to_owned(), Value::new(status.stderr));
             Ok(Value::new(RainRecord(m)))
         }
         _ => Err(icx.cx.err(

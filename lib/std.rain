@@ -4,3 +4,4 @@ let get_file = internal._get_file
 
 let gcc = import(get_file("std/gcc.rain"))
 let rust = import(get_file("std/rust.rain"))
+let utils = import(get_file("std/utils.rain"))

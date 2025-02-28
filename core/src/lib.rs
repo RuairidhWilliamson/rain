@@ -3,7 +3,7 @@ use driver::DriverImpl;
 use rain_lang::{
     driver::DriverTrait as _,
     error::OwnedResolvedError,
-    runner::cache::{Cache, CACHE_SIZE},
+    runner::cache::{CACHE_SIZE, Cache},
 };
 use serde::{Deserialize, Serialize};
 

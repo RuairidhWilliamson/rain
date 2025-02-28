@@ -32,6 +32,8 @@ pub struct RunStatus {
     pub success: bool,
     pub exit_code: Option<i32>,
     pub area: FileArea,
+    pub stdout: String,
+    pub stderr: String,
 }
 
 pub struct DownloadStatus {

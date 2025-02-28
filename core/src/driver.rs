@@ -134,13 +134,15 @@ impl DriverTrait for DriverImpl<'_> {
         // TODO: It would be nice to remove env vars but for the moment this causes too many problems
         // cmd.env_clear();
         log::debug!("Running {cmd:?}");
-        let exit = cmd.status().unwrap();
-        let success = exit.success();
-        let exit_code = exit.code();
+        let output = cmd.output().unwrap();
+        let success = output.status.success();
+        let exit_code = output.status.code();
         Ok(RunStatus {
             success,
             exit_code,
             area: output_area,
+            stdout: String::from_utf8(output.stdout).unwrap(),
+            stderr: String::from_utf8(output.stderr).unwrap(),
         })
     }
 

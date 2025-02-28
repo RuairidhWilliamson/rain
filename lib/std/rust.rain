@@ -1,22 +1,43 @@
+let import = internal._import
+let get_file = internal._get_file
+
+let utils = import(get_file("utils.rain"))
+let not = utils.not
+
 let cargo = internal._escape_bin("cargo")
 
 fn check_fmt(area) {
-	internal._run(area, cargo, "fmt", "--check")
+	run_result = internal._run(area, cargo, "fmt", "--check")
+	if not(run_result.success) {
+		internal._throw(run_result)
+	}
 }
 
 fn clippy(area) {
-	internal._run(area, cargo, "clippy", "--quiet", "--", "-Dwarnings")
+	run_result = internal._run(area, cargo, "clippy", "--quiet", "--", "-Dwarnings")
+	if not(run_result.success) {
+		internal._throw(run_result)
+	}
 }
 
 fn test(area) {
-	internal._run(area, cargo, "test", "--quiet")
+	run_result = internal._run(area, cargo, "test", "--quiet")
+	if not(run_result.success) {
+		internal._throw(run_result)
+	}
 }
 
 fn run(area, package, features) {
-	internal._run(area, cargo, "run", "--package", package, "--features", features)
+	run_result = internal._run(area, cargo, "run", "--package", package, "--features", features)
+	if not(run_result.success) {
+		internal._throw(run_result)
+	}
 }
 
 fn build(area, package, features) {
 	run_result = internal._run(area, cargo, "build", "--package", package, "--features", features, "--target-dir", "target")
+	if not(run_result.success) {
+		internal._throw(run_result)
+	}
 	internal._get_file(run_result.area, "target/debug")
 }

@@ -121,7 +121,7 @@ where
                     break;
                 }
                 Message::Response(response) => {
-                    return Ok(ciborium::from_reader(std::io::Cursor::new(response))?)
+                    return Ok(ciborium::from_reader(std::io::Cursor::new(response))?);
                 }
             }
         }
