@@ -16,3 +16,4 @@ log.workspace = true
 rain-core = { path = "../core" }
 serde.workspace = true
 termcolor.workspace = true
+inquire = "0.7.5"

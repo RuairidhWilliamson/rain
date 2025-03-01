@@ -96,10 +96,24 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             eprintln!("{config:#?}");
         }
         RainCtlCommand::Clean => {
-            make_request_or_start(config, CleanRequest, |()| {}).map_err(|err| {
-                eprintln!("{err}");
-            })?;
-            println!("Cleaned");
+            println!("Will delete:");
+            for p in config.clean_directories() {
+                println!("  {}", p.display());
+            }
+            if inquire::Confirm::new("Delete all these directories?")
+                .prompt_skippable()
+                .map_err(|err| {
+                    eprintln!("{err}");
+                })?
+                == Some(true)
+            {
+                make_request_or_start(config, CleanRequest, |()| {}).map_err(|err| {
+                    eprintln!("{err}");
+                })?;
+                println!("Cleaned");
+            } else {
+                println!("Did nothing");
+            }
         }
     }
     Ok(())

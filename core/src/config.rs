@@ -1,8 +1,8 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Config {
     pub base_cache_dir: PathBuf,
     pub base_generated_dir: PathBuf,
@@ -47,5 +47,53 @@ impl Config {
 
     pub fn server_panic_path(&self, id: uuid::Uuid) -> PathBuf {
         self.base_data_dir.join(format!("server-panic-{id}.stderr"))
+    }
+
+    pub fn clean_directories(&self) -> Vec<&Path> {
+        let dirs: &[&Path] = &[
+            &self.base_cache_dir,
+            &self.base_generated_dir,
+            &self.base_data_dir,
+            &self.base_run_dir,
+        ];
+        unique_directories(dirs)
+    }
+}
+
+fn unique_directories<'a>(dirs: &[&'a Path]) -> Vec<&'a Path> {
+    let mut dirs: Vec<&Path> = dirs
+        .iter()
+        .filter(|&d1| !dirs.iter().any(|d2| d1 != d2 && d1.starts_with(d2)))
+        .copied()
+        .collect();
+    dirs.sort_unstable();
+    let mut i = 1;
+    while i < dirs.len() {
+        if dirs[i] == dirs[i - 1] {
+            dirs.remove(i);
+        } else {
+            i += 1;
+        }
+    }
+    dirs
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::unique_directories;
+
+    #[test]
+    fn test_directories_unique() {
+        assert_eq!(unique_directories(&[]), Vec::<&Path>::default());
+        assert_eq!(
+            unique_directories(&[Path::new("/foo"), Path::new("/foo/bar"), Path::new("/foo")]),
+            vec![Path::new("/foo")]
+        );
+        assert_eq!(
+            unique_directories(&[Path::new("/foo"), Path::new("/foo"), Path::new("/foo")]),
+            vec![Path::new("/foo")]
+        );
     }
 }

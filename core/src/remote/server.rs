@@ -100,20 +100,17 @@ struct ClientHandler<'a> {
 impl ClientHandler<'_> {
     fn handle_client(mut self) -> Result<(), Error> {
         let RequestWrapper { header, request } = ciborium::from_reader(&mut self.stream)?;
-        let mut restart = false;
         if header.exe != std::fs::read_link("/proc/self/exe")? {
             log::info!("Restarting because exe symlink changed");
-            restart = true;
+            return self.restart();
         }
         if header.modified_time != self.server.modified_time {
             log::info!("Restarting because modified time does not match");
-            restart = true;
+            return self.restart();
         }
-        if restart {
-            std::fs::remove_file(self.server.config.server_socket_path())?;
-            let response = Message::RestartPls(RestartReason::RainBinaryChanged);
-            ciborium::into_writer(&response, &mut self.stream)?;
-            std::process::exit(0)
+        if header.config != self.server.config {
+            log::info!("Restarting because config does not match");
+            return self.restart();
         }
         log::info!("Header {header:?}");
         let request: Request = ciborium::from_reader(std::io::Cursor::new(request))?;
@@ -137,6 +134,13 @@ impl ClientHandler<'_> {
             Ok(Err(err)) => Err(err),
             Ok(Ok(())) => Ok(()),
         }
+    }
+
+    fn restart(&mut self) -> Result<(), Error> {
+        std::fs::remove_file(self.server.config.server_socket_path())?;
+        let response = Message::RestartPls(RestartReason::RainBinaryChanged);
+        ciborium::into_writer(&response, &mut self.stream)?;
+        std::process::exit(0)
     }
 
     fn handle_request(&mut self, req: Request) -> Result<(), Error> {
@@ -207,14 +211,27 @@ impl ClientHandler<'_> {
             }
             Request::Clean(req) => {
                 log::info!("Cleaning");
-                let clean_path = &self.server.config.base_cache_dir;
-                log::info!("removing {}", clean_path.display());
-                let metadata = std::fs::metadata(clean_path)?;
-                if !metadata.is_dir() {
-                    log::error!("failed {} is not a directory", clean_path.display());
-                    return Err(Error::RainCacheNotADirectory);
+                let clean_paths = &[
+                    &self.server.config.base_cache_dir,
+                    &self.server.config.base_generated_dir,
+                    &self.server.config.base_data_dir,
+                    &self.server.config.base_run_dir,
+                ];
+                for p in clean_paths {
+                    log::info!("removing {}", p.display());
+                    let metadata = match std::fs::metadata(p) {
+                        Err(err) => {
+                            log::error!("failed {}: {err}", p.display());
+                            continue;
+                        }
+                        Ok(metadata) => metadata,
+                    };
+                    if !metadata.is_dir() {
+                        log::error!("failed {} is not a directory", p.display());
+                        continue;
+                    }
+                    std::fs::remove_dir_all(p)?;
                 }
-                std::fs::remove_dir_all(clean_path)?;
                 log::info!("Goodbye");
                 self.send_response(&req, &super::msg::clean::Cleaned)?;
                 std::process::exit(0);
