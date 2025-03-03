@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser as _;
+use smee_rs::{Channel, ForwardHandler};
 
 #[derive(clap::Parser)]
 struct Cli {
@@ -21,14 +22,15 @@ async fn main() -> Result<()> {
         target,
     } = Cli::parse();
 
-    let channel_url = if let Some(channel_url) = channel {
-        channel_url
-    } else {
-        smee_rs::create_channel(source).await?
-    };
-    eprintln!("webhook url: {channel_url}");
     eprintln!("target url: {target}");
-    let smee = smee_rs::Smee::new(channel_url, target)?;
-    smee.start().await?;
+    let handler = ForwardHandler::new(target);
+    let mut channel = if let Some(channel_url) = channel {
+        Channel::from_existing_channel(channel_url, handler)
+    } else {
+        Channel::new(source, handler).await?
+    };
+    eprintln!("webhook url: {}", channel.get_channel_url());
+    eprintln!("listening...");
+    channel.start().await?;
     Ok(())
 }

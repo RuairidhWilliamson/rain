@@ -3,10 +3,10 @@ members = [
   "core",
   "lang",
   "smee_rs",
-  "ci_test",
   "cli",
   "poison_panic",
   "web_editor",
+  "ci/coordinator",
 ]
 resolver = "3"
 
@@ -62,8 +62,10 @@ must_use_candidate = "allow"
 
 [workspace.dependencies]
 anyhow = "1.0"
+bytes = "1.10.0"
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.5", features = ["derive"] }
+dotenvy = "0.15.7"
 env_logger = "0.11.5"
 insta = { version = "1.39.0", features = ["colors"], default-features = false }
 libc = "0.2.169"
@@ -79,5 +81,7 @@ test-log = "0.2.17"
 thiserror = "1.0"
 toml = "0.8"
 tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+url = "2.5.2"
 uuid = { version = "1.8", features = ["v4", "fast-rng", "js"] }
 web-time = "1.1.0"

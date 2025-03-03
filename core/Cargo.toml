@@ -10,7 +10,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-chrono = { version = "0.4.38", features = ["serde"] }
+chrono.workspace = true
 ciborium = "0.2.2"
 dircpy = { version = "0.3.19", default-features = false }
 dirs = "5.0.1"

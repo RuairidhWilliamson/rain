@@ -1,0 +1,26 @@
+[package]
+name = "rain-ci-coordinator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum-test = "15.3.0"
+axum = { version = "0.7.9", features = ["tracing"] }
+bytes.workspace = true
+dotenvy.workspace = true
+octocrab = { version = "0.43.0" }
+serde_json.workspace = true
+serde.workspace = true
+smee-rs.path = "../../smee_rs"
+tokio = { version = "1.36.0", features = ["full"] }
+tower-http = { version = "0.5.2", features = ["trace"] }
+tracing-subscriber.workspace = true
+tracing.workspace = true
+url.workspace = true
