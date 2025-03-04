@@ -14,40 +14,48 @@ use octocrab::{
 use octocrab_extensions::OctocrabExt as _;
 use smee_rs::{MessageHandler, default_smee_server_url};
 
-fn get_env_var(key: &str) -> String {
-    std::env::var(key).expect(key)
+#[derive(Debug, serde::Deserialize)]
+struct Config {
+    github_token: String,
+    repository_owner: String,
+    repository: String,
+    target_url: url::Url,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv()?;
     tracing_subscriber::fmt::init();
-    let gh_token = get_env_var("GH_TOKEN");
-    let owner = get_env_var("REPO_OWNER");
-    let repo = get_env_var("REPO");
+    let config = envy::from_env::<Config>()?;
 
-    let crab = OctocrabBuilder::new().personal_token(gh_token).build()?;
+    let crab = OctocrabBuilder::new()
+        .personal_token(config.github_token)
+        .build()?;
 
     let handler = Handler {
         inner: Arc::new(HandlerInner {
             crab: crab.clone(),
-            owner: owner.clone(),
-            repo: repo.clone(),
+            owner: config.repository_owner.clone(),
+            repo: config.repository.clone(),
+            target_url: config.target_url.clone(),
         }),
     };
     let mut smee = smee_rs::Channel::new(default_smee_server_url(), handler).await?;
     let channel_url = smee.get_channel_url().to_string();
     tracing::info!("got channel url = {channel_url}");
 
-    let hooks = crab.list_hooks(&owner, &repo).await?;
+    let hooks = crab
+        .list_hooks(&config.repository_owner, &config.repository)
+        .await?;
     tracing::info!("found {} hooks", hooks.items.len());
 
     for h in &hooks {
-        crab.delete_hook(&owner, &repo, h.id).await?;
+        crab.delete_hook(&config.repository_owner, &config.repository, h.id)
+            .await?;
         tracing::info!("deleted hook {}", h.id);
     }
 
-    crab.repos(&owner, &repo)
+    crab.repos(&config.repository_owner, &config.repository)
         .create_hook(hooks::Hook {
             name: "web".to_owned(),
             config: hooks::Config {
@@ -74,6 +82,7 @@ struct HandlerInner {
     crab: octocrab::Octocrab,
     owner: String,
     repo: String,
+    target_url: url::Url,
 }
 
 impl MessageHandler for Handler {
@@ -96,15 +105,14 @@ impl MessageHandler for Handler {
 
 impl HandlerInner {
     async fn handle_hook(self: Arc<Self>, event: WebhookEvent) -> Result<()> {
-        let handler = self;
         let event_repository = event
             .repository
             .ok_or_else(|| anyhow!("repository not present"))?;
         if event_repository.full_name
             != Some(format!(
                 "{owner}/{repo}",
-                owner = &handler.owner,
-                repo = &handler.repo
+                owner = &self.owner,
+                repo = &self.repo
             ))
         {
             return Err(anyhow!(
@@ -119,22 +127,20 @@ impl HandlerInner {
                     .head_commit
                     .as_ref()
                     .ok_or_else(|| anyhow!("no head commit"))?;
-                handler
-                    .crab
-                    .repos(&handler.owner, &handler.repo)
+                self.crab
+                    .repos(&self.owner, &self.repo)
                     .create_status(head_commit.id.clone(), StatusState::Pending)
                     .context("rain".to_owned())
-                    .target("https://example.com".to_owned())
+                    .target(self.target_url.to_string())
                     .description("yippeeee".to_owned())
                     .send()
                     .await?;
                 tokio::time::sleep(Duration::from_secs(20)).await;
-                handler
-                    .crab
-                    .repos(&handler.owner, &handler.repo)
+                self.crab
+                    .repos(&self.owner, &self.repo)
                     .create_status(head_commit.id.clone(), StatusState::Success)
                     .context("rain".to_owned())
-                    .target("https://example.com".to_owned())
+                    .target(self.target_url.to_string())
                     .description("yippeeee".to_owned())
                     .send()
                     .await?;

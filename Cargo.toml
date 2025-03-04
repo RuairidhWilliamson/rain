@@ -23,11 +23,9 @@ publish = false
 
 [workspace.lints.rust]
 unsafe_code = "warn"
-# unused_crate_dependencies = "warn"
 
 [workspace.lints.clippy]
 # Cargo
-# cargo_common_metadata = "warn"
 wildcard_dependencies = "warn"
 
 # Restriction
