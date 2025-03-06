@@ -1,6 +1,10 @@
 #![allow(clippy::print_stderr, clippy::print_stdout)]
 
-use std::{ffi::OsStr, process::ExitCode};
+use std::{
+    ffi::OsStr,
+    io::{Write as _, stdout},
+    process::ExitCode,
+};
 
 use clap::{Parser, Subcommand};
 use env_logger::Env;
@@ -39,25 +43,33 @@ fn fallible_main() -> Result<(), ()> {
 fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     let cli = Cli::parse();
     match cli.command {
-        RainCtlCommand::Run { target, monitor } => {
+        RainCtlCommand::Run { target } => {
             let root = rain_core::find_root_rain().ok_or(())?;
-            let run_response =
-                make_request_or_start(config, RunRequest { root, target }, |im| match im {
+            let mut stack = Vec::new();
+            let run_response = make_request_or_start(config, RunRequest { root, target }, |im| {
+                match im {
                     RunProgress::Print(s) => println!("{s}"),
                     RunProgress::EnterCall(s) => {
-                        if monitor {
-                            println!("+ {s}");
+                        if !s.starts_with("internal.") {
+                            stack.push(s);
                         }
                     }
                     RunProgress::ExitCall(s) => {
-                        if monitor {
-                            println!("- {s}");
+                        if !s.starts_with("internal.") {
+                            stack.pop();
                         }
                     }
-                })
-                .map_err(|err| {
-                    eprintln!("{err}");
-                })?;
+                }
+                if let Some(last) = stack.last() {
+                    print!("\r[ ] {last}                    ");
+                } else {
+                    print!("\r[x]                           ");
+                }
+                let _ = stdout().flush();
+            })
+            .map_err(|err| {
+                eprintln!("{err}");
+            })?;
             let result = run_response.output;
             match result {
                 Ok(s) => {
@@ -131,9 +143,6 @@ pub enum RainCtlCommand {
     Info,
     Run {
         target: String,
-
-        #[arg(long)]
-        monitor: bool,
     },
     Shutdown,
     /// View rain config

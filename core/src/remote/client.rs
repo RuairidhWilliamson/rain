@@ -53,7 +53,7 @@ impl From<ciborium::de::Error<std::io::Error>> for Error {
 pub fn make_request_or_start<Req>(
     config: &Config,
     request: Req,
-    handle: impl Fn(Req::Intermediate),
+    mut handle: impl FnMut(Req::Intermediate),
 ) -> Result<Req::Response, Error>
 where
     Req: RequestTrait,
