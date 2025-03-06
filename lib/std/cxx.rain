@@ -1,0 +1,2 @@
+let clang = internal._import(internal._get_file("cxx/clang.rain"))
+let gcc = internal._import(internal._get_file("cxx/gcc.rain"))

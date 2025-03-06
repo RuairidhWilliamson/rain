@@ -1,0 +1,20 @@
+let utils = internal._import(internal._get_file("../utils.rain"))
+
+let not = utils.not
+let get_file = utils.get_file
+let escape_bin = utils.escape_bin
+let run = utils.run
+let unit = utils.unit
+let _throw = utils._throw
+
+let rustup = escape_bin("rustup")
+let rustc = escape_bin("rustc")
+
+fn compile(src, outname) {
+	run_result = run(unit, rustc, src, "-o", outname)
+	if not(run_result.success) {
+		_throw(run_result)
+	}
+	get_file(run_result.area, outname)
+}
+

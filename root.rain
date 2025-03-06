@@ -10,12 +10,12 @@ let area = get_area(module_file())
 let smee = _import(get_file("smee_rs/main.rain"))
 
 fn lint() {
-	std.rust.check_fmt(area)
-	std.rust.clippy(area)
+	std.rust.cargo.check_fmt(area)
+	std.rust.cargo.clippy(area)
 }
 
 fn test() {
-	std.rust.test(area)
+	std.rust.cargo.test(area)
 }
 
 fn check() {
@@ -24,11 +24,11 @@ fn check() {
 }
 
 fn build() {
-	std.rust.build(area, "rain-core", "")
+	std.rust.cargo.build(area, "rain-core", "")
 }
 
 fn build_c() {
-	std.gcc.compile(get_file("core/examples/run/foo.c"), "foo")
+	std.cxx.gcc.compile(get_file("core/examples/run/foo.c"), "foo")
 }
 
 fn run() {

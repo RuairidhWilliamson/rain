@@ -1,4 +1,4 @@
-let utils = internal._import(internal._get_file("utils.rain"))
+let utils = internal._import(internal._get_file("../utils.rain"))
 
 let not = utils.not
 let get_file = utils.get_file
@@ -7,8 +7,9 @@ let run = utils.run
 let unit = utils.unit
 let _throw = utils._throw
 
+let gcc = escape_bin("gcc")
+
 fn compile(src, outname) {
-	gcc = escape_bin("gcc")
 	result = run(unit, gcc, src, "-o", outname)
 	if not(result.success) {
 		_throw(result)

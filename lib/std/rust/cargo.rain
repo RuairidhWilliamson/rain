@@ -1,0 +1,48 @@
+let utils = internal._import(internal._get_file("../utils.rain"))
+
+let not = utils.not
+let get_file = utils.get_file
+let escape_bin = utils.escape_bin
+let run = utils.run
+let unit = utils.unit
+let _throw = utils._throw
+
+let rustup = escape_bin("rustup")
+let rustc = escape_bin("rustc")
+let cargo = escape_bin("cargo")
+
+fn check_fmt(area) {
+	run_result = run(area, cargo, "fmt", "--check")
+	if not(run_result.success) {
+		_throw(run_result)
+	}
+}
+
+fn clippy(area) {
+	run_result = run(area, cargo, "clippy", "--quiet", "--", "-Dwarnings")
+	if not(run_result.success) {
+		_throw(run_result)
+	}
+}
+
+fn test(area) {
+	run_result = run(area, cargo, "test", "--quiet")
+	if not(run_result.success) {
+		_throw(run_result)
+	}
+}
+
+fn run(area, package, features) {
+	run_result = run(area, cargo, "run", "--package", package, "--features", features)
+	if not(run_result.success) {
+		_throw(run_result)
+	}
+}
+
+fn build(area, package, features) {
+	run_result = run(area, cargo, "build", "--package", package, "--features", features, "--target-dir", "target")
+	if not(run_result.success) {
+		_throw(run_result)
+	}
+	get_file(run_result.area, "target/debug")
+}
