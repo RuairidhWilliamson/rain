@@ -2046,6 +2046,7 @@ dependencies = [
  "anyhow",
  "axum",
  "axum-test",
+ "base64 0.22.1",
  "bytes",
  "dotenvy",
  "envy",

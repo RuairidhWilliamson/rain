@@ -25,3 +25,4 @@ tracing-subscriber.workspace = true
 tracing.workspace = true
 url.workspace = true
 envy = "0.4.2"
+base64 = "0.22.1"

@@ -2,7 +2,7 @@ mod octocrab_extensions;
 
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use axum::http::HeaderMap;
 use octocrab::{
     OctocrabBuilder,
@@ -11,7 +11,7 @@ use octocrab::{
         webhook_events::{WebhookEvent, WebhookEventPayload, WebhookEventType},
     },
 };
-use octocrab_extensions::OctocrabExt as _;
+use octocrab_extensions::{OctocrabExt as _, TreeEntry};
 use smee_rs::{MessageHandler, default_smee_server_url};
 
 #[derive(Debug, serde::Deserialize)]
@@ -135,6 +135,43 @@ impl HandlerInner {
                     .description("yippeeee".to_owned())
                     .send()
                     .await?;
+                let tree = self
+                    .crab
+                    .get_tree(&self.owner, &self.repo, &head_commit.id)
+                    .await?;
+                let Some(readme) = tree.tree.iter().find_map(|t| match t {
+                    TreeEntry::Blob { blob } if blob.path.eq_ignore_ascii_case("readme.md") => {
+                        Some(blob)
+                    }
+                    _ => None,
+                }) else {
+                    self.crab
+                        .repos(&self.owner, &self.repo)
+                        .create_status(head_commit.id.clone(), StatusState::Failure)
+                        .context("rain".to_owned())
+                        .target(self.target_url.to_string())
+                        .description("yippeeee".to_owned())
+                        .send()
+                        .await?;
+                    return Ok(());
+                };
+                tracing::info!("tree {tree:#?}");
+                let readme = self
+                    .crab
+                    .get_blob(&self.owner, &self.repo, &readme.sha)
+                    .await?;
+                assert_eq!(readme.encoding, "base64");
+                tracing::info!("{readme:#?}");
+
+                let readme = String::from_utf8(
+                    base64::engine::Engine::decode(
+                        &base64::engine::general_purpose::STANDARD,
+                        readme.content.replace('\n', ""),
+                    )
+                    .context("base64 decode")?,
+                )
+                .context("utf8")?;
+                tracing::info!("{readme}");
                 tokio::time::sleep(Duration::from_secs(20)).await;
                 self.crab
                     .repos(&self.owner, &self.repo)
