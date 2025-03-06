@@ -1,4 +1,6 @@
 use std::{
+    collections::HashMap,
+    path::Path,
     sync::{
         Mutex,
         atomic::{AtomicUsize, Ordering},
@@ -217,6 +219,7 @@ impl ClientHandler<'_> {
                     &self.server.config.base_data_dir,
                     &self.server.config.base_run_dir,
                 ];
+                let mut sizes = HashMap::new();
                 for p in clean_paths {
                     log::info!("removing {}", p.display());
                     let metadata = match std::fs::metadata(p) {
@@ -230,10 +233,11 @@ impl ClientHandler<'_> {
                         log::error!("failed {} is not a directory", p.display());
                         continue;
                     }
-                    std::fs::remove_dir_all(p)?;
+                    let size = remove_recursive(p)?;
+                    sizes.insert((*p).clone(), size);
                 }
                 log::info!("Goodbye");
-                self.send_response(&req, &super::msg::clean::Cleaned)?;
+                self.send_response(&req, &super::msg::clean::Cleaned(sizes))?;
                 std::process::exit(0);
             }
         }
@@ -277,4 +281,29 @@ impl ClientHandler<'_> {
         let wrapped = Message::ServerPanic;
         ciborium::into_writer(&wrapped, &mut self.stream)
     }
+}
+
+fn remove_recursive(path: &Path) -> std::io::Result<u64> {
+    let metadata = std::fs::symlink_metadata(path)?;
+    let filetype = metadata.file_type();
+    if filetype.is_symlink() {
+        std::fs::remove_file(path)?;
+        return Ok(metadata.len());
+    }
+    remove_dir_all_recursive(path)
+}
+
+fn remove_dir_all_recursive(path: &Path) -> std::io::Result<u64> {
+    let mut size = 0;
+    for child in std::fs::read_dir(path)? {
+        let child = child?;
+        if child.file_type()?.is_dir() {
+            size += remove_dir_all_recursive(&child.path())?;
+        } else {
+            size += child.metadata()?.len();
+            std::fs::remove_file(child.path())?;
+        }
+    }
+    std::fs::remove_dir(path)?;
+    Ok(size)
 }

@@ -48,7 +48,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             let mut stack = Vec::new();
             let run_response = make_request_or_start(config, RunRequest { root, target }, |im| {
                 match im {
-                    RunProgress::Print(s) => println!("{s}"),
+                    RunProgress::Print(s) => println!("\r{s:40}"),
                     RunProgress::EnterCall(s) => {
                         if !s.starts_with("internal.") {
                             stack.push(s);
@@ -61,15 +61,16 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
                     }
                 }
                 if let Some(last) = stack.last() {
-                    print!("\r[ ] {last}                    ");
+                    print!("\r[ ] {last:40}");
                 } else {
-                    print!("\r[x]                           ");
+                    print!("\r[x] {:40}", "Done");
                 }
                 let _ = stdout().flush();
             })
             .map_err(|err| {
                 eprintln!("{err}");
             })?;
+            println!();
             let result = run_response.output;
             match result {
                 Ok(s) => {
@@ -119,10 +120,17 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
                 })?
                 == Some(true)
             {
-                make_request_or_start(config, CleanRequest, |()| {}).map_err(|err| {
+                let resp = make_request_or_start(config, CleanRequest, |()| {}).map_err(|err| {
                     eprintln!("{err}");
                 })?;
                 println!("Cleaned");
+                for (p, s) in resp.0 {
+                    println!(
+                        "  {:8} {}",
+                        humansize::format_size(s, humansize::BINARY),
+                        p.display(),
+                    );
+                }
             } else {
                 println!("Did nothing");
             }

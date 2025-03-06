@@ -139,6 +139,7 @@ pub mod shutdown {
 }
 
 pub mod clean {
+    use std::{collections::HashMap, path::PathBuf};
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct CleanRequest;
@@ -157,5 +158,5 @@ pub mod clean {
     }
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
-    pub struct Cleaned;
+    pub struct Cleaned(pub HashMap<PathBuf, u64>);
 }

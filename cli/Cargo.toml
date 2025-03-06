@@ -17,3 +17,4 @@ rain-core = { path = "../core" }
 serde.workspace = true
 termcolor.workspace = true
 inquire = "0.7.5"
+humansize = "2.1.3"
