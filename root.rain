@@ -1,4 +1,5 @@
 let std = internal._import(internal._get_file("lib/std.rain"))
+
 let print = std.utils.print
 let _import = std.utils._import
 let get_file = std.utils.get_file
@@ -28,7 +29,7 @@ fn build() {
 }
 
 fn build_c() {
-	std.cxx.gcc.compile(get_file("core/examples/run/foo.c"), "foo")
+	std.cc.gcc.compile(get_file("core/examples/run/foo.c"), "foo")
 }
 
 fn run() {
