@@ -3,7 +3,6 @@ mod octocrab_extensions;
 use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context as _, Result, anyhow};
-use axum::http::HeaderMap;
 use octocrab::{
     OctocrabBuilder,
     models::{
@@ -86,11 +85,12 @@ struct HandlerInner {
 }
 
 impl MessageHandler for Handler {
-    async fn handle(&self, headers: HeaderMap, body: String) -> Result<()> {
+    async fn handle(&self, headers: &smee_rs::HeaderMap, body: String) -> Result<()> {
         let github_event_header = headers
             .get("x-github-event")
             .ok_or_else(|| anyhow!("x-github-event header not present"))?
-            .to_str()?;
+            .as_str()
+            .ok_or_else(|| anyhow!("x-github-event header is not a string"))?;
         let event = WebhookEvent::try_from_header_and_body(github_event_header, &body)?;
         let handler = Arc::clone(&self.inner);
         tokio::spawn(async move {
