@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 chrono.workspace = true
 log.workspace = true
-lru.workspace = true
+lru = "0.13.0"
 num-bigint.workspace = true
 serde.workspace = true
 termcolor.workspace = true

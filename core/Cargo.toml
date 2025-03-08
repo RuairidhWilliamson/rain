@@ -17,7 +17,6 @@ dirs = "6.0.0"
 env_logger.workspace = true
 libc.workspace = true
 log.workspace = true
-lru = "0.12.4"
 num-bigint = "0.4.6"
 reqwest = { version = "0.12.9", features = ["blocking"] }
 serde.workspace = true
