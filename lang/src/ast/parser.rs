@@ -54,7 +54,6 @@ impl<'src> ModuleParser<'src> {
             match peek.token {
                 Token::NewLine | Token::Comment => {
                     self.stream.parse_next()?;
-                    continue;
                 }
                 Token::Let => {
                     declarations.push(self.parse_let_declare()?);
@@ -148,7 +147,6 @@ impl<'src> ModuleParser<'src> {
                 Token::NewLine | Token::Comment => {
                     self.stream.parse_next()?;
                     expecting_statement = true;
-                    continue;
                 }
                 Token::RBrace => break,
                 _ if expecting_statement => {

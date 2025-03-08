@@ -12,10 +12,7 @@ use crate::ir::DeclarationId;
 
 use super::{internal::InternalFunction, value::Value, value_impl::RainFunction};
 
-#[expect(unsafe_code)]
-// Safety:
-// The number is bigger than zero
-pub const CACHE_SIZE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1024) };
+pub const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
 
 #[derive(Clone)]
 pub struct Cache {

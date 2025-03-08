@@ -97,7 +97,6 @@ where
                     let im: <Req as RequestTrait>::Intermediate =
                         ciborium::from_reader(std::io::Cursor::new(im))?;
                     handle(im);
-                    continue;
                 }
                 Message::ServerPanic => {
                     log::error!("server panic");
@@ -145,7 +144,6 @@ fn start_server(config: &Config) -> Result<crate::ipc::Client, Error> {
             Ok(stream) => return Ok(stream),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 std::thread::sleep(Duration::from_millis(100));
-                continue;
             }
             Err(err) => {
                 return Err(err.into());
