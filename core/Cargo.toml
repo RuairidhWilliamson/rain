@@ -14,7 +14,6 @@ chrono.workspace = true
 ciborium = "0.2.2"
 dircpy = { version = "0.3.19", default-features = false }
 dirs = "6.0.0"
-env_logger.workspace = true
 libc.workspace = true
 log.workspace = true
 num-bigint = "0.4.6"

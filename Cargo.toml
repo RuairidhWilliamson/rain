@@ -68,7 +68,6 @@ env_logger = "0.11.5"
 insta = { version = "1.39.0", features = ["colors"], default-features = false }
 libc = "0.2.169"
 log = "0.4.22"
-lru = "0.12.4"
 num-bigint = "0.4.6"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
@@ -77,7 +76,6 @@ serde = { version = "1.0", features = ["derive"] }
 termcolor = "1.4.1"
 test-log = "0.2.17"
 thiserror = "2.0"
-toml = "0.8"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 url = "2.5.2"

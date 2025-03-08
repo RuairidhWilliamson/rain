@@ -1950,7 +1950,6 @@ dependencies = [
  "ciborium",
  "dircpy",
  "dirs",
- "env_logger 0.11.6",
  "insta",
  "libc",
  "log",
