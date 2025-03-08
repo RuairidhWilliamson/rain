@@ -16,9 +16,9 @@ lru.workspace = true
 num-bigint.workspace = true
 serde.workspace = true
 termcolor.workspace = true
+thiserror.workspace = true
 uuid.workspace = true
 web-time.workspace = true
-thiserror.workspace = true
 
 poison_panic.path = "../poison_panic"
 
