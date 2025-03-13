@@ -170,6 +170,16 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
             )),
             Node::TrueLiteral(_) => Ok(Value::new(true)),
             Node::FalseLiteral(_) => Ok(Value::new(false)),
+            Node::Record(record_ast) => {
+                let mut builder = HashMap::new();
+                for e in &record_ast.fields {
+                    builder.insert(
+                        e.key.span.contents(&cx.module.src).to_owned(),
+                        self.evaluate_node(cx, e.value)?,
+                    );
+                }
+                Ok(Value::new(RainRecord(builder)))
+            }
         }
     }
 

@@ -91,6 +91,7 @@ pub enum Node {
     TrueLiteral(TrueLiteral),
     FalseLiteral(FalseLiteral),
     InternalLiteral(InternalLiteral),
+    Record(Record),
 }
 
 impl Node {
@@ -110,6 +111,7 @@ impl Node {
             Self::TrueLiteral(inner) => inner,
             Self::FalseLiteral(inner) => inner,
             Self::InternalLiteral(inner) => inner,
+            Self::Record(inner) => inner,
         }
     }
 
@@ -533,5 +535,53 @@ impl AstNode for Ident {
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
         f.node("Ident").child_contents(self.0.span).finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct Record {
+    pub lbrace: LocalSpan,
+    pub fields: Vec<RecordField>,
+    pub rbrace: LocalSpan,
+}
+
+impl From<Record> for Node {
+    fn from(inner: Record) -> Self {
+        Self::Record(inner)
+    }
+}
+
+impl AstNode for Record {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.lbrace + self.rbrace
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        let mut b = f.node("Record");
+        for e in &self.fields {
+            b.child_fn(|f| e.ast_display(f));
+        }
+        b.finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct RecordField {
+    pub key: TokenLocalSpan,
+    pub colon: LocalSpan,
+    pub value: NodeId,
+    pub comma: Option<LocalSpan>,
+}
+
+impl AstNode for RecordField {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        self.key.span + self.comma.unwrap_or_else(|| list.span(self.value))
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("RecordEntry")
+            .child_contents(self.key.span)
+            .child(self.value)
+            .finish()
     }
 }

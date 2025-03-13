@@ -1,0 +1,22 @@
+---
+source: lang/src/ast/parser.rs
+expression: "parse_display_expr(\"{a: {b: {c: 5}},}\")"
+---
+Record(
+ RecordEntry(
+  a
+  Record(
+   RecordEntry(
+    b
+    Record(
+     RecordEntry(
+      c
+      IntegerLiteral(
+       5
+      )
+     )
+    )
+   )
+  )
+ )
+)
