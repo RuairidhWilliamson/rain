@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::{borrow::Cow, ops::RangeInclusive};
 
 use crate::{afs::error::PathError, ast::error::ParseError};
 
@@ -22,6 +22,8 @@ impl From<ParseError> for Throwing {
 pub enum RunnerError {
     #[error("generic run error")]
     GenericRunError,
+    #[error("makeshift: {0}")]
+    Makeshift(Cow<'static, str>),
     #[error("wrong number of args, required {required:?} but got {actual}")]
     IncorrectArgs {
         required: RangeInclusive<usize>,

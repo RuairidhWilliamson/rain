@@ -8,6 +8,8 @@ let get_area = internal._get_area
 let unit = internal._unit()
 let module_file = internal._module_file
 let download = internal._download
+let read_file = internal._read_file
+let sha256 = internal._sha256
 
 // Reserved keywords are prefixed with _
 let _import = internal._import
@@ -20,3 +22,5 @@ fn not(b) {
 		true
 	}
 }
+
+let newline = internal._bytes_to_string([10])

@@ -96,6 +96,14 @@ impl DriverTrait for DriverImpl {
     fn download(&self, _url: &str) -> Result<DownloadStatus, RunnerError> {
         todo!()
     }
+
+    fn read_file(&self, _file: &File) -> Result<String, RunnerError> {
+        todo!()
+    }
+
+    fn sha256(&self, _file: &File) -> Result<String, RunnerError> {
+        todo!()
+    }
 }
 
 impl MonitoringTrait for DriverImpl {}

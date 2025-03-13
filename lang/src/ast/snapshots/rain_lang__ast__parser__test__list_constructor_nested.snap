@@ -1,0 +1,35 @@
+---
+source: lang/src/ast/parser.rs
+expression: "parse_display_expr(\"[a, b, 123, [567, d]]\")"
+---
+List(
+ ListElement(
+  Ident(
+   a
+  )
+ )
+ ListElement(
+  Ident(
+   b
+  )
+ )
+ ListElement(
+  IntegerLiteral(
+   123
+  )
+ )
+ ListElement(
+  List(
+   ListElement(
+    IntegerLiteral(
+     567
+    )
+   )
+   ListElement(
+    Ident(
+     d
+    )
+   )
+  )
+ )
+)

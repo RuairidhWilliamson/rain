@@ -10,7 +10,7 @@ use std::{collections::HashMap, sync::Arc, time::Instant};
 use error::{RunnerError, Throwing};
 use internal::InternalFunction;
 use value::{RainTypeId, Value, ValueInner};
-use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainRecord, RainUnit};
+use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainList, RainRecord, RainUnit};
 
 use crate::{
     ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
@@ -170,15 +170,22 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
             )),
             Node::TrueLiteral(_) => Ok(Value::new(true)),
             Node::FalseLiteral(_) => Ok(Value::new(false)),
-            Node::Record(record_ast) => {
+            Node::Record(record) => {
                 let mut builder = HashMap::new();
-                for e in &record_ast.fields {
+                for e in &record.fields {
                     builder.insert(
                         e.key.span.contents(&cx.module.src).to_owned(),
                         self.evaluate_node(cx, e.value)?,
                     );
                 }
                 Ok(Value::new(RainRecord(builder)))
+            }
+            Node::List(list) => {
+                let mut builder = Vec::new();
+                for e in &list.elements {
+                    builder.push(self.evaluate_node(cx, e.value)?);
+                }
+                Ok(Value::new(RainList(builder)))
             }
         }
     }
@@ -425,7 +432,20 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     |left: &RainInteger, right: &RainInteger| Value::new(left.0 != right.0),
                 )
             }
-            _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
+            (RainTypeId::String, BinaryOperatorKind::Equals, RainTypeId::String) => {
+                Self::perform_binary_op(cx, op, &left, &right, |left: &String, right: &String| {
+                    Value::new(left == right)
+                })
+            }
+            (RainTypeId::String, BinaryOperatorKind::NotEquals, RainTypeId::String) => {
+                Self::perform_binary_op(cx, op, &left, &right, |left: &String, right: &String| {
+                    Value::new(left != right)
+                })
+            }
+            _ => Err(cx.err(
+                op.op_span,
+                RunnerError::Makeshift("binary op invalid for given types".into()),
+            )),
         }
     }
 

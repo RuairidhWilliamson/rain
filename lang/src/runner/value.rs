@@ -114,6 +114,7 @@ pub enum RainTypeId {
     List,
     Error,
     Record,
+    Sha256Digest,
 }
 
 pub trait ValueInner: Any + Debug + Send + Sync + RainHash + RainEq {

@@ -10,6 +10,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+base16 = "0.2.1"
 chrono.workspace = true
 ciborium = "0.2.2"
 dircpy = { version = "0.3.19", default-features = false }
@@ -17,15 +18,15 @@ dirs = "6.0.0"
 libc.workspace = true
 log.workspace = true
 num-bigint = "0.4.6"
+poison_panic.path = "../poison_panic"
+rain-lang.path = "../lang"
 reqwest = { version = "0.12.9", features = ["blocking"] }
 serde.workspace = true
+sha2 = "0.10.8"
 thiserror.workspace = true
 uuid.workspace = true
 web-time.workspace = true
 zip = "2.2.0"
-
-poison_panic.path = "../poison_panic"
-rain-lang.path = "../lang"
 
 [dev-dependencies]
 insta.workspace = true

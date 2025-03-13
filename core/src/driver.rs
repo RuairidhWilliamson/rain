@@ -12,6 +12,7 @@ use rain_lang::{
     driver::{DownloadStatus, DriverTrait, MonitoringTrait, RunStatus},
     runner::{error::RunnerError, internal::InternalFunction},
 };
+use sha2::Digest as _;
 
 use crate::config::Config;
 
@@ -173,6 +174,22 @@ impl DriverTrait for DriverImpl<'_> {
             status_code: Some(response.status().as_u16()),
             file: Some(output),
         })
+    }
+
+    fn read_file(&self, file: &File) -> Result<String, RunnerError> {
+        let resolved_path = self.resolve_file(file);
+        let contents = std::fs::read_to_string(resolved_path).map_err(RunnerError::AreaIOError)?;
+        Ok(contents)
+    }
+
+    #[expect(clippy::unwrap_used)]
+    fn sha256(&self, file: &File) -> Result<String, RunnerError> {
+        let resolved_path = self.resolve_file(file);
+        let mut file = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
+        let mut hasher = sha2::Sha256::new();
+        std::io::copy(&mut file, &mut hasher).unwrap();
+        let hash_result = hasher.finalize();
+        Ok(base16::encode_lower(&hash_result))
     }
 }
 

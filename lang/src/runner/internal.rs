@@ -1,6 +1,6 @@
 #![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::RangeInclusive};
 
 use crate::{
     afs::{absolute::AbsolutePathBuf, area::FileArea, error::PathError, file::File},
@@ -33,6 +33,9 @@ pub enum InternalFunction {
     GetArea,
     Download,
     Throw,
+    ReadFile,
+    Sha256,
+    BytesToString,
 }
 
 impl ValueInner for InternalFunction {
@@ -57,13 +60,16 @@ impl InternalFunction {
             "_get_area" => Some(Self::GetArea),
             "_download" => Some(Self::Download),
             "_throw" => Some(Self::Throw),
+            "_read_file" => Some(Self::ReadFile),
+            "_sha256" => Some(Self::Sha256),
+            "_bytes_to_string" => Some(Self::BytesToString),
             _ => None,
         }
     }
 
     pub fn call_internal_function(
         self,
-        file_system: &dyn DriverTrait,
+        driver: &dyn DriverTrait,
         rir: &mut Rir,
         cx: &mut Cx,
         nid: NodeId,
@@ -71,7 +77,7 @@ impl InternalFunction {
         arg_values: Vec<(NodeId, Value)>,
     ) -> ResultValue {
         let icx = InternalCx {
-            file_system,
+            driver,
             rir,
             cx,
             nid,
@@ -92,17 +98,32 @@ impl InternalFunction {
             Self::GetArea => get_area(icx),
             Self::Download => download(icx),
             Self::Throw => throw(icx),
+            Self::ReadFile => read_file(icx),
+            Self::Sha256 => sha256(icx),
+            Self::BytesToString => bytes_to_string(icx),
         }
     }
 }
 
 struct InternalCx<'a, 'b> {
-    file_system: &'a dyn DriverTrait,
+    driver: &'a dyn DriverTrait,
     rir: &'a mut Rir,
     cx: &'a mut Cx<'b>,
     nid: NodeId,
     fn_call: &'a FnCall,
     arg_values: Vec<(NodeId, Value)>,
+}
+
+impl InternalCx<'_, '_> {
+    fn incorrect_args(self, required: RangeInclusive<usize>) -> ResultValue {
+        Err(self.cx.err(
+            self.fn_call.rparen_token,
+            RunnerError::IncorrectArgs {
+                required,
+                actual: self.arg_values.len(),
+            },
+        ))
+    }
 }
 
 fn print_implementation(icx: InternalCx) -> ResultValue {
@@ -111,7 +132,7 @@ fn print_implementation(icx: InternalCx) -> ResultValue {
         .into_iter()
         .map(|(_, a)| format!("{a}"))
         .collect();
-    icx.file_system.print(args.join(" "));
+    icx.driver.print(args.join(" "));
     Ok(Value::new(RainUnit))
 }
 
@@ -129,7 +150,7 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
                 .ok_or_else(|| icx.cx.nid_err(icx.nid, PathError::NoParentDirectory.into()))?
                 .join(relative_path)
                 .map_err(|err| icx.cx.nid_err(*relative_path_nid, err.into()))?;
-            if !icx.file_system.exists(&file).map_err(|err| {
+            if !icx.driver.exists(&file).map_err(|err| {
                 icx.cx
                     .nid_err(*relative_path_nid, RunnerError::AreaIOError(err))
             })? {
@@ -151,7 +172,7 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
                 .map_err(|err| icx.cx.nid_err(*absolute_path_nid, err))?;
             let file = File::new_checked(area.clone(), absolute_path)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err.into()))?;
-            if !icx.file_system.exists(&file).map_err(|err| {
+            if !icx.driver.exists(&file).map_err(|err| {
                 icx.cx
                     .nid_err(*absolute_path_nid, RunnerError::AreaIOError(err))
             })? {
@@ -177,7 +198,7 @@ fn import_implementation(icx: InternalCx) -> ResultValue {
             let file: &File = file_value
                 .downcast_ref_error(&[RainTypeId::File])
                 .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
-            let resolved_path = icx.file_system.resolve_file(file);
+            let resolved_path = icx.driver.resolve_file(file);
             let src = std::fs::read_to_string(&resolved_path)
                 .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::ImportIOError(err)))?;
             let module = crate::ast::parser::parse_module(&src);
@@ -244,7 +265,7 @@ fn extract_implementation(icx: InternalCx) -> ResultValue {
                 .downcast_ref_error(&[RainTypeId::File])
                 .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
             let area = icx
-                .file_system
+                .driver
                 .extract(file)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
             Ok(Value::new(area))
@@ -288,7 +309,7 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                         .map_err(|err| icx.cx.nid_err(*nid, err))?
                         .to_string()),
                     RainTypeId::File => Ok(icx
-                        .file_system
+                        .driver
                         .resolve_file(
                             value
                                 .downcast_ref_error::<File>(&[RainTypeId::File])
@@ -306,7 +327,7 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                 })
                 .collect::<Result<Vec<String>>>()?;
             let status = icx
-                .file_system
+                .driver
                 .run(overlay_area, file, args)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
             let mut m = HashMap::new();
@@ -337,7 +358,7 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
                 .downcast_ref_error(&[RainTypeId::String])
                 .map_err(|err| icx.cx.nid_err(*name_nid, err))?;
             let path = icx
-                .file_system
+                .driver
                 .escape_bin(name)
                 .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericRunError))?;
             let f = File::new_checked(FileArea::Escape, path.to_string_lossy().as_ref())
@@ -387,7 +408,7 @@ fn download(icx: InternalCx) -> ResultValue {
                 status_code,
                 file,
             } = icx
-                .file_system
+                .driver
                 .download(url)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
             let mut m = HashMap::new();
@@ -428,5 +449,64 @@ fn throw(icx: InternalCx) -> ResultValue {
                 actual: icx.arg_values.len(),
             },
         )),
+    }
+}
+
+fn read_file(icx: InternalCx) -> ResultValue {
+    match &icx.arg_values[..] {
+        [(file_nid, file_value)] => {
+            let file: &File = file_value
+                .downcast_ref_error(&[RainTypeId::File])
+                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
+            Ok(Value::new(
+                icx.driver
+                    .read_file(file)
+                    .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
+            ))
+        }
+        _ => icx.incorrect_args(1..=1),
+    }
+}
+
+fn sha256(icx: InternalCx) -> ResultValue {
+    match &icx.arg_values[..] {
+        [(file_nid, file_value)] => {
+            let file: &File = file_value
+                .downcast_ref_error(&[RainTypeId::File])
+                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
+            Ok(Value::new(
+                icx.driver
+                    .sha256(file)
+                    .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
+            ))
+        }
+        _ => icx.incorrect_args(1..=1),
+    }
+}
+
+#[expect(clippy::unwrap_used)]
+fn bytes_to_string(icx: InternalCx) -> ResultValue {
+    match &icx.arg_values[..] {
+        [(bytes_nid, bytes_value)] => {
+            let bytes: &RainList = bytes_value
+                .downcast_ref_error(&[RainTypeId::List])
+                .map_err(|err| icx.cx.nid_err(*bytes_nid, err))?;
+            let bytes: Vec<u8> = bytes
+                .0
+                .iter()
+                .map(|b| {
+                    b.downcast_ref::<RainInteger>()
+                        .unwrap()
+                        .0
+                        .iter_u32_digits()
+                        .next()
+                        .unwrap()
+                        .try_into()
+                        .unwrap()
+                })
+                .collect();
+            Ok(Value::new(String::from_utf8(bytes).unwrap()))
+        }
+        _ => icx.incorrect_args(1..=1),
     }
 }

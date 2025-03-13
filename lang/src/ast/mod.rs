@@ -92,6 +92,7 @@ pub enum Node {
     FalseLiteral(FalseLiteral),
     InternalLiteral(InternalLiteral),
     Record(Record),
+    List(List),
 }
 
 impl Node {
@@ -112,6 +113,7 @@ impl Node {
             Self::FalseLiteral(inner) => inner,
             Self::InternalLiteral(inner) => inner,
             Self::Record(inner) => inner,
+            Self::List(inner) => inner,
         }
     }
 
@@ -583,5 +585,53 @@ impl AstNode for RecordField {
             .child_contents(self.key.span)
             .child(self.value)
             .finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct List {
+    pub lsqbracket: LocalSpan,
+    pub elements: Vec<ListElement>,
+    pub rsqbracket: LocalSpan,
+}
+
+impl From<List> for Node {
+    fn from(inner: List) -> Self {
+        Self::List(inner)
+    }
+}
+
+impl AstNode for List {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.lsqbracket + self.rsqbracket
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        let mut b = f.node("List");
+        for e in &self.elements {
+            b.child_fn(|f| e.ast_display(f));
+        }
+        b.finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct ListElement {
+    pub value: NodeId,
+    pub comma: Option<LocalSpan>,
+}
+
+impl AstNode for ListElement {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        let value_span = list.span(self.value);
+        if let Some(&s) = self.comma.as_ref() {
+            value_span + s
+        } else {
+            value_span
+        }
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("ListElement").child(self.value).finish()
     }
 }

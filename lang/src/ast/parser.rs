@@ -6,8 +6,9 @@ use crate::{
 
 use super::{
     AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, FalseLiteral, FnCall,
-    FnDeclare, FnDeclareArg, Ident, IfCondition, IntegerLiteral, InternalLiteral, LetDeclare,
-    Module, ModuleRoot, Node, NodeId, NodeList, Record, RecordField, StringLiteral, TrueLiteral,
+    FnDeclare, FnDeclareArg, Ident, IfCondition, IntegerLiteral, InternalLiteral, LetDeclare, List,
+    ListElement, Module, ModuleRoot, Node, NodeId, NodeList, Record, RecordField, StringLiteral,
+    TrueLiteral,
 };
 
 pub fn parse_module(source: &str) -> ParseResult<Module> {
@@ -214,6 +215,7 @@ impl<'src> ModuleParser<'src> {
             }
             Token::If => self.parse_if_condition(t)?,
             Token::LBrace => self.parse_record(t)?,
+            Token::LSqBracket => self.parse_list(t)?,
             _ => return Err(t.span.with_error(ParseError::ExpectedExpression)),
         };
         Ok(expr)
@@ -342,6 +344,37 @@ impl<'src> ModuleParser<'src> {
             value,
             comma,
         })
+    }
+
+    fn parse_list(&mut self, lbracket: TokenLocalSpan) -> ParseResult<NodeId> {
+        let lbracket = lbracket.span;
+        let mut elements = Vec::new();
+        loop {
+            let Some(peek) = self.stream.peek()? else {
+                break;
+            };
+            if peek.token == Token::RSqBracket {
+                break;
+            }
+            elements.push(self.parse_list_element()?);
+        }
+        let rbracket = self.stream.expect_parse_next(&[Token::RSqBracket])?.span;
+        Ok(self.push(List {
+            lsqbracket: lbracket,
+            elements,
+            rsqbracket: rbracket,
+        }))
+    }
+
+    fn parse_list_element(&mut self) -> ParseResult<ListElement> {
+        let value = self.parse_expr()?;
+        let mut comma = None;
+        if let Some(tls) = self.stream.peek()? {
+            if tls.token == Token::Comma {
+                comma = Some(self.stream.expect_parse_next(&[Token::Comma])?.span);
+            }
+        }
+        Ok(ListElement { value, comma })
     }
 }
 
@@ -545,6 +578,11 @@ mod test {
     #[test]
     fn record_constructor_nested() {
         insta::assert_snapshot!(parse_display_expr("{a: {b: {c: 5}},}"));
+    }
+
+    #[test]
+    fn list_constructor_nested() {
+        insta::assert_snapshot!(parse_display_expr("[a, b, 123, [567, d]]"));
     }
 
     #[test]

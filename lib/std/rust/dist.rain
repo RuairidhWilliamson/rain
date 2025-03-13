@@ -1,12 +1,29 @@
 let utils = internal._import(internal._get_file("../utils.rain"))
 
-fn download_pre_sha(url) {
-	sha256 = utils.download(url + ".sha256")
-	utils.download({url: url, sha256: sha256})
+let not = utils.not
+let download = utils.download
+let _throw = utils._throw
+
+fn download_pre_sha(url, filename) {
+	file_url = url + "/" + filename
+	sha256_download_result = download(file_url + ".sha256")
+	if not(sha256_download_result.ok) {
+		_throw("download sha256 failed")
+	}
+	download_result = download(file_url)
+	if not(download_result.ok) {
+		_throw("download failed")
+	}
+	expected = utils.read_file(sha256_download_result.file)
+	actual = utils.sha256(download_result.file) + "  " + filename + utils.newline
+	if expected != actual {
+		_throw("checksum does not match '" + expected + "' != '" + actual + "'")
+	}
+	download_result.file
 }
 
 let base_url = "https://static.rust-lang.org"
 
-let stable_manifest = download_pre_sha(base_url + "/dist/channel-rust-stable.toml")
-let beta_manifest = download_pre_sha(base_url + "/dist/channel-rust-beta.toml")
-let nightly_manifest = download_pre_sha(base_url + "/dist/channel-rust-nightly.toml")
+let stable_manifest = download_pre_sha(base_url + "/dist", "channel-rust-stable.toml")
+let beta_manifest = download_pre_sha(base_url + "/dist", "channel-rust-beta.toml")
+let nightly_manifest = download_pre_sha(base_url + "/dist", "channel-rust-nightly.toml")
