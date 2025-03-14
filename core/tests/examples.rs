@@ -5,7 +5,7 @@ use rain_lang::runner::value::Value;
 use test_log::test;
 
 fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
-    rain_core::run_log(path, "main")
+    rain_core::run_stderr(path, "main")
 }
 
 #[test]

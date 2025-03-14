@@ -1,5 +1,5 @@
 ---
-source: lang/tests/scripts.rs
+source: core/tests/scripts.rs
 expression: "run(\"tests/scripts/fib.rain\").unwrap()"
 ---
-354224848179261915075
+12586269025

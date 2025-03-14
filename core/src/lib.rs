@@ -1,4 +1,3 @@
-use config::Config;
 use driver::DriverImpl;
 use rain_lang::{
     driver::DriverTrait as _,
@@ -13,15 +12,15 @@ pub mod exe;
 pub mod ipc;
 pub mod remote;
 
-#[expect(clippy::result_unit_err)]
-pub fn run_log(
+#[expect(clippy::result_unit_err, clippy::print_stderr)]
+pub fn run_stderr(
     path: impl AsRef<std::path::Path>,
     declaration: &str,
 ) -> Result<rain_lang::runner::value::Value, ()> {
-    let driver = DriverImpl::new(Config::default());
+    let driver = DriverImpl::new(config::Config::default());
     let mut cache = Cache::new(CACHE_SIZE);
     run(path, declaration, &mut cache, &driver).map_err(|err| {
-        log::error!("{err}");
+        eprintln!("{err}");
     })
 }
 

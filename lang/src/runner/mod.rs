@@ -20,7 +20,7 @@ use crate::{
     span::ErrorSpan,
 };
 
-const MAX_CALL_DEPTH: usize = 500;
+const MAX_CALL_DEPTH: usize = 250;
 
 type ResultValue = Result<Value>;
 type Result<T, E = ErrorSpan<Throwing>> = core::result::Result<T, E>;
@@ -298,58 +298,12 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         }
     }
 
-    #[expect(clippy::too_many_lines)]
     fn evaluate_binary_op(&mut self, cx: &mut Cx, op: &BinaryOp) -> ResultValue {
         let left = self.evaluate_node(cx, op.left)?;
         let left_type = left.rain_type_id();
         // Dot is a special case where we have to evaluate the right differently
         if op.op == BinaryOperatorKind::Dot {
-            return match left_type {
-                RainTypeId::Module => {
-                    let Some(module_value) = left.downcast_ref::<Module>() else {
-                        unreachable!()
-                    };
-                    match cx.module.get(op.right) {
-                        Node::Ident(tls) => {
-                            let name = tls.0.span.contents(&cx.module.src);
-                            let Some(did) =
-                                self.ir.resolve_global_declaration(module_value.id, name)
-                            else {
-                                return Err(cx.err(tls.0.span, RunnerError::UnknownIdent));
-                            };
-                            self.evaluate_declaration(did)
-                        }
-                        _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
-                    }
-                }
-                RainTypeId::Internal => match cx.module.get(op.right) {
-                    Node::Ident(tls) => {
-                        let name = tls.0.span.contents(&cx.module.src);
-                        InternalFunction::evaluate_internal_function_name(name)
-                            .map(Value::new)
-                            .ok_or_else(|| cx.err(tls.0.span, RunnerError::GenericRunError))
-                    }
-                    _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
-                },
-                RainTypeId::Record => match cx.module.get(op.right) {
-                    Node::Ident(tls) => {
-                        let Some(record_value) = left.downcast_ref::<RainRecord>() else {
-                            unreachable!()
-                        };
-                        let name = tls.0.span.contents(&cx.module.src);
-                        record_value.0.get(name).cloned().ok_or_else(|| {
-                            cx.err(
-                                tls.0.span,
-                                RunnerError::RecordMissingEntry {
-                                    name: name.to_owned(),
-                                },
-                            )
-                        })
-                    }
-                    _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
-                },
-                _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
-            };
+            return self.evaluate_dot_operator(cx, op, &left, &left_type);
         }
         let right = self.evaluate_node(cx, op.right)?;
         let right_type = right.rain_type_id();
@@ -446,6 +400,60 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 op.op_span,
                 RunnerError::Makeshift("binary op invalid for given types".into()),
             )),
+        }
+    }
+
+    fn evaluate_dot_operator(
+        &mut self,
+        cx: &mut Cx,
+        op: &BinaryOp,
+        left: &Value,
+        left_type: &RainTypeId,
+    ) -> std::result::Result<Value, ErrorSpan<Throwing>> {
+        match *left_type {
+            RainTypeId::Module => {
+                let Some(module_value) = left.downcast_ref::<Module>() else {
+                    unreachable!()
+                };
+                match cx.module.get(op.right) {
+                    Node::Ident(tls) => {
+                        let name = tls.0.span.contents(&cx.module.src);
+                        let Some(did) = self.ir.resolve_global_declaration(module_value.id, name)
+                        else {
+                            return Err(cx.err(tls.0.span, RunnerError::UnknownIdent));
+                        };
+                        self.evaluate_declaration(did)
+                    }
+                    _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
+                }
+            }
+            RainTypeId::Internal => match cx.module.get(op.right) {
+                Node::Ident(tls) => {
+                    let name = tls.0.span.contents(&cx.module.src);
+                    InternalFunction::evaluate_internal_function_name(name)
+                        .map(Value::new)
+                        .ok_or_else(|| cx.err(tls.0.span, RunnerError::GenericRunError))
+                }
+                _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
+            },
+            RainTypeId::Record => match cx.module.get(op.right) {
+                Node::Ident(tls) => {
+                    let Some(record_value) = left.downcast_ref::<RainRecord>() else {
+                        unreachable!()
+                    };
+                    let name = tls.0.span.contents(&cx.module.src);
+                    record_value.0.get(name).cloned().ok_or_else(|| {
+                        cx.err(
+                            tls.0.span,
+                            RunnerError::RecordMissingEntry {
+                                name: name.to_owned(),
+                            },
+                        )
+                    })
+                }
+                _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
+            },
+            _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
         }
     }
 
