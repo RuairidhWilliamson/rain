@@ -46,7 +46,7 @@ fn smee_run() {
 }
 
 fn stable_rust() {
-	std.rust.dist.beta_manifest
+	std.rust.dist.stable_manifest
 }
 
 fn print_some_stuff() {

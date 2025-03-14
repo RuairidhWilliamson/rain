@@ -182,13 +182,7 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
             }
             Ok(Value::new(file))
         }
-        _ => Err(icx.cx.err(
-            icx.fn_call.rparen_token,
-            RunnerError::IncorrectArgs {
-                required: 1..=2,
-                actual: icx.arg_values.len(),
-            },
-        )),
+        _ => icx.incorrect_args(1..=2),
     }
 }
 
@@ -208,13 +202,7 @@ fn import_implementation(icx: InternalCx) -> ResultValue {
                 .map_err(ErrorSpan::convert)?;
             Ok(Value::new(Module { id }))
         }
-        _ => Err(icx.cx.err(
-            icx.fn_call.rparen_token,
-            RunnerError::IncorrectArgs {
-                required: 1..=1,
-                actual: icx.arg_values.len(),
-            },
-        )),
+        _ => icx.incorrect_args(1..=1),
     }
 }
 
@@ -270,13 +258,7 @@ fn extract_implementation(icx: InternalCx) -> ResultValue {
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
             Ok(Value::new(area))
         }
-        _ => Err(icx.cx.err(
-            icx.fn_call.rparen_token,
-            RunnerError::IncorrectArgs {
-                required: 1..=1,
-                actual: icx.arg_values.len(),
-            },
-        )),
+        _ => icx.incorrect_args(1..=1),
     }
 }
 
@@ -341,13 +323,7 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
             m.insert("stderr".to_owned(), Value::new(status.stderr));
             Ok(Value::new(RainRecord(m)))
         }
-        _ => Err(icx.cx.err(
-            icx.fn_call.rparen_token,
-            RunnerError::IncorrectArgs {
-                required: 1..=2,
-                actual: icx.arg_values.len(),
-            },
-        )),
+        _ => icx.incorrect_args(1..=2),
     }
 }
 
@@ -365,13 +341,7 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
                 .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
             Ok(Value::new(f))
         }
-        _ => Err(icx.cx.err(
-            icx.fn_call.rparen_token,
-            RunnerError::IncorrectArgs {
-                required: 1..=1,
-                actual: icx.arg_values.len(),
-            },
-        )),
+        _ => icx.incorrect_args(1..=1),
     }
 }
 
@@ -387,13 +357,7 @@ fn get_area(icx: InternalCx) -> ResultValue {
                 .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
             Ok(Value::new(file.area.clone()))
         }
-        _ => Err(icx.cx.err(
-            icx.fn_call.rparen_token,
-            RunnerError::IncorrectArgs {
-                required: 1..=1,
-                actual: icx.arg_values.len(),
-            },
-        )),
+        _ => icx.incorrect_args(1..=1),
     }
 }
 
@@ -424,13 +388,7 @@ fn download(icx: InternalCx) -> ResultValue {
             }
             Ok(Value::new(RainRecord(m)))
         }
-        _ => Err(icx.cx.err(
-            icx.fn_call.rparen_token,
-            RunnerError::IncorrectArgs {
-                required: 1..=1,
-                actual: icx.arg_values.len(),
-            },
-        )),
+        _ => icx.incorrect_args(1..=1),
     }
 }
 
@@ -442,13 +400,7 @@ fn throw(icx: InternalCx) -> ResultValue {
             .span(icx.nid)
             .with_module(icx.cx.module.id)
             .with_error(super::error::Throwing::Recoverable(err_value.clone()))),
-        _ => Err(icx.cx.err(
-            icx.fn_call.rparen_token,
-            RunnerError::IncorrectArgs {
-                required: 1..=1,
-                actual: icx.arg_values.len(),
-            },
-        )),
+        _ => icx.incorrect_args(1..=1),
     }
 }
 
