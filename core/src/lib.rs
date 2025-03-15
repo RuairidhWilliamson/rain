@@ -42,10 +42,10 @@ pub fn run(
     let main = ir
         .resolve_global_declaration(mid, declaration)
         .ok_or_else(|| CoreError::Other(String::from("declaration does not exist")))?;
-    let mut runner = rain_lang::runner::Runner::new(ir, cache, file_system);
+    let mut runner = rain_lang::runner::Runner::new(&mut ir, cache, file_system);
     let value = runner
         .evaluate_and_call(main)
-        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&runner.ir).into_owned())))?;
+        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;
     Ok(value)
 }
 

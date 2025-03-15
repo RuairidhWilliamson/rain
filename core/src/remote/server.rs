@@ -9,9 +9,14 @@ use std::{
 };
 
 use poison_panic::MutexExt as _;
-use rain_lang::runner::cache::Cache;
+use rain_lang::{
+    driver::DriverTrait as _,
+    ir::Rir,
+    runner::{cache::Cache, value::Value},
+};
 
 use crate::{
+    CoreError,
     config::Config,
     driver::DriverImpl,
     remote::msg::{RequestWrapper, RestartReason},
@@ -60,6 +65,7 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
         start_time: chrono::Utc::now(),
         cache,
         stats: Stats::default(),
+        ir: Mutex::new(Rir::new()),
     };
     let socket_path = s.config.server_socket_path();
     std::fs::create_dir_all(socket_path.parent().expect("path parent"))?;
@@ -75,7 +81,8 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
             }
         }
     }
-    todo!()
+    log::error!("server ended unexpectedly");
+    Ok(())
 }
 
 struct Server {
@@ -86,6 +93,7 @@ struct Server {
     start_time: chrono::DateTime<chrono::Utc>,
     cache: Cache,
     stats: Stats,
+    ir: Mutex<Rir>,
 }
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -147,47 +155,7 @@ impl ClientHandler<'_> {
 
     fn handle_request(&mut self, req: Request) -> Result<(), Error> {
         match req {
-            Request::Run(req) => {
-                let config = self.server.config.clone();
-                let mut cache = self.server.cache.clone();
-                let s = Mutex::new(self);
-                let result;
-                {
-                    let driver = DriverImpl {
-                        config,
-                        prints: Mutex::default(),
-                        print_handler: Some(Box::new(|m| {
-                            let send_result = s
-                                .plock()
-                                .send_intermediate(&req, &RunProgress::Print(m.to_owned()));
-                            if let Err(err) = send_result {
-                                log::error!("send intermediate print: {err}");
-                            }
-                        })),
-                        enter_handler: Some(Box::new(|m| {
-                            let send_result = s
-                                .plock()
-                                .send_intermediate(&req, &RunProgress::EnterCall(m.to_owned()));
-                            if let Err(err) = send_result {
-                                log::error!("send intermediate enter call: {err}");
-                            }
-                        })),
-                        exit_handler: Some(Box::new(|m| {
-                            let send_result = s
-                                .plock()
-                                .send_intermediate(&req, &RunProgress::ExitCall(m.to_owned()));
-                            if let Err(err) = send_result {
-                                log::error!("send intermediate exit call: {err}");
-                            }
-                        })),
-                    };
-                    result = crate::run(&req.root, &req.target, &mut cache, &driver)
-                        .map(|v| v.to_string());
-                }
-                let s = s.pinto_inner();
-                s.send_response(&req, &RunResponse { output: result })?;
-                Ok(())
-            }
+            Request::Run(req) => self.run(req),
             Request::Info(req) => {
                 let resp = super::msg::info::InfoResponse {
                     pid: std::process::id(),
@@ -203,44 +171,69 @@ impl ClientHandler<'_> {
                         cache_size: self.server.cache.len(),
                     },
                 };
-                self.send_response(&req, &resp)?;
+                self.send_response(req, &resp)?;
+                Ok(())
+            }
+            Request::Inspect(req) => {
+                let cache_size = self.server.cache.len();
+                let entries = self.server.cache.inspect_all();
+                self.send_response(
+                    req,
+                    &super::msg::inspect::InspectResponse {
+                        cache_size,
+                        entries,
+                    },
+                )?;
                 Ok(())
             }
             Request::Shutdown(req) => {
                 log::info!("Goodbye");
-                self.send_response(&req, &super::msg::shutdown::Goodbye)?;
+                self.send_response(req, &super::msg::shutdown::Goodbye)?;
                 std::process::exit(0);
             }
-            Request::Clean(req) => {
-                log::info!("Cleaning");
-                let clean_paths = &[
-                    &self.server.config.base_cache_dir,
-                    &self.server.config.base_generated_dir,
-                    &self.server.config.base_data_dir,
-                    &self.server.config.base_run_dir,
-                ];
-                let mut sizes = HashMap::new();
-                for p in clean_paths {
-                    log::info!("removing {}", p.display());
-                    let metadata = match std::fs::metadata(p) {
-                        Err(err) => {
-                            log::error!("failed {}: {err}", p.display());
-                            continue;
-                        }
-                        Ok(metadata) => metadata,
-                    };
-                    if !metadata.is_dir() {
-                        log::error!("failed {} is not a directory", p.display());
-                        continue;
-                    }
-                    let size = remove_recursive(p)?;
-                    sizes.insert((*p).clone(), size);
-                }
-                log::info!("Goodbye");
-                self.send_response(&req, &super::msg::clean::Cleaned(sizes))?;
-                std::process::exit(0);
-            }
+            Request::Clean(req) => self.clean(req),
         }
+    }
+
+    fn run(&mut self, req: super::msg::run::RunRequest) -> Result<(), Error> {
+        let config = self.server.config.clone();
+        let cache = self.server.cache.clone();
+        let mut ir = self.server.ir.plock();
+        let s = Mutex::new(self);
+        let result = run_inner(&req, config, cache, &s, &mut ir);
+        let s = s.pinto_inner();
+        s.send_response(req, &RunResponse { output: result })?;
+        Ok(())
+    }
+
+    fn clean(&mut self, req: super::msg::clean::CleanRequest) -> Result<(), Error> {
+        log::info!("Cleaning");
+        let clean_paths = &[
+            &self.server.config.base_cache_dir,
+            &self.server.config.base_generated_dir,
+            &self.server.config.base_data_dir,
+            &self.server.config.base_run_dir,
+        ];
+        let mut sizes = HashMap::new();
+        for p in clean_paths {
+            log::info!("removing {}", p.display());
+            let metadata = match std::fs::metadata(p) {
+                Err(err) => {
+                    log::error!("failed {}: {err}", p.display());
+                    continue;
+                }
+                Ok(metadata) => metadata,
+            };
+            if !metadata.is_dir() {
+                log::error!("failed {} is not a directory", p.display());
+                continue;
+            }
+            let size = remove_recursive(p)?;
+            sizes.insert((*p).clone(), size);
+        }
+        log::info!("Goodbye");
+        self.send_response(req, &super::msg::clean::Cleaned(sizes))?;
+        std::process::exit(0);
     }
 
     fn send_intermediate<Req>(
@@ -260,7 +253,7 @@ impl ClientHandler<'_> {
 
     fn send_response<Req>(
         &mut self,
-        _req: &Req,
+        _req: Req,
         response: &Req::Response,
     ) -> Result<(), ciborium::ser::Error<std::io::Error>>
     where
@@ -281,6 +274,71 @@ impl ClientHandler<'_> {
         let wrapped = Message::ServerPanic;
         ciborium::into_writer(&wrapped, &mut self.stream)
     }
+}
+
+fn run_inner(
+    req: &super::msg::run::RunRequest,
+    config: Config,
+    cache: Cache,
+    s: &Mutex<&mut ClientHandler<'_>>,
+    ir: &mut Rir,
+) -> Result<String, CoreError> {
+    let driver = DriverImpl {
+        config,
+        prints: Mutex::default(),
+        print_handler: Some(Box::new(|m| {
+            let send_result = s
+                .plock()
+                .send_intermediate(req, &RunProgress::Print(m.to_owned()));
+            if let Err(err) = send_result {
+                log::error!("send intermediate print: {err}");
+            }
+        })),
+        enter_handler: Some(Box::new(|m| {
+            let send_result = s
+                .plock()
+                .send_intermediate(req, &RunProgress::EnterCall(m.to_owned()));
+            if let Err(err) = send_result {
+                log::error!("send intermediate enter call: {err}");
+            }
+        })),
+        exit_handler: Some(Box::new(|m| {
+            let send_result = s
+                .plock()
+                .send_intermediate(req, &RunProgress::ExitCall(m.to_owned()));
+            if let Err(err) = send_result {
+                log::error!("send intermediate exit call: {err}");
+            }
+        })),
+    };
+
+    run_core(req, cache, &driver, ir).map(|v| v.to_string())
+}
+
+fn run_core(
+    req: &super::msg::run::RunRequest,
+    mut cache: Cache,
+    driver: &DriverImpl<'_>,
+    ir: &mut Rir,
+) -> Result<Value, CoreError> {
+    let path = &req.root;
+    let declaration: &str = &req.target;
+    let file = rain_lang::afs::file::File::new_local(path.as_ref())
+        .map_err(|err| CoreError::Other(err.to_string()))?;
+    let path = driver.resolve_file(&file);
+    let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
+    let module = rain_lang::ast::parser::parse_module(&src);
+    let mid = ir
+        .insert_module(file, src, module)
+        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(ir).into_owned())))?;
+    let main = ir
+        .resolve_global_declaration(mid, declaration)
+        .ok_or_else(|| CoreError::Other(String::from("declaration does not exist")))?;
+    let mut runner = rain_lang::runner::Runner::new(ir, &mut cache, driver);
+    let value = runner
+        .evaluate_and_call(main)
+        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;
+    Ok(value)
 }
 
 fn remove_recursive(path: &Path) -> std::io::Result<u64> {

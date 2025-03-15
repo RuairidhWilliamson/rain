@@ -1,6 +1,6 @@
 use std::{
     any::{Any, TypeId},
-    fmt::Debug,
+    fmt::{Debug, Display},
     sync::Arc,
 };
 
@@ -13,17 +13,13 @@ pub struct Value {
 
 impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.value.fmt(f)
+        Debug::fmt(&self.value, f)
     }
 }
 
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(s) = self.downcast_ref::<String>() {
-            std::fmt::Display::fmt(s, f)
-        } else {
-            std::fmt::Debug::fmt(self, f)
-        }
+        std::fmt::Display::fmt(&self.value, f)
     }
 }
 
@@ -112,12 +108,11 @@ pub enum RainTypeId {
     Internal,
     InternalFunction,
     List,
-    Error,
     Record,
     Sha256Digest,
 }
 
-pub trait ValueInner: Any + Debug + Send + Sync + RainHash + RainEq {
+pub trait ValueInner: Any + Debug + Display + Send + Sync + RainHash + RainEq {
     fn rain_type_id(&self) -> RainTypeId;
 
     fn storeable(&self) -> bool {

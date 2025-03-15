@@ -55,13 +55,13 @@ impl<'a> Cx<'a> {
 }
 
 pub struct Runner<'a, D> {
-    pub ir: Rir,
+    pub ir: &'a mut Rir,
     pub cache: &'a mut cache::Cache,
     pub driver: &'a D,
 }
 
 impl<'a, D: DriverTrait> Runner<'a, D> {
-    pub fn new(rir: Rir, cache: &'a mut cache::Cache, driver: &'a D) -> Self {
+    pub fn new(rir: &'a mut Rir, cache: &'a mut cache::Cache, driver: &'a D) -> Self {
         Self {
             ir: rir,
             cache,
@@ -119,18 +119,12 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
             Node::LetDeclare(_) => panic!("can't evaluate let declare"),
             Node::FnDeclare(_) => panic!("can't evaluate fn declare"),
             Node::Block(block) => {
-                for nid in &block.statements[..block.statements.len() - 1] {
+                let mut prev = None;
+                for nid in &block.statements {
                     let v = self.evaluate_node(cx, *nid)?;
-                    // Shortcut errors in block
-                    if v.rain_type_id() == RainTypeId::Error {
-                        return Ok(v);
-                    }
+                    prev = Some(v);
                 }
-                if let Some(nid) = block.statements.last() {
-                    self.evaluate_node(cx, *nid)
-                } else {
-                    Ok(Value::new(RainUnit))
-                }
+                Ok(prev.unwrap_or_else(|| Value::new(RainUnit)))
             }
             Node::IfCondition(if_condition) => self.evaluate_if_condition(cx, if_condition),
             Node::FnCall(fn_call) => self.evaluate_fn_call(cx, nid, fn_call),
@@ -276,14 +270,8 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 }
                 let start = web_time::Instant::now();
                 self.driver.enter_internal_call(f);
-                let v = f.call_internal_function(
-                    self.driver,
-                    &mut self.ir,
-                    cx,
-                    nid,
-                    fn_call,
-                    arg_values,
-                )?;
+                let v =
+                    f.call_internal_function(self.driver, self.ir, cx, nid, fn_call, arg_values)?;
                 self.driver.exit_internal_call(f);
                 self.cache.put(key, start.elapsed(), v.clone());
                 Ok(v)

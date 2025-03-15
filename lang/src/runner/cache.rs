@@ -45,11 +45,11 @@ impl Cache {
         }
     }
 
-    pub fn get_value(&mut self, key: &CacheKey) -> Option<Value> {
+    pub fn get_value(&self, key: &CacheKey) -> Option<Value> {
         self.storage.plock().get(key).map(|e| e.value.clone())
     }
 
-    pub fn put(&mut self, key: CacheKey, execution_time: Duration, value: Value) {
+    pub fn put(&self, key: CacheKey, execution_time: Duration, value: Value) {
         if value.storeable() {
             self.storage.plock().put(
                 key,
@@ -66,15 +66,44 @@ impl Cache {
             );
         }
     }
+
+    pub fn inspect_all(&self) -> Vec<String> {
+        self.storage
+            .plock()
+            .iter()
+            .map(|(k, v)| {
+                format!(
+                    "{}({}) => {} {:?}",
+                    k.definition,
+                    display_vec(&k.args),
+                    v.value,
+                    v.execution_time
+                )
+            })
+            .collect()
+    }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+fn display_vec<T: std::fmt::Display>(v: &Vec<T>) -> String {
+    let mut s = String::new();
+    let mut first = true;
+    for e in v {
+        if !first {
+            s.push(',');
+        }
+        first = false;
+        s.push_str(&e.to_string());
+    }
+    s
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CacheKey {
     definition: FunctionDefinition,
     args: Vec<Value>,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FunctionDefinition {
     DeclarationId(DeclarationId),
     Internal(InternalFunction),
@@ -92,8 +121,17 @@ impl From<InternalFunction> for FunctionDefinition {
     }
 }
 
+impl std::fmt::Display for FunctionDefinition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::DeclarationId(declaration_id) => std::fmt::Display::fmt(declaration_id, f),
+            Self::Internal(internal_function) => std::fmt::Display::fmt(internal_function, f),
+        }
+    }
+}
+
+#[derive(Debug)]
 struct CacheEntry {
-    #[expect(dead_code)]
     execution_time: Duration,
     #[expect(dead_code)]
     expires: Option<DateTime<Utc>>,

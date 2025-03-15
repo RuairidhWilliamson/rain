@@ -25,6 +25,12 @@ impl ValueInner for RainUnit {
     }
 }
 
+impl std::fmt::Display for RainUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("unit")
+    }
+}
+
 impl ValueInner for bool {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Boolean
@@ -46,9 +52,15 @@ impl ValueInner for RainInteger {
     }
 }
 
+impl std::fmt::Display for RainInteger {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
 impl std::fmt::Debug for RainInteger {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
+        std::fmt::Debug::fmt(&self.0, f)
     }
 }
 impl FromStr for RainInteger {
@@ -68,9 +80,11 @@ impl ValueInner for RainFunction {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Function
     }
+}
 
-    fn storeable(&self) -> bool {
-        false
+impl std::fmt::Display for RainFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.id, f)
     }
 }
 
@@ -83,9 +97,11 @@ impl ValueInner for Module {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Module
     }
+}
 
-    fn storeable(&self) -> bool {
-        false
+impl std::fmt::Display for Module {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.id, f)
     }
 }
 
@@ -110,6 +126,12 @@ impl ValueInner for RainInternal {
     }
 }
 
+impl std::fmt::Display for RainInternal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("internal")
+    }
+}
+
 #[derive(Hash, PartialEq, Eq)]
 pub struct RainList(pub Vec<Value>);
 
@@ -125,12 +147,18 @@ impl ValueInner for RainList {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq)]
-pub struct RainError(pub std::borrow::Cow<'static, str>);
-
-impl ValueInner for RainError {
-    fn rain_type_id(&self) -> RainTypeId {
-        RainTypeId::Error
+impl std::fmt::Display for RainList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("[")?;
+        let mut first = true;
+        for v in &self.0 {
+            if !first {
+                f.write_str(", ")?;
+            }
+            first = false;
+            std::fmt::Display::fmt(v, f)?;
+        }
+        f.write_str("]")
     }
 }
 
@@ -140,6 +168,23 @@ pub struct RainRecord(pub HashMap<String, Value>);
 impl ValueInner for RainRecord {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::Record
+    }
+}
+
+impl std::fmt::Display for RainRecord {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("{")?;
+        let mut first = true;
+        for (k, v) in &self.0 {
+            if !first {
+                f.write_str(", ")?;
+            }
+            first = false;
+            f.write_str(k)?;
+            f.write_str(": ")?;
+            std::fmt::Display::fmt(v, f)?;
+        }
+        f.write_str("}")
     }
 }
 

@@ -38,6 +38,12 @@ pub enum InternalFunction {
     BytesToString,
 }
 
+impl std::fmt::Display for InternalFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
+}
+
 impl ValueInner for InternalFunction {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::InternalFunction

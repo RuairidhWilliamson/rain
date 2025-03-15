@@ -130,8 +130,20 @@ impl ParsedIrModule {
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ModuleId(usize);
 
+impl std::fmt::Display for ModuleId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct LocalDeclarationId(usize);
+
+impl std::fmt::Display for LocalDeclarationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct DeclarationId(ModuleId, LocalDeclarationId);
@@ -143,6 +155,12 @@ impl DeclarationId {
 
     pub fn local_id(&self) -> LocalDeclarationId {
         self.1
+    }
+}
+
+impl std::fmt::Display for DeclarationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
     }
 }
 

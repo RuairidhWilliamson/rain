@@ -153,7 +153,6 @@ impl DriverTrait for DriverImpl<'_> {
         let request = client
             .request(reqwest::Method::GET, url)
             // TODO: Download cache
-            // TODO: Download lock file
             // TODO: ETAG support
             // .header(
             //     reqwest::header::IF_NONE_MATCH,
