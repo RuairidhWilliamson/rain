@@ -312,7 +312,14 @@ fn run_inner(
         })),
     };
 
-    run_core(req, cache, &driver, ir).map(|v| v.to_string())
+    run_core(req, cache, &driver, ir).map(|v| {
+        if req.resolve {
+            if let Some(f) = v.downcast_ref() {
+                return driver.resolve_file(f).display().to_string();
+            }
+        }
+        v.to_string()
+    })
 }
 
 fn run_core(

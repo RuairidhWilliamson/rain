@@ -25,7 +25,11 @@ fn check() {
 }
 
 fn build() {
-	std.rust.cargo.build(area, "rain-core", "")
+	std.rust.cargo.build(area, "rain", "", "dev")
+}
+
+fn build_release() {
+	std.rust.cargo.build(area, "rain", "", "release")
 }
 
 fn build_c() {

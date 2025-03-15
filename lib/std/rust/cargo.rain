@@ -32,17 +32,17 @@ fn test(area) {
 	}
 }
 
-fn run(area, package, features) {
-	run_result = run(area, cargo, "run", "--package", package, "--features", features)
+fn run(area, package, features, profile) {
+	run_result = run(area, cargo, "run", "--package", package, "--features", features, "--profile", profile)
 	if not(run_result.success) {
 		_throw(run_result)
 	}
 }
 
-fn build(area, package, features) {
-	run_result = run(area, cargo, "build", "--package", package, "--features", features, "--target-dir", "target")
+fn build(area, package, features, profile) {
+	run_result = run(area, cargo, "build", "--package", package, "--features", features, "--target-dir", "target", "--profile", profile)
 	if not(run_result.success) {
 		_throw(run_result)
 	}
-	get_file(run_result.area, "target/debug")
+	get_file(run_result.area, "target")
 }

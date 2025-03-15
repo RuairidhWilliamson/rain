@@ -57,6 +57,7 @@ pub mod run {
     pub struct RunRequest {
         pub root: PathBuf,
         pub target: String,
+        pub resolve: bool,
     }
 
     impl From<RunRequest> for super::Request {

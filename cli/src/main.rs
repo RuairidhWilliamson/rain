@@ -2,7 +2,7 @@
 
 use std::{
     ffi::OsStr,
-    io::{Write as _, stdout},
+    io::{Write as _, stderr},
     process::ExitCode,
 };
 
@@ -44,7 +44,7 @@ fn fallible_main() -> Result<(), ()> {
 fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     let cli = Cli::parse();
     match cli.command {
-        RainCtlCommand::Run { target } => run(config, target),
+        RainCtlCommand::Run { target, resolve } => run(config, target, resolve),
         RainCtlCommand::Info => {
             let info = make_request_or_start(config, InfoRequest, |()| {}).map_err(|err| {
                 eprintln!("{err}");
@@ -56,7 +56,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             make_request_or_start(config, ShutdownRequest, |()| {}).map_err(|err| {
                 eprintln!("{err}");
             })?;
-            println!("Server shutdown");
+            eprintln!("Server shutdown");
             Ok(())
         }
         RainCtlCommand::Config => {
@@ -75,34 +75,42 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     }
 }
 
-fn run(config: &Config, target: String) -> Result<(), ()> {
+fn run(config: &Config, target: String, resolve: bool) -> Result<(), ()> {
     let root = rain_core::find_root_rain().ok_or(())?;
     let mut stack = Vec::new();
-    let run_response = make_request_or_start(config, RunRequest { root, target }, |im| {
-        match im {
-            RunProgress::Print(s) => println!("\r{s:40}"),
-            RunProgress::EnterCall(s) => {
-                if !s.starts_with("internal.") {
-                    stack.push(s);
+    let run_response = make_request_or_start(
+        config,
+        RunRequest {
+            root,
+            target,
+            resolve,
+        },
+        |im| {
+            match im {
+                RunProgress::Print(s) => eprintln!("\r{s:40}"),
+                RunProgress::EnterCall(s) => {
+                    if !s.starts_with("internal.") {
+                        stack.push(s);
+                    }
+                }
+                RunProgress::ExitCall(s) => {
+                    if !s.starts_with("internal.") {
+                        stack.pop();
+                    }
                 }
             }
-            RunProgress::ExitCall(s) => {
-                if !s.starts_with("internal.") {
-                    stack.pop();
-                }
+            if let Some(last) = stack.last() {
+                eprint!("\r[ ] {last:40}");
+            } else {
+                eprint!("\r[x] {:40}", "Done");
             }
-        }
-        if let Some(last) = stack.last() {
-            print!("\r[ ] {last:40}");
-        } else {
-            print!("\r[x] {:40}", "Done");
-        }
-        let _ = stdout().flush();
-    })
+            let _ = stderr().flush();
+        },
+    )
     .map_err(|err| {
         eprintln!("{err}");
     })?;
-    println!();
+    eprintln!();
     let result = run_response.output;
     match result {
         Ok(s) => {
@@ -168,6 +176,9 @@ pub enum RainCtlCommand {
     Info,
     Run {
         target: String,
+        /// Resolve returned file paths before printing them to stdout
+        #[arg(long)]
+        resolve: bool,
     },
     Shutdown,
     /// View rain config
