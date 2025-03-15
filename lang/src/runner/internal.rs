@@ -13,6 +13,7 @@ use crate::{
 
 use super::{
     Cx, Result, ResultValue,
+    cache::CacheStrategy,
     error::RunnerError,
     value::{RainTypeId, Value, ValueInner},
     value_impl::{Module, RainInteger, RainList, RainRecord},
@@ -70,6 +71,14 @@ impl InternalFunction {
             "_sha256" => Some(Self::Sha256),
             "_bytes_to_string" => Some(Self::BytesToString),
             _ => None,
+        }
+    }
+
+    pub fn cache_strategy(&self) -> CacheStrategy {
+        match self {
+            // These are very cheap shouldn't bother caching
+            Self::Throw | Self::Unit | Self::GetFile => CacheStrategy::Never,
+            _ => CacheStrategy::Always,
         }
     }
 

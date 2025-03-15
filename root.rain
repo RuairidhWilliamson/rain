@@ -45,10 +45,6 @@ fn download_test() {
 	std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore")
 }
 
-fn smee_run() {
-	smee.run()
-}
-
 fn stable_rust() {
 	std.rust.dist.stable_manifest
 }

@@ -115,6 +115,16 @@ impl ValueInner for File {
     fn rain_type_id(&self) -> RainTypeId {
         RainTypeId::File
     }
+
+    fn cache_pure(&self) -> bool {
+        match &self.area {
+            // Files outside of rain's control are not pure since they are mutable, making determining if they are the same file as before more complicated
+            // TODO: Implement escape/local file caching
+            FileArea::Escape | FileArea::Local(_) => false,
+            // Files in a generated area are considered pure since they are considered by rain to be immutable
+            FileArea::Generated(_) => true,
+        }
+    }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]

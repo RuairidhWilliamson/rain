@@ -132,7 +132,7 @@ pub struct ModuleId(usize);
 
 impl std::fmt::Display for ModuleId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
+        f.write_fmt(format_args!("Module<{}>", self.0))
     }
 }
 
@@ -141,7 +141,7 @@ pub struct LocalDeclarationId(usize);
 
 impl std::fmt::Display for LocalDeclarationId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
+        f.write_fmt(format_args!("LocalDeclaration<{}>", self.0))
     }
 }
 
@@ -160,7 +160,11 @@ impl DeclarationId {
 
 impl std::fmt::Display for DeclarationId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
+        f.write_fmt(format_args!(
+            "Declaration<{}, {}>",
+            self.module_id().0,
+            self.local_id().0,
+        ))
     }
 }
 

@@ -46,10 +46,28 @@ impl Cache {
     }
 
     pub fn get_value(&self, key: &CacheKey) -> Option<Value> {
+        match key.definition.cache_strategy() {
+            CacheStrategy::Never => {
+                return None;
+            }
+            CacheStrategy::Always => (),
+        }
+        if !key.pure() {
+            return None;
+        }
         self.storage.plock().get(key).map(|e| e.value.clone())
     }
 
     pub fn put(&self, key: CacheKey, execution_time: Duration, value: Value) {
+        match key.definition.cache_strategy() {
+            CacheStrategy::Never => {
+                return;
+            }
+            CacheStrategy::Always => (),
+        }
+        if !key.pure() {
+            return;
+        }
         if value.storeable() {
             self.storage.plock().put(
                 key,
@@ -103,10 +121,25 @@ pub struct CacheKey {
     args: Vec<Value>,
 }
 
+impl CacheKey {
+    fn pure(&self) -> bool {
+        self.args.iter().all(Value::cache_pure)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FunctionDefinition {
     DeclarationId(DeclarationId),
     Internal(InternalFunction),
+}
+
+impl FunctionDefinition {
+    fn cache_strategy(&self) -> CacheStrategy {
+        match self {
+            Self::DeclarationId(_) => CacheStrategy::Always,
+            Self::Internal(internal_function) => internal_function.cache_strategy(),
+        }
+    }
 }
 
 impl From<&RainFunction> for FunctionDefinition {
@@ -136,4 +169,9 @@ struct CacheEntry {
     #[expect(dead_code)]
     expires: Option<DateTime<Utc>>,
     value: Value,
+}
+
+pub enum CacheStrategy {
+    Always,
+    Never,
 }

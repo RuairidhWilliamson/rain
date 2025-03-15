@@ -49,6 +49,10 @@ impl Value {
         self.value.storeable()
     }
 
+    pub fn cache_pure(&self) -> bool {
+        self.value.cache_pure()
+    }
+
     pub fn rain_type_id(&self) -> RainTypeId {
         self.value.rain_type_id()
     }
@@ -109,13 +113,16 @@ pub enum RainTypeId {
     InternalFunction,
     List,
     Record,
-    Sha256Digest,
 }
 
 pub trait ValueInner: Any + Debug + Display + Send + Sync + RainHash + RainEq {
     fn rain_type_id(&self) -> RainTypeId;
 
     fn storeable(&self) -> bool {
+        true
+    }
+
+    fn cache_pure(&self) -> bool {
         true
     }
 }
