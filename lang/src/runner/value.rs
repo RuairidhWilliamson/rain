@@ -11,15 +11,19 @@ pub struct Value {
     value: Arc<dyn ValueInner>,
 }
 
-impl std::fmt::Debug for Value {
+impl Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.value, f)
     }
 }
 
-impl std::fmt::Display for Value {
+impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.value, f)
+        if self.value.rain_type_id() == RainTypeId::String {
+            Debug::fmt(&self.value, f)
+        } else {
+            Display::fmt(&self.value, f)
+        }
     }
 }
 

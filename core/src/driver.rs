@@ -93,7 +93,7 @@ impl DriverTrait for DriverImpl<'_> {
         self.prints.plock().push(message);
     }
 
-    fn extract(&self, file: &File) -> Result<FileArea, RunnerError> {
+    fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError> {
         let resolved_path = self.resolve_file(file);
         let area = self.create_area()?;
         let output_dir = File::new(area.clone(), "/");
@@ -112,6 +112,34 @@ impl DriverTrait for DriverImpl<'_> {
                 .map_err(RunnerError::AreaIOError)?;
             std::io::copy(&mut zip_file, &mut out).map_err(RunnerError::AreaIOError)?;
         }
+        Ok(area)
+    }
+
+    fn extract_tar_gz(&self, file: &File) -> Result<FileArea, RunnerError> {
+        let resolved_path = self.resolve_file(file);
+        let area = self.create_area()?;
+        let output_dir = File::new(area.clone(), "/");
+        let output_dir_path = self.resolve_file(&output_dir);
+        let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
+        let raw_tar = flate2::read::GzDecoder::new(f);
+        let mut archive = tar::Archive::new(raw_tar);
+        archive
+            .unpack(output_dir_path)
+            .map_err(|err| RunnerError::ExtractError(Box::new(err)))?;
+        Ok(area)
+    }
+
+    fn extract_tar_xz(&self, file: &File) -> Result<FileArea, RunnerError> {
+        let resolved_path = self.resolve_file(file);
+        let area = self.create_area()?;
+        let output_dir = File::new(area.clone(), "/");
+        let output_dir_path = self.resolve_file(&output_dir);
+        let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
+        let raw_tar = liblzma::read::XzDecoder::new(f);
+        let mut archive = tar::Archive::new(raw_tar);
+        archive
+            .unpack(output_dir_path)
+            .map_err(|err| RunnerError::ExtractError(Box::new(err)))?;
         Ok(area)
     }
 

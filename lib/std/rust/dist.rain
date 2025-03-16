@@ -45,15 +45,31 @@ fn get_artifact(artifact) {
 	if artifact.hash != hash {
 		_throw("checksum does not match")
 	}
-	download_result.file
+	utils.extract_tar_gz(download_result.file)
 }
 
-let stable = get(get_manifest("stable"))
-let beta = get(get_manifest("beta"))
-let nightly = get(get_manifest("nightly"))
+fn get_xz_artifact(artifact) {
+	if not(artifact.available) {
+		_throw("requested artifact not available")
+	}
+	download_result = download(artifact.xz_url)
+	if not(download_result.ok) {
+		_throw("download failed")
+	}
+	hash = utils.sha256(download_result.file)
+	if artifact.xz_hash != hash {
+		_throw("checksum does not match")
+	}
+	utils.extract_tar_xz(download_result.file)
+}
 
-fn get(manifest) {
-	rustc = get_artifact(manifest.pkg.rustc.target.x86_64_unknown_linux_gnu)
-	cargo = get_artifact(manifest.pkg.cargo.target.x86_64_unknown_linux_gnu)
+fn get(channel) {
+	manifest = get_manifest(channel)
+	rustc = get_xz_artifact(manifest.pkg.rustc.target.x86_64_unknown_linux_gnu)
+	cargo = get_xz_artifact(manifest.pkg.cargo.target.x86_64_unknown_linux_gnu)
 	{rustc: rustc, cargo: cargo}
 }
+
+let stable = get("stable")
+let beta = get("beta")
+let nightly = get("nightly")

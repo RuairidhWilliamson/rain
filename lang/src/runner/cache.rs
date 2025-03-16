@@ -90,13 +90,18 @@ impl Cache {
             .plock()
             .iter()
             .map(|(k, v)| {
-                format!(
+                let mut s = format!(
                     "{}({}) => {} {:?}",
                     k.definition,
                     display_vec(&k.args),
                     v.value,
                     v.execution_time
-                )
+                );
+                if s.len() > 200 {
+                    s.truncate(197);
+                    s.push_str("...");
+                }
+                s
             })
             .collect()
     }

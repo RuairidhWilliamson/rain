@@ -8,6 +8,7 @@ pub mod value_impl;
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use error::{RunnerError, Throwing};
+use indexmap::IndexMap;
 use internal::InternalFunction;
 use value::{RainTypeId, Value, ValueInner};
 use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainList, RainRecord, RainUnit};
@@ -165,7 +166,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
             Node::TrueLiteral(_) => Ok(Value::new(true)),
             Node::FalseLiteral(_) => Ok(Value::new(false)),
             Node::Record(record) => {
-                let mut builder = HashMap::new();
+                let mut builder = IndexMap::new();
                 for e in &record.fields {
                     builder.insert(
                         e.key.span.contents(&cx.module.src).to_owned(),

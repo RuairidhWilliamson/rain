@@ -10,6 +10,9 @@ let module_file = internal._module_file
 let read_file = internal._read_file
 let sha256 = internal._sha256
 let parse_toml = internal._parse_toml
+let extract_zip = internal._extract_zip
+let extract_tar_gz = internal._extract_tar_gz
+let extract_tar_xz = internal._extract_tar_xz
 
 // Reserved keywords are prefixed with _
 let _import = internal._import

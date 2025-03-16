@@ -11,7 +11,9 @@ pub trait DriverTrait: MonitoringTrait {
     fn exists(&self, file: &File) -> Result<bool, std::io::Error>;
     fn print(&self, message: String);
     fn escape_bin(&self, name: &str) -> Option<PathBuf>;
-    fn extract(&self, file: &File) -> Result<FileArea, RunnerError>;
+    fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError>;
+    fn extract_tar_gz(&self, file: &File) -> Result<FileArea, RunnerError>;
+    fn extract_tar_xz(&self, file: &File) -> Result<FileArea, RunnerError>;
     fn run(
         &self,
         area: Option<&FileArea>,

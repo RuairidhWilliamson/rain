@@ -1,4 +1,6 @@
-use std::{collections::HashMap, str::FromStr};
+use std::str::FromStr;
+
+use indexmap::IndexMap;
 
 use crate::{
     afs::{area::FileArea, file::File},
@@ -173,7 +175,7 @@ impl std::fmt::Display for RainList {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct RainRecord(pub HashMap<String, Value>);
+pub struct RainRecord(pub IndexMap<String, Value>);
 
 impl ValueInner for RainRecord {
     fn rain_type_id(&self) -> RainTypeId {

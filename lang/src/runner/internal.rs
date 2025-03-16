@@ -1,7 +1,8 @@
 #![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
 
-use std::{collections::HashMap, ops::RangeInclusive};
+use std::ops::RangeInclusive;
 
+use indexmap::IndexMap;
 use num_bigint::BigInt;
 
 use crate::{
@@ -28,7 +29,9 @@ pub enum InternalFunction {
     Import,
     ModuleFile,
     LocalArea,
-    Extract,
+    ExtractZip,
+    ExtractTarGz,
+    ExtractTarXz,
     Args,
     Run,
     EscapeBin,
@@ -62,7 +65,9 @@ impl InternalFunction {
             "_import" => Some(Self::Import),
             "_module_file" => Some(Self::ModuleFile),
             "_local_area" => Some(Self::LocalArea),
-            "_extract" => Some(Self::Extract),
+            "_extract_zip" => Some(Self::ExtractZip),
+            "_extract_tar_gz" => Some(Self::ExtractTarGz),
+            "_extract_tar_xz" => Some(Self::ExtractTarXz),
             "_args" => Some(Self::Args),
             "_run" => Some(Self::Run),
             "_escape_bin" => Some(Self::EscapeBin),
@@ -109,7 +114,9 @@ impl InternalFunction {
             Self::Import => import_implementation(icx),
             Self::ModuleFile => module_file_implementation(icx),
             Self::LocalArea => local_area_implementation(icx),
-            Self::Extract => extract_implementation(icx),
+            Self::ExtractZip => extract_zip(icx),
+            Self::ExtractTarGz => extract_tar_gz(icx),
+            Self::ExtractTarXz => extract_tar_xz(icx),
             Self::Args => args_implementation(icx),
             Self::Run => run_implementation(icx),
             Self::EscapeBin => escape_bin(icx),
@@ -284,20 +291,31 @@ fn local_area_implementation(icx: InternalCx) -> ResultValue {
     Ok(Value::new(FileArea::Local(area_path)))
 }
 
-fn extract_implementation(icx: InternalCx) -> ResultValue {
-    match &icx.arg_values[..] {
-        [(file_nid, file_value)] => {
-            let file: &File = file_value
-                .downcast_ref_error(&[RainTypeId::File])
-                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
-            let area = icx
-                .driver
-                .extract(file)
-                .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
-            Ok(Value::new(area))
-        }
-        _ => icx.incorrect_args(1..=1),
-    }
+fn extract_zip(icx: InternalCx) -> ResultValue {
+    let file = icx.single_arg::<File>(&[RainTypeId::File])?;
+    let area = icx
+        .driver
+        .extract_zip(file)
+        .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
+    Ok(Value::new(area))
+}
+
+fn extract_tar_gz(icx: InternalCx) -> ResultValue {
+    let file = icx.single_arg::<File>(&[RainTypeId::File])?;
+    let area = icx
+        .driver
+        .extract_tar_gz(file)
+        .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
+    Ok(Value::new(area))
+}
+
+fn extract_tar_xz(icx: InternalCx) -> ResultValue {
+    let file = icx.single_arg::<File>(&[RainTypeId::File])?;
+    let area = icx
+        .driver
+        .extract_tar_xz(file)
+        .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
+    Ok(Value::new(area))
 }
 
 fn args_implementation(_icx: InternalCx) -> ResultValue {
@@ -350,7 +368,7 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                 .driver
                 .run(overlay_area, file, args)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
-            let mut m = HashMap::new();
+            let mut m = IndexMap::new();
             m.insert("success".to_owned(), Value::new(status.success));
             m.insert(
                 "exit_code".to_owned(),
@@ -416,7 +434,7 @@ fn download(icx: InternalCx) -> ResultValue {
                 .driver
                 .download(url, name)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
-            let mut m = HashMap::new();
+            let mut m = IndexMap::new();
             m.insert("ok".to_owned(), Value::new(ok));
             m.insert(
                 "status_code".to_owned(),

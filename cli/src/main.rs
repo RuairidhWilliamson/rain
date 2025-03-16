@@ -15,7 +15,7 @@ use rain_core::{
         msg::{
             clean::CleanRequest,
             info::InfoRequest,
-            inspect::InspectRequest,
+            inspect::{InspectRequest, InspectResponse},
             run::{RunProgress, RunRequest},
             shutdown::ShutdownRequest,
         },
@@ -65,11 +65,16 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             Ok(())
         }
         RainCtlCommand::Inspect => {
-            let response =
-                make_request_or_start(config, InspectRequest, |()| {}).map_err(|err| {
-                    eprintln!("{err}");
-                })?;
-            eprintln!("{response:#?}");
+            let InspectResponse {
+                cache_size,
+                entries,
+            } = make_request_or_start(config, InspectRequest, |()| {}).map_err(|err| {
+                eprintln!("{err}");
+            })?;
+            eprintln!("Cache size is {cache_size}");
+            for e in entries {
+                eprintln!("{e}");
+            }
             Ok(())
         }
         RainCtlCommand::Clean => clean(config),
