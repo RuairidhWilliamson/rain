@@ -8,13 +8,13 @@ use crate::{
 use super::{TokenError, stream::TokenStream};
 
 macro_rules! assert_tokens {
-    ($s:expr_2021) => {
+    ($s:expr) => {
         assert_eq!(str_tokens($s).unwrap(), vec![])
     };
-    ($s:expr_2021, $($t:expr_2021),+) => {
+    ($s:expr, $($t:expr),+) => {
         assert_eq!(str_tokens($s).unwrap(), vec![$($t),+])
     };
-    ($s:expr_2021, $($t:expr_2021),+,) => {
+    ($s:expr, $($t:expr),+,) => {
         assert_tokens!($s, $($t),+)
     };
 }

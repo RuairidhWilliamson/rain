@@ -18,7 +18,7 @@ pub trait DriverTrait: MonitoringTrait {
         bin: &File,
         args: Vec<String>,
     ) -> Result<RunStatus, RunnerError>;
-    fn download(&self, url: &str) -> Result<DownloadStatus, RunnerError>;
+    fn download(&self, url: &str, outname: &str) -> Result<DownloadStatus, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, RunnerError>;
     fn sha256(&self, file: &File) -> Result<String, RunnerError>;
 }

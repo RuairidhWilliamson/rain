@@ -19,6 +19,7 @@ termcolor.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 web-time.workspace = true
+toml = "0.8.20"
 
 poison_panic.path = "../poison_panic"
 

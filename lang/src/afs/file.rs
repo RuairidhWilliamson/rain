@@ -10,7 +10,7 @@ pub struct File {
 
 impl File {
     /// # Panics
-    /// Panics if path is not starting with /
+    /// Panics if path is not a valid `FilePath`
     pub fn new(area: FileArea, path: &'static str) -> Self {
         let path = match FilePath::new(path) {
             Ok(path) => path,

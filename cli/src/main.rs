@@ -23,7 +23,6 @@ use rain_core::{
 };
 
 fn main() -> ExitCode {
-    env_logger::init_from_env(Env::new().filter("RAIN_LOG"));
     if fallible_main().is_ok() {
         ExitCode::SUCCESS
     } else {
@@ -34,10 +33,12 @@ fn main() -> ExitCode {
 fn fallible_main() -> Result<(), ()> {
     let config = rain_core::config::Config::default();
     if std::env::var_os("RAIN_SERVER").as_deref() == Some(OsStr::new("1")) {
+        env_logger::init_from_env(Env::new().filter_or("RAIN_LOG", "debug"));
         return rain_core::remote::server::rain_server(config).map_err(|err| {
             eprintln!("rain server error: {err:?}");
         });
     }
+    env_logger::init_from_env(Env::new().filter("RAIN_LOG"));
     rain_ctl_command(&config)
 }
 

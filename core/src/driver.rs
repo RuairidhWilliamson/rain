@@ -148,7 +148,7 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     #[expect(clippy::unwrap_used)]
-    fn download(&self, url: &str) -> Result<DownloadStatus, RunnerError> {
+    fn download(&self, url: &str, name: &str) -> Result<DownloadStatus, RunnerError> {
         let client = reqwest::blocking::Client::new();
         let request = client
             .request(reqwest::Method::GET, url)
@@ -164,7 +164,7 @@ impl DriverTrait for DriverImpl<'_> {
         let mut response = client.execute(request).unwrap();
         log::debug!("Received response {response:?}");
         let area = self.create_area()?;
-        let output = File::new(area, "/download");
+        let output = File::new_checked(area, name)?;
         let output_path = self.resolve_file(&output);
         let mut out = std::fs::File::create_new(output_path).unwrap();
         std::io::copy(&mut response, &mut out).unwrap();

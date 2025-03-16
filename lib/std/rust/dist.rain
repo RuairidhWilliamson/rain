@@ -24,6 +24,36 @@ fn download_pre_sha(url, filename) {
 
 let base_url = "https://static.rust-lang.org"
 
-let stable_manifest = download_pre_sha(base_url + "/dist", "channel-rust-stable.toml")
-let beta_manifest = download_pre_sha(base_url + "/dist", "channel-rust-beta.toml")
-let nightly_manifest = download_pre_sha(base_url + "/dist", "channel-rust-nightly.toml")
+fn get_manifest(channel) {
+	manifest_file = download_pre_sha(base_url + "/dist", "channel-rust-" + channel + ".toml")
+	manifest_toml = utils.parse_toml(utils.read_file(manifest_file))
+	if manifest_toml.manifest_version != "2" {
+		_throw("unsupported manifest version, expected 2 but got " + manifest_toml.manifest_version)
+	}
+	manifest_toml
+}
+
+fn get_artifact(artifact) {
+	if not(artifact.available) {
+		_throw("requested artifact not available")
+	}
+	download_result = download(artifact.url)
+	if not(download_result.ok) {
+		_throw("download failed")
+	}
+	hash = utils.sha256(download_result.file)
+	if artifact.hash != hash {
+		_throw("checksum does not match")
+	}
+	download_result.file
+}
+
+let stable = get(get_manifest("stable"))
+let beta = get(get_manifest("beta"))
+let nightly = get(get_manifest("nightly"))
+
+fn get(manifest) {
+	rustc = get_artifact(manifest.pkg.rustc.target.x86_64_unknown_linux_gnu)
+	cargo = get_artifact(manifest.pkg.cargo.target.x86_64_unknown_linux_gnu)
+	{rustc: rustc, cargo: cargo}
+}

@@ -2,6 +2,8 @@
 
 use std::{collections::HashMap, ops::RangeInclusive};
 
+use num_bigint::BigInt;
+
 use crate::{
     afs::{absolute::AbsolutePathBuf, area::FileArea, error::PathError, file::File},
     ast::{FnCall, NodeId},
@@ -37,6 +39,7 @@ pub enum InternalFunction {
     ReadFile,
     Sha256,
     BytesToString,
+    ParseToml,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -70,6 +73,7 @@ impl InternalFunction {
             "_read_file" => Some(Self::ReadFile),
             "_sha256" => Some(Self::Sha256),
             "_bytes_to_string" => Some(Self::BytesToString),
+            "_parse_toml" => Some(Self::ParseToml),
             _ => None,
         }
     }
@@ -116,6 +120,7 @@ impl InternalFunction {
             Self::ReadFile => read_file(icx),
             Self::Sha256 => sha256(icx),
             Self::BytesToString => bytes_to_string(icx),
+            Self::ParseToml => parse_toml(icx),
         }
     }
 }
@@ -130,6 +135,24 @@ struct InternalCx<'a, 'b> {
 }
 
 impl InternalCx<'_, '_> {
+    fn single_arg<'c, T: ValueInner>(&'c self, rain_type: &'static [RainTypeId]) -> Result<&'c T> {
+        match &self.arg_values[..] {
+            [(arg_nid, arg_value)] => {
+                let arg: &T = arg_value
+                    .downcast_ref_error::<T>(rain_type)
+                    .map_err(|err| self.cx.nid_err(*arg_nid, err))?;
+                Ok(arg)
+            }
+            _ => Err(self.cx.err(
+                self.fn_call.rparen_token,
+                RunnerError::IncorrectArgs {
+                    required: 1..=1,
+                    actual: self.arg_values.len(),
+                },
+            )),
+        }
+    }
+
     fn incorrect_args(self, required: RangeInclusive<usize>) -> ResultValue {
         Err(self.cx.err(
             self.fn_call.rparen_token,
@@ -378,17 +401,20 @@ fn get_area(icx: InternalCx) -> ResultValue {
 
 fn download(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
-        [(url_nid, url_value)] => {
+        [(url_nid, url_value), (name_nid, name_value)] => {
             let url: &String = url_value
                 .downcast_ref_error(&[RainTypeId::String])
                 .map_err(|err| icx.cx.nid_err(*url_nid, err))?;
+            let name: &String = name_value
+                .downcast_ref_error(&[RainTypeId::String])
+                .map_err(|err| icx.cx.nid_err(*name_nid, err))?;
             let DownloadStatus {
                 ok,
                 status_code,
                 file,
             } = icx
                 .driver
-                .download(url)
+                .download(url, name)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
             let mut m = HashMap::new();
             m.insert("ok".to_owned(), Value::new(ok));
@@ -403,7 +429,7 @@ fn download(icx: InternalCx) -> ResultValue {
             }
             Ok(Value::new(RainRecord(m)))
         }
-        _ => icx.incorrect_args(1..=1),
+        _ => icx.incorrect_args(2..=2),
     }
 }
 
@@ -461,7 +487,7 @@ fn bytes_to_string(icx: InternalCx) -> ResultValue {
             let bytes: Vec<u8> = bytes
                 .0
                 .iter()
-                .map(|b| {
+                .map(|b| -> u8 {
                     b.downcast_ref::<RainInteger>()
                         .unwrap()
                         .0
@@ -476,4 +502,33 @@ fn bytes_to_string(icx: InternalCx) -> ResultValue {
         }
         _ => icx.incorrect_args(1..=1),
     }
+}
+
+fn parse_toml(icx: InternalCx) -> ResultValue {
+    fn toml_to_rain(v: toml::Value) -> Value {
+        match v {
+            toml::Value::String(s) => Value::new(s),
+            toml::Value::Integer(n) => Value::new(RainInteger(BigInt::from(n))),
+            toml::Value::Float(f) => Value::new(f.to_string()),
+            toml::Value::Boolean(b) => Value::new(b),
+            toml::Value::Datetime(datetime) => Value::new(datetime.to_string()),
+            toml::Value::Array(vec) => {
+                Value::new(RainList(vec.into_iter().map(toml_to_rain).collect()))
+            }
+            toml::Value::Table(map) => Value::new(RainRecord(
+                map.into_iter()
+                    .map(|(k, v)| (k.replace('-', "_"), toml_to_rain(v)))
+                    .collect(),
+            )),
+        }
+    }
+
+    let contents = icx.single_arg::<String>(&[RainTypeId::String])?;
+    let parsed: toml::Value = toml::de::from_str(contents).map_err(|err| {
+        icx.cx.nid_err(
+            icx.nid,
+            RunnerError::Makeshift(err.message().to_owned().into()),
+        )
+    })?;
+    Ok(toml_to_rain(parsed))
 }

@@ -46,7 +46,7 @@ fn download_test() {
 }
 
 fn stable_rust() {
-	std.rust.dist.stable_manifest
+	std.rust.dist.stable
 }
 
 fn print_some_stuff() {
