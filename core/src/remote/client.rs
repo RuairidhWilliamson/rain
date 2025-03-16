@@ -59,7 +59,7 @@ where
     Req: RequestTrait,
 {
     log::info!("Connecting");
-    let mut stream = match crate::ipc::Client::connect(config.server_socket_path()) {
+    let mut stream = match ruipc::Client::connect(config.server_socket_path()) {
         Ok(s) => s,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             log::info!("No socket at path");
@@ -127,7 +127,7 @@ where
     }
 }
 
-fn start_server(config: &Config) -> Result<crate::ipc::Client, Error> {
+fn start_server(config: &Config) -> Result<ruipc::Client, Error> {
     log::info!("Starting server...");
     let p = std::process::Command::new(crate::exe::current_exe().ok_or(Error::CurrentExe)?)
         .arg("server")
@@ -140,7 +140,7 @@ fn start_server(config: &Config) -> Result<crate::ipc::Client, Error> {
     log::info!("Started {}", p.id());
     // Wait for the socket to be created
     for _ in 0..10 {
-        match crate::ipc::Client::connect(config.server_socket_path()) {
+        match ruipc::Client::connect(config.server_socket_path()) {
             Ok(stream) => return Ok(stream),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 std::thread::sleep(Duration::from_millis(100));

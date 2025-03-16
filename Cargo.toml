@@ -4,6 +4,7 @@ members = [
   "lang",
   "smee_rs",
   "cli",
+  "ruipc",
   "poison_panic",
   "ci/coordinator",
 ]
@@ -48,6 +49,7 @@ significant_drop_tightening = "allow"
 suboptimal_flops = "allow"
 option_if_let_else = "allow"
 useless_let_if_seq = "allow"
+non_send_fields_in_send_ty = "allow"
 
 # Pedantic
 pedantic = { level = "warn", priority = -1 }

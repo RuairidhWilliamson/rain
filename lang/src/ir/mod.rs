@@ -167,18 +167,3 @@ impl std::fmt::Display for DeclarationId {
         ))
     }
 }
-
-#[derive(Debug)]
-pub enum RainError {
-    UnresolvedIdentifier,
-}
-
-impl std::fmt::Display for RainError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::UnresolvedIdentifier => f.write_str("unresolved identifier"),
-        }
-    }
-}
-
-impl std::error::Error for RainError {}

@@ -69,7 +69,7 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
     };
     let socket_path = s.config.server_socket_path();
     std::fs::create_dir_all(socket_path.parent().expect("path parent"))?;
-    let l = crate::ipc::Listener::bind(socket_path)?;
+    let mut l = ruipc::Listener::bind(socket_path)?;
     for stream in l.incoming() {
         match stream {
             Ok(stream) => {
@@ -104,7 +104,7 @@ struct Stats {
 
 struct ClientHandler<'a> {
     server: &'a Server,
-    stream: crate::ipc::Connection,
+    stream: ruipc::Connection,
 }
 
 impl ClientHandler<'_> {

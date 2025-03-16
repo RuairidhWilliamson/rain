@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 pub mod config;
 pub mod driver;
 pub mod exe;
-pub mod ipc;
 pub mod remote;
 
 #[expect(clippy::result_unit_err, clippy::print_stderr)]
