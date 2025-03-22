@@ -1,4 +1,5 @@
 let utils = internal._import(internal._get_file("../utils.rain"))
+let rust_dist = internal._import(internal._get_file("./dist.rain"))
 
 let not = utils.not
 let get_file = utils.get_file
@@ -7,13 +8,17 @@ let run = utils.run
 let unit = utils.unit
 let _throw = utils._throw
 
-let rustup = escape_bin("rustup")
-let rustc = escape_bin("rustc")
-
-fn compile(src, outname) {
-	run_result = run(unit, rustc, src, "-o", outname)
+fn compile(channel, src, outname) {
+	rustc = rust_dist.get_rustc(channel)
+	rust_std = rust_dist.get_rust_std(channel)
+	merged = utils.merge_dirs([rustc, rust_std])
+	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_file(merged, "/lib")}
+	rustc_bin = get_file(merged, "/bin/rustc")
+	run_result = run(unit, rustc_bin, [src, "-o", outname], env)
 	if not(run_result.success) {
-		_throw(run_result)
+		utils.print("Stdout:", run_result.stdout)
+		utils.print("Stderr:", run_result.stderr)
+		_throw("rustc compilation failed")
 	}
 	get_file(run_result.area, outname)
 }

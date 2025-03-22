@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
     afs::{area::FileArea, file::File},
@@ -19,10 +19,13 @@ pub trait DriverTrait: MonitoringTrait {
         area: Option<&FileArea>,
         bin: &File,
         args: Vec<String>,
+        options: RunOptions,
     ) -> Result<RunStatus, RunnerError>;
     fn download(&self, url: &str, outname: &str) -> Result<DownloadStatus, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, RunnerError>;
     fn sha256(&self, file: &File) -> Result<String, RunnerError>;
+    fn merge_dirs(&self, dirs: &[&File]) -> Result<FileArea, RunnerError>;
+    fn write_file(&self, contents: &str, name: &str) -> Result<File, RunnerError>;
 }
 
 pub trait MonitoringTrait {
@@ -30,6 +33,11 @@ pub trait MonitoringTrait {
     fn exit_call(&self, _s: &str) {}
     fn enter_internal_call(&self, _f: &InternalFunction) {}
     fn exit_internal_call(&self, _f: &InternalFunction) {}
+}
+
+pub struct RunOptions {
+    pub inherit_env: bool,
+    pub env: HashMap<String, String>,
 }
 
 pub struct RunStatus {

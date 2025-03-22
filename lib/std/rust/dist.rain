@@ -3,6 +3,7 @@ let utils = internal._import(internal._get_file("../utils.rain"))
 let not = utils.not
 let download = utils.download
 let _throw = utils._throw
+let get_file = utils.get_file
 
 fn download_pre_sha(url, filename) {
 	file_url = url + "/" + filename
@@ -33,7 +34,7 @@ fn get_manifest(channel) {
 	manifest_toml
 }
 
-fn get_artifact(artifact) {
+fn get_gz_artifact(artifact) {
 	if not(artifact.available) {
 		_throw("requested artifact not available")
 	}
@@ -63,13 +64,22 @@ fn get_xz_artifact(artifact) {
 	utils.extract_tar_xz(download_result.file)
 }
 
-fn get(channel) {
+fn get_cargo(channel) {
 	manifest = get_manifest(channel)
-	rustc = get_xz_artifact(manifest.pkg.rustc.target.x86_64_unknown_linux_gnu)
-	cargo = get_xz_artifact(manifest.pkg.cargo.target.x86_64_unknown_linux_gnu)
-	{rustc: rustc, cargo: cargo}
+	cargo_pkg = get_xz_artifact(manifest.pkg.cargo.target.x86_64_unknown_linux_gnu)
+	cargo_pkg
 }
 
-let stable = get("stable")
-let beta = get("beta")
-let nightly = get("nightly")
+fn get_rustc(channel) {
+	manifest = get_manifest(channel)
+	rustc_pkg = get_xz_artifact(manifest.pkg.rustc.target.x86_64_unknown_linux_gnu)
+	rustc_bin = get_file(rustc_pkg, "rustc-1.85.1-x86_64-unknown-linux-gnu/rustc")
+	rustc_bin
+}
+
+fn get_rust_std(channel) {
+	manifest = get_manifest(channel)
+	rust_std_pkg = get_xz_artifact(manifest.pkg.rust_std.target.x86_64_unknown_linux_gnu)
+	rust_std = get_file(rust_std_pkg, "rust-std-1.85.1-x86_64-unknown-linux-gnu/rust-std-x86_64-unknown-linux-gnu/")
+	rust_std
+}

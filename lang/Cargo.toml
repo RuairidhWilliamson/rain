@@ -21,7 +21,7 @@ uuid.workspace = true
 web-time.workspace = true
 toml = "0.8.20"
 indexmap = "2.8.0"
-
+regex = "1.11.1"
 poison_panic.path = "../poison_panic"
 
 [dev-dependencies]

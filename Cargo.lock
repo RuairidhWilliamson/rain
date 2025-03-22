@@ -2015,6 +2015,7 @@ dependencies = [
  "poison_panic",
  "quickcheck",
  "quickcheck_macros",
+ "regex",
  "serde",
  "termcolor",
  "thiserror",

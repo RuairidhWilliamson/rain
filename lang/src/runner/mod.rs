@@ -153,7 +153,17 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 }
                 None => {
                     let contents = lit.content_span().contents(&cx.module.src);
-                    Ok(Value::new(contents.to_owned()))
+                    // TODO: Improve escaping
+                    let re = regex::Regex::new("\\\\.").expect("compile regex");
+                    let contents = re.replace_all(contents, |c: &regex::Captures<'_>| -> &str {
+                        match c[0].chars().last().expect("last char") {
+                            '"' => "\"",
+                            'n' => "\n",
+                            't' => "\t",
+                            c => todo!("escaping not implemented for {c}"),
+                        }
+                    });
+                    Ok(Value::new(contents.to_string()))
                 }
             },
             Node::IntegerLiteral(tls) => Ok(Value::new(

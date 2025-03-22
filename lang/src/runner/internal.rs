@@ -1,6 +1,6 @@
 #![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
 
-use std::ops::RangeInclusive;
+use std::{collections::HashMap, ops::RangeInclusive};
 
 use indexmap::IndexMap;
 use num_bigint::BigInt;
@@ -8,7 +8,7 @@ use num_bigint::BigInt;
 use crate::{
     afs::{absolute::AbsolutePathBuf, area::FileArea, error::PathError, file::File},
     ast::{FnCall, NodeId},
-    driver::{DownloadStatus, DriverTrait},
+    driver::{DownloadStatus, DriverTrait, RunOptions},
     ir::Rir,
     runner::value_impl::RainUnit,
     span::ErrorSpan,
@@ -39,10 +39,12 @@ pub enum InternalFunction {
     GetArea,
     Download,
     Throw,
-    ReadFile,
     Sha256,
     BytesToString,
     ParseToml,
+    MergeDirs,
+    ReadFile,
+    WriteFile,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -75,10 +77,12 @@ impl InternalFunction {
             "_get_area" => Some(Self::GetArea),
             "_download" => Some(Self::Download),
             "_throw" => Some(Self::Throw),
-            "_read_file" => Some(Self::ReadFile),
             "_sha256" => Some(Self::Sha256),
             "_bytes_to_string" => Some(Self::BytesToString),
             "_parse_toml" => Some(Self::ParseToml),
+            "_merge_dirs" => Some(Self::MergeDirs),
+            "_read_file" => Some(Self::ReadFile),
+            "_write_file" => Some(Self::WriteFile),
             _ => None,
         }
     }
@@ -86,7 +90,7 @@ impl InternalFunction {
     pub fn cache_strategy(&self) -> CacheStrategy {
         match self {
             // These are very cheap shouldn't bother caching
-            Self::Throw | Self::Unit | Self::GetFile => CacheStrategy::Never,
+            Self::Print | Self::Throw | Self::Unit | Self::GetFile => CacheStrategy::Never,
             _ => CacheStrategy::Always,
         }
     }
@@ -124,10 +128,12 @@ impl InternalFunction {
             Self::GetArea => get_area(icx),
             Self::Download => download(icx),
             Self::Throw => throw(icx),
-            Self::ReadFile => read_file(icx),
             Self::Sha256 => sha256(icx),
             Self::BytesToString => bytes_to_string(icx),
             Self::ParseToml => parse_toml(icx),
+            Self::MergeDirs => merge_dirs(icx),
+            Self::ReadFile => read_file(icx),
+            Self::WriteFile => write_file(icx),
         }
     }
 }
@@ -175,7 +181,13 @@ fn print_implementation(icx: InternalCx) -> ResultValue {
     let args: Vec<String> = icx
         .arg_values
         .into_iter()
-        .map(|(_, a)| format!("{a}"))
+        .map(|(_, a)| {
+            if let Some(s) = a.downcast_ref::<String>() {
+                s.to_owned()
+            } else {
+                format!("{a}")
+            }
+        })
         .collect();
     icx.driver.print(args.join(" "));
     Ok(Value::new(RainUnit))
@@ -325,7 +337,12 @@ fn args_implementation(_icx: InternalCx) -> ResultValue {
 
 fn run_implementation(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
-        [(area_nid, area_value), (file_nid, file_value), args @ ..] => {
+        [
+            (area_nid, area_value),
+            (file_nid, file_value),
+            (args_nid, args_value),
+            (env_nid, env_value),
+        ] => {
             let overlay_area = match area_value.rain_type_id() {
                 RainTypeId::Unit => None,
                 RainTypeId::FileArea => {
@@ -339,34 +356,33 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
             let file: &File = file_value
                 .downcast_ref_error(&[RainTypeId::File])
                 .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
+            let args: &RainList = args_value
+                .downcast_ref_error(&[RainTypeId::List])
+                .map_err(|err| icx.cx.nid_err(*args_nid, err))?;
             let args = args
+                .0
                 .iter()
-                .map(|(nid, value)| match value.rain_type_id() {
-                    RainTypeId::String => Ok(value
-                        .downcast_ref_error::<String>(&[RainTypeId::String])
-                        .map_err(|err| icx.cx.nid_err(*nid, err))?
-                        .to_string()),
-                    RainTypeId::File => Ok(icx
-                        .driver
-                        .resolve_file(
-                            value
-                                .downcast_ref_error::<File>(&[RainTypeId::File])
-                                .map_err(|err| icx.cx.nid_err(*nid, err))?,
-                        )
-                        .display()
-                        .to_string()),
-                    type_id => Err(icx.cx.nid_err(
-                        *nid,
-                        RunnerError::ExpectedType {
-                            actual: type_id,
-                            expected: &[RainTypeId::String, RainTypeId::File],
-                        },
-                    )),
-                })
+                .map(|value| stringify_args(&icx, *args_nid, value))
                 .collect::<Result<Vec<String>>>()?;
+            let env: &RainRecord = env_value
+                .downcast_ref_error(&[RainTypeId::List])
+                .map_err(|err| icx.cx.nid_err(*env_nid, err))?;
+            let env = env
+                .0
+                .iter()
+                .map(|(key, value)| stringify_env(&icx, *env_nid, key, value))
+                .collect::<Result<HashMap<String, String>>>()?;
             let status = icx
                 .driver
-                .run(overlay_area, file, args)
+                .run(
+                    overlay_area,
+                    file,
+                    args,
+                    RunOptions {
+                        inherit_env: false,
+                        env,
+                    },
+                )
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
             let mut m = IndexMap::new();
             m.insert("success".to_owned(), Value::new(status.success));
@@ -379,7 +395,67 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
             m.insert("stderr".to_owned(), Value::new(status.stderr));
             Ok(Value::new(RainRecord(m)))
         }
-        _ => icx.incorrect_args(1..=2),
+        _ => icx.incorrect_args(4..=4),
+    }
+}
+
+fn stringify_env(
+    icx: &InternalCx<'_, '_>,
+    env_nid: NodeId,
+    key: &String,
+    value: &Value,
+) -> Result<(String, String)> {
+    match value.rain_type_id() {
+        RainTypeId::String => Ok((
+            key.to_owned(),
+            value
+                .downcast_ref_error::<String>(&[RainTypeId::String])
+                .map_err(|err| icx.cx.nid_err(env_nid, err))?
+                .to_string(),
+        )),
+        RainTypeId::File => Ok((
+            key.to_owned(),
+            icx.driver
+                .resolve_file(
+                    value
+                        .downcast_ref_error::<File>(&[RainTypeId::File])
+                        .map_err(|err| icx.cx.nid_err(env_nid, err))?,
+                )
+                .display()
+                .to_string(),
+        )),
+        type_id => Err(icx.cx.nid_err(
+            env_nid,
+            RunnerError::ExpectedType {
+                actual: type_id,
+                expected: &[RainTypeId::String, RainTypeId::File],
+            },
+        )),
+    }
+}
+
+fn stringify_args(icx: &InternalCx<'_, '_>, args_nid: NodeId, value: &Value) -> Result<String> {
+    match value.rain_type_id() {
+        RainTypeId::String => Ok(value
+            .downcast_ref_error::<String>(&[RainTypeId::String])
+            .map_err(|err| icx.cx.nid_err(args_nid, err))?
+            .to_string()),
+        RainTypeId::File => Ok(icx
+            .driver
+            .resolve_file(
+                value
+                    .downcast_ref_error::<File>(&[RainTypeId::File])
+                    .map_err(|err| icx.cx.nid_err(args_nid, err))?,
+            )
+            .display()
+            .to_string()),
+        type_id => Err(icx.cx.nid_err(
+            args_nid,
+            RunnerError::ExpectedType {
+                actual: type_id,
+                expected: &[RainTypeId::String, RainTypeId::File],
+            },
+        )),
     }
 }
 
@@ -463,22 +539,6 @@ fn throw(icx: InternalCx) -> ResultValue {
     }
 }
 
-fn read_file(icx: InternalCx) -> ResultValue {
-    match &icx.arg_values[..] {
-        [(file_nid, file_value)] => {
-            let file: &File = file_value
-                .downcast_ref_error(&[RainTypeId::File])
-                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
-            Ok(Value::new(
-                icx.driver
-                    .read_file(file)
-                    .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
-            ))
-        }
-        _ => icx.incorrect_args(1..=1),
-    }
-}
-
 fn sha256(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(file_nid, file_value)] => {
@@ -549,4 +609,53 @@ fn parse_toml(icx: InternalCx) -> ResultValue {
         )
     })?;
     Ok(toml_to_rain(parsed))
+}
+
+fn merge_dirs(icx: InternalCx) -> ResultValue {
+    let dirs: &RainList = icx.single_arg(&[RainTypeId::List])?;
+    let dirs = dirs
+        .0
+        .iter()
+        .map(|area| area.downcast_ref_error::<File>(&[RainTypeId::File]))
+        .collect::<Result<Vec<&File>, RunnerError>>()
+        .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
+    let merged_area = icx
+        .driver
+        .merge_dirs(&dirs)
+        .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
+    Ok(Value::new(merged_area))
+}
+
+fn read_file(icx: InternalCx) -> ResultValue {
+    let file: &File = icx.single_arg(&[RainTypeId::File])?;
+    Ok(Value::new(
+        icx.driver
+            .read_file(file)
+            .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
+    ))
+}
+
+fn write_file(icx: InternalCx) -> ResultValue {
+    match &(icx).arg_values[..] {
+        [(contents_nid, contents_value), (name_nid, name_value)] => {
+            let contents: &String = contents_value
+                .downcast_ref_error::<String>(&[RainTypeId::String])
+                .map_err(|err| icx.cx.nid_err(*contents_nid, err))?;
+            let name: &String = name_value
+                .downcast_ref_error::<String>(&[RainTypeId::String])
+                .map_err(|err| icx.cx.nid_err(*name_nid, err))?;
+            Ok(Value::new(
+                icx.driver
+                    .write_file(contents, name)
+                    .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
+            ))
+        }
+        _ => Err(icx.cx.err(
+            icx.fn_call.rparen_token,
+            RunnerError::IncorrectArgs {
+                required: 2..=2,
+                actual: icx.arg_values.len(),
+            },
+        )),
+    }
 }

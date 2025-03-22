@@ -9,7 +9,7 @@ use rain_lang::{
         area::{FileArea, GeneratedFileArea},
         file::File,
     },
-    driver::{DownloadStatus, DriverTrait, MonitoringTrait, RunStatus},
+    driver::{DownloadStatus, DriverTrait, MonitoringTrait, RunOptions, RunStatus},
     runner::{error::RunnerError, internal::InternalFunction},
 };
 use sha2::Digest as _;
@@ -45,13 +45,15 @@ impl DriverImpl<'_> {
         Ok(area)
     }
 
-    fn create_overlay_area(&self, overlay_area: &FileArea) -> Result<FileArea, RunnerError> {
+    fn create_overlay_area(&self, overlay_dirs: &[&File]) -> Result<FileArea, RunnerError> {
         let area = FileArea::Generated(GeneratedFileArea::new());
         let output_dir = File::new(area.clone(), "/");
         let output_dir_path = self.resolve_file(&output_dir);
-        let input_dir = File::new(overlay_area.clone(), "/");
-        let input_dir_path = self.resolve_file(&input_dir);
-        dircpy::copy_dir(input_dir_path, &output_dir_path).map_err(RunnerError::AreaIOError)?;
+        std::fs::create_dir_all(&output_dir_path).map_err(RunnerError::AreaIOError)?;
+        for &dir in overlay_dirs {
+            let dir_path = self.resolve_file(dir);
+            dircpy::copy_dir(dir_path, &output_dir_path).map_err(RunnerError::AreaIOError)?;
+        }
         Ok(area)
     }
 }
@@ -149,9 +151,10 @@ impl DriverTrait for DriverImpl<'_> {
         overlay_area: Option<&FileArea>,
         bin: &File,
         args: Vec<String>,
+        RunOptions { inherit_env, env }: RunOptions,
     ) -> Result<RunStatus, RunnerError> {
         let output_area = if let Some(overlay_area) = overlay_area {
-            self.create_overlay_area(overlay_area)?
+            self.create_overlay_area(&[&File::new(overlay_area.clone(), "/")])?
         } else {
             self.create_area()?
         };
@@ -160,10 +163,23 @@ impl DriverTrait for DriverImpl<'_> {
         let mut cmd = std::process::Command::new(self.resolve_file(bin));
         cmd.current_dir(output_dir_path);
         cmd.args(args);
-        // TODO: It would be nice to remove env vars but for the moment this causes too many problems
-        // cmd.env_clear();
+        if !inherit_env {
+            cmd.env_clear();
+        }
+        cmd.envs(env);
         log::debug!("Running {cmd:?}");
-        let output = cmd.output().unwrap();
+        let output = match cmd.output() {
+            Ok(output) => output,
+            Err(err) => {
+                return Ok(RunStatus {
+                    success: false,
+                    exit_code: None,
+                    area: output_area,
+                    stdout: String::new(),
+                    stderr: err.to_string(),
+                });
+            }
+        };
         let success = output.status.success();
         let exit_code = output.status.code();
         Ok(RunStatus {
@@ -203,12 +219,6 @@ impl DriverTrait for DriverImpl<'_> {
         })
     }
 
-    fn read_file(&self, file: &File) -> Result<String, RunnerError> {
-        let resolved_path = self.resolve_file(file);
-        let contents = std::fs::read_to_string(resolved_path).map_err(RunnerError::AreaIOError)?;
-        Ok(contents)
-    }
-
     #[expect(clippy::unwrap_used)]
     fn sha256(&self, file: &File) -> Result<String, RunnerError> {
         let resolved_path = self.resolve_file(file);
@@ -217,6 +227,24 @@ impl DriverTrait for DriverImpl<'_> {
         std::io::copy(&mut file, &mut hasher).unwrap();
         let hash_result = hasher.finalize();
         Ok(base16::encode_lower(&hash_result))
+    }
+
+    fn merge_dirs(&self, dirs: &[&File]) -> Result<FileArea, RunnerError> {
+        self.create_overlay_area(dirs)
+    }
+
+    fn read_file(&self, file: &File) -> Result<String, RunnerError> {
+        let resolved_path = self.resolve_file(file);
+        let contents = std::fs::read_to_string(resolved_path).map_err(RunnerError::AreaIOError)?;
+        Ok(contents)
+    }
+
+    fn write_file(&self, contents: &str, name: &str) -> Result<File, RunnerError> {
+        let area = self.create_area()?;
+        let file = File::new_checked(area, name)?;
+        let resolved_path = self.resolve_file(&file);
+        std::fs::write(resolved_path, contents).map_err(RunnerError::AreaIOError)?;
+        Ok(file)
     }
 }
 

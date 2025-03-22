@@ -45,9 +45,10 @@ fn download_test() {
 	std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore")
 }
 
-fn stable_rust() {
-	// std.rust.dist.get_manifest("stable").pkg.cargo.target.x86_64_unknown_linux_gnu
-	std.rust.dist.stable
+fn helloworld() {
+	src = std.utils.write_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
+	bin = std.rust.rustc.compile("stable", src, "helloworld")
+	print(std.utils.run(std.utils.unit, bin, [], {}).stdout)
 }
 
 fn print_some_stuff() {

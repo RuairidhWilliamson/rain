@@ -7,12 +7,14 @@ let get_file = internal._get_file
 let get_area = internal._get_area
 let unit = internal._unit()
 let module_file = internal._module_file
-let read_file = internal._read_file
 let sha256 = internal._sha256
 let parse_toml = internal._parse_toml
 let extract_zip = internal._extract_zip
 let extract_tar_gz = internal._extract_tar_gz
 let extract_tar_xz = internal._extract_tar_xz
+let merge_dirs = internal._merge_dirs
+let read_file = internal._read_file
+let write_file = internal._write_file
 
 // Reserved keywords are prefixed with _
 let _import = internal._import
