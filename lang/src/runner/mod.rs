@@ -224,7 +224,10 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     .iter()
                     .map(|a| self.evaluate_node(cx, *a))
                     .collect::<Result<_, _>>()?;
-                let key = self.cache.function_key(f, arg_values.clone());
+                let key = cache::CacheKey::Declaration {
+                    declaration: f.id,
+                    args: arg_values.clone(),
+                };
 
                 if let Some(v) = self.cache.get_value(&key) {
                     return Ok(v);
@@ -275,6 +278,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     .collect::<Result<_, _>>()?;
                 self.driver.enter_internal_call(f);
                 let v = f.call_internal_function(internal::InternalCx {
+                    func: *f,
                     driver: self.driver,
                     cache: self.cache,
                     rir: self.ir,

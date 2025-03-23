@@ -11,7 +11,7 @@ use poison_panic::MutexExt as _;
 
 use crate::ir::DeclarationId;
 
-use super::{value::Value, value_impl::RainFunction};
+use super::{internal::InternalFunction, value::Value};
 
 pub const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
 
@@ -33,13 +33,6 @@ impl Cache {
 
     pub fn len(&self) -> usize {
         self.storage.plock().len()
-    }
-
-    pub fn function_key(&self, function: impl Into<CacheKeyTarget>, args: Vec<Value>) -> CacheKey {
-        CacheKey {
-            target: function.into(),
-            args,
-        }
     }
 
     pub fn get_value(&self, key: &CacheKey) -> Option<Value> {
@@ -84,13 +77,7 @@ impl Cache {
             .plock()
             .iter()
             .map(|(k, v)| {
-                let mut s = format!(
-                    "{}({}) => {} {:?}",
-                    k.target,
-                    display_vec(&k.args),
-                    v.value,
-                    v.execution_time
-                );
+                let mut s = format!("{k} => {} {:?}", v.value, v.execution_time);
                 if s.len() > 200 {
                     s.truncate(197);
                     s.push_str("...");
@@ -115,34 +102,43 @@ fn display_vec<T: Display>(v: &Vec<T>) -> String {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CacheKey {
-    pub target: CacheKeyTarget,
-    pub args: Vec<Value>,
+pub enum CacheKey {
+    Declaration {
+        declaration: DeclarationId,
+        args: Vec<Value>,
+    },
+    InternalFunction {
+        func: InternalFunction,
+        args: Vec<Value>,
+    },
+    Download {
+        url: String,
+    },
 }
 
 impl CacheKey {
     fn pure(&self) -> bool {
-        self.args.iter().all(Value::cache_pure)
+        match self {
+            Self::InternalFunction { func: _, args }
+            | Self::Declaration {
+                declaration: _,
+                args,
+            } => args.iter().all(Value::cache_pure),
+            Self::Download { url: _ } => true,
+        }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum CacheKeyTarget {
-    DeclarationId(DeclarationId),
-    Download(String),
-}
-
-impl From<&RainFunction> for CacheKeyTarget {
-    fn from(f: &RainFunction) -> Self {
-        Self::DeclarationId(f.id)
-    }
-}
-
-impl Display for CacheKeyTarget {
+impl Display for CacheKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::DeclarationId(declaration_id) => Display::fmt(declaration_id, f),
-            Self::Download(url) => f.write_fmt(format_args!("Download({url})")),
+            Self::Declaration { declaration, args } => {
+                f.write_fmt(format_args!("{declaration}({})", display_vec(args)))
+            }
+            Self::InternalFunction { func, args } => {
+                f.write_fmt(format_args!("{func}({})", display_vec(args)))
+            }
+            Self::Download { url } => f.write_fmt(format_args!("Download({url})")),
         }
     }
 }

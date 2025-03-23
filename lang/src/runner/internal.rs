@@ -15,7 +15,7 @@ use crate::{
 
 use super::{
     Cx, Result, ResultValue,
-    cache::{Cache, CacheKey, CacheKeyTarget, CacheStrategy},
+    cache::{Cache, CacheKey},
     error::RunnerError,
     value::{RainTypeId, Value, ValueInner},
     value_impl::{Module, RainInteger, RainList, RainRecord},
@@ -90,19 +90,10 @@ impl InternalFunction {
         }
     }
 
-    pub fn cache_strategy(&self) -> CacheStrategy {
-        match self {
-            // Only cache functions that are pure and stable
-            Self::BytesToString | Self::Sha256 | Self::Sha512 | Self::ParseToml => {
-                CacheStrategy::Always
-            }
-            _ => CacheStrategy::Never,
-        }
-    }
-
     pub fn call_internal_function(self, icx: InternalCx) -> ResultValue {
         match self {
             Self::Print => print(icx),
+            Self::Debug => debug(icx),
             Self::GetFile => get_file(icx),
             Self::Import => import(icx),
             Self::ModuleFile => module_file(icx),
@@ -124,12 +115,12 @@ impl InternalFunction {
             Self::MergeDirs => merge_dirs(icx),
             Self::ReadFile => read_file(icx),
             Self::WriteFile => write_file(icx),
-            Self::Debug => debug(icx),
         }
     }
 }
 
 pub struct InternalCx<'a, 'b> {
+    pub func: InternalFunction,
     pub driver: &'a dyn DriverTrait,
     pub cache: &'a mut Cache,
     pub rir: &'a mut Rir,
@@ -180,6 +171,20 @@ impl InternalCx<'_, '_> {
                 actual: self.arg_values.len(),
             },
         ))
+    }
+
+    fn cache(&self, f: impl FnOnce() -> ResultValue) -> ResultValue {
+        let cache_key = CacheKey::InternalFunction {
+            func: self.func,
+            args: self.arg_values.iter().map(|(_, v)| v.clone()).collect(),
+        };
+        if let Some(v) = self.cache.get_value(&cache_key) {
+            return Ok(v);
+        }
+        let start = Instant::now();
+        let v = f()?;
+        self.cache.put(cache_key, start.elapsed(), None, v.clone());
+        Ok(v)
     }
 }
 
@@ -298,29 +303,36 @@ fn local_area(icx: InternalCx) -> ResultValue {
 
 fn extract_zip(icx: InternalCx) -> ResultValue {
     let file = icx.single_arg::<File>(&[RainTypeId::File])?;
-    let area = icx
-        .driver
-        .extract_zip(file)
-        .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
-    Ok(Value::new(area))
+    icx.cache(|| {
+        let area = icx
+            .driver
+            .extract_zip(file)
+            .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
+        Ok(Value::new(area))
+    })
 }
 
 fn extract_tar_gz(icx: InternalCx) -> ResultValue {
     let file = icx.single_arg::<File>(&[RainTypeId::File])?;
-    let area = icx
-        .driver
-        .extract_tar_gz(file)
-        .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
-    Ok(Value::new(area))
+    icx.cache(|| {
+        let area = icx
+            .driver
+            .extract_tar_gz(file)
+            .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
+        let v = Value::new(area);
+        Ok(v)
+    })
 }
 
 fn extract_tar_xz(icx: InternalCx) -> ResultValue {
     let file = icx.single_arg::<File>(&[RainTypeId::File])?;
-    let area = icx
-        .driver
-        .extract_tar_xz(file)
-        .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
-    Ok(Value::new(area))
+    icx.cache(|| {
+        let area = icx
+            .driver
+            .extract_tar_xz(file)
+            .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
+        Ok(Value::new(area))
+    })
 }
 
 fn args_implementation(_icx: InternalCx) -> ResultValue {
@@ -483,9 +495,8 @@ fn download(icx: InternalCx) -> ResultValue {
             let name: &String = name_value
                 .downcast_ref_error(&[RainTypeId::String])
                 .map_err(|err| icx.cx.nid_err(*name_nid, err))?;
-            let cache_key = CacheKey {
-                target: CacheKeyTarget::Download(url.to_owned()),
-                args: vec![],
+            let cache_key = CacheKey::Download {
+                url: url.to_owned(),
             };
             let cache_entry = icx.cache.get(&cache_key);
             let etag: Option<&str> = cache_entry.as_ref().and_then(|e| e.etag.as_deref());
@@ -537,40 +548,46 @@ fn throw(icx: InternalCx) -> ResultValue {
 
 fn sha256(icx: InternalCx) -> ResultValue {
     let file: &File = icx.single_arg(&[RainTypeId::File])?;
-    Ok(Value::new(
-        icx.driver
-            .sha256(file)
-            .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
-    ))
+    icx.cache(|| {
+        Ok(Value::new(
+            icx.driver
+                .sha256(file)
+                .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
+        ))
+    })
 }
 
 fn sha512(icx: InternalCx) -> ResultValue {
     let file: &File = icx.single_arg(&[RainTypeId::File])?;
-    Ok(Value::new(
-        icx.driver
-            .sha512(file)
-            .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
-    ))
+    icx.cache(|| {
+        Ok(Value::new(
+            icx.driver
+                .sha512(file)
+                .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
+        ))
+    })
 }
 
 #[expect(clippy::unwrap_used)]
 fn bytes_to_string(icx: InternalCx) -> ResultValue {
     let bytes: &RainList = icx.single_arg(&[RainTypeId::List])?;
-    let bytes: Vec<u8> = bytes
-        .0
-        .iter()
-        .map(|b| -> u8 {
-            b.downcast_ref::<RainInteger>()
-                .unwrap()
-                .0
-                .iter_u32_digits()
-                .next()
-                .unwrap()
-                .try_into()
-                .unwrap()
-        })
-        .collect();
-    Ok(Value::new(String::from_utf8(bytes).unwrap()))
+    icx.cache(|| {
+        let bytes: Vec<u8> = bytes
+            .0
+            .iter()
+            .map(|b| -> u8 {
+                b.downcast_ref::<RainInteger>()
+                    .unwrap()
+                    .0
+                    .iter_u32_digits()
+                    .next()
+                    .unwrap()
+                    .try_into()
+                    .unwrap()
+            })
+            .collect();
+        Ok(Value::new(String::from_utf8(bytes).unwrap()))
+    })
 }
 
 fn parse_toml(icx: InternalCx) -> ResultValue {
@@ -593,13 +610,15 @@ fn parse_toml(icx: InternalCx) -> ResultValue {
     }
 
     let contents = icx.single_arg::<String>(&[RainTypeId::String])?;
-    let parsed: toml::Value = toml::de::from_str(contents).map_err(|err| {
-        icx.cx.nid_err(
-            icx.nid,
-            RunnerError::Makeshift(err.message().to_owned().into()),
-        )
-    })?;
-    Ok(toml_to_rain(parsed))
+    icx.cache(|| {
+        let parsed: toml::Value = toml::de::from_str(contents).map_err(|err| {
+            icx.cx.nid_err(
+                icx.nid,
+                RunnerError::Makeshift(err.message().to_owned().into()),
+            )
+        })?;
+        Ok(toml_to_rain(parsed))
+    })
 }
 
 fn merge_dirs(icx: InternalCx) -> ResultValue {
