@@ -256,23 +256,17 @@ fn get_file(icx: InternalCx) -> ResultValue {
 }
 
 fn import(icx: InternalCx) -> ResultValue {
-    match &icx.arg_values[..] {
-        [(file_nid, file_value)] => {
-            let file: &File = file_value
-                .downcast_ref_error(&[RainTypeId::File])
-                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
-            let resolved_path = icx.driver.resolve_file(file);
-            let src = std::fs::read_to_string(&resolved_path)
-                .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::ImportIOError(err)))?;
-            let module = crate::ast::parser::parse_module(&src);
-            let id = icx
-                .rir
-                .insert_module(file.clone(), src, module)
-                .map_err(ErrorSpan::convert)?;
-            Ok(Value::new(Module { id }))
-        }
-        _ => icx.incorrect_args(1..=1),
-    }
+    let file: &File = icx.single_arg(&[RainTypeId::File])?;
+    let src = icx
+        .driver
+        .read_file(file)
+        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::ImportIOError(err)))?;
+    let module = crate::ast::parser::parse_module(&src);
+    let id = icx
+        .rir
+        .insert_module(file.clone(), src, module)
+        .map_err(ErrorSpan::convert)?;
+    Ok(Value::new(Module { id }))
 }
 
 fn module_file(icx: InternalCx) -> ResultValue {
@@ -299,6 +293,7 @@ fn local_area(icx: InternalCx) -> ResultValue {
     let area_path = current_area_path.join(path);
     let area_path = AbsolutePathBuf::try_from(area_path.as_path())
         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
+    // TODO: Move this fs call into core driver
     let metadata = std::fs::metadata(&*area_path)
         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
     if metadata.is_file() {
@@ -612,11 +607,9 @@ fn merge_dirs(icx: InternalCx) -> ResultValue {
 
 fn read_file(icx: InternalCx) -> ResultValue {
     let file: &File = icx.single_arg(&[RainTypeId::File])?;
-    Ok(Value::new(
-        icx.driver
-            .read_file(file)
-            .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
-    ))
+    Ok(Value::new(icx.driver.read_file(file).map_err(|err| {
+        icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err))
+    })?))
 }
 
 fn write_file(icx: InternalCx) -> ResultValue {

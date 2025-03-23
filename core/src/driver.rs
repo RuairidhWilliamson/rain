@@ -243,9 +243,9 @@ impl DriverTrait for DriverImpl<'_> {
         self.create_overlay_area(dirs)
     }
 
-    fn read_file(&self, file: &File) -> Result<String, RunnerError> {
+    fn read_file(&self, file: &File) -> Result<String, std::io::Error> {
         let resolved_path = self.resolve_file(file);
-        let contents = std::fs::read_to_string(resolved_path).map_err(RunnerError::AreaIOError)?;
+        let contents = std::fs::read_to_string(resolved_path)?;
         Ok(contents)
     }
 
