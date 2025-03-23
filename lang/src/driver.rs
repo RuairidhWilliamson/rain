@@ -23,6 +23,7 @@ pub trait DriverTrait: MonitoringTrait {
     ) -> Result<RunStatus, RunnerError>;
     fn download(&self, url: &str, outname: &str) -> Result<DownloadStatus, RunnerError>;
     fn sha256(&self, file: &File) -> Result<String, RunnerError>;
+    fn sha512(&self, file: &File) -> Result<String, RunnerError>;
     fn merge_dirs(&self, dirs: &[&File]) -> Result<FileArea, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, std::io::Error>;
     fn write_file(&self, contents: &str, name: &str) -> Result<File, RunnerError>;

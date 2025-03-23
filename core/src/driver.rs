@@ -229,12 +229,20 @@ impl DriverTrait for DriverImpl<'_> {
         })
     }
 
-    #[expect(clippy::unwrap_used)]
     fn sha256(&self, file: &File) -> Result<String, RunnerError> {
         let resolved_path = self.resolve_file(file);
         let mut file = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut hasher = sha2::Sha256::new();
-        std::io::copy(&mut file, &mut hasher).unwrap();
+        std::io::copy(&mut file, &mut hasher).map_err(RunnerError::AreaIOError)?;
+        let hash_result = hasher.finalize();
+        Ok(base16::encode_lower(&hash_result))
+    }
+
+    fn sha512(&self, file: &File) -> Result<String, RunnerError> {
+        let resolved_path = self.resolve_file(file);
+        let mut file = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
+        let mut hasher = sha2::Sha512::new();
+        std::io::copy(&mut file, &mut hasher).map_err(RunnerError::AreaIOError)?;
         let hash_result = hasher.finalize();
         Ok(base16::encode_lower(&hash_result))
     }

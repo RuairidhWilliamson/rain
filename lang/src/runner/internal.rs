@@ -40,6 +40,7 @@ pub enum InternalFunction {
     Download,
     Throw,
     Sha256,
+    Sha512,
     BytesToString,
     ParseToml,
     MergeDirs,
@@ -79,6 +80,7 @@ impl InternalFunction {
             "_download" => Some(Self::Download),
             "_throw" => Some(Self::Throw),
             "_sha256" => Some(Self::Sha256),
+            "_sha512" => Some(Self::Sha512),
             "_bytes_to_string" => Some(Self::BytesToString),
             "_parse_toml" => Some(Self::ParseToml),
             "_merge_dirs" => Some(Self::MergeDirs),
@@ -89,7 +91,13 @@ impl InternalFunction {
     }
 
     pub fn cache_strategy(&self) -> CacheStrategy {
-        CacheStrategy::Never
+        match self {
+            // Only cache functions that are pure and stable
+            Self::BytesToString | Self::Sha256 | Self::Sha512 | Self::ParseToml => {
+                CacheStrategy::Always
+            }
+            _ => CacheStrategy::Never,
+        }
     }
 
     pub fn call_internal_function(
@@ -126,6 +134,7 @@ impl InternalFunction {
             Self::Download => download(icx),
             Self::Throw => throw(icx),
             Self::Sha256 => sha256(icx),
+            Self::Sha512 => sha512(icx),
             Self::BytesToString => bytes_to_string(icx),
             Self::ParseToml => parse_toml(icx),
             Self::MergeDirs => merge_dirs(icx),
@@ -526,19 +535,21 @@ fn throw(icx: InternalCx) -> ResultValue {
 }
 
 fn sha256(icx: InternalCx) -> ResultValue {
-    match &icx.arg_values[..] {
-        [(file_nid, file_value)] => {
-            let file: &File = file_value
-                .downcast_ref_error(&[RainTypeId::File])
-                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
-            Ok(Value::new(
-                icx.driver
-                    .sha256(file)
-                    .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
-            ))
-        }
-        _ => icx.incorrect_args(1..=1),
-    }
+    let file: &File = icx.single_arg(&[RainTypeId::File])?;
+    Ok(Value::new(
+        icx.driver
+            .sha256(file)
+            .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
+    ))
+}
+
+fn sha512(icx: InternalCx) -> ResultValue {
+    let file: &File = icx.single_arg(&[RainTypeId::File])?;
+    Ok(Value::new(
+        icx.driver
+            .sha512(file)
+            .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
+    ))
 }
 
 #[expect(clippy::unwrap_used)]
