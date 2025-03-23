@@ -1,6 +1,6 @@
 #![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
 
-use std::{collections::HashMap, ops::RangeInclusive};
+use std::{collections::HashMap, ops::RangeInclusive, time::Instant};
 
 use indexmap::IndexMap;
 use num_bigint::BigInt;
@@ -15,7 +15,7 @@ use crate::{
 
 use super::{
     Cx, Result, ResultValue,
-    cache::CacheStrategy,
+    cache::{Cache, CacheKey, CacheKeyTarget, CacheStrategy},
     error::RunnerError,
     value::{RainTypeId, Value, ValueInner},
     value_impl::{Module, RainInteger, RainList, RainRecord},
@@ -100,23 +100,7 @@ impl InternalFunction {
         }
     }
 
-    pub fn call_internal_function(
-        self,
-        driver: &dyn DriverTrait,
-        rir: &mut Rir,
-        cx: &mut Cx,
-        nid: NodeId,
-        fn_call: &FnCall,
-        arg_values: Vec<(NodeId, Value)>,
-    ) -> ResultValue {
-        let icx = InternalCx {
-            driver,
-            rir,
-            cx,
-            nid,
-            fn_call,
-            arg_values,
-        };
+    pub fn call_internal_function(self, icx: InternalCx) -> ResultValue {
         match self {
             Self::Print => print(icx),
             Self::GetFile => get_file(icx),
@@ -145,13 +129,14 @@ impl InternalFunction {
     }
 }
 
-struct InternalCx<'a, 'b> {
-    driver: &'a dyn DriverTrait,
-    rir: &'a mut Rir,
-    cx: &'a mut Cx<'b>,
-    nid: NodeId,
-    fn_call: &'a FnCall,
-    arg_values: Vec<(NodeId, Value)>,
+pub struct InternalCx<'a, 'b> {
+    pub driver: &'a dyn DriverTrait,
+    pub cache: &'a mut Cache,
+    pub rir: &'a mut Rir,
+    pub cx: &'a mut Cx<'b>,
+    pub nid: NodeId,
+    pub fn_call: &'a FnCall,
+    pub arg_values: Vec<(NodeId, Value)>,
 }
 
 impl InternalCx<'_, '_> {
@@ -491,20 +476,34 @@ fn get_area(icx: InternalCx) -> ResultValue {
 fn download(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(url_nid, url_value), (name_nid, name_value)] => {
+            let start = Instant::now();
             let url: &String = url_value
                 .downcast_ref_error(&[RainTypeId::String])
                 .map_err(|err| icx.cx.nid_err(*url_nid, err))?;
             let name: &String = name_value
                 .downcast_ref_error(&[RainTypeId::String])
                 .map_err(|err| icx.cx.nid_err(*name_nid, err))?;
+            let cache_key = CacheKey {
+                target: CacheKeyTarget::Download(url.to_owned()),
+                args: vec![],
+            };
+            let cache_entry = icx.cache.get(&cache_key);
+            let etag: Option<&str> = cache_entry.as_ref().and_then(|e| e.etag.as_deref());
             let DownloadStatus {
                 ok,
                 status_code,
                 file,
+                etag,
             } = icx
                 .driver
-                .download(url, name)
+                .download(url, name, etag)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
+            if !ok && status_code == Some(304) {
+                // Etag matched we can use our cached value!
+                if let Some(cache_entry) = cache_entry {
+                    return Ok(cache_entry.value);
+                }
+            }
             let mut m = IndexMap::new();
             m.insert("ok".to_owned(), Value::new(ok));
             m.insert(
@@ -516,7 +515,9 @@ fn download(icx: InternalCx) -> ResultValue {
             } else {
                 m.insert("file".to_owned(), super::value_impl::get_unit());
             }
-            Ok(Value::new(RainRecord(m)))
+            let out = Value::new(RainRecord(m));
+            icx.cache.put(cache_key, start.elapsed(), etag, out.clone());
+            Ok(out)
         }
         _ => icx.incorrect_args(2..=2),
     }

@@ -21,7 +21,12 @@ pub trait DriverTrait: MonitoringTrait {
         args: Vec<String>,
         options: RunOptions,
     ) -> Result<RunStatus, RunnerError>;
-    fn download(&self, url: &str, outname: &str) -> Result<DownloadStatus, RunnerError>;
+    fn download(
+        &self,
+        url: &str,
+        outname: &str,
+        etag: Option<&str>,
+    ) -> Result<DownloadStatus, RunnerError>;
     fn sha256(&self, file: &File) -> Result<String, RunnerError>;
     fn sha512(&self, file: &File) -> Result<String, RunnerError>;
     fn merge_dirs(&self, dirs: &[&File]) -> Result<FileArea, RunnerError>;
@@ -53,4 +58,5 @@ pub struct DownloadStatus {
     pub ok: bool,
     pub status_code: Option<u16>,
     pub file: Option<File>,
+    pub etag: Option<String>,
 }

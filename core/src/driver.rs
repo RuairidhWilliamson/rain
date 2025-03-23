@@ -202,21 +202,26 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     #[expect(clippy::unwrap_used)]
-    fn download(&self, url: &str, name: &str) -> Result<DownloadStatus, RunnerError> {
+    fn download(
+        &self,
+        url: &str,
+        name: &str,
+        etag: Option<&str>,
+    ) -> Result<DownloadStatus, RunnerError> {
         let client = reqwest::blocking::Client::new();
-        let request = client
-            .request(reqwest::Method::GET, url)
-            // TODO: Download cache
-            // TODO: ETAG support
-            // .header(
-            //     reqwest::header::IF_NONE_MATCH,
-            //     "\"3b22f9fe438383527860677d34196a03d388c34822b85064d0e0f2a1683c91dc\"",
-            // )
-            .build()
-            .unwrap();
+        let mut request = client.request(reqwest::Method::GET, url);
+        if let Some(etag) = etag {
+            request = request.header(reqwest::header::IF_NONE_MATCH, etag);
+        }
+        // TODO: Download cache
+        let request = request.build().unwrap();
         log::debug!("Sending request {request:?}");
         let mut response = client.execute(request).unwrap();
         log::debug!("Received response {response:?}");
+        let etag = response
+            .headers()
+            .get(reqwest::header::ETAG)
+            .map(|h| h.to_str().unwrap().to_owned());
         let area = self.create_area()?;
         let output = File::new_checked(area, name)?;
         let output_path = self.resolve_file(&output);
@@ -226,6 +231,7 @@ impl DriverTrait for DriverImpl<'_> {
             ok: response.status().is_success(),
             status_code: Some(response.status().as_u16()),
             file: Some(output),
+            etag,
         })
     }
 

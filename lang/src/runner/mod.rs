@@ -261,7 +261,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 };
                 let result = self.evaluate_node(&mut cx, fn_declare.block)?;
                 self.driver.exit_call(function_name);
-                self.cache.put(key, start.elapsed(), result.clone());
+                self.cache.put(key, start.elapsed(), None, result.clone());
                 Ok(result)
             }
             RainTypeId::InternalFunction => {
@@ -273,18 +273,17 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     .iter()
                     .map(|&a| Ok((a, self.evaluate_node(cx, a)?)))
                     .collect::<Result<_, _>>()?;
-                let key = self
-                    .cache
-                    .function_key(*f, arg_values.iter().map(|(_, a)| a.clone()).collect());
-                if let Some(v) = self.cache.get_value(&key) {
-                    return Ok(v);
-                }
-                let start = web_time::Instant::now();
                 self.driver.enter_internal_call(f);
-                let v =
-                    f.call_internal_function(self.driver, self.ir, cx, nid, fn_call, arg_values)?;
+                let v = f.call_internal_function(internal::InternalCx {
+                    driver: self.driver,
+                    cache: self.cache,
+                    rir: self.ir,
+                    cx,
+                    nid,
+                    fn_call,
+                    arg_values,
+                })?;
                 self.driver.exit_internal_call(f);
-                self.cache.put(key, start.elapsed(), v.clone());
                 Ok(v)
             }
             _ => Err(cx.err(

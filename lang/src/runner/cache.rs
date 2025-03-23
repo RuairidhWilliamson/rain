@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     num::NonZeroUsize,
     sync::{Arc, Mutex},
     time::Duration,
@@ -10,7 +11,7 @@ use poison_panic::MutexExt as _;
 
 use crate::ir::DeclarationId;
 
-use super::{internal::InternalFunction, value::Value, value_impl::RainFunction};
+use super::{value::Value, value_impl::RainFunction};
 
 pub const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
 
@@ -34,37 +35,29 @@ impl Cache {
         self.storage.plock().len()
     }
 
-    pub fn function_key(
-        &self,
-        function: impl Into<FunctionDefinition>,
-        args: Vec<Value>,
-    ) -> CacheKey {
+    pub fn function_key(&self, function: impl Into<CacheKeyTarget>, args: Vec<Value>) -> CacheKey {
         CacheKey {
-            definition: function.into(),
+            target: function.into(),
             args,
         }
     }
 
     pub fn get_value(&self, key: &CacheKey) -> Option<Value> {
-        match key.definition.cache_strategy() {
-            CacheStrategy::Never => {
-                return None;
-            }
-            CacheStrategy::Always => (),
-        }
         if !key.pure() {
             return None;
         }
         self.storage.plock().get(key).map(|e| e.value.clone())
     }
 
-    pub fn put(&self, key: CacheKey, execution_time: Duration, value: Value) {
-        match key.definition.cache_strategy() {
-            CacheStrategy::Never => {
-                return;
-            }
-            CacheStrategy::Always => (),
+    pub fn get(&self, key: &CacheKey) -> Option<CacheEntry> {
+        if !key.pure() {
+            return None;
         }
+        let mut guard = self.storage.plock();
+        guard.get(key).cloned()
+    }
+
+    pub fn put(&self, key: CacheKey, execution_time: Duration, etag: Option<String>, value: Value) {
         if !key.pure() {
             return;
         }
@@ -74,6 +67,7 @@ impl Cache {
                 CacheEntry {
                     execution_time,
                     expires: None,
+                    etag,
                     value,
                 },
             );
@@ -92,7 +86,7 @@ impl Cache {
             .map(|(k, v)| {
                 let mut s = format!(
                     "{}({}) => {} {:?}",
-                    k.definition,
+                    k.target,
                     display_vec(&k.args),
                     v.value,
                     v.execution_time
@@ -107,7 +101,7 @@ impl Cache {
     }
 }
 
-fn display_vec<T: std::fmt::Display>(v: &Vec<T>) -> String {
+fn display_vec<T: Display>(v: &Vec<T>) -> String {
     let mut s = String::new();
     let mut first = true;
     for e in v {
@@ -122,8 +116,8 @@ fn display_vec<T: std::fmt::Display>(v: &Vec<T>) -> String {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CacheKey {
-    definition: FunctionDefinition,
-    args: Vec<Value>,
+    pub target: CacheKeyTarget,
+    pub args: Vec<Value>,
 }
 
 impl CacheKey {
@@ -133,47 +127,32 @@ impl CacheKey {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum FunctionDefinition {
+pub enum CacheKeyTarget {
     DeclarationId(DeclarationId),
-    Internal(InternalFunction),
+    Download(String),
 }
 
-impl FunctionDefinition {
-    fn cache_strategy(&self) -> CacheStrategy {
-        match self {
-            Self::DeclarationId(_) => CacheStrategy::Always,
-            Self::Internal(internal_function) => internal_function.cache_strategy(),
-        }
-    }
-}
-
-impl From<&RainFunction> for FunctionDefinition {
+impl From<&RainFunction> for CacheKeyTarget {
     fn from(f: &RainFunction) -> Self {
         Self::DeclarationId(f.id)
     }
 }
 
-impl From<InternalFunction> for FunctionDefinition {
-    fn from(f: InternalFunction) -> Self {
-        Self::Internal(f)
-    }
-}
-
-impl std::fmt::Display for FunctionDefinition {
+impl Display for CacheKeyTarget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::DeclarationId(declaration_id) => std::fmt::Display::fmt(declaration_id, f),
-            Self::Internal(internal_function) => std::fmt::Display::fmt(internal_function, f),
+            Self::DeclarationId(declaration_id) => Display::fmt(declaration_id, f),
+            Self::Download(url) => f.write_fmt(format_args!("Download({url})")),
         }
     }
 }
 
-#[derive(Debug)]
-struct CacheEntry {
-    execution_time: Duration,
-    #[expect(dead_code)]
-    expires: Option<DateTime<Utc>>,
-    value: Value,
+#[derive(Debug, Clone)]
+pub struct CacheEntry {
+    pub execution_time: Duration,
+    pub expires: Option<DateTime<Utc>>,
+    pub etag: Option<String>,
+    pub value: Value,
 }
 
 pub enum CacheStrategy {
