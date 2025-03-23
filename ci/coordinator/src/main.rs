@@ -1,6 +1,6 @@
 mod octocrab_extensions;
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use anyhow::{Context as _, Result, anyhow};
 use octocrab::{
@@ -139,8 +139,8 @@ impl HandlerInner {
                     .crab
                     .get_tree(&self.owner, &self.repo, &head_commit.id)
                     .await?;
-                let Some(readme) = tree.tree.iter().find_map(|t| match t {
-                    TreeEntry::Blob { blob } if blob.path.eq_ignore_ascii_case("readme.md") => {
+                let Some(root) = tree.tree.iter().find_map(|t| match t {
+                    TreeEntry::Blob { blob } if blob.path.eq_ignore_ascii_case("root.rain") => {
                         Some(blob)
                     }
                     _ => None,
@@ -155,24 +155,22 @@ impl HandlerInner {
                         .await?;
                     return Ok(());
                 };
-                tracing::info!("tree {tree:#?}");
-                let readme = self
+                let root = self
                     .crab
-                    .get_blob(&self.owner, &self.repo, &readme.sha)
+                    .get_blob(&self.owner, &self.repo, &root.sha)
                     .await?;
-                assert_eq!(readme.encoding, "base64");
-                tracing::info!("{readme:#?}");
+                assert_eq!(root.encoding, "base64");
 
-                let readme = String::from_utf8(
+                let root = String::from_utf8(
                     base64::engine::Engine::decode(
                         &base64::engine::general_purpose::STANDARD,
-                        readme.content.replace('\n', ""),
+                        root.content.replace('\n', ""),
                     )
                     .context("base64 decode")?,
                 )
                 .context("utf8")?;
-                tracing::info!("{readme}");
-                tokio::time::sleep(Duration::from_secs(20)).await;
+                tracing::info!("{root}");
+                run(root);
                 self.crab
                     .repos(&self.owner, &self.repo)
                     .create_status(head_commit.id.clone(), StatusState::Success)
@@ -191,4 +189,21 @@ impl HandlerInner {
         }
         Ok(())
     }
+}
+
+#[expect(clippy::unwrap_used)]
+fn run(src: String) {
+    let path = "root.rain";
+    let declaration = "ci";
+    let mut cache = rain_lang::runner::cache::Cache::new(rain_lang::runner::cache::CACHE_SIZE);
+    let mut ir = rain_lang::ir::Rir::new();
+    let config = rain_core::config::Config::new();
+    let driver = rain_core::driver::DriverImpl::new(config);
+    let file = rain_lang::afs::file::File::new_local(path.as_ref()).unwrap();
+    let module = rain_lang::ast::parser::parse_module(&src);
+    let mid = ir.insert_module(file, src, module).unwrap();
+    let main = ir.resolve_global_declaration(mid, declaration).unwrap();
+    let mut runner = rain_lang::runner::Runner::new(&mut ir, &mut cache, &driver);
+    let value = runner.evaluate_and_call(main).unwrap();
+    tracing::info!("Value {value}");
 }

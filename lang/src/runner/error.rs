@@ -1,6 +1,9 @@
 use std::{borrow::Cow, ops::RangeInclusive};
 
-use crate::{afs::error::PathError, ast::error::ParseError};
+use crate::{
+    afs::{error::PathError, file::File},
+    ast::error::ParseError,
+};
 
 use super::value::RainTypeId;
 
@@ -54,8 +57,8 @@ pub enum RunnerError {
     ImportParseError(#[from] ParseError),
     #[error("zip error: {0}")]
     ExtractError(Box<dyn std::error::Error>),
-    #[error("file does not exist")]
-    FileDoesNotExist,
+    #[error("file does not exist {0}")]
+    FileDoesNotExist(File),
     #[error("record does not contain entry: {name}")]
     RecordMissingEntry { name: String },
 }

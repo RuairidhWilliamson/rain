@@ -1962,6 +1962,8 @@ dependencies = [
  "dotenvy",
  "envy",
  "octocrab",
+ "rain-core",
+ "rain-lang",
  "serde",
  "serde_json",
  "smee-rs",

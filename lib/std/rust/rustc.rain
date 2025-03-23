@@ -1,5 +1,6 @@
-let utils = internal._import(internal._get_file("../utils.rain"))
-let rust_dist = internal._import(internal._get_file("./dist.rain"))
+let area = internal._get_area(internal._module_file())
+let utils = internal._import(internal._get_file(area, "utils.rain"))
+let rust_dist = internal._import(internal._get_file(area, "rust/dist.rain"))
 
 let not = utils.not
 let get_file = utils.get_file
@@ -9,6 +10,8 @@ let unit = utils.unit
 let _throw = utils._throw
 
 fn compile(channel, src, outname) {
+	// Implicitly requires cc for linking
+	cc = escape_bin("cc")
 	rustc = rust_dist.get_rustc(channel)
 	rust_std = rust_dist.get_rust_std(channel)
 	merged = utils.merge_dirs([rustc, rust_std])

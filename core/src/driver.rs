@@ -45,6 +45,7 @@ impl DriverImpl<'_> {
         Ok(area)
     }
 
+    #[expect(clippy::unwrap_used)]
     fn create_overlay_area(&self, overlay_dirs: &[&File]) -> Result<FileArea, RunnerError> {
         let area = FileArea::Generated(GeneratedFileArea::new());
         let output_dir = File::new(area.clone(), "/");
@@ -52,7 +53,16 @@ impl DriverImpl<'_> {
         std::fs::create_dir_all(&output_dir_path).map_err(RunnerError::AreaIOError)?;
         for &dir in overlay_dirs {
             let dir_path = self.resolve_file(dir);
-            dircpy::copy_dir(dir_path, &output_dir_path).map_err(RunnerError::AreaIOError)?;
+            let dir_metadata = dir_path.metadata().unwrap();
+            if dir_metadata.is_dir() {
+                dircpy::copy_dir(dir_path, &output_dir_path).map_err(RunnerError::AreaIOError)?;
+            } else if dir_metadata.is_file() {
+                std::fs::copy(
+                    &dir_path,
+                    output_dir_path.join(dir_path.file_name().unwrap()),
+                )
+                .unwrap();
+            }
         }
         Ok(area)
     }

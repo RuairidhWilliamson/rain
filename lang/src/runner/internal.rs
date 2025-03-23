@@ -25,6 +25,7 @@ use super::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InternalFunction {
     Print,
+    Debug,
     GetFile,
     Import,
     ModuleFile,
@@ -63,6 +64,7 @@ impl InternalFunction {
     pub fn evaluate_internal_function_name(name: &str) -> Option<Self> {
         match name {
             "_print" => Some(Self::Print),
+            "_debug" => Some(Self::Debug),
             "_get_file" => Some(Self::GetFile),
             "_import" => Some(Self::Import),
             "_module_file" => Some(Self::ModuleFile),
@@ -88,11 +90,7 @@ impl InternalFunction {
     }
 
     pub fn cache_strategy(&self) -> CacheStrategy {
-        match self {
-            // These are very cheap shouldn't bother caching
-            Self::Print | Self::Throw | Self::Unit | Self::GetFile => CacheStrategy::Never,
-            _ => CacheStrategy::Always,
-        }
+        CacheStrategy::Never
     }
 
     pub fn call_internal_function(
@@ -113,11 +111,11 @@ impl InternalFunction {
             arg_values,
         };
         match self {
-            Self::Print => print_implementation(icx),
-            Self::GetFile => get_file_implementation(icx),
-            Self::Import => import_implementation(icx),
-            Self::ModuleFile => module_file_implementation(icx),
-            Self::LocalArea => local_area_implementation(icx),
+            Self::Print => print(icx),
+            Self::GetFile => get_file(icx),
+            Self::Import => import(icx),
+            Self::ModuleFile => module_file(icx),
+            Self::LocalArea => local_area(icx),
             Self::ExtractZip => extract_zip(icx),
             Self::ExtractTarGz => extract_tar_gz(icx),
             Self::ExtractTarXz => extract_tar_xz(icx),
@@ -134,6 +132,7 @@ impl InternalFunction {
             Self::MergeDirs => merge_dirs(icx),
             Self::ReadFile => read_file(icx),
             Self::WriteFile => write_file(icx),
+            Self::Debug => debug(icx),
         }
     }
 }
@@ -166,6 +165,20 @@ impl InternalCx<'_, '_> {
         }
     }
 
+    fn no_args(&self) -> Result<()> {
+        if self.arg_values.is_empty() {
+            Ok(())
+        } else {
+            Err(self.cx.err(
+                self.fn_call.rparen_token,
+                RunnerError::IncorrectArgs {
+                    required: 0..=0,
+                    actual: self.arg_values.len(),
+                },
+            ))
+        }
+    }
+
     fn incorrect_args(self, required: RangeInclusive<usize>) -> ResultValue {
         Err(self.cx.err(
             self.fn_call.rparen_token,
@@ -177,7 +190,7 @@ impl InternalCx<'_, '_> {
     }
 }
 
-fn print_implementation(icx: InternalCx) -> ResultValue {
+fn print(icx: InternalCx) -> ResultValue {
     let args: Vec<String> = icx
         .arg_values
         .into_iter()
@@ -193,7 +206,7 @@ fn print_implementation(icx: InternalCx) -> ResultValue {
     Ok(Value::new(RainUnit))
 }
 
-fn get_file_implementation(icx: InternalCx) -> ResultValue {
+fn get_file(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(relative_path_nid, relative_path_value)] => {
             let relative_path: &String = relative_path_value
@@ -213,7 +226,7 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
             })? {
                 return Err(icx
                     .cx
-                    .nid_err(*relative_path_nid, RunnerError::FileDoesNotExist));
+                    .nid_err(*relative_path_nid, RunnerError::FileDoesNotExist(file)));
             }
             Ok(Value::new(file))
         }
@@ -235,7 +248,7 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
             })? {
                 return Err(icx
                     .cx
-                    .nid_err(*absolute_path_nid, RunnerError::FileDoesNotExist));
+                    .nid_err(*absolute_path_nid, RunnerError::FileDoesNotExist(file)));
             }
             Ok(Value::new(file))
         }
@@ -243,7 +256,7 @@ fn get_file_implementation(icx: InternalCx) -> ResultValue {
     }
 }
 
-fn import_implementation(icx: InternalCx) -> ResultValue {
+fn import(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(file_nid, file_value)] => {
             let file: &File = file_value
@@ -263,20 +276,12 @@ fn import_implementation(icx: InternalCx) -> ResultValue {
     }
 }
 
-fn module_file_implementation(icx: InternalCx) -> ResultValue {
-    if !icx.arg_values.is_empty() {
-        return Err(icx.cx.err(
-            icx.fn_call.rparen_token,
-            RunnerError::IncorrectArgs {
-                required: 0..=0,
-                actual: icx.arg_values.len(),
-            },
-        ));
-    }
+fn module_file(icx: InternalCx) -> ResultValue {
+    icx.no_args()?;
     Ok(Value::new(icx.cx.module.file.clone()))
 }
 
-fn local_area_implementation(icx: InternalCx) -> ResultValue {
+fn local_area(icx: InternalCx) -> ResultValue {
     let FileArea::Local(current_area_path) = &icx.cx.module.file.area else {
         return Err(icx.cx.nid_err(icx.nid, RunnerError::IllegalLocalArea));
     };
@@ -460,37 +465,24 @@ fn stringify_args(icx: &InternalCx<'_, '_>, args_nid: NodeId, value: &Value) -> 
 }
 
 fn escape_bin(icx: InternalCx) -> ResultValue {
-    match &icx.arg_values[..] {
-        [(name_nid, name_value)] => {
-            let name: &String = name_value
-                .downcast_ref_error(&[RainTypeId::String])
-                .map_err(|err| icx.cx.nid_err(*name_nid, err))?;
-            let path = icx
-                .driver
-                .escape_bin(name)
-                .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericRunError))?;
-            let f = File::new_checked(FileArea::Escape, path.to_string_lossy().as_ref())
-                .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
-            Ok(Value::new(f))
-        }
-        _ => icx.incorrect_args(1..=1),
-    }
+    let name: &String = icx.single_arg(&[RainTypeId::String])?;
+    let path = icx
+        .driver
+        .escape_bin(name)
+        .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericRunError))?;
+    let f = File::new_checked(FileArea::Escape, path.to_string_lossy().as_ref())
+        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
+    Ok(Value::new(f))
 }
 
-fn unit(_icx: InternalCx) -> ResultValue {
+fn unit(icx: InternalCx) -> ResultValue {
+    icx.no_args()?;
     Ok(Value::new(RainUnit))
 }
 
 fn get_area(icx: InternalCx) -> ResultValue {
-    match &icx.arg_values[..] {
-        [(file_nid, file_value)] => {
-            let file: &File = file_value
-                .downcast_ref_error(&[RainTypeId::File])
-                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
-            Ok(Value::new(file.area.clone()))
-        }
-        _ => icx.incorrect_args(1..=1),
-    }
+    let file: &File = icx.single_arg(&[RainTypeId::File])?;
+    Ok(Value::new(file.area.clone()))
 }
 
 fn download(icx: InternalCx) -> ResultValue {
@@ -557,29 +549,22 @@ fn sha256(icx: InternalCx) -> ResultValue {
 
 #[expect(clippy::unwrap_used)]
 fn bytes_to_string(icx: InternalCx) -> ResultValue {
-    match &icx.arg_values[..] {
-        [(bytes_nid, bytes_value)] => {
-            let bytes: &RainList = bytes_value
-                .downcast_ref_error(&[RainTypeId::List])
-                .map_err(|err| icx.cx.nid_err(*bytes_nid, err))?;
-            let bytes: Vec<u8> = bytes
+    let bytes: &RainList = icx.single_arg(&[RainTypeId::List])?;
+    let bytes: Vec<u8> = bytes
+        .0
+        .iter()
+        .map(|b| -> u8 {
+            b.downcast_ref::<RainInteger>()
+                .unwrap()
                 .0
-                .iter()
-                .map(|b| -> u8 {
-                    b.downcast_ref::<RainInteger>()
-                        .unwrap()
-                        .0
-                        .iter_u32_digits()
-                        .next()
-                        .unwrap()
-                        .try_into()
-                        .unwrap()
-                })
-                .collect();
-            Ok(Value::new(String::from_utf8(bytes).unwrap()))
-        }
-        _ => icx.incorrect_args(1..=1),
-    }
+                .iter_u32_digits()
+                .next()
+                .unwrap()
+                .try_into()
+                .unwrap()
+        })
+        .collect();
+    Ok(Value::new(String::from_utf8(bytes).unwrap()))
 }
 
 fn parse_toml(icx: InternalCx) -> ResultValue {
@@ -636,7 +621,7 @@ fn read_file(icx: InternalCx) -> ResultValue {
 }
 
 fn write_file(icx: InternalCx) -> ResultValue {
-    match &(icx).arg_values[..] {
+    match &icx.arg_values[..] {
         [(contents_nid, contents_value), (name_nid, name_value)] => {
             let contents: &String = contents_value
                 .downcast_ref_error::<String>(&[RainTypeId::String])
@@ -658,4 +643,20 @@ fn write_file(icx: InternalCx) -> ResultValue {
             },
         )),
     }
+}
+
+fn debug(mut icx: InternalCx) -> ResultValue {
+    if icx.arg_values.len() != 1 {
+        return icx.incorrect_args(1..=1);
+    }
+    let Some((_nid, value)) = icx.arg_values.pop() else {
+        return icx.incorrect_args(1..=1);
+    };
+    let p = if let Some(s) = value.downcast_ref::<String>() {
+        s.to_owned()
+    } else {
+        format!("{value}")
+    };
+    icx.driver.print(p);
+    Ok(value)
 }

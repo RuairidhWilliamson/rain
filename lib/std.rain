@@ -1,4 +1,0 @@
-let cc = internal._import(internal._get_file("std/cc.rain"))
-let go = internal._import(internal._get_file("std/go.rain"))
-let rust = internal._import(internal._get_file("std/rust.rain"))
-let utils = internal._import(internal._get_file("std/utils.rain"))

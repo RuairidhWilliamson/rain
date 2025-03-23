@@ -1,12 +1,12 @@
-let std = internal._import(internal._get_file("lib/std.rain"))
+let area = internal._get_area(internal._module_file())
+let stdlib_area = internal._merge_dirs([internal._get_file(area, "lib/std")])
+let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
 
 let print = std.utils.print
 let _import = std.utils._import
 let get_file = std.utils.get_file
 let get_area = std.utils.get_area
 let module_file = std.utils.module_file
-
-let area = get_area(module_file())
 
 let smee = _import(get_file("smee_rs/main.rain"))
 
