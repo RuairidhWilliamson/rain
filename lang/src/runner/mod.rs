@@ -11,7 +11,7 @@ use error::{RunnerError, Throwing};
 use indexmap::IndexMap;
 use internal::InternalFunction;
 use value::{RainTypeId, Value, ValueInner};
-use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainList, RainRecord, RainUnit};
+use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainList, RainRecord};
 
 use crate::{
     ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
@@ -125,7 +125,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     let v = self.evaluate_node(cx, *nid)?;
                     prev = Some(v);
                 }
-                Ok(prev.unwrap_or_else(|| Value::new(RainUnit)))
+                Ok(prev.unwrap_or_else(value_impl::get_unit))
             }
             Node::IfCondition(if_condition) => self.evaluate_if_condition(cx, if_condition),
             Node::FnCall(fn_call) => self.evaluate_fn_call(cx, nid, fn_call),
@@ -133,7 +133,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 let v = self.evaluate_node(cx, assignment.expr)?;
                 let name = assignment.name.span.contents(&cx.module.src);
                 cx.locals.insert(name, v);
-                Ok(Value::new(RainUnit))
+                Ok(value_impl::get_unit())
             }
             Node::BinaryOp(binary_op) => self.evaluate_binary_op(cx, binary_op),
             Node::Ident(tls) => self
@@ -496,7 +496,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     self.evaluate_node(cx, if_condition)
                 }
                 Some(AlternateCondition::ElseBlock(block)) => self.evaluate_node(cx, block),
-                None => Ok(Value::new(RainUnit)),
+                None => Ok(value_impl::get_unit()),
             }
         }
     }

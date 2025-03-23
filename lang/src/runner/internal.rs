@@ -10,7 +10,6 @@ use crate::{
     ast::{FnCall, NodeId},
     driver::{DownloadStatus, DriverTrait, RunOptions},
     ir::Rir,
-    runner::value_impl::RainUnit,
     span::ErrorSpan,
 };
 
@@ -203,7 +202,7 @@ fn print(icx: InternalCx) -> ResultValue {
         })
         .collect();
     icx.driver.print(args.join(" "));
-    Ok(Value::new(RainUnit))
+    Ok(super::value_impl::get_unit())
 }
 
 fn get_file(icx: InternalCx) -> ResultValue {
@@ -477,7 +476,7 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
 
 fn unit(icx: InternalCx) -> ResultValue {
     icx.no_args()?;
-    Ok(Value::new(RainUnit))
+    Ok(super::value_impl::get_unit())
 }
 
 fn get_area(icx: InternalCx) -> ResultValue {
@@ -511,7 +510,7 @@ fn download(icx: InternalCx) -> ResultValue {
             if let Some(file) = file {
                 m.insert("file".to_owned(), Value::new(file));
             } else {
-                m.insert("file".to_owned(), Value::new(RainUnit));
+                m.insert("file".to_owned(), super::value_impl::get_unit());
             }
             Ok(Value::new(RainRecord(m)))
         }

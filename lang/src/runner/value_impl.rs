@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{marker::PhantomData, str::FromStr, sync::LazyLock};
 
 use indexmap::IndexMap;
 
@@ -12,8 +12,14 @@ use super::{
     value::{RainTypeId, Value, ValueInner},
 };
 
+static UNIT: LazyLock<Value> = LazyLock::new(|| super::Value::new(RainUnit(PhantomData)));
+
+pub fn get_unit() -> Value {
+    UNIT.clone()
+}
+
 #[derive(Hash, PartialEq, Eq)]
-pub struct RainUnit;
+pub struct RainUnit(PhantomData<()>);
 
 impl std::fmt::Debug for RainUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
