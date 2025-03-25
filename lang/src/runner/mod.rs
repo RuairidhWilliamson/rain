@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod dep;
 pub mod error;
 pub mod hash;
 pub mod internal;
@@ -31,6 +32,7 @@ pub struct Cx<'a> {
     call_depth: usize,
     locals: HashMap<&'a str, Value>,
     args: HashMap<&'a str, Value>,
+    deps: Vec<dep::Dep>,
 }
 
 impl<'a> Cx<'a> {
@@ -40,6 +42,7 @@ impl<'a> Cx<'a> {
             call_depth: 0,
             args: HashMap::new(),
             locals: HashMap::new(),
+            deps: Vec::new(),
         }
     }
 
@@ -94,6 +97,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     call_depth: 0,
                     args: HashMap::new(),
                     locals: HashMap::new(),
+                    deps: Vec::new(),
                 };
                 self.evaluate_node(&mut cx, fn_declare.block)
             }
@@ -229,8 +233,9 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     args: arg_values.clone(),
                 };
 
-                if let Some(v) = self.cache.get_value(&key) {
-                    return Ok(v);
+                if let Some(cache_entry) = self.cache.get(&key) {
+                    cx.deps.extend(cache_entry.deps);
+                    return Ok(cache_entry.value);
                 }
                 let start = Instant::now();
                 let m = &Arc::clone(self.ir.get_module(f.id.module_id()));
@@ -256,15 +261,18 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     .zip(arg_values)
                     .map(|(a, v)| (a.name.span.contents(&m.src), v))
                     .collect();
-                let mut cx = Cx {
+                let mut callee_cx = Cx {
                     module: m,
                     call_depth: cx.call_depth + 1,
                     args,
                     locals: HashMap::new(),
+                    deps: Vec::new(),
                 };
-                let result = self.evaluate_node(&mut cx, fn_declare.block)?;
+                let result = self.evaluate_node(&mut callee_cx, fn_declare.block)?;
                 self.driver.exit_call(function_name);
-                self.cache.put(key, start.elapsed(), None, result.clone());
+                self.cache
+                    .put(key, start.elapsed(), None, &callee_cx.deps, result.clone());
+                cx.deps.extend(callee_cx.deps);
                 Ok(result)
             }
             RainTypeId::InternalFunction => {

@@ -11,7 +11,7 @@ use poison_panic::MutexExt as _;
 
 use crate::ir::DeclarationId;
 
-use super::{internal::InternalFunction, value::Value};
+use super::{dep::Dep, internal::InternalFunction, value::Value};
 
 pub const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
 
@@ -50,8 +50,18 @@ impl Cache {
         guard.get(key).cloned()
     }
 
-    pub fn put(&self, key: CacheKey, execution_time: Duration, etag: Option<String>, value: Value) {
+    pub fn put(
+        &self,
+        key: CacheKey,
+        execution_time: Duration,
+        etag: Option<String>,
+        deps: &[Dep],
+        value: Value,
+    ) {
         if !key.pure() {
+            return;
+        }
+        if deps.iter().any(|d| matches!(d, Dep::Uncacheable)) {
             return;
         }
         if value.storeable() {
@@ -61,6 +71,7 @@ impl Cache {
                     execution_time,
                     expires: None,
                     etag,
+                    deps: deps.to_vec(),
                     value,
                 },
             );
@@ -148,6 +159,7 @@ pub struct CacheEntry {
     pub execution_time: Duration,
     pub expires: Option<DateTime<Utc>>,
     pub etag: Option<String>,
+    pub deps: Vec<Dep>,
     pub value: Value,
 }
 

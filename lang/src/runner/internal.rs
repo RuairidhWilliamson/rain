@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 use num_bigint::BigInt;
 
 use crate::{
-    afs::{absolute::AbsolutePathBuf, area::FileArea, error::PathError, file::File},
+    afs::{area::FileArea, error::PathError, file::File},
     ast::{FnCall, NodeId},
     driver::{DownloadStatus, DriverTrait, RunOptions},
     ir::Rir,
@@ -16,6 +16,7 @@ use crate::{
 use super::{
     Cx, Result, ResultValue,
     cache::{Cache, CacheKey},
+    dep::Dep,
     error::RunnerError,
     value::{RainTypeId, Value, ValueInner},
     value_impl::{Module, RainInteger, RainList, RainRecord},
@@ -28,7 +29,6 @@ pub enum InternalFunction {
     GetFile,
     Import,
     ModuleFile,
-    LocalArea,
     ExtractZip,
     ExtractTarGz,
     ExtractTarXz,
@@ -68,7 +68,6 @@ impl InternalFunction {
             "_get_file" => Some(Self::GetFile),
             "_import" => Some(Self::Import),
             "_module_file" => Some(Self::ModuleFile),
-            "_local_area" => Some(Self::LocalArea),
             "_extract_zip" => Some(Self::ExtractZip),
             "_extract_tar_gz" => Some(Self::ExtractTarGz),
             "_extract_tar_xz" => Some(Self::ExtractTarXz),
@@ -97,7 +96,6 @@ impl InternalFunction {
             Self::GetFile => get_file(icx),
             Self::Import => import(icx),
             Self::ModuleFile => module_file(icx),
-            Self::LocalArea => local_area(icx),
             Self::ExtractZip => extract_zip(icx),
             Self::ExtractTarGz => extract_tar_gz(icx),
             Self::ExtractTarXz => extract_tar_xz(icx),
@@ -183,7 +181,8 @@ impl InternalCx<'_, '_> {
         }
         let start = Instant::now();
         let v = f()?;
-        self.cache.put(cache_key, start.elapsed(), None, v.clone());
+        self.cache
+            .put(cache_key, start.elapsed(), None, &[], v.clone());
         Ok(v)
     }
 }
@@ -207,6 +206,7 @@ fn print(icx: InternalCx) -> ResultValue {
 fn get_file(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(relative_path_nid, relative_path_value)] => {
+            icx.cx.deps.push(Dep::Uncacheable);
             let relative_path: &String = relative_path_value
                 .downcast_ref_error(&[RainTypeId::String])
                 .map_err(|err| icx.cx.nid_err(*relative_path_nid, err))?;
@@ -232,6 +232,7 @@ fn get_file(icx: InternalCx) -> ResultValue {
             (area_nid, area_value),
             (absolute_path_nid, absolute_path_value),
         ] => {
+            icx.cx.deps.push(Dep::Uncacheable);
             let area: &FileArea = area_value
                 .downcast_ref_error(&[RainTypeId::FileArea])
                 .map_err(|err| icx.cx.nid_err(*area_nid, err))?;
@@ -271,34 +272,6 @@ fn import(icx: InternalCx) -> ResultValue {
 fn module_file(icx: InternalCx) -> ResultValue {
     icx.no_args()?;
     Ok(Value::new(icx.cx.module.file.clone()))
-}
-
-fn local_area(icx: InternalCx) -> ResultValue {
-    let FileArea::Local(current_area_path) = &icx.cx.module.file.area else {
-        return Err(icx.cx.nid_err(icx.nid, RunnerError::IllegalLocalArea));
-    };
-    let (path_nid, path_value) = icx.arg_values.first().ok_or_else(|| {
-        icx.cx.nid_err(
-            icx.nid,
-            RunnerError::IncorrectArgs {
-                required: 1..=1,
-                actual: icx.arg_values.len(),
-            },
-        )
-    })?;
-    let path: &String = path_value
-        .downcast_ref_error(&[RainTypeId::String])
-        .map_err(|err| icx.cx.nid_err(*path_nid, err))?;
-    let area_path = current_area_path.join(path);
-    let area_path = AbsolutePathBuf::try_from(area_path.as_path())
-        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
-    // TODO: Move this fs call into core driver
-    let metadata = std::fs::metadata(&*area_path)
-        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
-    if metadata.is_file() {
-        return Err(icx.cx.nid_err(icx.nid, RunnerError::GenericRunError));
-    }
-    Ok(Value::new(FileArea::Local(area_path)))
 }
 
 fn extract_zip(icx: InternalCx) -> ResultValue {
@@ -527,7 +500,8 @@ fn download(icx: InternalCx) -> ResultValue {
                 m.insert("file".to_owned(), super::value_impl::get_unit());
             }
             let out = Value::new(RainRecord(m));
-            icx.cache.put(cache_key, start.elapsed(), etag, out.clone());
+            icx.cache
+                .put(cache_key, start.elapsed(), etag, &[], out.clone());
             Ok(out)
         }
         _ => icx.incorrect_args(2..=2),
@@ -658,13 +632,7 @@ fn write_file(icx: InternalCx) -> ResultValue {
                     .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
             ))
         }
-        _ => Err(icx.cx.err(
-            icx.fn_call.rparen_token,
-            RunnerError::IncorrectArgs {
-                required: 2..=2,
-                actual: icx.arg_values.len(),
-            },
-        )),
+        _ => icx.incorrect_args(2..=2),
     }
 }
 

@@ -4,7 +4,6 @@ let print = internal._print
 let debug = internal._debug
 let get_file = internal._get_file
 let module_file = internal._module_file
-let local_area = internal._local_area
 let extract_zip = internal._extract_zip
 let extract_tar_gz = internal._extract_tar_gz
 let extract_tar_xz = internal._extract_tar_xz
