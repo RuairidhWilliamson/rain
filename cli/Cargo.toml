@@ -18,3 +18,9 @@ log.workspace = true
 rain-core = { path = "../core" }
 serde.workspace = true
 termcolor.workspace = true
+thiserror.workspace = true
+ciborium = "0.2.2"
+ruipc.path = "../ruipc"
+uuid.workspace = true
+chrono.workspace = true
+poison_panic.path = "../poison_panic"

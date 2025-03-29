@@ -1,15 +1,11 @@
-use driver::DriverImpl;
-use rain_lang::{
-    driver::DriverTrait as _,
-    error::OwnedResolvedError,
-    runner::cache::{CACHE_SIZE, Cache},
-};
-use serde::{Deserialize, Serialize};
-
 pub mod config;
 pub mod driver;
-pub mod exe;
-pub mod remote;
+
+pub use rain_lang;
+
+use driver::DriverImpl;
+use rain_lang::{driver::DriverTrait as _, error::OwnedResolvedError, runner::cache::Cache};
+use serde::{Deserialize, Serialize};
 
 #[expect(clippy::result_unit_err, clippy::print_stderr)]
 pub fn run_stderr(
@@ -17,7 +13,7 @@ pub fn run_stderr(
     declaration: &str,
 ) -> Result<rain_lang::runner::value::Value, ()> {
     let driver = DriverImpl::new(config::Config::default());
-    let mut cache = Cache::new(CACHE_SIZE);
+    let mut cache = Cache::new(rain_lang::runner::cache::CACHE_SIZE);
     run(path, declaration, &mut cache, &driver).map_err(|err| {
         eprintln!("{err}");
     })

@@ -1,5 +1,8 @@
 #![allow(clippy::print_stderr, clippy::print_stdout)]
 
+mod exe;
+mod remote;
+
 use std::{
     ffi::OsStr,
     io::{Write as _, stderr},
@@ -8,17 +11,15 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use env_logger::Env;
-use rain_core::{
-    config::Config,
-    remote::{
-        client::make_request_or_start,
-        msg::{
-            clean::CleanRequest,
-            info::InfoRequest,
-            inspect::{InspectRequest, InspectResponse},
-            run::{RunProgress, RunRequest},
-            shutdown::ShutdownRequest,
-        },
+use rain_core::config::Config;
+use remote::{
+    client::make_request_or_start,
+    msg::{
+        clean::CleanRequest,
+        info::InfoRequest,
+        inspect::{InspectRequest, InspectResponse},
+        run::{RunProgress, RunRequest},
+        shutdown::ShutdownRequest,
     },
 };
 
@@ -34,7 +35,7 @@ fn fallible_main() -> Result<(), ()> {
     let config = rain_core::config::Config::default();
     if std::env::var_os("RAIN_SERVER").as_deref() == Some(OsStr::new("1")) {
         env_logger::init_from_env(Env::new().filter_or("RAIN_LOG", "debug"));
-        return rain_core::remote::server::rain_server(config).map_err(|err| {
+        return remote::server::rain_server(config).map_err(|err| {
             eprintln!("rain server error: {err:?}");
         });
     }
@@ -193,4 +194,9 @@ pub enum RainCtlCommand {
     Inspect,
     /// Clean the rain cache
     Clean,
+}
+
+#[test]
+fn validate_cli() {
+    <Cli as clap::CommandFactory>::command().debug_assert();
 }

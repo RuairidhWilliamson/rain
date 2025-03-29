@@ -2,7 +2,7 @@ use std::{path::PathBuf, time::SystemTime};
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::config::Config;
+use rain_core::config::Config;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestWrapper {
@@ -51,7 +51,7 @@ mod private {
 pub mod run {
     use std::path::PathBuf;
 
-    use crate::CoreError;
+    use rain_core::CoreError;
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunRequest {
@@ -107,7 +107,7 @@ pub mod info {
     pub struct InfoResponse {
         pub pid: u32,
         pub start_time: chrono::DateTime<chrono::Utc>,
-        pub config: crate::config::Config,
+        pub config: rain_core::config::Config,
         pub stats: Stats,
     }
 

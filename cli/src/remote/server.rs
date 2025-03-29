@@ -9,30 +9,29 @@ use std::{
 };
 
 use poison_panic::MutexExt as _;
-use rain_lang::{
+use rain_core::rain_lang::{
     driver::DriverTrait as _,
     ir::Rir,
     runner::{cache::Cache, value::Value},
 };
+use rain_core::{CoreError, config::Config, driver::DriverImpl};
 
-use crate::{
-    CoreError,
-    config::Config,
-    driver::DriverImpl,
-    remote::msg::{RequestWrapper, RestartReason},
-};
+use crate::remote::msg::{RequestWrapper, RestartReason};
 
 use super::msg::{
     Message, Request, RequestTrait,
     run::{RunProgress, RunResponse},
 };
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Could not get the current exe")]
     CurrentExe,
-    RainCacheNotADirectory,
+    #[error("io: {0}")]
     IO(std::io::Error),
+    #[error("encode: {0}")]
     Encode(ciborium::ser::Error<std::io::Error>),
+    #[error("decode: {0}")]
     Decode(ciborium::de::Error<std::io::Error>),
 }
 
@@ -54,19 +53,8 @@ impl From<ciborium::de::Error<std::io::Error>> for Error {
     }
 }
 
-#[expect(clippy::missing_panics_doc)]
 pub fn rain_server(config: Config) -> Result<(), Error> {
-    let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
-    let modified_time = exe_stat.modified()?;
-    let cache = Cache::new(crate::CACHE_SIZE);
-    let s = Server {
-        config,
-        modified_time,
-        start_time: chrono::Utc::now(),
-        cache,
-        stats: Stats::default(),
-        ir: Mutex::new(Rir::new()),
-    };
+    let s = Server::new(config)?;
     let socket_path = s.config.server_socket_path();
     std::fs::create_dir_all(socket_path.parent().expect("path parent"))?;
     let mut l = ruipc::Listener::bind(socket_path)?;
@@ -94,6 +82,22 @@ struct Server {
     cache: Cache,
     stats: Stats,
     ir: Mutex<Rir>,
+}
+
+impl Server {
+    fn new(config: Config) -> Result<Self, Error> {
+        let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
+        let modified_time = exe_stat.modified()?;
+        let cache = Cache::new(rain_core::rain_lang::runner::cache::CACHE_SIZE);
+        Ok(Self {
+            config,
+            modified_time,
+            start_time: chrono::Utc::now(),
+            cache,
+            stats: Stats::default(),
+            ir: Mutex::new(Rir::new()),
+        })
+    }
 }
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -330,18 +334,18 @@ fn run_core(
 ) -> Result<Value, CoreError> {
     let path = &req.root;
     let declaration: &str = &req.target;
-    let file = rain_lang::afs::file::File::new_local(path.as_ref())
+    let file = rain_core::rain_lang::afs::file::File::new_local(path.as_ref())
         .map_err(|err| CoreError::Other(err.to_string()))?;
     let path = driver.resolve_file(&file);
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
-    let module = rain_lang::ast::parser::parse_module(&src);
+    let module = rain_core::rain_lang::ast::parser::parse_module(&src);
     let mid = ir
         .insert_module(file, src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(ir).into_owned())))?;
     let main = ir
         .resolve_global_declaration(mid, declaration)
         .ok_or_else(|| CoreError::Other(String::from("declaration does not exist")))?;
-    let mut runner = rain_lang::runner::Runner::new(ir, &mut cache, driver);
+    let mut runner = rain_core::rain_lang::runner::Runner::new(ir, &mut cache, driver);
     let value = runner
         .evaluate_and_call(main)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;

@@ -4,10 +4,9 @@ use std::{
     time::Duration,
 };
 
-use crate::{
-    config::Config,
-    remote::msg::{RequestHeader, RequestWrapper},
-};
+use rain_core::config::Config;
+
+use crate::remote::msg::{RequestHeader, RequestWrapper};
 
 use super::msg::{Message, Request, RequestTrait, RestartReason};
 
@@ -49,7 +48,6 @@ impl From<ciborium::de::Error<std::io::Error>> for Error {
     }
 }
 
-#[expect(clippy::missing_panics_doc)]
 pub fn make_request_or_start<Req>(
     config: &Config,
     request: Req,
@@ -63,12 +61,12 @@ where
         Ok(s) => s,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             log::info!("No socket at path");
-            start_server(config)?
+            spawn_local_server(config)?
         }
         Err(err) if err.kind() == std::io::ErrorKind::ConnectionRefused => {
             log::info!("Found stale socket, removing...");
             std::fs::remove_file(config.server_socket_path())?;
-            start_server(config)?
+            spawn_local_server(config)?
         }
         Err(err) => {
             return Err(err.into());
@@ -116,7 +114,7 @@ where
                     }
                     restart_attempt += 1;
                     log::info!("server requested restart, reason {reason:?}");
-                    stream = start_server(config)?;
+                    stream = spawn_local_server(config)?;
                     break;
                 }
                 Message::Response(response) => {
@@ -127,7 +125,7 @@ where
     }
 }
 
-fn start_server(config: &Config) -> Result<ruipc::Client, Error> {
+fn spawn_local_server(config: &Config) -> Result<ruipc::Client, Error> {
     log::info!("Starting server...");
     let p = std::process::Command::new(crate::exe::current_exe().ok_or(Error::CurrentExe)?)
         .arg("server")
