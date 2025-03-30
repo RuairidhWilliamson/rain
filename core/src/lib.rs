@@ -7,6 +7,7 @@ pub use rain_lang;
 
 use driver::DriverImpl;
 use rain_lang::{
+    afs::entry::FSEntryTrait as _,
     driver::DriverTrait as _,
     error::OwnedResolvedError,
     runner::{cache::Cache, value::Value},
@@ -30,7 +31,7 @@ pub fn run(
 ) -> Result<Value, CoreError> {
     let file = rain_lang::afs::file::File::new_local(path.as_ref())
         .map_err(|err| CoreError::Other(err.to_string()))?;
-    let path = file_system.resolve_file(&file);
+    let path = file_system.resolve_file(file.inner());
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
     let module = rain_lang::ast::parser::parse_module(&src);
     let mut ir = rain_lang::ir::Rir::new();

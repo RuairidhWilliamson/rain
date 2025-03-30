@@ -1,14 +1,14 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
-    afs::{area::FileArea, file::File},
+    afs::{area::FileArea, dir::Dir, entry::FSEntry, file::File},
     runner::{error::RunnerError, internal::InternalFunction},
 };
 
 pub trait DriverTrait: MonitoringTrait {
     /// Resolves file path locally returning an absolute path
-    fn resolve_file(&self, file: &File) -> PathBuf;
-    fn exists(&self, file: &File) -> Result<bool, std::io::Error>;
+    fn resolve_file(&self, file: &FSEntry) -> PathBuf;
+    fn query_fs(&self, entry: &FSEntry) -> Result<FSEntryQueryResult, std::io::Error>;
     fn print(&self, message: String);
     fn escape_bin(&self, name: &str) -> Option<PathBuf>;
     fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError>;
@@ -29,9 +29,9 @@ pub trait DriverTrait: MonitoringTrait {
     ) -> Result<DownloadStatus, RunnerError>;
     fn sha256(&self, file: &File) -> Result<String, RunnerError>;
     fn sha512(&self, file: &File) -> Result<String, RunnerError>;
-    fn merge_dirs(&self, dirs: &[&File]) -> Result<FileArea, RunnerError>;
+    fn create_area(&self, dirs: &[&Dir]) -> Result<FileArea, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, std::io::Error>;
-    fn write_file(&self, contents: &str, name: &str) -> Result<File, RunnerError>;
+    fn create_file(&self, contents: &str, name: &str) -> Result<File, RunnerError>;
 }
 
 pub trait MonitoringTrait {
@@ -59,4 +59,23 @@ pub struct DownloadStatus {
     pub status_code: Option<u16>,
     pub file: Option<File>,
     pub etag: Option<String>,
+}
+
+#[derive(Debug)]
+pub enum FSEntryQueryResult {
+    File,
+    Directory,
+    Symlink,
+    NotExist,
+}
+
+impl std::fmt::Display for FSEntryQueryResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::File => f.write_str("is file"),
+            Self::Directory => f.write_str("is directory"),
+            Self::Symlink => f.write_str("is symlink"),
+            Self::NotExist => f.write_str("does not exist"),
+        }
+    }
 }

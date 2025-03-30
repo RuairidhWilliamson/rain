@@ -18,7 +18,7 @@ fn prepare_cargo(channel) {
 	rust_std = rust_dist.get_rust_std(channel)
 	cargo = rust_dist.get_cargo(channel)
 
-	merged = utils.merge_dirs([rustc, rust_std, cargo])
+	merged = utils.create_area([rustc, rust_std, cargo])
 	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_file(merged, "/lib")}
 	cargo_bin = get_file(merged, "/bin/cargo")
 	{env: env, cargo_bin: cargo_bin}
@@ -56,7 +56,7 @@ fn clippy(channel, area) {
 	cargo = rust_dist.get_cargo(channel)
 	clippy = rust_dist.get_clippy(channel)
 
-	merged = utils.merge_dirs([rustc, rust_std, cargo, clippy])
+	merged = utils.create_area([rustc, rust_std, cargo, clippy])
 	env = {LD_LIBRARY_PATH: get_file(merged, "/lib")}
 	clippy_bin = get_file(merged, "/bin/cargo-clippy")
 	run_result = run(area, clippy_bin, ["-Dwarnings"], env)
@@ -74,7 +74,7 @@ fn check_fmt(channel, area) {
 	cargo = rust_dist.get_cargo(channel)
 	rustfmt = rust_dist.get_rustfmt(channel)
 
-	merged = utils.merge_dirs([rustc, rust_std, cargo, rustfmt])
+	merged = utils.create_area([rustc, rust_std, cargo, rustfmt])
 	env = {LD_LIBRARY_PATH: get_file(merged, "/lib")}
 	cargo_fmt_bin = get_file(merged, "/bin/cargo-fmt")
 	run_result = run(area, cargo_fmt_bin, ["--check"], env)

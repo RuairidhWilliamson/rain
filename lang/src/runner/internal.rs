@@ -6,9 +6,17 @@ use indexmap::IndexMap;
 use num_bigint::BigInt;
 
 use crate::{
-    afs::{absolute::AbsolutePathBuf, area::FileArea, error::PathError, file::File},
+    afs::{
+        absolute::AbsolutePathBuf,
+        area::FileArea,
+        dir::Dir,
+        entry::{FSEntry, FSEntryTrait as _},
+        error::PathError,
+        file::File,
+        path::FilePath,
+    },
     ast::{FnCall, NodeId},
-    driver::{DownloadStatus, DriverTrait, RunOptions},
+    driver::{DownloadStatus, DriverTrait, FSEntryQueryResult, RunOptions},
     ir::Rir,
     span::ErrorSpan,
 };
@@ -27,6 +35,7 @@ pub enum InternalFunction {
     Print,
     Debug,
     GetFile,
+    GetDir,
     Import,
     ModuleFile,
     ExtractZip,
@@ -43,9 +52,9 @@ pub enum InternalFunction {
     Sha512,
     BytesToString,
     ParseToml,
-    MergeDirs,
+    CreateArea,
     ReadFile,
-    WriteFile,
+    CreateFile,
     LocalArea,
 }
 
@@ -67,6 +76,7 @@ impl InternalFunction {
             "_print" => Some(Self::Print),
             "_debug" => Some(Self::Debug),
             "_get_file" => Some(Self::GetFile),
+            "_get_dir" => Some(Self::GetDir),
             "_import" => Some(Self::Import),
             "_module_file" => Some(Self::ModuleFile),
             "_extract_zip" => Some(Self::ExtractZip),
@@ -83,9 +93,9 @@ impl InternalFunction {
             "_sha512" => Some(Self::Sha512),
             "_bytes_to_string" => Some(Self::BytesToString),
             "_parse_toml" => Some(Self::ParseToml),
-            "_merge_dirs" => Some(Self::MergeDirs),
+            "_create_area" => Some(Self::CreateArea),
             "_read_file" => Some(Self::ReadFile),
-            "_write_file" => Some(Self::WriteFile),
+            "_create_file" => Some(Self::CreateFile),
             "_local_area" => Some(Self::LocalArea),
             _ => None,
         }
@@ -96,6 +106,7 @@ impl InternalFunction {
             Self::Print => print(icx),
             Self::Debug => debug(icx),
             Self::GetFile => get_file(icx),
+            Self::GetDir => get_dir(icx),
             Self::Import => import(icx),
             Self::ModuleFile => module_file(icx),
             Self::ExtractZip => extract_zip(icx),
@@ -112,9 +123,9 @@ impl InternalFunction {
             Self::Sha512 => sha512(icx),
             Self::BytesToString => bytes_to_string(icx),
             Self::ParseToml => parse_toml(icx),
-            Self::MergeDirs => merge_dirs(icx),
+            Self::CreateArea => create_area(icx),
             Self::ReadFile => read_file(icx),
-            Self::WriteFile => write_file(icx),
+            Self::CreateFile => create_file(icx),
             Self::LocalArea => local_area(icx),
         }
     }
@@ -206,30 +217,26 @@ fn print(icx: InternalCx) -> ResultValue {
     Ok(super::value_impl::get_unit())
 }
 
-fn get_file(icx: InternalCx) -> ResultValue {
+fn file_area_resolve_path(icx: &mut InternalCx) -> Result<FSEntry> {
     match &icx.arg_values[..] {
         [(relative_path_nid, relative_path_value)] => {
             icx.cx.deps.push(Dep::Uncacheable);
             let relative_path: &String = relative_path_value
                 .downcast_ref_error(&[RainTypeId::String])
                 .map_err(|err| icx.cx.nid_err(*relative_path_nid, err))?;
-            let file = icx
+            let file_path = icx
                 .cx
                 .module
                 .file
+                .path()
                 .parent()
                 .ok_or_else(|| icx.cx.nid_err(icx.nid, PathError::NoParentDirectory.into()))?
                 .join(relative_path)
                 .map_err(|err| icx.cx.nid_err(*relative_path_nid, err.into()))?;
-            if !icx.driver.exists(&file).map_err(|err| {
-                icx.cx
-                    .nid_err(*relative_path_nid, RunnerError::AreaIOError(err))
-            })? {
-                return Err(icx
-                    .cx
-                    .nid_err(*relative_path_nid, RunnerError::FileDoesNotExist(file)));
-            }
-            Ok(Value::new(file))
+            Ok(FSEntry {
+                area: icx.cx.module.file.area().clone(),
+                path: file_path,
+            })
         }
         [
             (area_nid, area_value),
@@ -242,19 +249,55 @@ fn get_file(icx: InternalCx) -> ResultValue {
             let absolute_path: &String = absolute_path_value
                 .downcast_ref_error(&[RainTypeId::String])
                 .map_err(|err| icx.cx.nid_err(*absolute_path_nid, err))?;
-            let file = File::new_checked(area.clone(), absolute_path)
-                .map_err(|err| icx.cx.nid_err(icx.nid, err.into()))?;
-            if !icx.driver.exists(&file).map_err(|err| {
-                icx.cx
-                    .nid_err(*absolute_path_nid, RunnerError::AreaIOError(err))
-            })? {
-                return Err(icx
-                    .cx
-                    .nid_err(*absolute_path_nid, RunnerError::FileDoesNotExist(file)));
-            }
+            let file_path = FilePath::new(absolute_path)
+                .map_err(|err| icx.cx.nid_err(*absolute_path_nid, err.into()))?;
+            Ok(FSEntry {
+                area: area.clone(),
+                path: file_path,
+            })
+        }
+        _ => {
+            let required = 1..=2;
+            Err(icx.cx.err(
+                icx.fn_call.rparen_token,
+                RunnerError::IncorrectArgs {
+                    required,
+                    actual: icx.arg_values.len(),
+                },
+            ))
+        }
+    }
+}
+
+fn get_file(mut icx: InternalCx) -> ResultValue {
+    let entry = file_area_resolve_path(&mut icx)?;
+    match icx
+        .driver
+        .query_fs(&entry)
+        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?
+    {
+        FSEntryQueryResult::File => {
+            // Safety: Checked that the file exists and is a file
+            let file = unsafe { File::new(entry) };
             Ok(Value::new(file))
         }
-        _ => icx.incorrect_args(1..=2),
+        result => Err(icx.cx.nid_err(icx.nid, RunnerError::FSQuery(entry, result))),
+    }
+}
+
+fn get_dir(mut icx: InternalCx) -> ResultValue {
+    let entry = file_area_resolve_path(&mut icx)?;
+    match icx
+        .driver
+        .query_fs(&entry)
+        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?
+    {
+        FSEntryQueryResult::Directory => {
+            // Safety: Checked that the dir exists and is a dir
+            let file = unsafe { Dir::new(entry) };
+            Ok(Value::new(file))
+        }
+        result => Err(icx.cx.nid_err(icx.nid, RunnerError::FSQuery(entry, result))),
     }
 }
 
@@ -400,7 +443,20 @@ fn stringify_env(
                 .resolve_file(
                     value
                         .downcast_ref_error::<File>(&[RainTypeId::File])
-                        .map_err(|err| icx.cx.nid_err(env_nid, err))?,
+                        .map_err(|err| icx.cx.nid_err(env_nid, err))?
+                        .inner(),
+                )
+                .display()
+                .to_string(),
+        )),
+        RainTypeId::Dir => Ok((
+            key.to_owned(),
+            icx.driver
+                .resolve_file(
+                    value
+                        .downcast_ref_error::<Dir>(&[RainTypeId::Dir])
+                        .map_err(|err| icx.cx.nid_err(env_nid, err))?
+                        .inner(),
                 )
                 .display()
                 .to_string(),
@@ -409,7 +465,7 @@ fn stringify_env(
             env_nid,
             RunnerError::ExpectedType {
                 actual: type_id,
-                expected: &[RainTypeId::String, RainTypeId::File],
+                expected: &[RainTypeId::String, RainTypeId::File, RainTypeId::Dir],
             },
         )),
     }
@@ -426,7 +482,18 @@ fn stringify_args(icx: &InternalCx<'_, '_>, args_nid: NodeId, value: &Value) -> 
             .resolve_file(
                 value
                     .downcast_ref_error::<File>(&[RainTypeId::File])
-                    .map_err(|err| icx.cx.nid_err(args_nid, err))?,
+                    .map_err(|err| icx.cx.nid_err(args_nid, err))?
+                    .inner(),
+            )
+            .display()
+            .to_string()),
+        RainTypeId::Dir => Ok(icx
+            .driver
+            .resolve_file(
+                value
+                    .downcast_ref_error::<Dir>(&[RainTypeId::Dir])
+                    .map_err(|err| icx.cx.nid_err(args_nid, err))?
+                    .inner(),
             )
             .display()
             .to_string()),
@@ -446,9 +513,24 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
         .driver
         .escape_bin(name)
         .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericRunError))?;
-    let f = File::new_checked(FileArea::Escape, path.to_string_lossy().as_ref())
+    let path = FilePath::new(&path.to_string_lossy())
         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
-    Ok(Value::new(f))
+    let entry = FSEntry {
+        area: FileArea::Escape,
+        path,
+    };
+    match icx
+        .driver
+        .query_fs(&entry)
+        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?
+    {
+        FSEntryQueryResult::File => {
+            // Safety: Checked that the file exists and is a file
+            let file = unsafe { File::new(entry) };
+            Ok(Value::new(file))
+        }
+        result => Err(icx.cx.nid_err(icx.nid, RunnerError::FSQuery(entry, result))),
+    }
 }
 
 fn unit(icx: InternalCx) -> ResultValue {
@@ -458,7 +540,7 @@ fn unit(icx: InternalCx) -> ResultValue {
 
 fn get_area(icx: InternalCx) -> ResultValue {
     let file: &File = icx.single_arg(&[RainTypeId::File])?;
-    Ok(Value::new(file.area.clone()))
+    Ok(Value::new(file.area().clone()))
 }
 
 fn download(icx: InternalCx) -> ResultValue {
@@ -598,17 +680,17 @@ fn parse_toml(icx: InternalCx) -> ResultValue {
     })
 }
 
-fn merge_dirs(icx: InternalCx) -> ResultValue {
+fn create_area(icx: InternalCx) -> ResultValue {
     let dirs: &RainList = icx.single_arg(&[RainTypeId::List])?;
     let dirs = dirs
         .0
         .iter()
-        .map(|area| area.downcast_ref_error::<File>(&[RainTypeId::File]))
-        .collect::<Result<Vec<&File>, RunnerError>>()
+        .map(|area| area.downcast_ref_error::<Dir>(&[RainTypeId::Dir]))
+        .collect::<Result<Vec<&Dir>, RunnerError>>()
         .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
     let merged_area = icx
         .driver
-        .merge_dirs(&dirs)
+        .create_area(&dirs)
         .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
     Ok(Value::new(merged_area))
 }
@@ -620,7 +702,7 @@ fn read_file(icx: InternalCx) -> ResultValue {
     })?))
 }
 
-fn write_file(icx: InternalCx) -> ResultValue {
+fn create_file(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(contents_nid, contents_value), (name_nid, name_value)] => {
             let contents: &String = contents_value
@@ -631,7 +713,7 @@ fn write_file(icx: InternalCx) -> ResultValue {
                 .map_err(|err| icx.cx.nid_err(*name_nid, err))?;
             Ok(Value::new(
                 icx.driver
-                    .write_file(contents, name)
+                    .create_file(contents, name)
                     .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
             ))
         }
@@ -656,7 +738,7 @@ fn debug(mut icx: InternalCx) -> ResultValue {
 }
 
 fn local_area(icx: InternalCx) -> ResultValue {
-    let FileArea::Local(current_area_path) = &icx.cx.module.file.area else {
+    let FileArea::Local(current_area_path) = &icx.cx.module.file.area() else {
         return Err(icx.cx.nid_err(icx.nid, RunnerError::IllegalLocalArea));
     };
     let (path_nid, path_value) = icx.arg_values.first().ok_or_else(|| {
@@ -674,11 +756,13 @@ fn local_area(icx: InternalCx) -> ResultValue {
     let area_path = current_area_path.join(path);
     let area_path = AbsolutePathBuf::try_from(area_path.as_path())
         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
-    // TODO: Move this fs call into core driver
-    let metadata = std::fs::metadata(&*area_path)
-        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
-    if metadata.is_file() {
-        return Err(icx.cx.nid_err(icx.nid, RunnerError::GenericRunError));
+    let entry = FSEntry::new(FileArea::Local(area_path), FilePath::root());
+    match icx
+        .driver
+        .query_fs(&entry)
+        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?
+    {
+        FSEntryQueryResult::Directory => Ok(Value::new(entry.area)),
+        result => Err(icx.cx.nid_err(icx.nid, RunnerError::FSQuery(entry, result))),
     }
-    Ok(Value::new(FileArea::Local(area_path)))
 }

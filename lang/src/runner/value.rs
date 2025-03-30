@@ -113,6 +113,7 @@ pub enum RainTypeId {
     Module,
     FileArea,
     File,
+    Dir,
     Internal,
     InternalFunction,
     List,

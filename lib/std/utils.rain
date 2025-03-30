@@ -16,9 +16,10 @@ let sha256 = internal._sha256
 let sha512 = internal._sha512
 let bytes_to_string = internal._bytes_to_string
 let parse_toml = internal._parse_toml
-let merge_dirs = internal._merge_dirs
+let create_area = internal._create_area
 let read_file = internal._read_file
-let write_file = internal._write_file
+let create_file = internal._create_file
+let get_dir = internal._get_dir
 
 // Reserved keywords are prefixed with _
 let _import = internal._import

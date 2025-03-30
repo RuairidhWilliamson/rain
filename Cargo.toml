@@ -21,9 +21,6 @@ rust-version = "1.85"
 authors = ["Ruairidh Williamson"]
 publish = false
 
-[workspace.lints.rust]
-unsafe_code = "warn"
-
 [workspace.lints.clippy]
 # Cargo
 wildcard_dependencies = "warn"

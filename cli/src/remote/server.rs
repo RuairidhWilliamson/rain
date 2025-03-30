@@ -10,6 +10,7 @@ use std::{
 
 use poison_panic::MutexExt as _;
 use rain_core::rain_lang::{
+    afs::{entry::FSEntryTrait as _, file::File},
     driver::DriverTrait as _,
     ir::Rir,
     runner::{cache::Cache, value::Value},
@@ -318,8 +319,8 @@ fn run_inner(
 
     run_core(req, cache, &driver, ir).map(|v| {
         if req.resolve {
-            if let Some(f) = v.downcast_ref() {
-                return driver.resolve_file(f).display().to_string();
+            if let Some(f) = v.downcast_ref::<File>() {
+                return driver.resolve_file(f.inner()).display().to_string();
             }
         }
         v.to_string()
@@ -336,7 +337,7 @@ fn run_core(
     let declaration: &str = &req.target;
     let file = rain_core::rain_lang::afs::file::File::new_local(path.as_ref())
         .map_err(|err| CoreError::Other(err.to_string()))?;
-    let path = driver.resolve_file(&file);
+    let path = driver.resolve_file(file.inner());
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
     let module = rain_core::rain_lang::ast::parser::parse_module(&src);
     let mid = ir

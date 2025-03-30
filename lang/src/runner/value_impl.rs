@@ -3,7 +3,7 @@ use std::{marker::PhantomData, str::FromStr, sync::LazyLock};
 use indexmap::IndexMap;
 
 use crate::{
-    afs::{area::FileArea, file::File},
+    afs::{area::FileArea, dir::Dir, entry::FSEntryTrait as _, file::File},
     ir::{DeclarationId, ModuleId},
 };
 
@@ -125,13 +125,24 @@ impl ValueInner for File {
     }
 
     fn cache_pure(&self) -> bool {
-        match &self.area {
+        match self.area() {
             // Files outside of rain's control are not pure since they are mutable, making determining if they are the same file as before more complicated
             // TODO: Implement escape/local file caching
             FileArea::Escape | FileArea::Local(_) => false,
             // Files in a generated area are considered pure since they are considered by rain to be immutable
             FileArea::Generated(_) => true,
         }
+    }
+}
+
+impl ValueInner for Dir {
+    fn rain_type_id(&self) -> RainTypeId {
+        RainTypeId::Dir
+    }
+
+    fn cache_pure(&self) -> bool {
+        // TODO: Really think about if this is correct
+        false
     }
 }
 

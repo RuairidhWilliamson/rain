@@ -1,5 +1,5 @@
 let area = internal._get_area(internal._module_file())
-let stdlib_area = internal._merge_dirs([internal._get_file(area, "lib/std")])
+let stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])
 let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
 
 let print = std.utils.print
@@ -46,7 +46,7 @@ fn download_test() {
 }
 
 fn helloworld() {
-	src = std.utils.write_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
+	src = std.utils.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
 	bin = std.rust.rustc.compile("stable", src, "helloworld")
 	print(std.utils.run(std.utils.unit, bin, [], {}).stdout)
 }

@@ -4,6 +4,7 @@ let rust_dist = internal._import(internal._get_file(area, "rust/dist.rain"))
 
 let not = utils.not
 let get_file = utils.get_file
+let get_dir = utils.get_dir
 let escape_bin = utils.escape_bin
 let run = utils.run
 let unit = utils.unit
@@ -17,8 +18,8 @@ fn compile(channel, src, outname) {
 	rustc = rust_dist.get_rustc(channel)
 	rust_std = rust_dist.get_rust_std(channel)
 
-	merged = utils.merge_dirs([rustc, rust_std])
-	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_file(merged, "/lib")}
+	merged = utils.create_area([rustc, rust_std])
+	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_dir(merged, "/lib")}
 	rustc_bin = get_file(merged, "/bin/rustc")
 	run_result = run(unit, rustc_bin, [src, "-o", outname], env)
 	if not(run_result.success) {

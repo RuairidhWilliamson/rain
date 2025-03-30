@@ -7,9 +7,14 @@ use poison_panic::MutexExt as _;
 use rain_lang::{
     afs::{
         area::{FileArea, GeneratedFileArea},
+        dir::Dir,
+        entry::{FSEntry, FSEntryTrait as _},
         file::File,
+        path::FilePath,
     },
-    driver::{DownloadStatus, DriverTrait, MonitoringTrait, RunOptions, RunStatus},
+    driver::{
+        DownloadStatus, DriverTrait, FSEntryQueryResult, MonitoringTrait, RunOptions, RunStatus,
+    },
     runner::{error::RunnerError, internal::InternalFunction},
 };
 use sha2::Digest as _;
@@ -39,29 +44,33 @@ impl DriverImpl<'_> {
 
     fn create_area(&self) -> Result<FileArea, RunnerError> {
         let area = FileArea::Generated(GeneratedFileArea::new());
-        let output_dir = File::new(area.clone(), "/");
-        let output_dir_path = self.resolve_file(&output_dir);
+        let output_dir = Dir::root(area.clone());
+        let output_dir_path = self.resolve_file(output_dir.inner());
         std::fs::create_dir_all(&output_dir_path).map_err(RunnerError::AreaIOError)?;
         Ok(area)
     }
 
     #[expect(clippy::unwrap_used)]
-    fn create_overlay_area(&self, overlay_dirs: &[&File]) -> Result<FileArea, RunnerError> {
+    fn create_overlay_area<'a>(
+        &self,
+        overlay_dirs: impl Iterator<Item = &'a FSEntry>,
+    ) -> Result<FileArea, RunnerError> {
         let area = FileArea::Generated(GeneratedFileArea::new());
-        let output_dir = File::new(area.clone(), "/");
-        let output_dir_path = self.resolve_file(&output_dir);
+        let output_dir = Dir::root(area.clone());
+        let output_dir_path = self.resolve_file(output_dir.inner());
         std::fs::create_dir_all(&output_dir_path).map_err(RunnerError::AreaIOError)?;
-        for &dir in overlay_dirs {
+        for dir in overlay_dirs {
             let dir_path = self.resolve_file(dir);
             let dir_metadata = dir_path.metadata().unwrap();
             if dir_metadata.is_dir() {
                 dircpy::copy_dir(dir_path, &output_dir_path).map_err(RunnerError::AreaIOError)?;
             } else if dir_metadata.is_file() {
-                std::fs::copy(
-                    &dir_path,
-                    output_dir_path.join(dir_path.file_name().unwrap()),
-                )
-                .unwrap();
+                todo!();
+                // std::fs::copy(
+                //     &dir_path,
+                //     output_dir_path.join(dir_path.file_name().unwrap()),
+                // )
+                // .unwrap();
             }
         }
         Ok(area)
@@ -69,8 +78,8 @@ impl DriverImpl<'_> {
 }
 
 impl DriverTrait for DriverImpl<'_> {
-    fn resolve_file(&self, file: &File) -> PathBuf {
-        let abs_path = file.path();
+    fn resolve_file(&self, file: &FSEntry) -> PathBuf {
+        let abs_path = file.path.path();
         let Some(rel_path) = abs_path.strip_prefix('/') else {
             unreachable!("file path must start with /");
         };
@@ -85,8 +94,17 @@ impl DriverTrait for DriverImpl<'_> {
         }
     }
 
-    fn exists(&self, file: &File) -> Result<bool, std::io::Error> {
-        self.resolve_file(file).try_exists()
+    fn query_fs(&self, entry: &FSEntry) -> Result<FSEntryQueryResult, std::io::Error> {
+        match std::fs::metadata(self.resolve_file(entry)) {
+            Ok(m) if m.is_symlink() => Ok(FSEntryQueryResult::Symlink),
+            Ok(m) if m.is_file() => Ok(FSEntryQueryResult::File),
+            Ok(m) if m.is_dir() => Ok(FSEntryQueryResult::Directory),
+            Ok(_) => unreachable!("file must be one of file, dir or symlink"),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                Ok(FSEntryQueryResult::NotExist)
+            }
+            Err(err) => Err(err),
+        }
     }
 
     #[expect(clippy::unwrap_used)]
@@ -106,10 +124,10 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError> {
-        let resolved_path = self.resolve_file(file);
+        let resolved_path = self.resolve_file(file.inner());
         let area = self.create_area()?;
-        let output_dir = File::new(area.clone(), "/");
-        let output_dir_path = self.resolve_file(&output_dir);
+        let output_dir = Dir::root(area.clone());
+        let output_dir_path = self.resolve_file(output_dir.inner());
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut zip = zip::read::ZipArchive::new(f)
             .map_err(|err| RunnerError::ExtractError(Box::new(err)))?;
@@ -128,10 +146,10 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     fn extract_tar_gz(&self, file: &File) -> Result<FileArea, RunnerError> {
-        let resolved_path = self.resolve_file(file);
+        let resolved_path = self.resolve_file(file.inner());
         let area = self.create_area()?;
-        let output_dir = File::new(area.clone(), "/");
-        let output_dir_path = self.resolve_file(&output_dir);
+        let output_dir = Dir::root(area.clone());
+        let output_dir_path = self.resolve_file(output_dir.inner());
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let raw_tar = flate2::read::GzDecoder::new(f);
         let mut archive = tar::Archive::new(raw_tar);
@@ -142,10 +160,10 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     fn extract_tar_xz(&self, file: &File) -> Result<FileArea, RunnerError> {
-        let resolved_path = self.resolve_file(file);
+        let resolved_path = self.resolve_file(file.inner());
         let area = self.create_area()?;
-        let output_dir = File::new(area.clone(), "/");
-        let output_dir_path = self.resolve_file(&output_dir);
+        let output_dir = Dir::root(area.clone());
+        let output_dir_path = self.resolve_file(output_dir.inner());
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let raw_tar = liblzma::read::XzDecoder::new(f);
         let mut archive = tar::Archive::new(raw_tar);
@@ -164,13 +182,13 @@ impl DriverTrait for DriverImpl<'_> {
         RunOptions { inherit_env, env }: RunOptions,
     ) -> Result<RunStatus, RunnerError> {
         let output_area = if let Some(overlay_area) = overlay_area {
-            self.create_overlay_area(&[&File::new(overlay_area.clone(), "/")])?
+            self.create_overlay_area(std::iter::once(Dir::root(overlay_area.clone()).inner()))?
         } else {
             self.create_area()?
         };
-        let output_dir = File::new(output_area.clone(), "/");
-        let output_dir_path = self.resolve_file(&output_dir);
-        let mut cmd = std::process::Command::new(self.resolve_file(bin));
+        let output_dir = Dir::root(output_area.clone());
+        let output_dir_path = self.resolve_file(output_dir.inner());
+        let mut cmd = std::process::Command::new(self.resolve_file(bin.inner()));
         cmd.current_dir(output_dir_path);
         cmd.args(args);
         if !inherit_env {
@@ -223,10 +241,13 @@ impl DriverTrait for DriverImpl<'_> {
             .get(reqwest::header::ETAG)
             .map(|h| h.to_str().unwrap().to_owned());
         let area = self.create_area()?;
-        let output = File::new_checked(area, name)?;
-        let output_path = self.resolve_file(&output);
+        let path = FilePath::new(name)?;
+        let entry = FSEntry::new(area, path);
+        let output_path = self.resolve_file(&entry);
         let mut out = std::fs::File::create_new(output_path).unwrap();
         std::io::copy(&mut response, &mut out).unwrap();
+        // Safety: We just created the file and checked for errors so it is present
+        let output = unsafe { File::new(entry) };
         Ok(DownloadStatus {
             ok: response.status().is_success(),
             status_code: Some(response.status().as_u16()),
@@ -236,7 +257,7 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     fn sha256(&self, file: &File) -> Result<String, RunnerError> {
-        let resolved_path = self.resolve_file(file);
+        let resolved_path = self.resolve_file(file.inner());
         let mut file = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut hasher = sha2::Sha256::new();
         std::io::copy(&mut file, &mut hasher).map_err(RunnerError::AreaIOError)?;
@@ -245,7 +266,7 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     fn sha512(&self, file: &File) -> Result<String, RunnerError> {
-        let resolved_path = self.resolve_file(file);
+        let resolved_path = self.resolve_file(file.inner());
         let mut file = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut hasher = sha2::Sha512::new();
         std::io::copy(&mut file, &mut hasher).map_err(RunnerError::AreaIOError)?;
@@ -253,21 +274,24 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(base16::encode_lower(&hash_result))
     }
 
-    fn merge_dirs(&self, dirs: &[&File]) -> Result<FileArea, RunnerError> {
-        self.create_overlay_area(dirs)
+    fn create_area(&self, dirs: &[&Dir]) -> Result<FileArea, RunnerError> {
+        self.create_overlay_area(dirs.iter().map(|d| d.inner()))
     }
 
     fn read_file(&self, file: &File) -> Result<String, std::io::Error> {
-        let resolved_path = self.resolve_file(file);
+        let resolved_path = self.resolve_file(file.inner());
         let contents = std::fs::read_to_string(resolved_path)?;
         Ok(contents)
     }
 
-    fn write_file(&self, contents: &str, name: &str) -> Result<File, RunnerError> {
+    fn create_file(&self, contents: &str, name: &str) -> Result<File, RunnerError> {
         let area = self.create_area()?;
-        let file = File::new_checked(area, name)?;
-        let resolved_path = self.resolve_file(&file);
+        let path = FilePath::new(name)?;
+        let entry = FSEntry::new(area, path);
+        let resolved_path = self.resolve_file(&entry);
         std::fs::write(resolved_path, contents).map_err(RunnerError::AreaIOError)?;
+        // Safety: We just created the file
+        let file = unsafe { File::new(entry) };
         Ok(file)
     }
 }
