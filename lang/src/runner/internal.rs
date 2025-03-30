@@ -440,7 +440,7 @@ fn stringify_env(
         RainTypeId::File => Ok((
             key.to_owned(),
             icx.driver
-                .resolve_file(
+                .resolve_fs_entry(
                     value
                         .downcast_ref_error::<File>(&[RainTypeId::File])
                         .map_err(|err| icx.cx.nid_err(env_nid, err))?
@@ -452,7 +452,7 @@ fn stringify_env(
         RainTypeId::Dir => Ok((
             key.to_owned(),
             icx.driver
-                .resolve_file(
+                .resolve_fs_entry(
                     value
                         .downcast_ref_error::<Dir>(&[RainTypeId::Dir])
                         .map_err(|err| icx.cx.nid_err(env_nid, err))?
@@ -479,7 +479,7 @@ fn stringify_args(icx: &InternalCx<'_, '_>, args_nid: NodeId, value: &Value) -> 
             .to_string()),
         RainTypeId::File => Ok(icx
             .driver
-            .resolve_file(
+            .resolve_fs_entry(
                 value
                     .downcast_ref_error::<File>(&[RainTypeId::File])
                     .map_err(|err| icx.cx.nid_err(args_nid, err))?
@@ -489,7 +489,7 @@ fn stringify_args(icx: &InternalCx<'_, '_>, args_nid: NodeId, value: &Value) -> 
             .to_string()),
         RainTypeId::Dir => Ok(icx
             .driver
-            .resolve_file(
+            .resolve_fs_entry(
                 value
                     .downcast_ref_error::<Dir>(&[RainTypeId::Dir])
                     .map_err(|err| icx.cx.nid_err(args_nid, err))?

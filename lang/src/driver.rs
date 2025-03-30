@@ -7,7 +7,7 @@ use crate::{
 
 pub trait DriverTrait: MonitoringTrait {
     /// Resolves file path locally returning an absolute path
-    fn resolve_file(&self, file: &FSEntry) -> PathBuf;
+    fn resolve_fs_entry(&self, file: &FSEntry) -> PathBuf;
     fn query_fs(&self, entry: &FSEntry) -> Result<FSEntryQueryResult, std::io::Error>;
     fn print(&self, message: String);
     fn escape_bin(&self, name: &str) -> Option<PathBuf>;

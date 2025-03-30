@@ -4,6 +4,7 @@ let rust_dist = internal._import(internal._get_file(area, "rust/dist.rain"))
 
 let not = utils.not
 let get_file = utils.get_file
+let get_dir = utils.get_dir
 let escape_bin = utils.escape_bin
 let run = utils.run
 let unit = utils.unit
@@ -19,7 +20,7 @@ fn prepare_cargo(channel) {
 	cargo = rust_dist.get_cargo(channel)
 
 	merged = utils.create_area([rustc, rust_std, cargo])
-	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_file(merged, "/lib")}
+	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_dir(merged, "/lib")}
 	cargo_bin = get_file(merged, "/bin/cargo")
 	{env: env, cargo_bin: cargo_bin}
 }
@@ -57,7 +58,7 @@ fn clippy(channel, area) {
 	clippy = rust_dist.get_clippy(channel)
 
 	merged = utils.create_area([rustc, rust_std, cargo, clippy])
-	env = {LD_LIBRARY_PATH: get_file(merged, "/lib")}
+	env = {LD_LIBRARY_PATH: get_dir(merged, "/lib")}
 	clippy_bin = get_file(merged, "/bin/cargo-clippy")
 	run_result = run(area, clippy_bin, ["-Dwarnings"], env)
 	if not(run_result.success) {
@@ -75,7 +76,7 @@ fn check_fmt(channel, area) {
 	rustfmt = rust_dist.get_rustfmt(channel)
 
 	merged = utils.create_area([rustc, rust_std, cargo, rustfmt])
-	env = {LD_LIBRARY_PATH: get_file(merged, "/lib")}
+	env = {LD_LIBRARY_PATH: get_dir(merged, "/lib")}
 	cargo_fmt_bin = get_file(merged, "/bin/cargo-fmt")
 	run_result = run(area, cargo_fmt_bin, ["--check"], env)
 	if not(run_result.success) {
