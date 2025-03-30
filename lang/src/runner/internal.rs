@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 use num_bigint::BigInt;
 
 use crate::{
-    afs::{area::FileArea, error::PathError, file::File},
+    afs::{absolute::AbsolutePathBuf, area::FileArea, error::PathError, file::File},
     ast::{FnCall, NodeId},
     driver::{DownloadStatus, DriverTrait, RunOptions},
     ir::Rir,
@@ -46,6 +46,7 @@ pub enum InternalFunction {
     MergeDirs,
     ReadFile,
     WriteFile,
+    LocalArea,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -85,6 +86,7 @@ impl InternalFunction {
             "_merge_dirs" => Some(Self::MergeDirs),
             "_read_file" => Some(Self::ReadFile),
             "_write_file" => Some(Self::WriteFile),
+            "_local_area" => Some(Self::LocalArea),
             _ => None,
         }
     }
@@ -113,6 +115,7 @@ impl InternalFunction {
             Self::MergeDirs => merge_dirs(icx),
             Self::ReadFile => read_file(icx),
             Self::WriteFile => write_file(icx),
+            Self::LocalArea => local_area(icx),
         }
     }
 }
@@ -650,4 +653,32 @@ fn debug(mut icx: InternalCx) -> ResultValue {
     };
     icx.driver.print(p);
     Ok(value)
+}
+
+fn local_area(icx: InternalCx) -> ResultValue {
+    let FileArea::Local(current_area_path) = &icx.cx.module.file.area else {
+        return Err(icx.cx.nid_err(icx.nid, RunnerError::IllegalLocalArea));
+    };
+    let (path_nid, path_value) = icx.arg_values.first().ok_or_else(|| {
+        icx.cx.nid_err(
+            icx.nid,
+            RunnerError::IncorrectArgs {
+                required: 1..=1,
+                actual: icx.arg_values.len(),
+            },
+        )
+    })?;
+    let path: &String = path_value
+        .downcast_ref_error(&[RainTypeId::String])
+        .map_err(|err| icx.cx.nid_err(*path_nid, err))?;
+    let area_path = current_area_path.join(path);
+    let area_path = AbsolutePathBuf::try_from(area_path.as_path())
+        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
+    // TODO: Move this fs call into core driver
+    let metadata = std::fs::metadata(&*area_path)
+        .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
+    if metadata.is_file() {
+        return Err(icx.cx.nid_err(icx.nid, RunnerError::GenericRunError));
+    }
+    Ok(Value::new(FileArea::Local(area_path)))
 }
