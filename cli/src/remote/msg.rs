@@ -49,7 +49,7 @@ mod private {
 }
 
 pub mod run {
-    use std::path::PathBuf;
+    use std::{path::PathBuf, time::Duration};
 
     use rain_core::CoreError;
 
@@ -83,6 +83,7 @@ pub mod run {
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunResponse {
         pub output: Result<String, CoreError>,
+        pub elapsed: Duration,
     }
 }
 

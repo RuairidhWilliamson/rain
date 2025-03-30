@@ -5,7 +5,7 @@ use std::{
         Mutex,
         atomic::{AtomicUsize, Ordering},
     },
-    time::SystemTime,
+    time::{Instant, SystemTime},
 };
 
 use poison_panic::MutexExt as _;
@@ -209,9 +209,16 @@ impl ClientHandler<'_> {
         let cache = self.server.cache.clone();
         let mut ir = self.server.ir.plock();
         let s = Mutex::new(self);
+        let start = Instant::now();
         let result = run_inner(&req, config, cache, &s, &mut ir);
         let s = s.pinto_inner();
-        s.send_response(req, &RunResponse { output: result })?;
+        s.send_response(
+            req,
+            &RunResponse {
+                output: result,
+                elapsed: start.elapsed(),
+            },
+        )?;
         Ok(())
     }
 

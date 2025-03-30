@@ -18,7 +18,7 @@ use remote::{
         clean::CleanRequest,
         info::InfoRequest,
         inspect::{InspectRequest, InspectResponse},
-        run::{RunProgress, RunRequest},
+        run::{RunProgress, RunRequest, RunResponse},
         shutdown::ShutdownRequest,
     },
 };
@@ -111,7 +111,7 @@ fn run(config: &Config, target: String, resolve: bool) -> Result<(), ()> {
             if let Some(last) = stack.last() {
                 eprint!("\r[ ] {last:40}");
             } else {
-                eprint!("\r[x] {:40}", "Done");
+                eprint!("\r[x] {:40}\r", "");
             }
             let _ = stderr().flush();
         },
@@ -119,10 +119,13 @@ fn run(config: &Config, target: String, resolve: bool) -> Result<(), ()> {
     .map_err(|err| {
         eprintln!("{err}");
     })?;
-    eprintln!();
-    let result = run_response.output;
+    let RunResponse {
+        output: result,
+        elapsed,
+    } = run_response;
     match result {
         Ok(s) => {
+            println!("Done in {elapsed:.1?}");
             println!("{s}");
             Ok(())
         }
