@@ -1,17 +1,20 @@
 pub mod config;
 pub mod driver;
 
+use std::path::Path;
+
 pub use rain_lang;
 
 use driver::DriverImpl;
-use rain_lang::{driver::DriverTrait as _, error::OwnedResolvedError, runner::cache::Cache};
+use rain_lang::{
+    driver::DriverTrait as _,
+    error::OwnedResolvedError,
+    runner::{cache::Cache, value::Value},
+};
 use serde::{Deserialize, Serialize};
 
 #[expect(clippy::result_unit_err, clippy::print_stderr)]
-pub fn run_stderr(
-    path: impl AsRef<std::path::Path>,
-    declaration: &str,
-) -> Result<rain_lang::runner::value::Value, ()> {
+pub fn run_stderr(path: impl AsRef<Path>, declaration: &str) -> Result<Value, ()> {
     let driver = DriverImpl::new(config::Config::default());
     let mut cache = Cache::new(rain_lang::runner::cache::CACHE_SIZE);
     run(path, declaration, &mut cache, &driver).map_err(|err| {
@@ -20,11 +23,11 @@ pub fn run_stderr(
 }
 
 pub fn run(
-    path: impl AsRef<std::path::Path>,
+    path: impl AsRef<Path>,
     declaration: &str,
     cache: &mut Cache,
     file_system: &DriverImpl,
-) -> Result<rain_lang::runner::value::Value, CoreError> {
+) -> Result<Value, CoreError> {
     let file = rain_lang::afs::file::File::new_local(path.as_ref())
         .map_err(|err| CoreError::Other(err.to_string()))?;
     let path = file_system.resolve_file(&file);
