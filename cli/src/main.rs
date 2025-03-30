@@ -96,7 +96,7 @@ fn run(config: &Config, target: String, resolve: bool) -> Result<(), ()> {
         },
         |im| {
             match im {
-                RunProgress::Print(s) => eprintln!("\r{s:40}"),
+                RunProgress::Print(s) => eprintln!("\r{s:120}"),
                 RunProgress::EnterCall(s) => {
                     if !s.starts_with("internal.") {
                         stack.push(s);
@@ -109,9 +109,9 @@ fn run(config: &Config, target: String, resolve: bool) -> Result<(), ()> {
                 }
             }
             if let Some(last) = stack.last() {
-                eprint!("\r[ ] {last:40}");
+                eprint!("\r[ ] {last:120}");
             } else {
-                eprint!("\r[x] {:40}\r", "");
+                eprint!("\r[x] {:120}\r", "");
             }
             let _ = stderr().flush();
         },

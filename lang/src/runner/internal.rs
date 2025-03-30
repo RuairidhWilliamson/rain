@@ -556,6 +556,8 @@ fn download(icx: InternalCx) -> ResultValue {
             let cache_key = CacheKey::Download {
                 url: url.to_owned(),
             };
+            let call_description = format!("Download {url}");
+            let _call = enter_call(icx.driver, call_description);
             let cache_entry = icx.cache.get(&cache_key);
             let etag: Option<&str> = cache_entry.as_ref().and_then(|e| e.etag.as_deref());
             let DownloadStatus {
@@ -765,4 +767,20 @@ fn local_area(icx: InternalCx) -> ResultValue {
         FSEntryQueryResult::Directory => Ok(Value::new(entry.area)),
         result => Err(icx.cx.nid_err(icx.nid, RunnerError::FSQuery(entry, result))),
     }
+}
+
+struct Call<'a> {
+    driver: &'a dyn DriverTrait,
+    s: String,
+}
+
+impl Drop for Call<'_> {
+    fn drop(&mut self) {
+        self.driver.exit_call(&self.s);
+    }
+}
+
+fn enter_call(driver: &dyn DriverTrait, s: String) -> Call {
+    driver.enter_call(&s);
+    Call { driver, s }
 }
