@@ -12,8 +12,11 @@ let _throw = utils._throw
 fn compile(channel, src, outname) {
 	// Implicitly requires cc for linking
 	cc = escape_bin("cc")
+
+	// Download components
 	rustc = rust_dist.get_rustc(channel)
 	rust_std = rust_dist.get_rust_std(channel)
+
 	merged = utils.merge_dirs([rustc, rust_std])
 	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_file(merged, "/lib")}
 	rustc_bin = get_file(merged, "/bin/rustc")
@@ -25,4 +28,3 @@ fn compile(channel, src, outname) {
 	}
 	get_file(run_result.area, outname)
 }
-

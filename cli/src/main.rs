@@ -46,6 +46,8 @@ fn fallible_main() -> Result<(), ()> {
 fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     let cli = Cli::parse();
     match cli.command {
+        RainCtlCommand::Check => run(config, String::from("check"), false),
+        RainCtlCommand::Build => run(config, String::from("build"), false),
         RainCtlCommand::Run { target, resolve } => run(config, target, resolve),
         RainCtlCommand::Info => {
             let info = make_request_or_start(config, InfoRequest, |()| {}).map_err(|err| {
@@ -181,6 +183,8 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum RainCtlCommand {
     Info,
+    Check,
+    Build,
     Run {
         target: String,
         /// Resolve returned file paths before printing them to stdout

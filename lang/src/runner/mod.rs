@@ -368,12 +368,12 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     },
                 )
             }
-            (RainTypeId::Integer, BinaryOperatorKind::LogicalAnd, RainTypeId::Integer) => {
+            (RainTypeId::Boolean, BinaryOperatorKind::LogicalAnd, RainTypeId::Boolean) => {
                 Self::perform_binary_op(cx, op, &left, &right, |left: &bool, right: &bool| {
                     Value::new(*left && *right)
                 })
             }
-            (RainTypeId::Integer, BinaryOperatorKind::LogicalOr, RainTypeId::Integer) => {
+            (RainTypeId::Boolean, BinaryOperatorKind::LogicalOr, RainTypeId::Boolean) => {
                 Self::perform_binary_op(cx, op, &left, &right, |left: &bool, right: &bool| {
                     Value::new(*left || *right)
                 })

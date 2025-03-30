@@ -25,6 +25,7 @@ fn download_pre_sha(url, filename) {
 
 let base_url = "https://static.rust-lang.org"
 
+// Channel is a string one of stable|beta|nightly|<version>
 fn get_manifest(channel) {
 	manifest_file = download_pre_sha(base_url + "/dist", "channel-rust-" + channel + ".toml")
 	manifest_toml = utils.parse_toml(utils.read_file(manifest_file))
@@ -64,22 +65,42 @@ fn get_xz_artifact(artifact) {
 	utils.extract_tar_xz(download_result.file)
 }
 
-fn get_cargo(channel) {
-	manifest = get_manifest(channel)
-	cargo_pkg = get_xz_artifact(manifest.pkg.cargo.target.x86_64_unknown_linux_gnu)
-	cargo_pkg
-}
+// TODO: Parse the version from the manifest
+let version = "1.85.1"
+// TODO: Specify the target
+let target = "x86_64-unknown-linux-gnu"
 
 fn get_rustc(channel) {
 	manifest = get_manifest(channel)
 	rustc_pkg = get_xz_artifact(manifest.pkg.rustc.target.x86_64_unknown_linux_gnu)
-	rustc_bin = get_file(rustc_pkg, "rustc-1.85.1-x86_64-unknown-linux-gnu/rustc")
-	rustc_bin
+	rustc = get_file(rustc_pkg, "rustc-" + version + "-" + target + "/rustc")
+	rustc
 }
 
 fn get_rust_std(channel) {
 	manifest = get_manifest(channel)
 	rust_std_pkg = get_xz_artifact(manifest.pkg.rust_std.target.x86_64_unknown_linux_gnu)
-	rust_std = get_file(rust_std_pkg, "rust-std-1.85.1-x86_64-unknown-linux-gnu/rust-std-x86_64-unknown-linux-gnu/")
+	rust_std = get_file(rust_std_pkg, "rust-std-" + version + "-" + target + "/rust-std-x86_64-unknown-linux-gnu/")
 	rust_std
+}
+
+fn get_cargo(channel) {
+	manifest = get_manifest(channel)
+	cargo_pkg = get_xz_artifact(manifest.pkg.cargo.target.x86_64_unknown_linux_gnu)
+	cargo = get_file(cargo_pkg, "cargo-" + version + "-" + target + "/cargo")
+	cargo
+}
+
+fn get_clippy(channel) {
+	manifest = get_manifest(channel)
+	clippy_pkg = get_xz_artifact(manifest.pkg.clippy_preview.target.x86_64_unknown_linux_gnu)
+	clippy = get_file(clippy_pkg, "clippy-" + version + "-" + target + "/clippy-preview")
+	clippy
+}
+
+fn get_rustfmt(channel) {
+	manifest = get_manifest(channel)
+	rustfmt_pkg = get_xz_artifact(manifest.pkg.rustfmt_preview.target.x86_64_unknown_linux_gnu)
+	rustfmt = get_file(rustfmt_pkg, "rustfmt-" + version + "-" + target + "/rustfmt-preview")
+	rustfmt
 }

@@ -1,4 +1,6 @@
-let utils = internal._import(internal._get_file("../utils.rain"))
+let area = internal._get_area(internal._module_file())
+let utils = internal._import(internal._get_file(area, "utils.rain"))
+let rust_dist = internal._import(internal._get_file(area, "rust/dist.rain"))
 
 let not = utils.not
 let get_file = utils.get_file
@@ -7,42 +9,78 @@ let run = utils.run
 let unit = utils.unit
 let _throw = utils._throw
 
-let rustup = escape_bin("rustup")
-let rustc = escape_bin("rustc")
-let cargo = escape_bin("cargo")
+fn prepare_cargo(channel) {
+	// Implicitly requires cc for linking
+	cc = escape_bin("cc")
 
-fn check_fmt(area) {
-	run_result = run(area, cargo, "fmt", "--check")
+	// Download components
+	rustc = rust_dist.get_rustc(channel)
+	rust_std = rust_dist.get_rust_std(channel)
+	cargo = rust_dist.get_cargo(channel)
+
+	merged = utils.merge_dirs([rustc, rust_std, cargo])
+	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_file(merged, "/lib")}
+	cargo_bin = get_file(merged, "/bin/cargo")
+	{env: env, cargo_bin: cargo_bin}
+}
+
+fn build(channel, area, package, features, profile) {
+	prep = prepare_cargo(channel)
+	run_result = run(area, prep.cargo_bin, ["build", "--package", package, "--features", features, "--target-dir", "target", "--profile", profile], prep.env)
 	if not(run_result.success) {
-		_throw(run_result)
+		utils.print("Stdout:", run_result.stdout)
+		utils.print("Stderr:", run_result.stderr)
+		_throw("cargo compilation failed")
+	}
+	profile_dir = profile
+	if profile == "dev" {
+		profile_dir = "debug"
+	}
+	get_file(run_result.area, "target/" + profile_dir + "/" + package)
+}
+
+fn test(channel, area, package, features, profile) {
+	prep = prepare_cargo(channel)
+	run_result = run(area, prep.cargo_bin, ["test", "--package", package, "--features", features, "--profile", profile], prep.env)
+	if not(run_result.success) {
+		utils.print("Stdout:", run_result.stdout)
+		utils.print("Stderr:", run_result.stderr)
+		_throw("cargo test failed")
 	}
 }
 
-fn clippy(area) {
-	run_result = run(area, cargo, "clippy", "--quiet", "--", "-Dwarnings")
+fn clippy(channel, area) {
+	// Download components
+	rustc = rust_dist.get_rustc(channel)
+	rust_std = rust_dist.get_rust_std(channel)
+	cargo = rust_dist.get_cargo(channel)
+	clippy = rust_dist.get_clippy(channel)
+
+	merged = utils.merge_dirs([rustc, rust_std, cargo, clippy])
+	env = {LD_LIBRARY_PATH: get_file(merged, "/lib")}
+	clippy_bin = get_file(merged, "/bin/cargo-clippy")
+	run_result = run(area, clippy_bin, ["-Dwarnings"], env)
 	if not(run_result.success) {
-		_throw(run_result)
+		utils.print("Stdout:", run_result.stdout)
+		utils.print("Stderr:", run_result.stderr)
+		_throw("clippy failed")
 	}
 }
 
-fn test(area) {
-	run_result = run(area, cargo, "test", "--quiet")
-	if not(run_result.success) {
-		_throw(run_result)
-	}
-}
+fn check_fmt(channel, area) {
+	// Download components
+	rustc = rust_dist.get_rustc(channel)
+	rust_std = rust_dist.get_rust_std(channel)
+	cargo = rust_dist.get_cargo(channel)
+	rustfmt = rust_dist.get_rustfmt(channel)
 
-fn run(area, package, features, profile) {
-	run_result = run(area, cargo, "run", "--package", package, "--features", features, "--profile", profile)
+	merged = utils.merge_dirs([rustc, rust_std, cargo, rustfmt])
+	env = {LD_LIBRARY_PATH: get_file(merged, "/lib")}
+	cargo_fmt_bin = get_file(merged, "/bin/cargo-fmt")
+	run_result = run(area, cargo_fmt_bin, ["--check"], env)
 	if not(run_result.success) {
-		_throw(run_result)
+		utils.print("Stdout:", run_result.stdout)
+		utils.print("Stderr:", run_result.stderr)
+		_throw("rustfmt check failed")
 	}
-}
-
-fn build(area, package, features, profile) {
-	run_result = run(area, cargo, "build", "--package", package, "--features", features, "--target-dir", "target", "--profile", profile)
-	if not(run_result.success) {
-		_throw(run_result)
-	}
-	get_file(run_result.area, "target")
 }
