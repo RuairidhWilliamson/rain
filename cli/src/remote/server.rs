@@ -94,6 +94,7 @@ impl Server {
         let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
         let modified_time = exe_stat.modified()?;
         let cache = Cache::new(rain_core::rain_lang::runner::cache::CACHE_SIZE);
+        cache.load(&config.cache_json_path());
         Ok(Self {
             config,
             modified_time,
@@ -151,7 +152,12 @@ impl ClientHandler<'_> {
                 std::panic::resume_unwind(err)
             }
             Ok(Err(err)) => Err(err),
-            Ok(Ok(())) => Ok(()),
+            Ok(Ok(())) => {
+                self.server
+                    .cache
+                    .save(&self.server.config.cache_json_path());
+                Ok(())
+            }
         }
     }
 

@@ -12,7 +12,7 @@ pub trait FSEntryTrait {
     }
 }
 
-#[derive(Debug, Hash, Clone, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FSEntry {
     pub area: FileArea,
     pub path: FilePath,

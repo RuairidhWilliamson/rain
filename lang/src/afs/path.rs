@@ -4,7 +4,7 @@ use super::error::PathError;
 ///
 /// Must start with /
 /// Path segments are separated by /
-#[derive(Debug, Hash, Clone, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FilePath(String);
 
 impl FilePath {

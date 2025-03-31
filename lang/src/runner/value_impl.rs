@@ -51,7 +51,7 @@ impl ValueInner for String {
     }
 }
 
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RainInteger(pub num_bigint::BigInt);
 
 impl ValueInner for RainInteger {
@@ -161,7 +161,7 @@ impl std::fmt::Display for RainInternal {
     }
 }
 
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RainList(pub Vec<Value>);
 
 impl std::fmt::Debug for RainList {
@@ -191,7 +191,7 @@ impl std::fmt::Display for RainList {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RainRecord(pub IndexMap<String, Value>);
 
 impl ValueInner for RainRecord {

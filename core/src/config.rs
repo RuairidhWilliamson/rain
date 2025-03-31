@@ -37,6 +37,10 @@ impl Config {
         }
     }
 
+    pub fn cache_json_path(&self) -> PathBuf {
+        self.base_cache_dir.join("cache.json")
+    }
+
     pub fn server_socket_path(&self) -> PathBuf {
         self.base_run_dir.join("server.socket")
     }

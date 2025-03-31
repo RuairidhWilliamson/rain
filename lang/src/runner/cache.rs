@@ -1,6 +1,7 @@
 use std::{
     fmt::Display,
     num::NonZeroUsize,
+    path::Path,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -24,6 +25,43 @@ impl Cache {
     pub fn new(size: NonZeroUsize) -> Self {
         Self {
             storage: Arc::new(Mutex::new(LruCache::new(size))),
+        }
+    }
+
+    pub fn save(&self, path: &Path) {
+        let storage = self.storage.plock();
+        let mut downloads = Vec::new();
+        for (k, e) in storage.iter() {
+            match k {
+                CacheKey::InternalFunction { .. } | CacheKey::Declaration { .. } => (),
+                CacheKey::Download { url } => downloads.push((url.to_owned(), e.clone())),
+            }
+        }
+        let p = PersistentCache { downloads };
+        let p = PersistentCacheWrapper {
+            format_version: FORMAT_VERSION,
+            inner: serde_json::to_value(p).unwrap(),
+        };
+        let serialized = serde_json::to_vec_pretty(&p).unwrap();
+        std::fs::write(path, serialized).unwrap();
+    }
+
+    pub fn load(&self, path: &Path) {
+        let mut storage = self.storage.plock();
+        let Ok(serialized) = std::fs::read(path) else {
+            log::debug!("persistent cache did not exist");
+            return;
+        };
+        let PersistentCacheWrapper {
+            format_version,
+            inner,
+        }: PersistentCacheWrapper = serde_json::from_slice(&serialized).unwrap();
+        if format_version != FORMAT_VERSION {
+            panic!("bad format version");
+        }
+        let p: PersistentCache = serde_json::from_value(inner).unwrap();
+        for (url, v) in p.downloads {
+            storage.push(CacheKey::Download { url }, v);
         }
     }
 
@@ -154,7 +192,7 @@ impl Display for CacheKey {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CacheEntry {
     pub execution_time: Duration,
     pub expires: Option<DateTime<Utc>>,
@@ -166,4 +204,18 @@ pub struct CacheEntry {
 pub enum CacheStrategy {
     Always,
     Never,
+}
+
+const FORMAT_VERSION: u64 = 0;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct PersistentCacheWrapper {
+    pub format_version: u64,
+    pub inner: serde_json::Value,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct PersistentCache {
+    /// Map keyed by urls
+    pub downloads: Vec<(String, CacheEntry)>,
 }

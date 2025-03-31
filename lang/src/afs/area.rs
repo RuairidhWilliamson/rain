@@ -1,7 +1,7 @@
 use super::absolute::AbsolutePathBuf;
 
 /// A file area is a container of files that is not expected to be modified
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum FileArea {
     Local(AbsolutePathBuf),
     Generated(GeneratedFileArea),
@@ -18,7 +18,7 @@ impl std::fmt::Display for FileArea {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct GeneratedFileArea {
     pub id: uuid::Uuid,
 }
