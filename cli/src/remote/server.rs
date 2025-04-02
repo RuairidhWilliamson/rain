@@ -11,7 +11,7 @@ use std::{
 use poison_panic::MutexExt as _;
 use rain_core::{
     CoreError,
-    cache::Cache,
+    cache::{Cache, CacheError},
     config::Config,
     driver::DriverImpl,
     rain_lang::{
@@ -43,6 +43,8 @@ pub enum Error {
     Encode(ciborium::ser::Error<std::io::Error>),
     #[error("decode: {0}")]
     Decode(ciborium::de::Error<std::io::Error>),
+    #[error("serde: {0}")]
+    SerdeJson(#[from] serde_json::Error),
 }
 
 impl From<std::io::Error> for Error {
@@ -99,7 +101,11 @@ impl Server {
         let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
         let modified_time = exe_stat.modified()?;
         let cache = rain_core::cache::Cache::new(rain_core::cache::CACHE_SIZE);
-        cache.load(&config.cache_json_path());
+        match cache.load(&config.cache_json_path()) {
+            Ok(()) | Err(CacheError::FormatVersionMissmatch | CacheError::DoesNotExist) => (),
+            Err(CacheError::Serde(err)) => return Err(err.into()),
+            Err(CacheError::Io(err)) => return Err(err.into()),
+        };
         Ok(Self {
             config,
             modified_time,
@@ -160,7 +166,8 @@ impl ClientHandler<'_> {
             Ok(Ok(())) => {
                 self.server
                     .cache
-                    .save(&self.server.config.cache_json_path());
+                    .save(&self.server.config.cache_json_path())
+                    .unwrap();
                 Ok(())
             }
         }

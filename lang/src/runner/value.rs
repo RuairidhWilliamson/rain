@@ -116,7 +116,9 @@ impl serde::Serialize for Value {
             RainTypeId::Integer => {
                 state.serialize_element(self.downcast_ref::<RainInteger>().unwrap())?
             }
-            RainTypeId::String => todo!(),
+            RainTypeId::String => {
+                state.serialize_element(self.downcast_ref::<String>().unwrap())?
+            }
             RainTypeId::Function => todo!(),
             RainTypeId::Module => todo!(),
             RainTypeId::FileArea => {

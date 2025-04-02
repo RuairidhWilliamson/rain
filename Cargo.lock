@@ -1955,6 +1955,7 @@ dependencies = [
  "rain-core",
  "ruipc",
  "serde",
+ "serde_json",
  "termcolor",
  "thiserror",
  "uuid",

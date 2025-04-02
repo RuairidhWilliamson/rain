@@ -27,7 +27,7 @@ impl Cache {
         }
     }
 
-    pub fn save(&self, path: &Path) {
+    pub fn save(&self, path: &Path) -> Result<(), CacheError> {
         let storage = self.storage.plock();
         let mut downloads = Vec::new();
         for (k, e) in storage.iter() {
@@ -39,27 +39,31 @@ impl Cache {
         let p = PersistentCache { downloads };
         let p = PersistentCacheWrapper {
             format_version: FORMAT_VERSION,
-            inner: serde_json::to_value(p).unwrap(),
+            inner: serde_json::to_value(p)?,
         };
-        let serialized = serde_json::to_vec_pretty(&p).unwrap();
-        std::fs::write(path, serialized).unwrap();
+        let serialized = serde_json::to_vec_pretty(&p)?;
+        std::fs::write(path, serialized)?;
+        Ok(())
     }
 
-    pub fn load(&self, path: &Path) {
+    pub fn load(&self, path: &Path) -> Result<(), CacheError> {
         let mut storage = self.storage.plock();
         let Ok(serialized) = std::fs::read(path) else {
             log::debug!("persistent cache did not exist");
-            return;
+            return Ok(());
         };
         let PersistentCacheWrapper {
             format_version,
             inner,
-        }: PersistentCacheWrapper = serde_json::from_slice(&serialized).unwrap();
-        assert_eq!(format_version, FORMAT_VERSION, "bad format version");
-        let p: PersistentCache = serde_json::from_value(inner).unwrap();
+        }: PersistentCacheWrapper = serde_json::from_slice(&serialized)?;
+        if format_version != FORMAT_VERSION {
+            return Err(CacheError::FormatVersionMissmatch);
+        }
+        let p: PersistentCache = serde_json::from_value(inner)?;
         for (url, v) in p.downloads {
             storage.push(CacheKey::Download { url }, v);
         }
+        Ok(())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -141,4 +145,16 @@ struct PersistentCacheWrapper {
 struct PersistentCache {
     /// Map keyed by urls
     pub downloads: Vec<(String, CacheEntry)>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CacheError {
+    #[error("serde: {0}")]
+    Serde(#[from] serde_json::Error),
+    #[error("io: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("format missmatch")]
+    FormatVersionMissmatch,
+    #[error("does not exist")]
+    DoesNotExist,
 }
