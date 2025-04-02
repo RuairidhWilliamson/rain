@@ -9,17 +9,22 @@ use std::{
 };
 
 use poison_panic::MutexExt as _;
-use rain_core::rain_lang::{
-    afs::{dir::Dir, entry::FSEntryTrait as _, file::File},
-    driver::DriverTrait as _,
-    ir::Rir,
-    runner::{
-        Runner,
-        cache::Cache,
-        value::{RainTypeId, Value},
+use rain_core::{
+    CoreError,
+    cache::Cache,
+    config::Config,
+    driver::DriverImpl,
+    rain_lang::{
+        afs::{dir::Dir, entry::FSEntryTrait as _, file::File},
+        driver::DriverTrait as _,
+        ir::Rir,
+        runner::{
+            Runner,
+            cache::CacheTrait as _,
+            value::{RainTypeId, Value},
+        },
     },
 };
-use rain_core::{CoreError, config::Config, driver::DriverImpl};
 
 use crate::remote::msg::{RequestWrapper, RestartReason};
 
@@ -84,7 +89,7 @@ struct Server {
     modified_time: SystemTime,
     /// Time the server was started
     start_time: chrono::DateTime<chrono::Utc>,
-    cache: Cache,
+    cache: rain_core::cache::Cache,
     stats: Stats,
     ir: Mutex<Rir>,
 }
@@ -93,7 +98,7 @@ impl Server {
     fn new(config: Config) -> Result<Self, Error> {
         let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
         let modified_time = exe_stat.modified()?;
-        let cache = Cache::new(rain_core::rain_lang::runner::cache::CACHE_SIZE);
+        let cache = rain_core::cache::Cache::new(rain_core::cache::CACHE_SIZE);
         cache.load(&config.cache_json_path());
         Ok(Self {
             config,
@@ -212,7 +217,7 @@ impl ClientHandler<'_> {
 
     fn run(&mut self, req: super::msg::run::RunRequest) -> Result<(), Error> {
         let config = self.server.config.clone();
-        let cache = self.server.cache.clone();
+        let cache = &self.server.cache;
         let mut ir = self.server.ir.plock();
         let s = Mutex::new(self);
         let start = Instant::now();
@@ -301,7 +306,7 @@ impl ClientHandler<'_> {
 fn run_inner(
     req: &super::msg::run::RunRequest,
     config: Config,
-    cache: Cache,
+    cache: &Cache,
     s: &Mutex<&mut ClientHandler<'_>>,
     ir: &mut Rir,
 ) -> Result<String, CoreError> {
@@ -356,7 +361,7 @@ fn run_inner(
 
 fn run_core(
     req: &super::msg::run::RunRequest,
-    mut cache: Cache,
+    cache: &Cache,
     driver: &DriverImpl<'_>,
     ir: &mut Rir,
 ) -> Result<Value, CoreError> {
@@ -372,7 +377,7 @@ fn run_core(
     let main = ir
         .resolve_global_declaration(mid, declaration)
         .ok_or_else(|| CoreError::Other(String::from("declaration does not exist")))?;
-    let mut runner = Runner::new(ir, &mut cache, driver);
+    let mut runner = Runner::new(ir, cache, driver);
     let value = runner
         .evaluate_and_call(main)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;

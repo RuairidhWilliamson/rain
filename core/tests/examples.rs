@@ -26,8 +26,8 @@ fn areas() {
 #[test]
 fn error_throwing() {
     let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::default());
-    let mut cache = rain_lang::runner::cache::Cache::new(rain_lang::runner::cache::CACHE_SIZE);
-    let res = rain_core::run("examples/errors/throwing.rain", "main", &mut cache, &driver);
+    let cache = rain_core::cache::Cache::new(rain_core::cache::CACHE_SIZE);
+    let res = rain_core::run("examples/errors/throwing.rain", "main", &cache, &driver);
     match res {
         Err(CoreError::LangError(err)) => {
             assert_eq!(err.err, "\"test\"");

@@ -42,7 +42,7 @@ impl DriverImpl<'_> {
         }
     }
 
-    fn create_area(&self) -> Result<FileArea, RunnerError> {
+    fn create_empty_area(&self) -> Result<FileArea, RunnerError> {
         let area = FileArea::Generated(GeneratedFileArea::new());
         let output_dir = Dir::root(area.clone());
         let output_dir_path = self.resolve_fs_entry(output_dir.inner());
@@ -125,7 +125,7 @@ impl DriverTrait for DriverImpl<'_> {
 
     fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
-        let area = self.create_area()?;
+        let area = self.create_empty_area()?;
         let output_dir = Dir::root(area.clone());
         let output_dir_path = self.resolve_fs_entry(output_dir.inner());
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
@@ -147,7 +147,7 @@ impl DriverTrait for DriverImpl<'_> {
 
     fn extract_tar_gz(&self, file: &File) -> Result<FileArea, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
-        let area = self.create_area()?;
+        let area = self.create_empty_area()?;
         let output_dir = Dir::root(area.clone());
         let output_dir_path = self.resolve_fs_entry(output_dir.inner());
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
@@ -161,7 +161,7 @@ impl DriverTrait for DriverImpl<'_> {
 
     fn extract_tar_xz(&self, file: &File) -> Result<FileArea, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
-        let area = self.create_area()?;
+        let area = self.create_empty_area()?;
         let output_dir = Dir::root(area.clone());
         let output_dir_path = self.resolve_fs_entry(output_dir.inner());
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
@@ -184,7 +184,7 @@ impl DriverTrait for DriverImpl<'_> {
         let output_area = if let Some(overlay_area) = overlay_area {
             self.create_overlay_area(std::iter::once(Dir::root(overlay_area.clone()).inner()))?
         } else {
-            self.create_area()?
+            self.create_empty_area()?
         };
         let output_dir = Dir::root(output_area.clone());
         let output_dir_path = self.resolve_fs_entry(output_dir.inner());
@@ -240,7 +240,7 @@ impl DriverTrait for DriverImpl<'_> {
             .headers()
             .get(reqwest::header::ETAG)
             .map(|h| h.to_str().unwrap().to_owned());
-        let area = self.create_area()?;
+        let area = self.create_empty_area()?;
         let path = FilePath::new(name)?;
         let entry = FSEntry::new(area, path);
         let output_path = self.resolve_fs_entry(&entry);
@@ -285,7 +285,7 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     fn create_file(&self, contents: &str, name: &str) -> Result<File, RunnerError> {
-        let area = self.create_area()?;
+        let area = self.create_empty_area()?;
         let path = FilePath::new(name)?;
         let entry = FSEntry::new(area, path);
         let resolved_path = self.resolve_fs_entry(&entry);

@@ -1,3 +1,4 @@
+pub mod cache;
 pub mod config;
 pub mod driver;
 
@@ -7,18 +8,16 @@ pub use rain_lang;
 
 use driver::DriverImpl;
 use rain_lang::{
-    afs::entry::FSEntryTrait as _,
-    driver::DriverTrait as _,
-    error::OwnedResolvedError,
-    runner::{cache::Cache, value::Value},
+    afs::entry::FSEntryTrait as _, driver::DriverTrait as _, error::OwnedResolvedError,
+    runner::value::Value,
 };
 use serde::{Deserialize, Serialize};
 
 #[expect(clippy::result_unit_err, clippy::print_stderr)]
 pub fn run_stderr(path: impl AsRef<Path>, declaration: &str) -> Result<Value, ()> {
     let driver = DriverImpl::new(config::Config::default());
-    let mut cache = Cache::new(rain_lang::runner::cache::CACHE_SIZE);
-    run(path, declaration, &mut cache, &driver).map_err(|err| {
+    let cache = cache::Cache::new(cache::CACHE_SIZE);
+    run(path, declaration, &cache, &driver).map_err(|err| {
         eprintln!("{err}");
     })
 }
@@ -26,7 +25,7 @@ pub fn run_stderr(path: impl AsRef<Path>, declaration: &str) -> Result<Value, ()
 pub fn run(
     path: impl AsRef<Path>,
     declaration: &str,
-    cache: &mut Cache,
+    cache: &cache::Cache,
     file_system: &DriverImpl,
 ) -> Result<Value, CoreError> {
     let file = rain_lang::afs::file::File::new_local(path.as_ref())

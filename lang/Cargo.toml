@@ -11,19 +11,18 @@ workspace = true
 
 [dependencies]
 chrono.workspace = true
+indexmap = { version = "2.8.0", features = ["serde"] }
 log.workspace = true
-lru = "0.13.0"
 num-bigint.workspace = true
-serde.workspace = true
+poison_panic.path = "../poison_panic"
+regex = "1.11.1"
 serde_json.workspace = true
+serde.workspace = true
 termcolor.workspace = true
 thiserror.workspace = true
+toml = "0.8.20"
 uuid.workspace = true
 web-time.workspace = true
-toml = "0.8.20"
-indexmap = { version = "2.8.0", features = ["serde"] }
-regex = "1.11.1"
-poison_panic.path = "../poison_panic"
 
 [dev-dependencies]
 insta.workspace = true

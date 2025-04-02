@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 pub trait OctocrabExt {
     async fn list_hooks(&self, owner: &str, repo: &str) -> Result<Page<Hook>>;
     async fn delete_hook(&self, owner: &str, repo: &str, hook_id: u64) -> Result<()>;
-    async fn get_tree(&self, owner: &str, repo: &str, sha: &str) -> Result<TreesResponse>;
-    async fn get_blob(&self, owner: &str, repo: &str, file_sha: &str) -> Result<BlobResponse>;
 }
 
 impl OctocrabExt for Octocrab {
@@ -21,22 +19,6 @@ impl OctocrabExt for Octocrab {
         )
         .await?;
         Ok(())
-    }
-
-    async fn get_tree(&self, owner: &str, repo: &str, sha: &str) -> Result<TreesResponse> {
-        self.get(
-            format!("/repos/{owner}/{repo}/git/trees/{sha}"),
-            None::<&()>,
-        )
-        .await
-    }
-
-    async fn get_blob(&self, owner: &str, repo: &str, file_sha: &str) -> Result<BlobResponse> {
-        self.get(
-            format!("/repos/{owner}/{repo}/git/blobs/{file_sha}"),
-            None::<&()>,
-        )
-        .await
     }
 }
 

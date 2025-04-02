@@ -23,7 +23,7 @@ use crate::{
 
 use super::{
     Cx, Result, ResultValue,
-    cache::{Cache, CacheKey},
+    cache::{CacheKey, CacheTrait},
     dep::Dep,
     error::RunnerError,
     value::{RainTypeId, Value, ValueInner},
@@ -134,7 +134,7 @@ impl InternalFunction {
 pub struct InternalCx<'a, 'b> {
     pub func: InternalFunction,
     pub driver: &'a dyn DriverTrait,
-    pub cache: &'a mut Cache,
+    pub cache: &'a dyn CacheTrait,
     pub rir: &'a mut Rir,
     pub cx: &'a mut Cx<'b>,
     pub nid: NodeId,

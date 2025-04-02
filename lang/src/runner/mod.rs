@@ -60,12 +60,12 @@ impl<'a> Cx<'a> {
 
 pub struct Runner<'a, D> {
     pub ir: &'a mut Rir,
-    pub cache: &'a mut cache::Cache,
+    pub cache: &'a dyn cache::CacheTrait,
     pub driver: &'a D,
 }
 
 impl<'a, D: DriverTrait> Runner<'a, D> {
-    pub fn new(rir: &'a mut Rir, cache: &'a mut cache::Cache, driver: &'a D) -> Self {
+    pub fn new(rir: &'a mut Rir, cache: &'a dyn cache::CacheTrait, driver: &'a D) -> Self {
         Self {
             ir: rir,
             cache,

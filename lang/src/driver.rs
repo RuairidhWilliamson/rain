@@ -61,7 +61,7 @@ pub struct DownloadStatus {
     pub etag: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FSEntryQueryResult {
     File,
     Directory,

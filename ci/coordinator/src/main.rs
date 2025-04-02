@@ -2,7 +2,8 @@ mod octocrab_extensions;
 
 use std::sync::Arc;
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Result, anyhow};
+use http_body_util::BodyExt as _;
 use octocrab::{
     OctocrabBuilder,
     models::{
@@ -10,7 +11,8 @@ use octocrab::{
         webhook_events::{WebhookEvent, WebhookEventPayload, WebhookEventType},
     },
 };
-use octocrab_extensions::{OctocrabExt as _, TreeEntry};
+use octocrab_extensions::OctocrabExt as _;
+use rain_lang::afs::path::FilePath;
 use smee_rs::{MessageHandler, default_smee_server_url};
 
 #[derive(Debug, serde::Deserialize)]
@@ -135,42 +137,15 @@ impl HandlerInner {
                     .description("yippeeee".to_owned())
                     .send()
                     .await?;
-                let tree = self
-                    .crab
-                    .get_tree(&self.owner, &self.repo, &head_commit.id)
-                    .await?;
-                let Some(root) = tree.tree.iter().find_map(|t| match t {
-                    TreeEntry::Blob { blob } if blob.path.eq_ignore_ascii_case("root.rain") => {
-                        Some(blob)
-                    }
-                    _ => None,
-                }) else {
-                    self.crab
-                        .repos(&self.owner, &self.repo)
-                        .create_status(head_commit.id.clone(), StatusState::Failure)
-                        .context("rain".to_owned())
-                        .target(self.target_url.to_string())
-                        .description("yippeeee".to_owned())
-                        .send()
-                        .await?;
-                    return Ok(());
-                };
-                let root = self
-                    .crab
-                    .get_blob(&self.owner, &self.repo, &root.sha)
-                    .await?;
-                assert_eq!(root.encoding, "base64");
 
-                let root = String::from_utf8(
-                    base64::engine::Engine::decode(
-                        &base64::engine::general_purpose::STANDARD,
-                        root.content.replace('\n', ""),
-                    )
-                    .context("base64 decode")?,
-                )
-                .context("utf8")?;
-                tracing::info!("{root}");
-                run(root);
+                let download = self
+                    .crab
+                    .repos(&self.owner, &self.repo)
+                    .download_tarball(head_commit.id.clone())
+                    .await?;
+                let download = download.into_body();
+                let download = download.collect().await?.to_bytes();
+                self.run(&download, &head_commit.id);
                 self.crab
                     .repos(&self.owner, &self.repo)
                     .create_status(head_commit.id.clone(), StatusState::Success)
@@ -189,21 +164,41 @@ impl HandlerInner {
         }
         Ok(())
     }
-}
 
-#[expect(clippy::unwrap_used)]
-fn run(src: String) {
-    let path = "root.rain";
-    let declaration = "ci";
-    let mut cache = rain_lang::runner::cache::Cache::new(rain_lang::runner::cache::CACHE_SIZE);
-    let mut ir = rain_lang::ir::Rir::new();
-    let config = rain_core::config::Config::new();
-    let driver = rain_core::driver::DriverImpl::new(config);
-    let file = rain_lang::afs::file::File::new_local(path.as_ref()).unwrap();
-    let module = rain_lang::ast::parser::parse_module(&src);
-    let mid = ir.insert_module(file, src, module).unwrap();
-    let main = ir.resolve_global_declaration(mid, declaration).unwrap();
-    let mut runner = rain_lang::runner::Runner::new(&mut ir, &mut cache, &driver);
-    let value = runner.evaluate_and_call(main).unwrap();
-    tracing::info!("Value {value}");
+    #[expect(clippy::unwrap_used, clippy::undocumented_unsafe_blocks)]
+    fn run(&self, download: &[u8], git_ref: &str) {
+        use rain_lang::driver::DriverTrait as _;
+        let declaration = "ci";
+        let cache = rain_core::cache::Cache::new(rain_core::cache::CACHE_SIZE);
+        let mut ir = rain_lang::ir::Rir::new();
+        let config = rain_core::config::Config::new();
+        let driver = rain_core::driver::DriverImpl::new(config);
+        let download_area = driver.create_area(&[]).unwrap();
+        let download_entry =
+            rain_lang::afs::entry::FSEntry::new(download_area, FilePath::new("/download").unwrap());
+        std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
+        let download = unsafe { rain_lang::afs::file::File::new(download_entry) };
+        let area = driver.extract_tar_gz(&download).unwrap();
+        let download_dir_entry = rain_lang::afs::entry::FSEntry::new(
+            area,
+            FilePath::new(&format!("{}-{}-{}", self.owner, self.repo, git_ref)).unwrap(),
+        );
+        let root = unsafe { rain_lang::afs::dir::Dir::new(download_dir_entry) };
+        let area = driver.create_area(&[&root]).unwrap();
+        let root_entry =
+            rain_lang::afs::entry::FSEntry::new(area, FilePath::new("/root.rain").unwrap());
+        tracing::info!("Root entry {root_entry}");
+        assert_eq!(
+            driver.query_fs(&root_entry).unwrap(),
+            rain_lang::driver::FSEntryQueryResult::File
+        );
+        let root = unsafe { rain_lang::afs::file::File::new(root_entry) };
+        let src = driver.read_file(&root).unwrap();
+        let module = rain_lang::ast::parser::parse_module(&src);
+        let mid = ir.insert_module(root, src, module).unwrap();
+        let main = ir.resolve_global_declaration(mid, declaration).unwrap();
+        let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, &driver);
+        let value = runner.evaluate_and_call(main).unwrap();
+        tracing::info!("Value {value}");
+    }
 }
