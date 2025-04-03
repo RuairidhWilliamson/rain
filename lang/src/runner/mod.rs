@@ -1,18 +1,15 @@
 pub mod cache;
 pub mod dep;
 pub mod error;
-pub mod hash;
 pub mod internal;
 pub mod value;
-pub mod value_impl;
 
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use error::{RunnerError, Throwing};
 use indexmap::IndexMap;
 use internal::InternalFunction;
-use value::{RainTypeId, Value, ValueInner};
-use value_impl::{Module, RainFunction, RainInteger, RainInternal, RainList, RainRecord};
+use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
 
 use crate::{
     ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
@@ -75,11 +72,11 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
 
     pub fn evaluate_and_call(&mut self, id: DeclarationId) -> ResultValue {
         let v = self.evaluate_declaration(id)?;
-        let Some(f) = v.downcast_ref::<RainFunction>() else {
+        let Value::Function(f) = v else {
             return Ok(v);
         };
-        let m = &Arc::clone(self.ir.get_module(f.id.module_id()));
-        let nid = m.get_declaration(f.id.local_id());
+        let m = &Arc::clone(self.ir.get_module(f.module_id()));
+        let nid = m.get_declaration(f.local_id());
         let node = m.get(nid);
         match node {
             Node::FnDeclare(fn_declare) => {
@@ -111,7 +108,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         let node = m.get(nid);
         match node {
             Node::LetDeclare(let_declare) => self.evaluate_node(&mut Cx::new(m), let_declare.expr),
-            Node::FnDeclare(_) => Ok(Value::new(RainFunction { id })),
+            Node::FnDeclare(_) => Ok(Value::Function(id)),
             _ => unreachable!(),
         }
     }
@@ -129,7 +126,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     let v = self.evaluate_node(cx, *nid)?;
                     prev = Some(v);
                 }
-                Ok(prev.unwrap_or_else(value_impl::get_unit))
+                Ok(prev.unwrap_or(Value::Unit))
             }
             Node::IfCondition(if_condition) => self.evaluate_if_condition(cx, if_condition),
             Node::FnCall(fn_call) => self.evaluate_fn_call(cx, nid, fn_call),
@@ -137,7 +134,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 let v = self.evaluate_node(cx, assignment.expr)?;
                 let name = assignment.name.span.contents(&cx.module.src);
                 cx.locals.insert(name, v);
-                Ok(value_impl::get_unit())
+                Ok(Value::Unit)
             }
             Node::BinaryOp(binary_op) => self.evaluate_binary_op(cx, binary_op),
             Node::Ident(tls) => self
@@ -148,7 +145,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         .with_module(cx.module.id)
                         .with_error(RunnerError::UnknownIdent.into())
                 }),
-            Node::InternalLiteral(_) => Ok(Value::new(RainInternal)),
+            Node::InternalLiteral(_) => Ok(Value::Internal),
             Node::StringLiteral(lit) => match lit.prefix() {
                 Some(crate::tokens::StringLiteralPrefix::Format) => {
                     log::info!("{lit:?}");
@@ -167,18 +164,18 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                             c => todo!("escaping not implemented for {c}"),
                         }
                     });
-                    Ok(Value::new(contents.to_string()))
+                    Ok(Value::String(Arc::new(contents.to_string())))
                 }
             },
-            Node::IntegerLiteral(tls) => Ok(Value::new(
+            Node::IntegerLiteral(tls) => Ok(Value::Integer(Arc::new(RainInteger(
                 tls.0
                     .span
                     .contents(&cx.module.src)
-                    .parse::<RainInteger>()
+                    .parse::<num_bigint::BigInt>()
                     .map_err(|_| cx.err(tls.0, RunnerError::InvalidIntegerLiteral))?,
-            )),
-            Node::TrueLiteral(_) => Ok(Value::new(true)),
-            Node::FalseLiteral(_) => Ok(Value::new(false)),
+            )))),
+            Node::TrueLiteral(_) => Ok(Value::Boolean(true)),
+            Node::FalseLiteral(_) => Ok(Value::Boolean(false)),
             Node::Record(record) => {
                 let mut builder = IndexMap::new();
                 for e in &record.fields {
@@ -187,14 +184,14 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         self.evaluate_node(cx, e.value)?,
                     );
                 }
-                Ok(Value::new(RainRecord(builder)))
+                Ok(Value::Record(RainRecord(Arc::new(builder))))
             }
             Node::List(list) => {
                 let mut builder = Vec::new();
                 for e in &list.elements {
                     builder.push(self.evaluate_node(cx, e.value)?);
                 }
-                Ok(Value::new(RainList(builder)))
+                Ok(Value::List(RainList(Arc::new(builder))))
             }
         }
     }
@@ -214,22 +211,18 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
 
     fn evaluate_fn_call(&mut self, cx: &mut Cx, nid: NodeId, fn_call: &FnCall) -> ResultValue {
         let v = self.evaluate_node(cx, fn_call.callee)?;
-        let v_type = v.rain_type_id();
-        match v_type {
-            RainTypeId::Function => {
+        match &v {
+            Value::Function(f) => {
                 if cx.call_depth >= MAX_CALL_DEPTH {
                     return Err(cx.err(fn_call.lparen_token, RunnerError::MaxCallDepth));
                 }
-                let Some(f) = v.downcast_ref::<RainFunction>() else {
-                    unreachable!();
-                };
                 let arg_values: Vec<Value> = fn_call
                     .args
                     .iter()
                     .map(|a| self.evaluate_node(cx, *a))
                     .collect::<Result<_, _>>()?;
                 let key = cache::CacheKey::Declaration {
-                    declaration: f.id,
+                    declaration: *f,
                     args: arg_values.clone(),
                 };
 
@@ -238,8 +231,8 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     return Ok(cache_entry.value);
                 }
                 let start = Instant::now();
-                let m = &Arc::clone(self.ir.get_module(f.id.module_id()));
-                let nid = m.get_declaration(f.id.local_id());
+                let m = &Arc::clone(self.ir.get_module(f.module_id()));
+                let nid = m.get_declaration(f.local_id());
                 let node = m.get(nid);
                 let Node::FnDeclare(fn_declare) = node else {
                     unreachable!();
@@ -275,10 +268,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 cx.deps.extend(callee_cx.deps);
                 Ok(result)
             }
-            RainTypeId::InternalFunction => {
-                let Some(f) = v.downcast_ref::<InternalFunction>() else {
-                    unreachable!()
-                };
+            Value::InternalFunction(f) => {
                 let arg_values: Vec<(NodeId, Value)> = fn_call
                     .args
                     .iter()
@@ -310,101 +300,45 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
 
     fn evaluate_binary_op(&mut self, cx: &mut Cx, op: &BinaryOp) -> ResultValue {
         let left = self.evaluate_node(cx, op.left)?;
-        let left_type = left.rain_type_id();
         // Dot is a special case where we have to evaluate the right differently
         if op.op == BinaryOperatorKind::Dot {
-            return self.evaluate_dot_operator(cx, op, &left, &left_type);
+            return self.evaluate_dot_operator(cx, op, &left);
         }
         let right = self.evaluate_node(cx, op.right)?;
-        let right_type = right.rain_type_id();
 
-        match (left_type, op.op, right_type) {
-            (RainTypeId::String, BinaryOperatorKind::Addition, RainTypeId::String) => {
-                Self::perform_binary_op(cx, op, &left, &right, |left: &String, right: &String| {
-                    Value::new(left.to_owned() + right)
-                })
+        match (left, op.op, right) {
+            (Value::String(left), BinaryOperatorKind::Addition, Value::String(right)) => {
+                Ok(Value::String(Arc::new(left.to_string() + &**right)))
             }
-            (RainTypeId::Integer, BinaryOperatorKind::Addition, RainTypeId::Integer) => {
-                Self::perform_binary_op(
-                    cx,
-                    op,
-                    &left,
-                    &right,
-                    |left: &RainInteger, right: &RainInteger| {
-                        Value::new(RainInteger(&left.0 + &right.0))
-                    },
-                )
+            (Value::Integer(left), BinaryOperatorKind::Addition, Value::Integer(right)) => {
+                Ok(Value::Integer(Arc::new(RainInteger(&left.0 + &right.0))))
             }
-            (RainTypeId::Integer, BinaryOperatorKind::Subtraction, RainTypeId::Integer) => {
-                Self::perform_binary_op(
-                    cx,
-                    op,
-                    &left,
-                    &right,
-                    |left: &RainInteger, right: &RainInteger| {
-                        Value::new(RainInteger(&left.0 - &right.0))
-                    },
-                )
+            (Value::Integer(left), BinaryOperatorKind::Subtraction, Value::Integer(right)) => {
+                Ok(Value::Integer(Arc::new(RainInteger(&left.0 - &right.0))))
             }
-            (RainTypeId::Integer, BinaryOperatorKind::Multiplication, RainTypeId::Integer) => {
-                Self::perform_binary_op(
-                    cx,
-                    op,
-                    &left,
-                    &right,
-                    |left: &RainInteger, right: &RainInteger| {
-                        Value::new(RainInteger(&left.0 * &right.0))
-                    },
-                )
+            (Value::Integer(left), BinaryOperatorKind::Multiplication, Value::Integer(right)) => {
+                Ok(Value::Integer(Arc::new(RainInteger(&left.0 * &right.0))))
             }
-            (RainTypeId::Integer, BinaryOperatorKind::Division, RainTypeId::Integer) => {
-                Self::perform_binary_op(
-                    cx,
-                    op,
-                    &left,
-                    &right,
-                    |left: &RainInteger, right: &RainInteger| {
-                        Value::new(RainInteger(&left.0 / &right.0))
-                    },
-                )
+            (Value::Integer(left), BinaryOperatorKind::Division, Value::Integer(right)) => {
+                Ok(Value::Integer(Arc::new(RainInteger(&left.0 / &right.0))))
             }
-            (RainTypeId::Boolean, BinaryOperatorKind::LogicalAnd, RainTypeId::Boolean) => {
-                Self::perform_binary_op(cx, op, &left, &right, |left: &bool, right: &bool| {
-                    Value::new(*left && *right)
-                })
+            (Value::Boolean(left), BinaryOperatorKind::LogicalAnd, Value::Boolean(right)) => {
+                Ok(Value::Boolean(left && right))
             }
-            (RainTypeId::Boolean, BinaryOperatorKind::LogicalOr, RainTypeId::Boolean) => {
-                Self::perform_binary_op(cx, op, &left, &right, |left: &bool, right: &bool| {
-                    Value::new(*left || *right)
-                })
+            (Value::Boolean(left), BinaryOperatorKind::LogicalOr, Value::Boolean(right)) => {
+                Ok(Value::Boolean(left || right))
             }
-            (RainTypeId::Integer, BinaryOperatorKind::Equals, RainTypeId::Integer) => {
-                Self::perform_binary_op(
-                    cx,
-                    op,
-                    &left,
-                    &right,
-                    |left: &RainInteger, right: &RainInteger| Value::new(left.0 == right.0),
-                )
+            (Value::Integer(left), BinaryOperatorKind::Equals, Value::Integer(right)) => {
+                Ok(Value::Boolean(left.0 == right.0))
             }
-            (RainTypeId::Integer, BinaryOperatorKind::NotEquals, RainTypeId::Integer) => {
-                Self::perform_binary_op(
-                    cx,
-                    op,
-                    &left,
-                    &right,
-                    |left: &RainInteger, right: &RainInteger| Value::new(left.0 != right.0),
-                )
+            (Value::Integer(left), BinaryOperatorKind::NotEquals, Value::Integer(right)) => {
+                Ok(Value::Boolean(left.0 != right.0))
             }
-            (RainTypeId::String, BinaryOperatorKind::Equals, RainTypeId::String) => {
-                Self::perform_binary_op(cx, op, &left, &right, |left: &String, right: &String| {
-                    Value::new(left == right)
-                })
+            (Value::String(left), BinaryOperatorKind::Equals, Value::String(right)) => {
+                Ok(Value::Boolean(left == right))
             }
-            (RainTypeId::String, BinaryOperatorKind::NotEquals, RainTypeId::String) => {
-                Self::perform_binary_op(cx, op, &left, &right, |left: &String, right: &String| {
-                    Value::new(left != right)
-                })
+            (Value::String(left), BinaryOperatorKind::NotEquals, Value::String(right)) => {
+                Ok(Value::Boolean(left != right))
             }
             _ => Err(cx.err(
                 op.op_span,
@@ -418,39 +352,29 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         cx: &mut Cx,
         op: &BinaryOp,
         left: &Value,
-        left_type: &RainTypeId,
     ) -> std::result::Result<Value, ErrorSpan<Throwing>> {
-        match *left_type {
-            RainTypeId::Module => {
-                let Some(module_value) = left.downcast_ref::<Module>() else {
-                    unreachable!()
-                };
-                match cx.module.get(op.right) {
-                    Node::Ident(tls) => {
-                        let name = tls.0.span.contents(&cx.module.src);
-                        let Some(did) = self.ir.resolve_global_declaration(module_value.id, name)
-                        else {
-                            return Err(cx.err(tls.0.span, RunnerError::UnknownIdent));
-                        };
-                        self.evaluate_declaration(did)
-                    }
-                    _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
+        match left {
+            Value::Module(module_value) => match cx.module.get(op.right) {
+                Node::Ident(tls) => {
+                    let name = tls.0.span.contents(&cx.module.src);
+                    let Some(did) = self.ir.resolve_global_declaration(*module_value, name) else {
+                        return Err(cx.err(tls.0.span, RunnerError::UnknownIdent));
+                    };
+                    self.evaluate_declaration(did)
                 }
-            }
-            RainTypeId::Internal => match cx.module.get(op.right) {
+                _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
+            },
+            Value::Internal => match cx.module.get(op.right) {
                 Node::Ident(tls) => {
                     let name = tls.0.span.contents(&cx.module.src);
                     InternalFunction::evaluate_internal_function_name(name)
-                        .map(Value::new)
+                        .map(Value::InternalFunction)
                         .ok_or_else(|| cx.err(tls.0.span, RunnerError::GenericRunError))
                 }
                 _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
             },
-            RainTypeId::Record => match cx.module.get(op.right) {
+            Value::Record(record_value) => match cx.module.get(op.right) {
                 Node::Ident(tls) => {
-                    let Some(record_value) = left.downcast_ref::<RainRecord>() else {
-                        unreachable!()
-                    };
                     let name = tls.0.span.contents(&cx.module.src);
                     record_value.0.get(name).cloned().ok_or_else(|| {
                         cx.err(
@@ -467,30 +391,9 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         }
     }
 
-    fn perform_binary_op<L, R, F>(
-        cx: &mut Cx,
-        op: &BinaryOp,
-        left: &Value,
-        right: &Value,
-        f: F,
-    ) -> ResultValue
-    where
-        L: ValueInner,
-        R: ValueInner,
-        F: FnOnce(&L, &R) -> Value,
-    {
-        let left = left
-            .downcast_ref::<L>()
-            .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?;
-        let right = right
-            .downcast_ref::<R>()
-            .ok_or_else(|| cx.err(op.op_span, RunnerError::GenericRunError))?;
-        Ok(f(left, right))
-    }
-
     fn evaluate_if_condition(&mut self, cx: &mut Cx, if_condition: &IfCondition) -> ResultValue {
         let condition_value = self.evaluate_node(cx, if_condition.condition)?;
-        let Some(condition_bool): Option<&bool> = condition_value.downcast_ref() else {
+        let Value::Boolean(condition_bool) = condition_value else {
             return Err(cx.err(
                 LocalSpan::default(),
                 RunnerError::ExpectedType {
@@ -499,7 +402,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 },
             ));
         };
-        if *condition_bool {
+        if condition_bool {
             self.evaluate_node(cx, if_condition.then_block)
         } else {
             match if_condition.alternate {
@@ -507,7 +410,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     self.evaluate_node(cx, if_condition)
                 }
                 Some(AlternateCondition::ElseBlock(block)) => self.evaluate_node(cx, block),
-                None => Ok(value_impl::get_unit()),
+                None => Ok(Value::Unit),
             }
         }
     }

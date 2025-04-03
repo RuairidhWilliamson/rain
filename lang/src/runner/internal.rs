@@ -1,6 +1,6 @@
 #![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
 
-use std::{collections::HashMap, ops::RangeInclusive, time::Instant};
+use std::{collections::HashMap, ops::RangeInclusive, sync::Arc, time::Instant};
 
 use indexmap::IndexMap;
 use num_bigint::BigInt;
@@ -26,8 +26,7 @@ use super::{
     cache::{CacheKey, CacheTrait},
     dep::Dep,
     error::RunnerError,
-    value::{RainTypeId, Value, ValueInner},
-    value_impl::{Module, RainInteger, RainList, RainRecord},
+    value::{RainInteger, RainList, RainRecord, RainTypeId, Value},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -61,12 +60,6 @@ pub enum InternalFunction {
 impl std::fmt::Display for InternalFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(self, f)
-    }
-}
-
-impl ValueInner for InternalFunction {
-    fn rain_type_id(&self) -> RainTypeId {
-        RainTypeId::InternalFunction
     }
 }
 
@@ -143,14 +136,9 @@ pub struct InternalCx<'a, 'b> {
 }
 
 impl InternalCx<'_, '_> {
-    fn single_arg<'c, T: ValueInner>(&'c self, rain_type: &'static [RainTypeId]) -> Result<&'c T> {
+    fn single_arg(&self) -> Result<(&NodeId, &Value)> {
         match &self.arg_values[..] {
-            [(arg_nid, arg_value)] => {
-                let arg: &T = arg_value
-                    .downcast_ref_error::<T>(rain_type)
-                    .map_err(|err| self.cx.nid_err(*arg_nid, err))?;
-                Ok(arg)
-            }
+            [(arg_nid, arg_value)] => Ok((arg_nid, arg_value)),
             _ => Err(self.cx.err(
                 self.fn_call.rparen_token,
                 RunnerError::IncorrectArgs {
@@ -206,24 +194,30 @@ fn print(icx: InternalCx) -> ResultValue {
         .arg_values
         .into_iter()
         .map(|(_, a)| {
-            if let Some(s) = a.downcast_ref::<String>() {
-                s.to_owned()
+            if let Value::String(s) = a {
+                s.as_ref().clone()
             } else {
                 format!("{a}")
             }
         })
         .collect();
     icx.driver.print(args.join(" "));
-    Ok(super::value_impl::get_unit())
+    Ok(Value::Unit)
 }
 
 fn file_area_resolve_path(icx: &mut InternalCx) -> Result<FSEntry> {
     match &icx.arg_values[..] {
         [(relative_path_nid, relative_path_value)] => {
             icx.cx.deps.push(Dep::Uncacheable);
-            let relative_path: &String = relative_path_value
-                .downcast_ref_error(&[RainTypeId::String])
-                .map_err(|err| icx.cx.nid_err(*relative_path_nid, err))?;
+            let Value::String(relative_path) = relative_path_value else {
+                return Err(icx.cx.nid_err(
+                    *relative_path_nid,
+                    RunnerError::ExpectedType {
+                        actual: relative_path_value.rain_type_id(),
+                        expected: &[RainTypeId::String],
+                    },
+                ));
+            };
             let file_path = icx
                 .cx
                 .module
@@ -243,16 +237,28 @@ fn file_area_resolve_path(icx: &mut InternalCx) -> Result<FSEntry> {
             (absolute_path_nid, absolute_path_value),
         ] => {
             icx.cx.deps.push(Dep::Uncacheable);
-            let area: &FileArea = area_value
-                .downcast_ref_error(&[RainTypeId::FileArea])
-                .map_err(|err| icx.cx.nid_err(*area_nid, err))?;
-            let absolute_path: &String = absolute_path_value
-                .downcast_ref_error(&[RainTypeId::String])
-                .map_err(|err| icx.cx.nid_err(*absolute_path_nid, err))?;
+            let Value::FileArea(area) = area_value else {
+                return Err(icx.cx.nid_err(
+                    *area_nid,
+                    RunnerError::ExpectedType {
+                        actual: area_value.rain_type_id(),
+                        expected: &[RainTypeId::FileArea],
+                    },
+                ));
+            };
+            let Value::String(absolute_path) = absolute_path_value else {
+                return Err(icx.cx.nid_err(
+                    *absolute_path_nid,
+                    RunnerError::ExpectedType {
+                        actual: absolute_path_value.rain_type_id(),
+                        expected: &[RainTypeId::String],
+                    },
+                ));
+            };
             let file_path = FilePath::new(absolute_path)
                 .map_err(|err| icx.cx.nid_err(*absolute_path_nid, err.into()))?;
             Ok(FSEntry {
-                area: area.clone(),
+                area: area.as_ref().clone(),
                 path: file_path,
             })
         }
@@ -279,7 +285,7 @@ fn get_file(mut icx: InternalCx) -> ResultValue {
         FSEntryQueryResult::File => {
             // Safety: Checked that the file exists and is a file
             let file = unsafe { File::new(entry) };
-            Ok(Value::new(file))
+            Ok(Value::File(Arc::new(file)))
         }
         result => Err(icx.cx.nid_err(icx.nid, RunnerError::FSQuery(entry, result))),
     }
@@ -294,69 +300,107 @@ fn get_dir(mut icx: InternalCx) -> ResultValue {
     {
         FSEntryQueryResult::Directory => {
             // Safety: Checked that the dir exists and is a dir
-            let file = unsafe { Dir::new(entry) };
-            Ok(Value::new(file))
+            let dir = unsafe { Dir::new(entry) };
+            Ok(Value::Dir(Arc::new(dir)))
         }
         result => Err(icx.cx.nid_err(icx.nid, RunnerError::FSQuery(entry, result))),
     }
 }
 
 fn import(icx: InternalCx) -> ResultValue {
-    let file: &File = icx.single_arg(&[RainTypeId::File])?;
+    let (file_nid, file_value) = icx.single_arg()?;
+    let Value::File(f) = file_value else {
+        return Err(icx.cx.nid_err(
+            *file_nid,
+            RunnerError::ExpectedType {
+                actual: file_value.rain_type_id(),
+                expected: &[RainTypeId::File],
+            },
+        ));
+    };
     let src = icx
         .driver
-        .read_file(file)
+        .read_file(f)
         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::ImportIOError(err)))?;
     let module = crate::ast::parser::parse_module(&src);
     let id = icx
         .rir
-        .insert_module(file.clone(), src, module)
+        .insert_module(f.as_ref().clone(), src, module)
         .map_err(ErrorSpan::convert)?;
-    Ok(Value::new(Module { id }))
+    Ok(Value::Module(id))
 }
 
 fn module_file(icx: InternalCx) -> ResultValue {
     icx.no_args()?;
-    Ok(Value::new(icx.cx.module.file.clone()))
+    Ok(Value::File(Arc::new(icx.cx.module.file.clone())))
 }
 
 fn extract_zip(icx: InternalCx) -> ResultValue {
-    let file = icx.single_arg::<File>(&[RainTypeId::File])?;
+    let (file_nid, file_value) = icx.single_arg()?;
+    let Value::File(f) = file_value else {
+        return Err(icx.cx.nid_err(
+            *file_nid,
+            RunnerError::ExpectedType {
+                actual: file_value.rain_type_id(),
+                expected: &[RainTypeId::File],
+            },
+        ));
+    };
     icx.cache(|| {
         let area = icx
             .driver
-            .extract_zip(file)
+            .extract_zip(f)
             .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
-        Ok(Value::new(area))
+        Ok(Value::FileArea(Arc::new(area)))
     })
 }
 
 fn extract_tar_gz(icx: InternalCx) -> ResultValue {
-    let file = icx.single_arg::<File>(&[RainTypeId::File])?;
+    let (file_nid, file_value) = icx.single_arg()?;
+    let Value::File(f) = file_value else {
+        return Err(icx.cx.nid_err(
+            *file_nid,
+            RunnerError::ExpectedType {
+                actual: file_value.rain_type_id(),
+                expected: &[RainTypeId::File],
+            },
+        ));
+    };
     icx.cache(|| {
         let area = icx
             .driver
-            .extract_tar_gz(file)
+            .extract_tar_gz(f)
             .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
-        let v = Value::new(area);
-        Ok(v)
+        Ok(Value::FileArea(Arc::new(area)))
     })
 }
 
 fn extract_tar_xz(icx: InternalCx) -> ResultValue {
-    let file = icx.single_arg::<File>(&[RainTypeId::File])?;
+    let (file_nid, file_value) = icx.single_arg()?;
+    let Value::File(f) = file_value else {
+        return Err(icx.cx.nid_err(
+            *file_nid,
+            RunnerError::ExpectedType {
+                actual: file_value.rain_type_id(),
+                expected: &[RainTypeId::File],
+            },
+        ));
+    };
     icx.cache(|| {
         let area = icx
             .driver
-            .extract_tar_xz(file)
+            .extract_tar_xz(f)
             .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
-        Ok(Value::new(area))
+        Ok(Value::FileArea(Arc::new(area)))
     })
 }
 
 fn args_implementation(_icx: InternalCx) -> ResultValue {
-    let args: Vec<_> = std::env::args().skip(1).map(Value::new).collect();
-    Ok(Value::new(RainList(args)))
+    let args: Vec<_> = std::env::args()
+        .skip(1)
+        .map(|a| Value::String(Arc::new(a)))
+        .collect();
+    Ok(Value::List(RainList(Arc::new(args))))
 }
 
 fn run_implementation(icx: InternalCx) -> ResultValue {
@@ -367,30 +411,49 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
             (args_nid, args_value),
             (env_nid, env_value),
         ] => {
-            let overlay_area = match area_value.rain_type_id() {
-                RainTypeId::Unit => None,
-                RainTypeId::FileArea => {
-                    let area: &FileArea = area_value
-                        .downcast_ref_error(&[RainTypeId::FileArea])
-                        .map_err(|err| icx.cx.nid_err(*area_nid, err))?;
-                    Some(area)
-                }
-                _ => Err(icx.cx.nid_err(*area_nid, RunnerError::GenericRunError))?,
+            let overlay_area = match area_value {
+                Value::Unit => None,
+                Value::FileArea(area) => Some(area.as_ref()),
+                _ => Err(icx.cx.nid_err(
+                    *area_nid,
+                    RunnerError::ExpectedType {
+                        actual: area_value.rain_type_id(),
+                        expected: &[RainTypeId::FileArea],
+                    },
+                ))?,
             };
-            let file: &File = file_value
-                .downcast_ref_error(&[RainTypeId::File])
-                .map_err(|err| icx.cx.nid_err(*file_nid, err))?;
-            let args: &RainList = args_value
-                .downcast_ref_error(&[RainTypeId::List])
-                .map_err(|err| icx.cx.nid_err(*args_nid, err))?;
+            let Value::File(file) = file_value else {
+                return Err(icx.cx.nid_err(
+                    *file_nid,
+                    RunnerError::ExpectedType {
+                        actual: file_value.rain_type_id(),
+                        expected: &[RainTypeId::File],
+                    },
+                ));
+            };
+            let Value::List(args) = args_value else {
+                return Err(icx.cx.nid_err(
+                    *args_nid,
+                    RunnerError::ExpectedType {
+                        actual: args_value.rain_type_id(),
+                        expected: &[RainTypeId::List],
+                    },
+                ));
+            };
             let args = args
                 .0
                 .iter()
                 .map(|value| stringify_args(&icx, *args_nid, value))
                 .collect::<Result<Vec<String>>>()?;
-            let env: &RainRecord = env_value
-                .downcast_ref_error(&[RainTypeId::List])
-                .map_err(|err| icx.cx.nid_err(*env_nid, err))?;
+            let Value::Record(env) = env_value else {
+                return Err(icx.cx.nid_err(
+                    *env_nid,
+                    RunnerError::ExpectedType {
+                        actual: env_value.rain_type_id(),
+                        expected: &[RainTypeId::List],
+                    },
+                ));
+            };
             let env = env
                 .0
                 .iter()
@@ -409,15 +472,15 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
                 )
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
             let mut m = IndexMap::new();
-            m.insert("success".to_owned(), Value::new(status.success));
+            m.insert("success".to_owned(), Value::Boolean(status.success));
             m.insert(
                 "exit_code".to_owned(),
-                Value::new(RainInteger(status.exit_code.unwrap_or(-1).into())),
+                Value::Integer(Arc::new(RainInteger(status.exit_code.unwrap_or(-1).into()))),
             );
-            m.insert("area".to_owned(), Value::new(status.area));
-            m.insert("stdout".to_owned(), Value::new(status.stdout));
-            m.insert("stderr".to_owned(), Value::new(status.stderr));
-            Ok(Value::new(RainRecord(m)))
+            m.insert("area".to_owned(), Value::FileArea(Arc::new(status.area)));
+            m.insert("stdout".to_owned(), Value::String(Arc::new(status.stdout)));
+            m.insert("stderr".to_owned(), Value::String(Arc::new(status.stderr)));
+            Ok(Value::Record(RainRecord(Arc::new(m))))
         }
         _ => icx.incorrect_args(4..=4),
     }
@@ -429,42 +492,20 @@ fn stringify_env(
     key: &String,
     value: &Value,
 ) -> Result<(String, String)> {
-    match value.rain_type_id() {
-        RainTypeId::String => Ok((
+    match value {
+        Value::String(s) => Ok((key.to_owned(), s.to_string())),
+        Value::File(f) => Ok((
             key.to_owned(),
-            value
-                .downcast_ref_error::<String>(&[RainTypeId::String])
-                .map_err(|err| icx.cx.nid_err(env_nid, err))?
-                .to_string(),
+            icx.driver.resolve_fs_entry(f.inner()).display().to_string(),
         )),
-        RainTypeId::File => Ok((
+        Value::Dir(d) => Ok((
             key.to_owned(),
-            icx.driver
-                .resolve_fs_entry(
-                    value
-                        .downcast_ref_error::<File>(&[RainTypeId::File])
-                        .map_err(|err| icx.cx.nid_err(env_nid, err))?
-                        .inner(),
-                )
-                .display()
-                .to_string(),
+            icx.driver.resolve_fs_entry(d.inner()).display().to_string(),
         )),
-        RainTypeId::Dir => Ok((
-            key.to_owned(),
-            icx.driver
-                .resolve_fs_entry(
-                    value
-                        .downcast_ref_error::<Dir>(&[RainTypeId::Dir])
-                        .map_err(|err| icx.cx.nid_err(env_nid, err))?
-                        .inner(),
-                )
-                .display()
-                .to_string(),
-        )),
-        type_id => Err(icx.cx.nid_err(
+        _ => Err(icx.cx.nid_err(
             env_nid,
             RunnerError::ExpectedType {
-                actual: type_id,
+                actual: value.rain_type_id(),
                 expected: &[RainTypeId::String, RainTypeId::File, RainTypeId::Dir],
             },
         )),
@@ -472,35 +513,14 @@ fn stringify_env(
 }
 
 fn stringify_args(icx: &InternalCx<'_, '_>, args_nid: NodeId, value: &Value) -> Result<String> {
-    match value.rain_type_id() {
-        RainTypeId::String => Ok(value
-            .downcast_ref_error::<String>(&[RainTypeId::String])
-            .map_err(|err| icx.cx.nid_err(args_nid, err))?
-            .to_string()),
-        RainTypeId::File => Ok(icx
-            .driver
-            .resolve_fs_entry(
-                value
-                    .downcast_ref_error::<File>(&[RainTypeId::File])
-                    .map_err(|err| icx.cx.nid_err(args_nid, err))?
-                    .inner(),
-            )
-            .display()
-            .to_string()),
-        RainTypeId::Dir => Ok(icx
-            .driver
-            .resolve_fs_entry(
-                value
-                    .downcast_ref_error::<Dir>(&[RainTypeId::Dir])
-                    .map_err(|err| icx.cx.nid_err(args_nid, err))?
-                    .inner(),
-            )
-            .display()
-            .to_string()),
-        type_id => Err(icx.cx.nid_err(
+    match value {
+        Value::String(s) => Ok(s.to_string()),
+        Value::File(f) => Ok(icx.driver.resolve_fs_entry(f.inner()).display().to_string()),
+        Value::Dir(d) => Ok(icx.driver.resolve_fs_entry(d.inner()).display().to_string()),
+        _ => Err(icx.cx.nid_err(
             args_nid,
             RunnerError::ExpectedType {
-                actual: type_id,
+                actual: value.rain_type_id(),
                 expected: &[RainTypeId::String, RainTypeId::File],
             },
         )),
@@ -508,7 +528,16 @@ fn stringify_args(icx: &InternalCx<'_, '_>, args_nid: NodeId, value: &Value) -> 
 }
 
 fn escape_bin(icx: InternalCx) -> ResultValue {
-    let name: &String = icx.single_arg(&[RainTypeId::String])?;
+    let (name_nid, name_value) = icx.single_arg()?;
+    let Value::String(name) = name_value else {
+        return Err(icx.cx.nid_err(
+            *name_nid,
+            RunnerError::ExpectedType {
+                actual: name_value.rain_type_id(),
+                expected: &[RainTypeId::String],
+            },
+        ));
+    };
     let path = icx
         .driver
         .escape_bin(name)
@@ -527,7 +556,7 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
         FSEntryQueryResult::File => {
             // Safety: Checked that the file exists and is a file
             let file = unsafe { File::new(entry) };
-            Ok(Value::new(file))
+            Ok(Value::File(Arc::new(file)))
         }
         result => Err(icx.cx.nid_err(icx.nid, RunnerError::FSQuery(entry, result))),
     }
@@ -535,26 +564,47 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
 
 fn unit(icx: InternalCx) -> ResultValue {
     icx.no_args()?;
-    Ok(super::value_impl::get_unit())
+    Ok(Value::Unit)
 }
 
 fn get_area(icx: InternalCx) -> ResultValue {
-    let file: &File = icx.single_arg(&[RainTypeId::File])?;
-    Ok(Value::new(file.area().clone()))
+    let (file_nid, file_value) = icx.single_arg()?;
+    let Value::File(f) = file_value else {
+        return Err(icx.cx.nid_err(
+            *file_nid,
+            RunnerError::ExpectedType {
+                actual: file_value.rain_type_id(),
+                expected: &[RainTypeId::File],
+            },
+        ));
+    };
+    Ok(Value::FileArea(Arc::new(f.area().clone())))
 }
 
 fn download(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(url_nid, url_value), (name_nid, name_value)] => {
             let start = Instant::now();
-            let url: &String = url_value
-                .downcast_ref_error(&[RainTypeId::String])
-                .map_err(|err| icx.cx.nid_err(*url_nid, err))?;
-            let name: &String = name_value
-                .downcast_ref_error(&[RainTypeId::String])
-                .map_err(|err| icx.cx.nid_err(*name_nid, err))?;
+            let Value::String(url) = url_value else {
+                return Err(icx.cx.nid_err(
+                    *url_nid,
+                    RunnerError::ExpectedType {
+                        actual: url_value.rain_type_id(),
+                        expected: &[RainTypeId::String],
+                    },
+                ));
+            };
+            let Value::String(name) = name_value else {
+                return Err(icx.cx.nid_err(
+                    *name_nid,
+                    RunnerError::ExpectedType {
+                        actual: name_value.rain_type_id(),
+                        expected: &[RainTypeId::String],
+                    },
+                ));
+            };
             let cache_key = CacheKey::Download {
-                url: url.to_owned(),
+                url: url.to_string(),
             };
             let call_description = format!("Download {url}");
             let _call = enter_call(icx.driver, call_description);
@@ -576,17 +626,19 @@ fn download(icx: InternalCx) -> ResultValue {
                 }
             }
             let mut m = IndexMap::new();
-            m.insert("ok".to_owned(), Value::new(ok));
+            m.insert("ok".to_owned(), Value::Boolean(ok));
             m.insert(
                 "status_code".to_owned(),
-                Value::new(RainInteger(status_code.unwrap_or_default().into())),
+                Value::Integer(Arc::new(RainInteger(
+                    status_code.unwrap_or_default().into(),
+                ))),
             );
             if let Some(file) = file {
-                m.insert("file".to_owned(), Value::new(file));
+                m.insert("file".to_owned(), Value::File(Arc::new(file)));
             } else {
-                m.insert("file".to_owned(), super::value_impl::get_unit());
+                m.insert("file".to_owned(), Value::Unit);
             }
-            let out = Value::new(RainRecord(m));
+            let out = Value::Record(RainRecord(Arc::new(m)));
             icx.cache
                 .put(cache_key, start.elapsed(), etag, &[], out.clone());
             Ok(out)
@@ -608,69 +660,101 @@ fn throw(icx: InternalCx) -> ResultValue {
 }
 
 fn sha256(icx: InternalCx) -> ResultValue {
-    let file: &File = icx.single_arg(&[RainTypeId::File])?;
+    let (file_nid, file_value) = icx.single_arg()?;
+    let Value::File(f) = file_value else {
+        return Err(icx.cx.nid_err(
+            *file_nid,
+            RunnerError::ExpectedType {
+                actual: file_value.rain_type_id(),
+                expected: &[RainTypeId::File],
+            },
+        ));
+    };
     icx.cache(|| {
-        Ok(Value::new(
+        Ok(Value::String(Arc::new(
             icx.driver
-                .sha256(file)
+                .sha256(f)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
-        ))
+        )))
     })
 }
 
 fn sha512(icx: InternalCx) -> ResultValue {
-    let file: &File = icx.single_arg(&[RainTypeId::File])?;
+    let (file_nid, file_value) = icx.single_arg()?;
+    let Value::File(f) = file_value else {
+        return Err(icx.cx.nid_err(
+            *file_nid,
+            RunnerError::ExpectedType {
+                actual: file_value.rain_type_id(),
+                expected: &[RainTypeId::File],
+            },
+        ));
+    };
     icx.cache(|| {
-        Ok(Value::new(
+        Ok(Value::String(Arc::new(
             icx.driver
-                .sha512(file)
+                .sha512(f)
                 .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
-        ))
+        )))
     })
 }
 
 #[expect(clippy::unwrap_used)]
 fn bytes_to_string(icx: InternalCx) -> ResultValue {
-    let bytes: &RainList = icx.single_arg(&[RainTypeId::List])?;
+    let (bytes_nid, bytes_value) = icx.single_arg()?;
+    let Value::List(list) = bytes_value else {
+        return Err(icx.cx.nid_err(
+            *bytes_nid,
+            RunnerError::ExpectedType {
+                actual: bytes_value.rain_type_id(),
+                expected: &[RainTypeId::List],
+            },
+        ));
+    };
     icx.cache(|| {
-        let bytes: Vec<u8> = bytes
+        let bytes: Vec<u8> = list
             .0
             .iter()
             .map(|b| -> u8 {
-                b.downcast_ref::<RainInteger>()
-                    .unwrap()
-                    .0
-                    .iter_u32_digits()
-                    .next()
-                    .unwrap()
-                    .try_into()
-                    .unwrap()
+                let Value::Integer(b) = b else {
+                    todo!("not an integer")
+                };
+                b.0.iter_u32_digits().next().unwrap().try_into().unwrap()
             })
             .collect();
-        Ok(Value::new(String::from_utf8(bytes).unwrap()))
+        Ok(Value::String(Arc::new(String::from_utf8(bytes).unwrap())))
     })
 }
 
 fn parse_toml(icx: InternalCx) -> ResultValue {
     fn toml_to_rain(v: toml::Value) -> Value {
         match v {
-            toml::Value::String(s) => Value::new(s),
-            toml::Value::Integer(n) => Value::new(RainInteger(BigInt::from(n))),
-            toml::Value::Float(f) => Value::new(f.to_string()),
-            toml::Value::Boolean(b) => Value::new(b),
-            toml::Value::Datetime(datetime) => Value::new(datetime.to_string()),
-            toml::Value::Array(vec) => {
-                Value::new(RainList(vec.into_iter().map(toml_to_rain).collect()))
-            }
-            toml::Value::Table(map) => Value::new(RainRecord(
+            toml::Value::String(s) => Value::String(Arc::new(s)),
+            toml::Value::Integer(n) => Value::Integer(Arc::new(RainInteger(BigInt::from(n)))),
+            toml::Value::Float(f) => Value::String(Arc::new(f.to_string())),
+            toml::Value::Boolean(b) => Value::Boolean(b),
+            toml::Value::Datetime(datetime) => Value::String(Arc::new(datetime.to_string())),
+            toml::Value::Array(vec) => Value::List(RainList(Arc::new(
+                vec.into_iter().map(toml_to_rain).collect(),
+            ))),
+            toml::Value::Table(map) => Value::Record(RainRecord(Arc::new(
                 map.into_iter()
                     .map(|(k, v)| (k.replace('-', "_"), toml_to_rain(v)))
                     .collect(),
-            )),
+            ))),
         }
     }
 
-    let contents = icx.single_arg::<String>(&[RainTypeId::String])?;
+    let (contents_nid, contents_value) = icx.single_arg()?;
+    let Value::String(contents) = contents_value else {
+        return Err(icx.cx.nid_err(
+            *contents_nid,
+            RunnerError::ExpectedType {
+                actual: contents_value.rain_type_id(),
+                expected: &[RainTypeId::String],
+            },
+        ));
+    };
     icx.cache(|| {
         let parsed: toml::Value = toml::de::from_str(contents).map_err(|err| {
             icx.cx.nid_err(
@@ -683,41 +767,81 @@ fn parse_toml(icx: InternalCx) -> ResultValue {
 }
 
 fn create_area(icx: InternalCx) -> ResultValue {
-    let dirs: &RainList = icx.single_arg(&[RainTypeId::List])?;
-    let dirs = dirs
+    let (dirs_nid, dirs_value) = icx.single_arg()?;
+    let Value::List(dirs) = dirs_value else {
+        return Err(icx.cx.nid_err(
+            *dirs_nid,
+            RunnerError::ExpectedType {
+                actual: dirs_value.rain_type_id(),
+                expected: &[RainTypeId::Dir],
+            },
+        ));
+    };
+    let dirs: Vec<&Dir> = dirs
         .0
         .iter()
-        .map(|area| area.downcast_ref_error::<Dir>(&[RainTypeId::Dir]))
-        .collect::<Result<Vec<&Dir>, RunnerError>>()
-        .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
+        .map(|dir| {
+            let Value::Dir(d) = dir else {
+                return Err(icx.cx.nid_err(
+                    *dirs_nid,
+                    RunnerError::ExpectedType {
+                        actual: dir.rain_type_id(),
+                        expected: &[RainTypeId::Dir],
+                    },
+                ));
+            };
+            Ok(d.as_ref())
+        })
+        .collect::<Result<Vec<&Dir>, _>>()?;
     let merged_area = icx
         .driver
         .create_area(&dirs)
         .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
-    Ok(Value::new(merged_area))
+    Ok(Value::FileArea(Arc::new(merged_area)))
 }
 
 fn read_file(icx: InternalCx) -> ResultValue {
-    let file: &File = icx.single_arg(&[RainTypeId::File])?;
-    Ok(Value::new(icx.driver.read_file(file).map_err(|err| {
-        icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err))
-    })?))
+    let (file_nid, file_value) = icx.single_arg()?;
+    let Value::File(f) = file_value else {
+        return Err(icx.cx.nid_err(
+            *file_nid,
+            RunnerError::ExpectedType {
+                actual: file_value.rain_type_id(),
+                expected: &[RainTypeId::File],
+            },
+        ));
+    };
+    Ok(Value::String(Arc::new(icx.driver.read_file(f).map_err(
+        |err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)),
+    )?)))
 }
 
 fn create_file(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [(contents_nid, contents_value), (name_nid, name_value)] => {
-            let contents: &String = contents_value
-                .downcast_ref_error::<String>(&[RainTypeId::String])
-                .map_err(|err| icx.cx.nid_err(*contents_nid, err))?;
-            let name: &String = name_value
-                .downcast_ref_error::<String>(&[RainTypeId::String])
-                .map_err(|err| icx.cx.nid_err(*name_nid, err))?;
-            Ok(Value::new(
+            let Value::String(contents) = contents_value else {
+                return Err(icx.cx.nid_err(
+                    *contents_nid,
+                    RunnerError::ExpectedType {
+                        actual: contents_value.rain_type_id(),
+                        expected: &[RainTypeId::String],
+                    },
+                ));
+            };
+            let Value::String(name) = name_value else {
+                return Err(icx.cx.nid_err(
+                    *name_nid,
+                    RunnerError::ExpectedType {
+                        actual: name_value.rain_type_id(),
+                        expected: &[RainTypeId::String],
+                    },
+                ));
+            };
+            Ok(Value::File(Arc::new(
                 icx.driver
                     .create_file(contents, name)
                     .map_err(|err| icx.cx.nid_err(icx.nid, err))?,
-            ))
+            )))
         }
         _ => icx.incorrect_args(2..=2),
     }
@@ -730,8 +854,8 @@ fn debug(mut icx: InternalCx) -> ResultValue {
     let Some((_nid, value)) = icx.arg_values.pop() else {
         return icx.incorrect_args(1..=1);
     };
-    let p = if let Some(s) = value.downcast_ref::<String>() {
-        s.to_owned()
+    let p = if let Value::String(s) = &value {
+        s.to_string()
     } else {
         format!("{value}")
     };
@@ -752,10 +876,16 @@ fn local_area(icx: InternalCx) -> ResultValue {
             },
         )
     })?;
-    let path: &String = path_value
-        .downcast_ref_error(&[RainTypeId::String])
-        .map_err(|err| icx.cx.nid_err(*path_nid, err))?;
-    let area_path = current_area_path.join(path);
+    let Value::String(path) = path_value else {
+        return Err(icx.cx.nid_err(
+            *path_nid,
+            RunnerError::ExpectedType {
+                actual: path_value.rain_type_id(),
+                expected: &[RainTypeId::String],
+            },
+        ));
+    };
+    let area_path = current_area_path.join(&**path);
     let area_path = AbsolutePathBuf::try_from(area_path.as_path())
         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?;
     let entry = FSEntry::new(FileArea::Local(area_path), FilePath::root());
@@ -764,7 +894,7 @@ fn local_area(icx: InternalCx) -> ResultValue {
         .query_fs(&entry)
         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)))?
     {
-        FSEntryQueryResult::Directory => Ok(Value::new(entry.area)),
+        FSEntryQueryResult::Directory => Ok(Value::FileArea(Arc::new(entry.area))),
         result => Err(icx.cx.nid_err(icx.nid, RunnerError::FSQuery(entry, result))),
     }
 }

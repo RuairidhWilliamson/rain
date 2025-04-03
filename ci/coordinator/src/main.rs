@@ -169,7 +169,7 @@ impl HandlerInner {
     fn run(&self, download: &[u8], git_ref: &str) {
         use rain_lang::driver::DriverTrait as _;
         let declaration = "ci";
-        let cache = rain_core::cache::Cache::new(rain_core::cache::CACHE_SIZE);
+        let cache = rain_core::cache::Cache::default();
         let mut ir = rain_lang::ir::Rir::new();
         let config = rain_core::config::Config::new();
         let driver = rain_core::driver::DriverImpl::new(config);
@@ -199,6 +199,6 @@ impl HandlerInner {
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, &driver);
         let value = runner.evaluate_and_call(main).unwrap();
-        tracing::info!("Value {value}");
+        tracing::info!("Value {value:?}");
     }
 }

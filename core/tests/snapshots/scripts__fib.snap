@@ -2,4 +2,8 @@
 source: core/tests/scripts.rs
 expression: "run(\"tests/scripts/fib.rain\").unwrap()"
 ---
-12586269025
+Integer(
+    RainInteger(
+        12586269025,
+    ),
+)

@@ -4,7 +4,7 @@ use super::{
     path::FilePath,
 };
 
-#[derive(Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct Dir(FSEntry);
 
 impl Dir {

@@ -68,17 +68,17 @@ impl Display for CacheKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Declaration { declaration, args } => {
-                f.write_fmt(format_args!("{declaration}({})", display_vec(args)))
+                f.write_fmt(format_args!("{declaration}({:?})", (args)))
             }
             Self::InternalFunction { func, args } => {
-                f.write_fmt(format_args!("{func}({})", display_vec(args)))
+                f.write_fmt(format_args!("{func}({:?})", (args)))
             }
             Self::Download { url } => f.write_fmt(format_args!("Download({url})")),
         }
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone)]
 pub struct CacheEntry {
     pub execution_time: Duration,
     pub expires: Option<DateTime<Utc>>,

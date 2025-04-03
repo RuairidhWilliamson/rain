@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 #[expect(clippy::result_unit_err, clippy::print_stderr)]
 pub fn run_stderr(path: impl AsRef<Path>, declaration: &str) -> Result<Value, ()> {
     let driver = DriverImpl::new(config::Config::default());
-    let cache = cache::Cache::new(cache::CACHE_SIZE);
+    let cache = cache::Cache::default();
     run(path, declaration, &cache, &driver).map_err(|err| {
         eprintln!("{err}");
     })
@@ -57,7 +57,7 @@ impl std::fmt::Display for CoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::LangError(owned_resolved_error) => owned_resolved_error.fmt(f),
-            Self::Other(s) => s.fmt(f),
+            Self::Other(s) => std::fmt::Display::fmt(&s, f),
         }
     }
 }

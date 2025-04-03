@@ -2,4 +2,4 @@
 source: core/tests/scripts.rs
 expression: "run(\"tests/scripts/internal_print.rain\").unwrap()"
 ---
-unit
+Unit

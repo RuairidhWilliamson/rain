@@ -11,18 +11,17 @@ use std::{
 use poison_panic::MutexExt as _;
 use rain_core::{
     CoreError,
-    cache::{Cache, CacheError},
+    cache::{
+        Cache,
+        persistent::{PersistentCache, PersistentCacheError},
+    },
     config::Config,
     driver::DriverImpl,
     rain_lang::{
-        afs::{dir::Dir, entry::FSEntryTrait as _, file::File},
+        afs::{entry::FSEntryTrait as _, file::File},
         driver::DriverTrait as _,
         ir::Rir,
-        runner::{
-            Runner,
-            cache::CacheTrait as _,
-            value::{RainTypeId, Value},
-        },
+        runner::{Runner, cache::CacheTrait as _, value::Value},
     },
 };
 
@@ -45,6 +44,8 @@ pub enum Error {
     Decode(ciborium::de::Error<std::io::Error>),
     #[error("serde: {0}")]
     SerdeJson(#[from] serde_json::Error),
+    #[error("cache: {0}")]
+    PersistentCache(#[from] PersistentCacheError),
 }
 
 impl From<std::io::Error> for Error {
@@ -100,11 +101,12 @@ impl Server {
     fn new(config: Config) -> Result<Self, Error> {
         let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
         let modified_time = exe_stat.modified()?;
-        let cache = rain_core::cache::Cache::new(rain_core::cache::CACHE_SIZE);
-        match cache.load(&config.cache_json_path()) {
-            Ok(()) | Err(CacheError::FormatVersionMissmatch | CacheError::DoesNotExist) => (),
-            Err(CacheError::Serde(err)) => return Err(err.into()),
-            Err(CacheError::Io(err)) => return Err(err.into()),
+        let cache = match PersistentCache::load(&config.cache_json_path()) {
+            Ok(p) => Cache::new(p.into()),
+            Err(err) => {
+                log::info!("failed to load persist cache: {err}");
+                Cache::default()
+            }
         };
         Ok(Self {
             config,
@@ -164,10 +166,8 @@ impl ClientHandler<'_> {
             }
             Ok(Err(err)) => Err(err),
             Ok(Ok(())) => {
-                self.server
-                    .cache
-                    .save(&self.server.config.cache_json_path())
-                    .unwrap();
+                let persistent_cache = PersistentCache::from(&*self.server.cache.0.plock());
+                persistent_cache.save(&self.server.config.cache_json_path())?;
                 Ok(())
             }
         }
@@ -346,23 +346,11 @@ fn run_inner(
         })),
     };
 
-    run_core(req, cache, &driver, ir).map(|v| match v.rain_type_id() {
-        RainTypeId::Unit => String::new(),
-        RainTypeId::Dir if req.resolve => {
-            if let Some(d) = v.downcast_ref::<Dir>() {
-                driver.resolve_fs_entry(d.inner()).display().to_string()
-            } else {
-                unreachable!()
-            }
-        }
-        RainTypeId::File if req.resolve => {
-            if let Some(f) = v.downcast_ref::<File>() {
-                driver.resolve_fs_entry(f.inner()).display().to_string()
-            } else {
-                unreachable!()
-            }
-        }
-        _ => v.to_string(),
+    run_core(req, cache, &driver, ir).map(|v| match v {
+        Value::Unit => String::new(),
+        Value::Dir(d) if req.resolve => driver.resolve_fs_entry(d.inner()).display().to_string(),
+        Value::File(f) if req.resolve => driver.resolve_fs_entry(f.inner()).display().to_string(),
+        _ => format!("{v:?}"),
     })
 }
 

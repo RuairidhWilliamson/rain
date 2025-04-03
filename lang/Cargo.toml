@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 chrono.workspace = true
-indexmap = { version = "2.8.0", features = ["serde"] }
+indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
 poison_panic.path = "../poison_panic"

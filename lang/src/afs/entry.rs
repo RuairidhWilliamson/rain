@@ -14,6 +14,7 @@ pub trait FSEntryTrait {
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FSEntry {
+    // TODO: Make this Arc<FileArea> so we don't have an expensive clone
     pub area: FileArea,
     pub path: FilePath,
 }

@@ -1,5 +1,7 @@
 ---
-source: lang/tests/scripts.rs
+source: core/tests/scripts.rs
 expression: "run(\"tests/scripts/utf-8.rain\").unwrap()"
 ---
-"rain"
+String(
+    "rain",
+)

@@ -1,6 +1,7 @@
+pub mod persistent;
+
 use std::{
     num::NonZeroUsize,
-    path::Path,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -15,63 +16,20 @@ use rain_lang::runner::{
 
 pub const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
 
-#[derive(Clone)]
-pub struct Cache {
-    storage: Arc<Mutex<LruCache<CacheKey, CacheEntry>>>,
-}
+#[derive(Default, Clone)]
+pub struct Cache(pub Arc<Mutex<CacheCore>>);
 
 impl Cache {
-    pub fn new(size: NonZeroUsize) -> Self {
-        Self {
-            storage: Arc::new(Mutex::new(LruCache::new(size))),
-        }
-    }
-
-    pub fn save(&self, path: &Path) -> Result<(), CacheError> {
-        let storage = self.storage.plock();
-        let mut downloads = Vec::new();
-        for (k, e) in storage.iter() {
-            match k {
-                CacheKey::InternalFunction { .. } | CacheKey::Declaration { .. } => (),
-                CacheKey::Download { url } => downloads.push((url.to_owned(), e.clone())),
-            }
-        }
-        let p = PersistentCache { downloads };
-        let p = PersistentCacheWrapper {
-            format_version: FORMAT_VERSION,
-            inner: serde_json::to_value(p)?,
-        };
-        let serialized = serde_json::to_vec_pretty(&p)?;
-        std::fs::write(path, serialized)?;
-        Ok(())
-    }
-
-    pub fn load(&self, path: &Path) -> Result<(), CacheError> {
-        let mut storage = self.storage.plock();
-        let Ok(serialized) = std::fs::read(path) else {
-            log::debug!("persistent cache did not exist");
-            return Ok(());
-        };
-        let PersistentCacheWrapper {
-            format_version,
-            inner,
-        }: PersistentCacheWrapper = serde_json::from_slice(&serialized)?;
-        if format_version != FORMAT_VERSION {
-            return Err(CacheError::FormatVersionMissmatch);
-        }
-        let p: PersistentCache = serde_json::from_value(inner)?;
-        for (url, v) in p.downloads {
-            storage.push(CacheKey::Download { url }, v);
-        }
-        Ok(())
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.storage.plock().is_empty()
+    pub fn new(core: CacheCore) -> Self {
+        Self(Arc::new(Mutex::new(core)))
     }
 
     pub fn len(&self) -> usize {
-        self.storage.plock().len()
+        self.0.plock().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.plock().is_empty()
     }
 }
 
@@ -80,8 +38,8 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
         if !key.pure() {
             return None;
         }
-        let mut guard = self.storage.plock();
-        guard.get(key).cloned()
+        let mut guard = self.0.plock();
+        guard.storage.get(key).cloned()
     }
 
     fn put(
@@ -98,31 +56,25 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
         if deps.iter().any(|d| matches!(d, Dep::Uncacheable)) {
             return;
         }
-        if value.storeable() {
-            self.storage.plock().put(
-                key,
-                CacheEntry {
-                    execution_time,
-                    expires: None,
-                    etag,
-                    deps: deps.to_vec(),
-                    value,
-                },
-            );
-        } else {
-            log::debug!(
-                "attempted to store {:?} in cache but it is not storeable",
-                value.rain_type_id()
-            );
-        }
+        self.0.plock().storage.put(
+            key,
+            CacheEntry {
+                execution_time,
+                expires: None,
+                etag,
+                deps: deps.to_vec(),
+                value,
+            },
+        );
     }
 
     fn inspect_all(&self) -> Vec<String> {
-        self.storage
+        self.0
             .plock()
+            .storage
             .iter()
             .map(|(k, v)| {
-                let mut s = format!("{k} => {} {:?}", v.value, v.execution_time);
+                let mut s = format!("{k} => {:?} {:?}", v.value, v.execution_time);
                 if s.len() > 200 {
                     s.truncate(197);
                     s.push_str("...");
@@ -133,28 +85,29 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
     }
 }
 
-const FORMAT_VERSION: u64 = 0;
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct PersistentCacheWrapper {
-    pub format_version: u64,
-    pub inner: serde_json::Value,
+#[derive(Clone)]
+pub struct CacheCore {
+    storage: LruCache<CacheKey, CacheEntry>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-struct PersistentCache {
-    /// Map keyed by urls
-    pub downloads: Vec<(String, CacheEntry)>,
+impl Default for CacheCore {
+    fn default() -> Self {
+        Self::new(CACHE_SIZE)
+    }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum CacheError {
-    #[error("serde: {0}")]
-    Serde(#[from] serde_json::Error),
-    #[error("io: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("format missmatch")]
-    FormatVersionMissmatch,
-    #[error("does not exist")]
-    DoesNotExist,
+impl CacheCore {
+    pub fn new(cap: NonZeroUsize) -> Self {
+        Self {
+            storage: LruCache::new(cap),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.storage.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.storage.len()
+    }
 }

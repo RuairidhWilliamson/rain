@@ -1,14 +1,9 @@
-use rain_core::{
-    CoreError,
-    cache::{CACHE_SIZE, Cache},
-    config::Config,
-    driver::DriverImpl,
-};
+use rain_core::{CoreError, cache::Cache, config::Config, driver::DriverImpl};
 use rain_lang::runner::value::Value;
 
 fn run(path: &str) -> Result<Value, CoreError> {
     let driver = DriverImpl::new(Config::default());
-    let cache = Cache::new(CACHE_SIZE);
+    let cache = Cache::default();
     rain_core::run(path, "main", &cache, &driver)
 }
 
