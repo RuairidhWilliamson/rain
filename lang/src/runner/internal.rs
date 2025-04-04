@@ -744,9 +744,7 @@ fn parse_toml(icx: InternalCx) -> ResultValue {
                 vec.into_iter().map(toml_to_rain).collect(),
             ))),
             toml::Value::Table(map) => Value::Record(Arc::new(RainRecord(
-                map.into_iter()
-                    .map(|(k, v)| (k.replace('-', "_"), toml_to_rain(v)))
-                    .collect(),
+                map.into_iter().map(|(k, v)| (k, toml_to_rain(v))).collect(),
             ))),
         }
     }
@@ -937,17 +935,11 @@ fn split_string(icx: InternalCx) -> ResultValue {
 }
 
 fn index(icx: InternalCx) -> ResultValue {
-    match &icx.arg_values[..] {
-        [(indexable_nid, indexable_value), (index_nid, index_value)] => {
-            let Value::List(indexable) = indexable_value else {
-                return Err(icx.cx.nid_err(
-                    *indexable_nid,
-                    RunnerError::ExpectedType {
-                        actual: indexable_value.rain_type_id(),
-                        expected: &[RainTypeId::List],
-                    },
-                ));
-            };
+    let [(indexable_nid, indexable_value), (index_nid, index_value)] = &icx.arg_values[..] else {
+        return icx.incorrect_args(2..=2);
+    };
+    match indexable_value {
+        Value::List(list) => {
             let Value::Integer(i) = index_value else {
                 return Err(icx.cx.nid_err(
                     *index_nid,
@@ -960,9 +952,27 @@ fn index(icx: InternalCx) -> ResultValue {
             let Ok(i) = usize::try_from(&i.0) else {
                 return Ok(Value::Unit);
             };
-            Ok(indexable.0.get(i).cloned().unwrap_or(Value::Unit))
+            Ok(list.0.get(i).cloned().unwrap_or(Value::Unit))
         }
-        _ => icx.incorrect_args(2..=2),
+        Value::Record(record) => {
+            let Value::String(s) = index_value else {
+                return Err(icx.cx.nid_err(
+                    *index_nid,
+                    RunnerError::ExpectedType {
+                        actual: index_value.rain_type_id(),
+                        expected: &[RainTypeId::String],
+                    },
+                ));
+            };
+            Ok(record.0.get(s.as_str()).cloned().unwrap_or(Value::Unit))
+        }
+        _ => Err(icx.cx.nid_err(
+            *indexable_nid,
+            RunnerError::ExpectedType {
+                actual: indexable_value.rain_type_id(),
+                expected: &[RainTypeId::List, RainTypeId::Record],
+            },
+        )),
     }
 }
 
