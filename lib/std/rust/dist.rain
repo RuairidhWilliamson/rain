@@ -67,13 +67,18 @@ fn get_xz_artifact(artifact) {
 	utils.extract_tar_xz(download_result.file)
 }
 
-// TODO: Parse the version from the manifest
-let version = "1.85.1"
+fn get_version(manifest) {
+	// Just use the rustc version for everything
+	version_split = utils.split_string(manifest.pkg.rustc.version, " ")
+	utils.index(version_split, 0)
+}
+
 // TODO: Specify the target
 let target = "x86_64-unknown-linux-gnu"
 
 fn get_rustc(channel) {
 	manifest = get_manifest(channel)
+	version = get_version(manifest)
 	rustc_pkg = get_xz_artifact(manifest.pkg.rustc.target.x86_64_unknown_linux_gnu)
 	rustc = get_dir(rustc_pkg, "rustc-" + version + "-" + target + "/rustc")
 	rustc
@@ -81,6 +86,7 @@ fn get_rustc(channel) {
 
 fn get_rust_std(channel) {
 	manifest = get_manifest(channel)
+	version = get_version(manifest)
 	rust_std_pkg = get_xz_artifact(manifest.pkg.rust_std.target.x86_64_unknown_linux_gnu)
 	rust_std = get_dir(rust_std_pkg, "rust-std-" + version + "-" + target + "/rust-std-x86_64-unknown-linux-gnu/")
 	rust_std
@@ -88,6 +94,7 @@ fn get_rust_std(channel) {
 
 fn get_cargo(channel) {
 	manifest = get_manifest(channel)
+	version = get_version(manifest)
 	cargo_pkg = get_xz_artifact(manifest.pkg.cargo.target.x86_64_unknown_linux_gnu)
 	cargo = get_dir(cargo_pkg, "cargo-" + version + "-" + target + "/cargo")
 	cargo
@@ -95,6 +102,7 @@ fn get_cargo(channel) {
 
 fn get_clippy(channel) {
 	manifest = get_manifest(channel)
+	version = get_version(manifest)
 	clippy_pkg = get_xz_artifact(manifest.pkg.clippy_preview.target.x86_64_unknown_linux_gnu)
 	clippy = get_dir(clippy_pkg, "clippy-" + version + "-" + target + "/clippy-preview")
 	clippy
@@ -102,6 +110,7 @@ fn get_clippy(channel) {
 
 fn get_rustfmt(channel) {
 	manifest = get_manifest(channel)
+	version = get_version(manifest)
 	rustfmt_pkg = get_xz_artifact(manifest.pkg.rustfmt_preview.target.x86_64_unknown_linux_gnu)
 	rustfmt = get_dir(rustfmt_pkg, "rustfmt-" + version + "-" + target + "/rustfmt-preview")
 	rustfmt

@@ -55,6 +55,8 @@ pub enum InternalFunction {
     ReadFile,
     CreateFile,
     LocalArea,
+    SplitString,
+    Index,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -90,6 +92,8 @@ impl InternalFunction {
             "_read_file" => Some(Self::ReadFile),
             "_create_file" => Some(Self::CreateFile),
             "_local_area" => Some(Self::LocalArea),
+            "_split_string" => Some(Self::SplitString),
+            "_index" => Some(Self::Index),
             _ => None,
         }
     }
@@ -120,6 +124,8 @@ impl InternalFunction {
             Self::ReadFile => read_file(icx),
             Self::CreateFile => create_file(icx),
             Self::LocalArea => local_area(icx),
+            Self::SplitString => split_string(icx),
+            Self::Index => index(icx),
         }
     }
 }
@@ -896,6 +902,67 @@ fn local_area(icx: InternalCx) -> ResultValue {
     {
         FSEntryQueryResult::Directory => Ok(Value::FileArea(Arc::new(entry.area))),
         result => Err(icx.cx.nid_err(icx.nid, RunnerError::FSQuery(entry, result))),
+    }
+}
+
+fn split_string(icx: InternalCx) -> ResultValue {
+    match &icx.arg_values[..] {
+        [(string_nid, string_value), (sep_nid, sep_value)] => {
+            let Value::String(s) = string_value else {
+                return Err(icx.cx.nid_err(
+                    *string_nid,
+                    RunnerError::ExpectedType {
+                        actual: string_value.rain_type_id(),
+                        expected: &[RainTypeId::String],
+                    },
+                ));
+            };
+            let Value::String(sep) = sep_value else {
+                return Err(icx.cx.nid_err(
+                    *sep_nid,
+                    RunnerError::ExpectedType {
+                        actual: sep_value.rain_type_id(),
+                        expected: &[RainTypeId::String],
+                    },
+                ));
+            };
+            Ok(Value::List(Arc::new(RainList(
+                s.split(sep.as_str())
+                    .map(|s| Value::String(Arc::new(s.to_owned())))
+                    .collect(),
+            ))))
+        }
+        _ => icx.incorrect_args(2..=2),
+    }
+}
+
+fn index(icx: InternalCx) -> ResultValue {
+    match &icx.arg_values[..] {
+        [(indexable_nid, indexable_value), (index_nid, index_value)] => {
+            let Value::List(indexable) = indexable_value else {
+                return Err(icx.cx.nid_err(
+                    *indexable_nid,
+                    RunnerError::ExpectedType {
+                        actual: indexable_value.rain_type_id(),
+                        expected: &[RainTypeId::List],
+                    },
+                ));
+            };
+            let Value::Integer(i) = index_value else {
+                return Err(icx.cx.nid_err(
+                    *index_nid,
+                    RunnerError::ExpectedType {
+                        actual: index_value.rain_type_id(),
+                        expected: &[RainTypeId::Integer],
+                    },
+                ));
+            };
+            let Ok(i) = usize::try_from(&i.0) else {
+                return Ok(Value::Unit);
+            };
+            Ok(indexable.0.get(i).cloned().unwrap_or(Value::Unit))
+        }
+        _ => icx.incorrect_args(2..=2),
     }
 }
 
