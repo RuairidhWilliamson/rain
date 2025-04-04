@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::driver::{FSEntryQueryResult, FSTrait};
+
 use super::{
     absolute::AbsolutePathBuf,
     area::FileArea,
@@ -16,6 +18,14 @@ impl File {
     /// Only call this if it is guaranteed the file exists and is actually a file (not a symlink or directory)
     pub unsafe fn new(ife: FSEntry) -> Self {
         Self(ife)
+    }
+
+    pub fn new_checked(fs: &impl FSTrait, entry: FSEntry) -> Option<Self> {
+        match fs.query_fs(&entry) {
+            // Safety: we have just queried the filesystem entry
+            Ok(FSEntryQueryResult::File) => Some(unsafe { Self::new(entry) }),
+            _ => None,
+        }
     }
 
     pub fn new_local(path: &Path) -> Result<Self, PathError> {

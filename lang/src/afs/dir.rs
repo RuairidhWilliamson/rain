@@ -1,3 +1,5 @@
+use crate::driver::{FSEntryQueryResult, FSTrait};
+
 use super::{
     area::FileArea,
     entry::{FSEntry, FSEntryTrait},
@@ -12,6 +14,14 @@ impl Dir {
     /// Only call this if it is guaranteed the directory exists and is actually a directory (not a symlink or file)
     pub unsafe fn new(ifs: FSEntry) -> Self {
         Self(ifs)
+    }
+
+    pub fn new_checked(fs: &impl FSTrait, entry: FSEntry) -> Option<Self> {
+        match fs.query_fs(&entry) {
+            // Safety: we have just queried the filesystem entry
+            Ok(FSEntryQueryResult::Directory) => Some(unsafe { Self::new(entry) }),
+            _ => None,
+        }
     }
 
     pub fn root(area: FileArea) -> Self {

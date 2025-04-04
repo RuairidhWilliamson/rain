@@ -19,7 +19,7 @@ use rain_core::{
     driver::DriverImpl,
     rain_lang::{
         afs::{entry::FSEntryTrait as _, file::File},
-        driver::DriverTrait as _,
+        driver::FSTrait as _,
         ir::Rir,
         runner::{Runner, cache::CacheTrait as _, value::Value},
     },
@@ -102,7 +102,7 @@ impl Server {
         let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
         let modified_time = exe_stat.modified()?;
         let cache = match PersistentCache::load(&config.cache_json_path()) {
-            Ok(p) => Cache::new(p.into()),
+            Ok(p) => Cache::new(p.into_cache(&config)),
             Err(err) => {
                 log::info!("failed to load persist cache: {err}");
                 Cache::default()
@@ -166,7 +166,7 @@ impl ClientHandler<'_> {
             }
             Ok(Err(err)) => Err(err),
             Ok(Ok(())) => {
-                let persistent_cache = PersistentCache::from(&*self.server.cache.0.plock());
+                let persistent_cache = PersistentCache::from_cache(&self.server.cache.0.plock());
                 persistent_cache.save(&self.server.config.cache_json_path())?;
                 Ok(())
             }

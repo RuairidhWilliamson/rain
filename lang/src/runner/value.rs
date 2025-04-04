@@ -22,8 +22,8 @@ pub enum Value {
     Dir(Arc<Dir>),
     Internal,
     InternalFunction(InternalFunction),
-    List(RainList),
-    Record(RainRecord),
+    List(Arc<RainList>),
+    Record(Arc<RainRecord>),
 }
 
 impl Display for Value {
@@ -63,7 +63,7 @@ pub enum RainTypeId {
     Record,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct RainInteger(pub num_bigint::BigInt);
 
 impl Display for RainInteger {
@@ -73,11 +73,11 @@ impl Display for RainInteger {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RainList(pub Arc<Vec<Value>>);
+pub struct RainList(pub Vec<Value>);
 
 impl std::hash::Hash for RainList {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        for v in self.0.iter() {
+        for v in &self.0 {
             v.hash(state);
         }
     }
@@ -99,11 +99,11 @@ impl Display for RainList {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RainRecord(pub Arc<IndexMap<String, Value>>);
+pub struct RainRecord(pub IndexMap<String, Value>);
 
 impl std::hash::Hash for RainRecord {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        for (k, v) in self.0.iter() {
+        for (k, v) in &self.0 {
             k.hash(state);
             v.hash(state);
         }
@@ -114,7 +114,7 @@ impl Display for RainRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("{")?;
         let mut first = true;
-        for (k, v) in &*self.0 {
+        for (k, v) in &self.0 {
             if !first {
                 f.write_str(", ")?;
             }

@@ -8,7 +8,7 @@ pub use rain_lang;
 
 use driver::DriverImpl;
 use rain_lang::{
-    afs::entry::FSEntryTrait as _, driver::DriverTrait as _, error::OwnedResolvedError,
+    afs::entry::FSEntryTrait as _, driver::FSTrait as _, error::OwnedResolvedError,
     runner::value::Value,
 };
 use serde::{Deserialize, Serialize};

@@ -29,7 +29,7 @@ use super::{
     value::{RainInteger, RainList, RainRecord, RainTypeId, Value},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum InternalFunction {
     Print,
     Debug,
@@ -400,7 +400,7 @@ fn args_implementation(_icx: InternalCx) -> ResultValue {
         .skip(1)
         .map(|a| Value::String(Arc::new(a)))
         .collect();
-    Ok(Value::List(RainList(Arc::new(args))))
+    Ok(Value::List(Arc::new(RainList(args))))
 }
 
 fn run_implementation(icx: InternalCx) -> ResultValue {
@@ -480,7 +480,7 @@ fn run_implementation(icx: InternalCx) -> ResultValue {
             m.insert("area".to_owned(), Value::FileArea(Arc::new(status.area)));
             m.insert("stdout".to_owned(), Value::String(Arc::new(status.stdout)));
             m.insert("stderr".to_owned(), Value::String(Arc::new(status.stderr)));
-            Ok(Value::Record(RainRecord(Arc::new(m))))
+            Ok(Value::Record(Arc::new(RainRecord(m))))
         }
         _ => icx.incorrect_args(4..=4),
     }
@@ -638,7 +638,7 @@ fn download(icx: InternalCx) -> ResultValue {
             } else {
                 m.insert("file".to_owned(), Value::Unit);
             }
-            let out = Value::Record(RainRecord(Arc::new(m)));
+            let out = Value::Record(Arc::new(RainRecord(m)));
             icx.cache
                 .put(cache_key, start.elapsed(), etag, &[], out.clone());
             Ok(out)
@@ -734,10 +734,10 @@ fn parse_toml(icx: InternalCx) -> ResultValue {
             toml::Value::Float(f) => Value::String(Arc::new(f.to_string())),
             toml::Value::Boolean(b) => Value::Boolean(b),
             toml::Value::Datetime(datetime) => Value::String(Arc::new(datetime.to_string())),
-            toml::Value::Array(vec) => Value::List(RainList(Arc::new(
+            toml::Value::Array(vec) => Value::List(Arc::new(RainList(
                 vec.into_iter().map(toml_to_rain).collect(),
             ))),
-            toml::Value::Table(map) => Value::Record(RainRecord(Arc::new(
+            toml::Value::Table(map) => Value::Record(Arc::new(RainRecord(
                 map.into_iter()
                     .map(|(k, v)| (k.replace('-', "_"), toml_to_rain(v)))
                     .collect(),

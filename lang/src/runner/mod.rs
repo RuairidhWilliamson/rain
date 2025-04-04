@@ -184,14 +184,14 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         self.evaluate_node(cx, e.value)?,
                     );
                 }
-                Ok(Value::Record(RainRecord(Arc::new(builder))))
+                Ok(Value::Record(Arc::new(RainRecord(builder))))
             }
             Node::List(list) => {
                 let mut builder = Vec::new();
                 for e in &list.elements {
                     builder.push(self.evaluate_node(cx, e.value)?);
                 }
-                Ok(Value::List(RainList(Arc::new(builder))))
+                Ok(Value::List(Arc::new(RainList(builder))))
             }
         }
     }

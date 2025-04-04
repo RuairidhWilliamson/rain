@@ -13,6 +13,7 @@ use octocrab::{
 };
 use octocrab_extensions::OctocrabExt as _;
 use rain_lang::afs::path::FilePath;
+use rain_lang::driver::FSTrait as _;
 use smee_rs::{MessageHandler, default_smee_server_url};
 
 #[derive(Debug, serde::Deserialize)]

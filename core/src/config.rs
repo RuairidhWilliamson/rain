@@ -1,5 +1,12 @@
 use std::path::{Path, PathBuf};
 
+use rain_lang::{
+    afs::{
+        area::{FileArea, GeneratedFileArea},
+        entry::FSEntry,
+    },
+    driver::{FSEntryQueryResult, FSTrait},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -61,6 +68,35 @@ impl Config {
             &self.base_run_dir,
         ];
         unique_directories(dirs)
+    }
+}
+
+impl FSTrait for Config {
+    fn resolve_fs_entry(&self, entry: &FSEntry) -> PathBuf {
+        let abs_path = entry.path.path();
+        let Some(rel_path) = abs_path.strip_prefix('/') else {
+            unreachable!("file path must start with /");
+        };
+        match &entry.area {
+            FileArea::Local(p) => p.join(rel_path),
+            FileArea::Generated(GeneratedFileArea { id }) => {
+                self.base_generated_dir.join(id.to_string()).join(rel_path)
+            }
+            FileArea::Escape => PathBuf::from(abs_path),
+        }
+    }
+
+    fn query_fs(&self, entry: &FSEntry) -> Result<FSEntryQueryResult, std::io::Error> {
+        match std::fs::metadata(self.resolve_fs_entry(entry)) {
+            Ok(m) if m.is_symlink() => Ok(FSEntryQueryResult::Symlink),
+            Ok(m) if m.is_file() => Ok(FSEntryQueryResult::File),
+            Ok(m) if m.is_dir() => Ok(FSEntryQueryResult::Directory),
+            Ok(_) => unreachable!("file must be one of file, dir or symlink"),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                Ok(FSEntryQueryResult::NotExist)
+            }
+            Err(err) => Err(err),
+        }
     }
 }
 

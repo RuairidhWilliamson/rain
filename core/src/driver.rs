@@ -13,7 +13,8 @@ use rain_lang::{
         path::FilePath,
     },
     driver::{
-        DownloadStatus, DriverTrait, FSEntryQueryResult, MonitoringTrait, RunOptions, RunStatus,
+        DownloadStatus, DriverTrait, FSEntryQueryResult, FSTrait, MonitoringTrait, RunOptions,
+        RunStatus,
     },
     runner::{error::RunnerError, internal::InternalFunction},
 };
@@ -77,36 +78,17 @@ impl DriverImpl<'_> {
     }
 }
 
-impl DriverTrait for DriverImpl<'_> {
-    fn resolve_fs_entry(&self, file: &FSEntry) -> PathBuf {
-        let abs_path = file.path.path();
-        let Some(rel_path) = abs_path.strip_prefix('/') else {
-            unreachable!("file path must start with /");
-        };
-        match &file.area {
-            FileArea::Local(p) => p.join(rel_path),
-            FileArea::Generated(GeneratedFileArea { id }) => self
-                .config
-                .base_generated_dir
-                .join(id.to_string())
-                .join(rel_path),
-            FileArea::Escape => PathBuf::from(abs_path),
-        }
+impl FSTrait for DriverImpl<'_> {
+    fn resolve_fs_entry(&self, entry: &FSEntry) -> PathBuf {
+        self.config.resolve_fs_entry(entry)
     }
 
     fn query_fs(&self, entry: &FSEntry) -> Result<FSEntryQueryResult, std::io::Error> {
-        match std::fs::metadata(self.resolve_fs_entry(entry)) {
-            Ok(m) if m.is_symlink() => Ok(FSEntryQueryResult::Symlink),
-            Ok(m) if m.is_file() => Ok(FSEntryQueryResult::File),
-            Ok(m) if m.is_dir() => Ok(FSEntryQueryResult::Directory),
-            Ok(_) => unreachable!("file must be one of file, dir or symlink"),
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                Ok(FSEntryQueryResult::NotExist)
-            }
-            Err(err) => Err(err),
-        }
+        self.config.query_fs(entry)
     }
+}
 
+impl DriverTrait for DriverImpl<'_> {
     #[expect(clippy::unwrap_used)]
     fn escape_bin(&self, name: &str) -> Option<PathBuf> {
         std::env::var_os("PATH")?
