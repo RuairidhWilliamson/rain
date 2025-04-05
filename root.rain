@@ -66,9 +66,7 @@ fn everything() {
 	print_some_stuff()
 }
 
-let version = "0.0.2"
-
-fn compress_lib() {
+fn compress_lib(version) {
 	ouch = std.utils.escape_bin("ouch")
 	lib_dir = std.utils.get_dir(area, "lib")
 	filename = "lib-" + version + ".tar.gz"
@@ -81,11 +79,11 @@ fn compress_lib() {
 	get_file(run_result.area, filename)
 }
 
-fn publish_lib() {
+fn publish_lib(version) {
 	bucket = "rw-rain-std-3a91d162"
-	compressed = compress_lib()
+	compressed = compress_lib(version)
 	gcloud = std.utils.escape_bin("gcloud")
-	run_result = std.utils.run(std.utils.unit, gcloud, ["storage", "cp", compressed, "gs://" + bucket + "/lib-" + version + ".tar.gz"], {})
+	run_result = std.utils.run(std.utils.unit, gcloud, ["storage", "cp", compressed, "gs://" + bucket + "/lib-" + version + ".tar.gz", "--no-clobber"], {})
 	if std.utils.not(run_result.success) {
 		utils.print("Stdout:", run_result.stdout)
 		utils.print("Stderr:", run_result.stderr)

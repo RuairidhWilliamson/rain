@@ -46,9 +46,13 @@ fn fallible_main() -> Result<(), ()> {
 fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     let cli = Cli::parse();
     match cli.command {
-        RainCtlCommand::Check => run(config, String::from("check"), false),
-        RainCtlCommand::Build => run(config, String::from("build"), false),
-        RainCtlCommand::Run { target, resolve } => run(config, target, resolve),
+        RainCtlCommand::Check => run(config, String::from("check"), vec![], false),
+        RainCtlCommand::Build => run(config, String::from("build"), vec![], false),
+        RainCtlCommand::Run {
+            target,
+            resolve,
+            args,
+        } => run(config, target, args, resolve),
         RainCtlCommand::Info => {
             let info = make_request_or_start(config, InfoRequest, |()| {}).map_err(|err| {
                 eprintln!("{err}");
@@ -84,7 +88,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     }
 }
 
-fn run(config: &Config, target: String, resolve: bool) -> Result<(), ()> {
+fn run(config: &Config, target: String, args: Vec<String>, resolve: bool) -> Result<(), ()> {
     let root = rain_core::find_root_rain().ok_or(())?;
     let mut stack = Vec::new();
     let run_response = make_request_or_start(
@@ -92,6 +96,7 @@ fn run(config: &Config, target: String, resolve: bool) -> Result<(), ()> {
         RunRequest {
             root,
             target,
+            args,
             resolve,
         },
         |im| {
@@ -125,7 +130,7 @@ fn run(config: &Config, target: String, resolve: bool) -> Result<(), ()> {
     } = run_response;
     match result {
         Ok(s) => {
-            println!("Done in {elapsed:.1?}");
+            eprintln!("Done in {elapsed:.1?}");
             println!("{s}");
             Ok(())
         }
@@ -193,6 +198,7 @@ pub enum RainCtlCommand {
         /// Resolve returned file paths before printing them to stdout
         #[arg(long)]
         resolve: bool,
+        args: Vec<String>,
     },
     Shutdown,
     /// View rain config

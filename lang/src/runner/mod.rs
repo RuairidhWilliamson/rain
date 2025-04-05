@@ -70,7 +70,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         }
     }
 
-    pub fn evaluate_and_call(&mut self, id: DeclarationId) -> ResultValue {
+    pub fn evaluate_and_call(&mut self, id: DeclarationId, args: &[String]) -> ResultValue {
         let v = self.evaluate_declaration(id)?;
         let Value::Function(f) = v else {
             return Ok(v);
@@ -80,19 +80,30 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         let node = m.get(nid);
         match node {
             Node::FnDeclare(fn_declare) => {
-                if !fn_declare.args.is_empty() {
+                if fn_declare.args.len() != args.len() {
                     return Err(fn_declare.rparen_token.span.with_module(m.id).with_error(
                         RunnerError::IncorrectArgs {
                             required: fn_declare.args.len()..=fn_declare.args.len(),
-                            actual: 0,
+                            actual: args.len(),
                         }
                         .into(),
                     ));
                 }
+                let args = fn_declare
+                    .args
+                    .iter()
+                    .zip(args)
+                    .map(|(a, v)| {
+                        (
+                            a.name.span.contents(&m.src),
+                            Value::String(Arc::new(v.clone())),
+                        )
+                    })
+                    .collect();
                 let mut cx = Cx {
                     module: m,
                     call_depth: 0,
-                    args: HashMap::new(),
+                    args,
                     locals: HashMap::new(),
                     deps: Vec::new(),
                 };

@@ -57,6 +57,7 @@ pub mod run {
     pub struct RunRequest {
         pub root: PathBuf,
         pub target: String,
+        pub args: Vec<String>,
         pub resolve: bool,
     }
 

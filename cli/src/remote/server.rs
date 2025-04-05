@@ -355,13 +355,18 @@ fn run_inner(
 }
 
 fn run_core(
-    req: &super::msg::run::RunRequest,
+    super::msg::run::RunRequest {
+        root,
+        target,
+        args,
+        resolve: _,
+    }: &super::msg::run::RunRequest,
     cache: &Cache,
     driver: &DriverImpl<'_>,
     ir: &mut Rir,
 ) -> Result<Value, CoreError> {
-    let path = &req.root;
-    let declaration: &str = &req.target;
+    let path = root;
+    let declaration: &str = target;
     let file = File::new_local(path.as_ref()).map_err(|err| CoreError::Other(err.to_string()))?;
     let path = driver.resolve_fs_entry(file.inner());
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
@@ -374,7 +379,7 @@ fn run_core(
         .ok_or_else(|| CoreError::Other(String::from("declaration does not exist")))?;
     let mut runner = Runner::new(ir, cache, driver);
     let value = runner
-        .evaluate_and_call(main)
+        .evaluate_and_call(main, &args)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;
     Ok(value)
 }

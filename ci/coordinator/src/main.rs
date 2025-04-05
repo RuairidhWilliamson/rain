@@ -214,7 +214,7 @@ impl HandlerInner {
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, &driver);
         tracing::info!("Running");
-        let res = runner.evaluate_and_call(main);
+        let res = runner.evaluate_and_call(main, &[]);
         let persistent_cache = PersistentCache::from_cache(&cache.0.plock());
         persistent_cache
             .save(&driver.config.cache_json_path())
