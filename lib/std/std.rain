@@ -3,3 +3,5 @@ let cc = internal._import(internal._get_file(area, "cc.rain"))
 let go = internal._import(internal._get_file(area, "go.rain"))
 let rust = internal._import(internal._get_file(area, "rust.rain"))
 let utils = internal._import(internal._get_file(area, "utils.rain"))
+
+let host = internal._host_info()

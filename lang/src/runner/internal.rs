@@ -56,6 +56,8 @@ pub enum InternalFunction {
     LocalArea,
     SplitString,
     Index,
+    HostInfo,
+    StringContains,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -92,6 +94,8 @@ impl InternalFunction {
             "_local_area" => Some(Self::LocalArea),
             "_split_string" => Some(Self::SplitString),
             "_index" => Some(Self::Index),
+            "_host_info" => Some(Self::HostInfo),
+            "_string_contains" => Some(Self::StringContains),
             _ => None,
         }
     }
@@ -123,8 +127,26 @@ impl InternalFunction {
             Self::LocalArea => local_area(icx),
             Self::SplitString => split_string(icx),
             Self::Index => index(icx),
+            Self::HostInfo => host_info(icx),
+            Self::StringContains => string_contains(icx),
         }
     }
+}
+
+struct Call<'a> {
+    driver: &'a dyn DriverTrait,
+    s: String,
+}
+
+impl Drop for Call<'_> {
+    fn drop(&mut self) {
+        self.driver.exit_call(&self.s);
+    }
+}
+
+fn enter_call(driver: &dyn DriverTrait, s: String) -> Call {
+    driver.enter_call(&s);
+    Call { driver, s }
 }
 
 pub struct InternalCx<'a, 'b> {
@@ -975,18 +997,39 @@ fn index(icx: InternalCx) -> ResultValue {
     }
 }
 
-struct Call<'a> {
-    driver: &'a dyn DriverTrait,
-    s: String,
+fn host_info(icx: InternalCx) -> ResultValue {
+    icx.no_args()?;
+    let mut record = IndexMap::new();
+    record.insert(
+        String::from("triple"),
+        Value::String(Arc::new(String::from(env!("TARGET_PLATFORM")))), // Set by build script
+    );
+    Ok(Value::Record(Arc::new(RainRecord(record))))
 }
 
-impl Drop for Call<'_> {
-    fn drop(&mut self) {
-        self.driver.exit_call(&self.s);
+fn string_contains(icx: InternalCx) -> ResultValue {
+    match &icx.arg_values[..] {
+        [(haystack_nid, haystack_value), (needle_nid, needle_value)] => {
+            let Value::String(haystack) = haystack_value else {
+                return Err(icx.cx.nid_err(
+                    *haystack_nid,
+                    RunnerError::ExpectedType {
+                        actual: haystack_value.rain_type_id(),
+                        expected: &[RainTypeId::String],
+                    },
+                ));
+            };
+            let Value::String(needle) = needle_value else {
+                return Err(icx.cx.nid_err(
+                    *needle_nid,
+                    RunnerError::ExpectedType {
+                        actual: needle_value.rain_type_id(),
+                        expected: &[RainTypeId::String],
+                    },
+                ));
+            };
+            Ok(Value::Boolean(haystack.contains(&**needle)))
+        }
+        _ => icx.incorrect_args(2..=2),
     }
-}
-
-fn enter_call(driver: &dyn DriverTrait, s: String) -> Call {
-    driver.enter_call(&s);
-    Call { driver, s }
 }

@@ -10,14 +10,16 @@ let run = utils.run
 let unit = utils.unit
 let _throw = utils._throw
 
+let host_triple = utils.host_info().triple
+
 fn prepare_cargo(channel) {
 	// Implicitly requires cc for linking
 	cc = escape_bin("cc")
 
 	// Download components
-	rustc = rust_dist.get_rustc(channel)
-	rust_std = rust_dist.get_rust_std(channel)
-	cargo = rust_dist.get_cargo(channel)
+	rustc = rust_dist.get_rustc(channel, host_triple)
+	rust_std = rust_dist.get_rust_std(channel, host_triple)
+	cargo = rust_dist.get_cargo(channel, host_triple)
 
 	merged = utils.create_area([rustc, rust_std, cargo])
 	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_dir(merged, "/lib")}
@@ -25,9 +27,9 @@ fn prepare_cargo(channel) {
 	{env: env, cargo_bin: cargo_bin}
 }
 
-fn build(channel, area, package, features, profile) {
+fn build(channel, area, package, features, profile, target) {
 	prep = prepare_cargo(channel)
-	run_result = run(area, prep.cargo_bin, ["build", "--quiet", "--package", package, "--features", features, "--target-dir", "target", "--profile", profile, "--color", "always"], prep.env)
+	run_result = run(area, prep.cargo_bin, ["build", "--quiet", "--package", package, "--features", features, "--target-dir", "target", "--profile", profile, "--color", "always", "--target", target], prep.env)
 	if not(run_result.success) {
 		utils.print(run_result.stderr)
 		_throw("cargo compilation failed")
@@ -36,7 +38,7 @@ fn build(channel, area, package, features, profile) {
 	if profile == "dev" {
 		profile_dir = "debug"
 	}
-	get_file(run_result.area, "target/" + profile_dir + "/" + package)
+	get_file(run_result.area, "target/" + target + "/" + profile_dir + "/" + package + utils.exe_suffix(target))
 }
 
 fn test(channel, area, package, features, profile) {
@@ -51,10 +53,10 @@ fn test(channel, area, package, features, profile) {
 
 fn clippy(channel, area) {
 	// Download components
-	rustc = rust_dist.get_rustc(channel)
-	rust_std = rust_dist.get_rust_std(channel)
-	cargo = rust_dist.get_cargo(channel)
-	clippy = rust_dist.get_clippy(channel)
+	rustc = rust_dist.get_rustc(channel, host_triple)
+	rust_std = rust_dist.get_rust_std(channel, host_triple)
+	cargo = rust_dist.get_cargo(channel, host_triple)
+	clippy = rust_dist.get_clippy(channel, host_triple)
 
 	merged = utils.create_area([rustc, rust_std, cargo, clippy])
 	env = {PATH: get_dir(merged, "/bin"), LD_LIBRARY_PATH: get_dir(merged, "/lib")}
@@ -68,7 +70,7 @@ fn clippy(channel, area) {
 
 fn check_fmt(channel, area) {
 	// Download components
-	rustfmt = rust_dist.get_rustfmt(channel)
+	rustfmt = rust_dist.get_rustfmt(channel, host_triple)
 
 	env = {}
 	cargo_fmt_bin = get_file(rustfmt, "bin/cargo-fmt")

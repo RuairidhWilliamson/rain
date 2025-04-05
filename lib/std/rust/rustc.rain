@@ -10,21 +10,21 @@ let run = utils.run
 let unit = utils.unit
 let _throw = utils._throw
 
-fn compile(channel, src, outname) {
+fn compile(channel, src, outname, target) {
 	// Implicitly requires cc for linking
 	cc = escape_bin("cc")
 
 	// Download components
-	rustc = rust_dist.get_rustc(channel)
-	rust_std = rust_dist.get_rust_std(channel)
+	rustc = rust_dist.get_rustc(channel, utils.host_info().triple)
+	rust_std = rust_dist.get_rust_std(channel, target)
 
 	merged = utils.create_area([rustc, rust_std])
 	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_dir(merged, "/lib")}
 	rustc_bin = get_file(merged, "/bin/rustc")
-	run_result = run(unit, rustc_bin, [src, "-o", outname, "--color", "always"], env)
+	run_result = run(unit, rustc_bin, [src, "-o", outname, "--color", "always", "--target", target], env)
 	if not(run_result.success) {
 		utils.print(run_result.stderr)
 		_throw("rustc compilation failed")
 	}
-	get_file(run_result.area, outname)
+	get_file(run_result.area, outname + utils.exe_suffix(target))
 }

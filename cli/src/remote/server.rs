@@ -350,7 +350,7 @@ fn run_inner(
         Value::Unit => String::new(),
         Value::Dir(d) if req.resolve => driver.resolve_fs_entry(d.inner()).display().to_string(),
         Value::File(f) if req.resolve => driver.resolve_fs_entry(f.inner()).display().to_string(),
-        _ => format!("{v:?}"),
+        _ => format!("{v}"),
     })
 }
 
@@ -379,7 +379,7 @@ fn run_core(
         .ok_or_else(|| CoreError::Other(String::from("declaration does not exist")))?;
     let mut runner = Runner::new(ir, cache, driver);
     let value = runner
-        .evaluate_and_call(main, &args)
+        .evaluate_and_call(main, args)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;
     Ok(value)
 }

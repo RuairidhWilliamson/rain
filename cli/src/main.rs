@@ -5,7 +5,7 @@ mod remote;
 
 use std::{
     ffi::OsStr,
-    io::{Write as _, stderr},
+    io::{Write as _, stderr, stdin},
     process::ExitCode,
 };
 
@@ -81,6 +81,20 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             eprintln!("Cache size is {cache_size}");
             for e in entries {
                 eprintln!("{e}");
+            }
+            Ok(())
+        }
+        RainCtlCommand::Resolve { path } => {
+            let lines: Box<dyn Iterator<Item = String>> = if let Some(p) = path {
+                Box::new(std::iter::once(p))
+            } else {
+                Box::new(stdin().lines().map(|s| s.unwrap()))
+            };
+            for line in lines {
+                let (area, rest) = line.split_once('/').unwrap();
+                let area = area.strip_prefix('<').unwrap().strip_suffix('>').unwrap();
+                let path = config.base_generated_dir.join(area).join(rest);
+                println!("{}", path.display());
             }
             Ok(())
         }
@@ -205,6 +219,10 @@ pub enum RainCtlCommand {
     Config,
     /// Inspect the rain cache
     Inspect,
+    /// Resolve rain path to actual local path
+    Resolve {
+        path: Option<String>,
+    },
     /// Clean the rain cache
     Clean,
 }

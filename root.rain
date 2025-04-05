@@ -47,7 +47,7 @@ fn download_test() {
 
 fn helloworld() {
 	src = std.utils.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
-	bin = std.rust.rustc.compile("stable", src, "helloworld")
+	bin = std.rust.rustc.compile("stable", std.utils.host_info().triple, src, "helloworld")
 	print(std.utils.run(std.utils.unit, bin, [], {}).stdout)
 }
 
@@ -84,9 +84,9 @@ fn publish_lib(version) {
 	compressed = compress_lib(version)
 	gcloud = std.utils.escape_bin("gcloud")
 	run_result = std.utils.run(std.utils.unit, gcloud, ["storage", "cp", compressed, "gs://" + bucket + "/lib-" + version + ".tar.gz", "--no-clobber"], {})
+	utils.print("Stdout:", run_result.stdout)
+	utils.print("Stderr:", run_result.stderr)
 	if std.utils.not(run_result.success) {
-		utils.print("Stdout:", run_result.stdout)
-		utils.print("Stderr:", run_result.stderr)
 		std.utils._throw("gcloud upload failed")
 	}
 	print("Published lib", version)

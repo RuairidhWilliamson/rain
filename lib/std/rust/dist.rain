@@ -25,10 +25,10 @@ fn download_pre_sha(url, filename) {
 	download_result.file
 }
 
-let base_url = "https://static.rust-lang.org"
 
 // Channel is a string one of stable|beta|nightly|<version>
 fn get_manifest(channel) {
+	base_url = "https://static.rust-lang.org"
 	manifest_file = download_pre_sha(base_url + "/dist", "channel-rust-" + channel + ".toml")
 	manifest_toml = utils.parse_toml(utils.read_file(manifest_file))
 	if utils.index(manifest_toml, "manifest-version") != "2" {
@@ -73,10 +73,7 @@ fn get_version(manifest) {
 	utils.index(version_split, 0)
 }
 
-// TODO: Specify the target
-let target = "x86_64-unknown-linux-gnu"
-
-fn get_rustc(channel) {
+fn get_rustc(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version(manifest)
 	rustc_pkg = get_xz_artifact(utils.index(manifest.pkg.rustc.target, target))
@@ -84,16 +81,16 @@ fn get_rustc(channel) {
 	rustc
 }
 
-fn get_rust_std(channel) {
+fn get_rust_std(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version(manifest)
 	pkg_targets = utils.index(manifest.pkg, "rust-std")
 	rust_std_pkg = get_xz_artifact(utils.index(pkg_targets.target, target))
-	rust_std = get_dir(rust_std_pkg, "rust-std-" + version + "-" + target + "/rust-std-x86_64-unknown-linux-gnu/")
+	rust_std = get_dir(rust_std_pkg, "rust-std-" + version + "-" + target + "/rust-std-" + target)
 	rust_std
 }
 
-fn get_cargo(channel) {
+fn get_cargo(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version(manifest)
 	cargo_pkg = get_xz_artifact(utils.index(manifest.pkg.cargo.target, target))
@@ -101,7 +98,7 @@ fn get_cargo(channel) {
 	cargo
 }
 
-fn get_clippy(channel) {
+fn get_clippy(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version(manifest)
 	pkg_targets = utils.index(manifest.pkg, "clippy-preview")
@@ -110,7 +107,7 @@ fn get_clippy(channel) {
 	clippy
 }
 
-fn get_rustfmt(channel) {
+fn get_rustfmt(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version(manifest)
 	pkg_targets = utils.index(manifest.pkg, "rustfmt-preview")
