@@ -72,8 +72,8 @@ fn compress_lib(version) {
 	filename = "lib-" + version + ".tar.gz"
 	run_result = std.utils.run(std.utils.unit, ouch, ["compress", lib_dir, filename], {})
 	if std.utils.not(run_result.success) {
-		utils.print("Stdout:", run_result.stdout)
-		utils.print("Stderr:", run_result.stderr)
+		std.utils.print("Stdout:", run_result.stdout)
+		std.utils.print("Stderr:", run_result.stderr)
 		std.utils._throw("ouch compress failed")
 	}
 	get_file(run_result.area, filename)
@@ -84,8 +84,8 @@ fn publish_lib(version) {
 	compressed = compress_lib(version)
 	gcloud = std.utils.escape_bin("gcloud")
 	run_result = std.utils.run(std.utils.unit, gcloud, ["storage", "cp", compressed, "gs://" + bucket + "/lib-" + version + ".tar.gz", "--no-clobber"], {})
-	utils.print("Stdout:", run_result.stdout)
-	utils.print("Stderr:", run_result.stderr)
+	std.utils.print("Stdout:", run_result.stdout)
+	std.utils.print("Stderr:", run_result.stderr)
 	if std.utils.not(run_result.success) {
 		std.utils._throw("gcloud upload failed")
 	}
