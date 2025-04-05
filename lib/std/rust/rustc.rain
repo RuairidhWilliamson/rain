@@ -21,10 +21,9 @@ fn compile(channel, src, outname) {
 	merged = utils.create_area([rustc, rust_std])
 	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_dir(merged, "/lib")}
 	rustc_bin = get_file(merged, "/bin/rustc")
-	run_result = run(unit, rustc_bin, [src, "-o", outname], env)
+	run_result = run(unit, rustc_bin, [src, "-o", outname, "--color", "always"], env)
 	if not(run_result.success) {
-		utils.print("Stdout:", run_result.stdout)
-		utils.print("Stderr:", run_result.stderr)
+		utils.print(run_result.stderr)
 		_throw("rustc compilation failed")
 	}
 	get_file(run_result.area, outname)

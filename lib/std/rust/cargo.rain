@@ -27,10 +27,9 @@ fn prepare_cargo(channel) {
 
 fn build(channel, area, package, features, profile) {
 	prep = prepare_cargo(channel)
-	run_result = run(area, prep.cargo_bin, ["build", "--package", package, "--features", features, "--target-dir", "target", "--profile", profile], prep.env)
+	run_result = run(area, prep.cargo_bin, ["build", "--quiet", "--package", package, "--features", features, "--target-dir", "target", "--profile", profile, "--color", "always"], prep.env)
 	if not(run_result.success) {
-		utils.print("Stdout:", run_result.stdout)
-		utils.print("Stderr:", run_result.stderr)
+		utils.print(run_result.stderr)
 		_throw("cargo compilation failed")
 	}
 	profile_dir = profile
@@ -42,7 +41,7 @@ fn build(channel, area, package, features, profile) {
 
 fn test(channel, area, package, features, profile) {
 	prep = prepare_cargo(channel)
-	run_result = run(area, prep.cargo_bin, ["test", "--package", package, "--features", features, "--profile", profile], prep.env)
+	run_result = run(area, prep.cargo_bin, ["test", "--quiet", "--package", package, "--features", features, "--profile", profile, "--color", "always"], prep.env)
 	if not(run_result.success) {
 		utils.print("Stdout:", run_result.stdout)
 		utils.print("Stderr:", run_result.stderr)

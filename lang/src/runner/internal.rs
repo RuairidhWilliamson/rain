@@ -40,7 +40,6 @@ pub enum InternalFunction {
     ExtractZip,
     ExtractTarGz,
     ExtractTarXz,
-    Args,
     Run,
     EscapeBin,
     Unit,
@@ -77,7 +76,6 @@ impl InternalFunction {
             "_extract_zip" => Some(Self::ExtractZip),
             "_extract_tar_gz" => Some(Self::ExtractTarGz),
             "_extract_tar_xz" => Some(Self::ExtractTarXz),
-            "_args" => Some(Self::Args),
             "_run" => Some(Self::Run),
             "_escape_bin" => Some(Self::EscapeBin),
             "_unit" => Some(Self::Unit),
@@ -109,7 +107,6 @@ impl InternalFunction {
             Self::ExtractZip => extract_zip(icx),
             Self::ExtractTarGz => extract_tar_gz(icx),
             Self::ExtractTarXz => extract_tar_xz(icx),
-            Self::Args => args_implementation(icx),
             Self::Run => run_implementation(icx),
             Self::EscapeBin => escape_bin(icx),
             Self::Unit => unit(icx),
@@ -409,14 +406,6 @@ fn extract_tar_xz(icx: InternalCx) -> ResultValue {
             .map_err(|err| icx.cx.nid_err(icx.nid, err))?;
         Ok(Value::FileArea(Arc::new(area)))
     })
-}
-
-fn args_implementation(_icx: InternalCx) -> ResultValue {
-    let args: Vec<_> = std::env::args()
-        .skip(1)
-        .map(|a| Value::String(Arc::new(a)))
-        .collect();
-    Ok(Value::List(Arc::new(RainList(args))))
 }
 
 fn run_implementation(icx: InternalCx) -> ResultValue {

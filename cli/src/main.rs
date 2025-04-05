@@ -11,7 +11,7 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use env_logger::Env;
-use rain_core::config::Config;
+use rain_core::{CoreError, config::Config};
 use remote::{
     client::make_request_or_start,
     msg::{
@@ -115,8 +115,6 @@ fn run(config: &Config, target: String, args: Vec<String>, resolve: bool) -> Res
             }
             if let Some(last) = stack.last() {
                 eprint!("\r[ ] {last:120}");
-            } else {
-                eprint!("\r[x] {:120}\r", "");
             }
             let _ = stderr().flush();
         },
@@ -128,6 +126,7 @@ fn run(config: &Config, target: String, args: Vec<String>, resolve: bool) -> Res
         output: result,
         elapsed,
     } = run_response;
+    eprint!("\r[x] {:120}\r", "");
     match result {
         Ok(s) => {
             eprintln!("Done in {elapsed:.1?}");
@@ -136,14 +135,15 @@ fn run(config: &Config, target: String, args: Vec<String>, resolve: bool) -> Res
         }
         Err(s) => {
             match s {
-                rain_core::CoreError::LangError(owned_resolved_error) => {
-                    let mut stdout =
-                        termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
+                CoreError::LangError(owned_resolved_error) => {
+                    eprintln!("Error in {elapsed:.1?}");
+                    let mut stderr =
+                        termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
                     owned_resolved_error
-                        .write_color(&mut stdout)
+                        .write_color(&mut stderr)
                         .expect("write stdout");
                 }
-                rain_core::CoreError::Other(s) => {
+                CoreError::Other(s) => {
                     println!("{s}");
                 }
             }

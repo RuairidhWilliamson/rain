@@ -7,7 +7,6 @@ let module_file = internal._module_file
 let extract_zip = internal._extract_zip
 let extract_tar_gz = internal._extract_tar_gz
 let extract_tar_xz = internal._extract_tar_xz
-let args = internal._args
 let run = internal._run
 let escape_bin = internal._escape_bin
 let unit = internal._unit()
@@ -20,6 +19,7 @@ let create_area = internal._create_area
 let read_file = internal._read_file
 let create_file = internal._create_file
 let get_dir = internal._get_dir
+let local_area = internal._local_area
 let split_string = internal._split_string
 let index = internal._index
 
@@ -37,6 +37,15 @@ fn not(b) {
 
 fn download(url) {
 	internal._download(url, "download")
+}
+
+fn run_check(area, bin, args, env) {
+	run_result = run(area, bin, args, env)
+	if not(run_result.success) {
+		utils.print("Stdout:", run_result.stdout)
+		utils.print("Stderr:", run_result.stderr)
+		_throw("run failed")
+	}
 }
 
 let newline = internal._bytes_to_string([10])
