@@ -58,30 +58,24 @@ fn clippy(channel, area) {
 	clippy = rust_dist.get_clippy(channel)
 
 	merged = utils.create_area([rustc, rust_std, cargo, clippy])
-	env = {LD_LIBRARY_PATH: get_dir(merged, "/lib")}
-	clippy_bin = get_file(merged, "/bin/cargo-clippy")
-	run_result = run(area, clippy_bin, ["-Dwarnings"], env)
+	env = {PATH: get_dir(merged, "/bin"), LD_LIBRARY_PATH: get_dir(merged, "/lib")}
+	cargo_bin = get_file(merged, "/bin/cargo")
+	run_result = run(area, cargo_bin, ["clippy", "--color", "always", "-q", "--", "-Dwarnings"], env)
 	if not(run_result.success) {
-		utils.print("Stdout:", run_result.stdout)
-		utils.print("Stderr:", run_result.stderr)
+		utils.print(run_result.stderr)
 		_throw("clippy failed")
 	}
 }
 
 fn check_fmt(channel, area) {
 	// Download components
-	rustc = rust_dist.get_rustc(channel)
-	rust_std = rust_dist.get_rust_std(channel)
-	cargo = rust_dist.get_cargo(channel)
 	rustfmt = rust_dist.get_rustfmt(channel)
 
-	merged = utils.create_area([rustc, rust_std, cargo, rustfmt])
-	env = {LD_LIBRARY_PATH: get_dir(merged, "/lib")}
-	cargo_fmt_bin = get_file(merged, "/bin/cargo-fmt")
-	run_result = run(area, cargo_fmt_bin, ["--check"], env)
+	env = {}
+	cargo_fmt_bin = get_file(rustfmt, "bin/cargo-fmt")
+	run_result = run(area, cargo_fmt_bin, ["--check", "--", "--color", "always"], env)
 	if not(run_result.success) {
-		utils.print("Stdout:", run_result.stdout)
-		utils.print("Stderr:", run_result.stderr)
+		utils.print(run_result.stdout)
 		_throw("rustfmt check failed")
 	}
 }

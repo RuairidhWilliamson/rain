@@ -12,7 +12,9 @@ use octocrab::{
     },
 };
 use octocrab_extensions::OctocrabExt as _;
-use rain_lang::afs::path::FilePath;
+use poison_panic::MutexExt as _;
+use rain_core::cache::persistent::PersistentCache;
+use rain_lang::afs::{dir::Dir, entry::FSEntry, file::File, path::FilePath};
 use rain_lang::driver::FSTrait as _;
 use smee_rs::{MessageHandler, default_smee_server_url};
 
@@ -146,10 +148,15 @@ impl HandlerInner {
                     .await?;
                 let download = download.into_body();
                 let download = download.collect().await?.to_bytes();
-                self.run(&download, &head_commit.id);
+                let ok = self.run(&download, &head_commit.id).await;
+                let ci_status = if ok {
+                    StatusState::Success
+                } else {
+                    StatusState::Failure
+                };
                 self.crab
                     .repos(&self.owner, &self.repo)
-                    .create_status(head_commit.id.clone(), StatusState::Success)
+                    .create_status(head_commit.id.clone(), ci_status)
                     .context("rain".to_owned())
                     .target(self.target_url.to_string())
                     .description("yippeeee".to_owned())
@@ -166,40 +173,63 @@ impl HandlerInner {
         Ok(())
     }
 
-    #[expect(clippy::unwrap_used, clippy::undocumented_unsafe_blocks)]
-    fn run(&self, download: &[u8], git_ref: &str) {
+    #[expect(clippy::unwrap_used)]
+    async fn run(&self, download: &[u8], git_ref: &str) -> bool {
+        // Need to do this to satisfy static lifetime
+        let download = download.to_vec();
+        let download_dir_name = format!("{}-{}-{}", self.owner, self.repo, git_ref);
+        tokio::task::spawn_blocking(move || Self::blocking_run(&download, &download_dir_name))
+            .await
+            .unwrap()
+    }
+
+    #[expect(
+        clippy::unwrap_used,
+        clippy::print_stdout,
+        clippy::cognitive_complexity
+    )]
+    fn blocking_run(download: &[u8], download_dir_name: &str) -> bool {
         use rain_lang::driver::DriverTrait as _;
         let declaration = "ci";
-        let cache = rain_core::cache::Cache::default();
-        let mut ir = rain_lang::ir::Rir::new();
         let config = rain_core::config::Config::new();
+        let persistent_cache = PersistentCache::load(&config.cache_json_path()).unwrap();
+        let cache = persistent_cache.into_cache(&config);
+        let cache = rain_core::cache::Cache::new(cache);
+        let mut ir = rain_lang::ir::Rir::new();
         let driver = rain_core::driver::DriverImpl::new(config);
         let download_area = driver.create_area(&[]).unwrap();
-        let download_entry =
-            rain_lang::afs::entry::FSEntry::new(download_area, FilePath::new("/download").unwrap());
+        let download_entry = FSEntry::new(download_area, FilePath::new("/download").unwrap());
         std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
-        let download = unsafe { rain_lang::afs::file::File::new(download_entry) };
+        let download = File::new_checked(&driver, download_entry).unwrap();
         let area = driver.extract_tar_gz(&download).unwrap();
-        let download_dir_entry = rain_lang::afs::entry::FSEntry::new(
-            area,
-            FilePath::new(&format!("{}-{}-{}", self.owner, self.repo, git_ref)).unwrap(),
-        );
-        let root = unsafe { rain_lang::afs::dir::Dir::new(download_dir_entry) };
+        let download_dir_entry = FSEntry::new(area, FilePath::new(download_dir_name).unwrap());
+        let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
         let area = driver.create_area(&[&root]).unwrap();
-        let root_entry =
-            rain_lang::afs::entry::FSEntry::new(area, FilePath::new("/root.rain").unwrap());
+        let root_entry = FSEntry::new(area, FilePath::new("/root.rain").unwrap());
         tracing::info!("Root entry {root_entry}");
-        assert_eq!(
-            driver.query_fs(&root_entry).unwrap(),
-            rain_lang::driver::FSEntryQueryResult::File
-        );
-        let root = unsafe { rain_lang::afs::file::File::new(root_entry) };
+        let root = File::new_checked(&driver, root_entry).unwrap();
         let src = driver.read_file(&root).unwrap();
         let module = rain_lang::ast::parser::parse_module(&src);
         let mid = ir.insert_module(root, src, module).unwrap();
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, &driver);
-        let value = runner.evaluate_and_call(main).unwrap();
-        tracing::info!("Value {value:?}");
+        tracing::info!("Running");
+        let res = runner.evaluate_and_call(main);
+        let persistent_cache = PersistentCache::from_cache(&cache.0.plock());
+        persistent_cache
+            .save(&driver.config.cache_json_path())
+            .unwrap();
+        match res {
+            Ok(value) => {
+                tracing::info!("Value {value}");
+                true
+            }
+            Err(err) => {
+                tracing::error!("{err:?}");
+                let err = err.resolve_ir(&ir);
+                println!("{err}");
+                false
+            }
+        }
     }
 }

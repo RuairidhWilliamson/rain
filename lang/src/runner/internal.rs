@@ -238,35 +238,45 @@ fn file_area_resolve_path(icx: &mut InternalCx) -> Result<FSEntry> {
                 path: file_path,
             })
         }
-        [
-            (area_nid, area_value),
-            (absolute_path_nid, absolute_path_value),
-        ] => {
+        [(parent_nid, parent_value), (path_nid, path_value)] => {
             icx.cx.deps.push(Dep::Uncacheable);
-            let Value::FileArea(area) = area_value else {
+            let Value::String(path) = path_value else {
                 return Err(icx.cx.nid_err(
-                    *area_nid,
+                    *path_nid,
                     RunnerError::ExpectedType {
-                        actual: area_value.rain_type_id(),
-                        expected: &[RainTypeId::FileArea],
-                    },
-                ));
-            };
-            let Value::String(absolute_path) = absolute_path_value else {
-                return Err(icx.cx.nid_err(
-                    *absolute_path_nid,
-                    RunnerError::ExpectedType {
-                        actual: absolute_path_value.rain_type_id(),
+                        actual: path_value.rain_type_id(),
                         expected: &[RainTypeId::String],
                     },
                 ));
             };
-            let file_path = FilePath::new(absolute_path)
-                .map_err(|err| icx.cx.nid_err(*absolute_path_nid, err.into()))?;
-            Ok(FSEntry {
-                area: area.as_ref().clone(),
-                path: file_path,
-            })
+            match parent_value {
+                Value::FileArea(area) => {
+                    let file_path =
+                        FilePath::new(path).map_err(|err| icx.cx.nid_err(*path_nid, err.into()))?;
+                    Ok(FSEntry {
+                        area: area.as_ref().clone(),
+                        path: file_path,
+                    })
+                }
+                Value::Dir(dir) => {
+                    let area = dir.area();
+                    let base_path = dir.path();
+                    let path = base_path
+                        .join(path)
+                        .map_err(|err| icx.cx.nid_err(*path_nid, err.into()))?;
+                    Ok(FSEntry {
+                        area: area.clone(),
+                        path,
+                    })
+                }
+                _ => Err(icx.cx.nid_err(
+                    *parent_nid,
+                    RunnerError::ExpectedType {
+                        actual: parent_value.rain_type_id(),
+                        expected: &[RainTypeId::FileArea, RainTypeId::Dir],
+                    },
+                )),
+            }
         }
         _ => {
             let required = 1..=2;

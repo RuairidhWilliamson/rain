@@ -20,6 +20,7 @@ impl File {
         Self(ife)
     }
 
+    /// Creates a [`File`] by checking it exists
     pub fn new_checked(fs: &impl FSTrait, entry: FSEntry) -> Option<Self> {
         match fs.query_fs(&entry) {
             // Safety: we have just queried the filesystem entry

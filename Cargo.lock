@@ -1972,6 +1972,7 @@ dependencies = [
  "envy",
  "http-body-util",
  "octocrab",
+ "poison_panic",
  "rain-core",
  "rain-lang",
  "serde",

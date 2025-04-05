@@ -51,28 +51,17 @@ impl DriverImpl<'_> {
         Ok(area)
     }
 
-    #[expect(clippy::unwrap_used)]
     fn create_overlay_area<'a>(
         &self,
-        overlay_dirs: impl Iterator<Item = &'a FSEntry>,
+        overlay_dirs: impl Iterator<Item = &'a Dir>,
     ) -> Result<FileArea, RunnerError> {
         let area = FileArea::Generated(GeneratedFileArea::new());
         let output_dir = Dir::root(area.clone());
         let output_dir_path = self.resolve_fs_entry(output_dir.inner());
         std::fs::create_dir_all(&output_dir_path).map_err(RunnerError::AreaIOError)?;
         for dir in overlay_dirs {
-            let dir_path = self.resolve_fs_entry(dir);
-            let dir_metadata = dir_path.metadata().unwrap();
-            if dir_metadata.is_dir() {
-                dircpy::copy_dir(dir_path, &output_dir_path).map_err(RunnerError::AreaIOError)?;
-            } else if dir_metadata.is_file() {
-                todo!();
-                // std::fs::copy(
-                //     &dir_path,
-                //     output_dir_path.join(dir_path.file_name().unwrap()),
-                // )
-                // .unwrap();
-            }
+            let dir_path = self.resolve_fs_entry(dir.inner());
+            dircpy::copy_dir(dir_path, &output_dir_path).map_err(RunnerError::AreaIOError)?;
         }
         Ok(area)
     }
@@ -164,7 +153,7 @@ impl DriverTrait for DriverImpl<'_> {
         RunOptions { inherit_env, env }: RunOptions,
     ) -> Result<RunStatus, RunnerError> {
         let output_area = if let Some(overlay_area) = overlay_area {
-            self.create_overlay_area(std::iter::once(Dir::root(overlay_area.clone()).inner()))?
+            self.create_overlay_area(std::iter::once(&Dir::root(overlay_area.clone())))?
         } else {
             self.create_empty_area()?
         };
@@ -213,11 +202,10 @@ impl DriverTrait for DriverImpl<'_> {
         if let Some(etag) = etag {
             request = request.header(reqwest::header::IF_NONE_MATCH, etag);
         }
-        // TODO: Download cache
         let request = request.build().unwrap();
-        log::debug!("Sending request {request:?}");
+        log::debug!("Download {url}");
         let mut response = client.execute(request).unwrap();
-        log::debug!("Received response {response:?}");
+        log::debug!("Download complete {url} {}", response.status());
         let etag = response
             .headers()
             .get(reqwest::header::ETAG)
@@ -257,7 +245,7 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     fn create_area(&self, dirs: &[&Dir]) -> Result<FileArea, RunnerError> {
-        self.create_overlay_area(dirs.iter().map(|d| d.inner()))
+        self.create_overlay_area(dirs.iter().copied())
     }
 
     fn read_file(&self, file: &File) -> Result<String, std::io::Error> {
