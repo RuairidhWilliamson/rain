@@ -9,7 +9,7 @@ use rain_lang::{
         entry::{FSEntry, FSEntryTrait as _},
         file::File,
     },
-    ir::{DeclarationId, ModuleId},
+    ir::DeclarationId,
     runner::{
         cache::{CacheEntry, CacheKey},
         dep::Dep,
@@ -73,7 +73,9 @@ impl PersistCache {
         let entries = cache
             .storage
             .iter()
-            .map(|(k, e)| (PersistCacheKey::persist(k), PersistCacheEntry::persist(e)))
+            .filter_map(|(k, e)| {
+                Some((PersistCacheKey::persist(k)?, PersistCacheEntry::persist(e)?))
+            })
             .collect();
         Self { entries }
     }
@@ -107,14 +109,14 @@ pub struct PersistCacheEntry {
 }
 
 impl PersistCacheEntry {
-    fn persist(entry: &CacheEntry) -> Self {
-        Self {
+    fn persist(entry: &CacheEntry) -> Option<Self> {
+        Some(Self {
             execution_time: entry.execution_time,
             expires: entry.expires,
             etag: entry.etag.clone(),
             deps: entry.deps.clone(),
-            value: PersistValue::persist(&entry.value),
-        }
+            value: PersistValue::persist(&entry.value)?,
+        })
     }
 
     fn depersist(self, config: &Config) -> Option<CacheEntry> {
@@ -135,8 +137,6 @@ pub enum PersistValue {
     Boolean(bool),
     Integer(RainInteger),
     String(String),
-    Function(DeclarationId),
-    Module(ModuleId),
     FileArea(FileArea),
     File(FSEntry),
     Dir(FSEntry),
@@ -147,29 +147,35 @@ pub enum PersistValue {
 }
 
 impl PersistValue {
-    fn persist(value: &Value) -> Self {
+    fn persist(value: &Value) -> Option<Self> {
         match value {
-            Value::Unit => Self::Unit,
-            Value::Boolean(b) => Self::Boolean(*b),
-            Value::Integer(rain_integer) => Self::Integer((**rain_integer).clone()),
-            Value::String(s) => Self::String((**s).clone()),
-            Value::Function(declaration_id) => Self::Function(*declaration_id),
-            Value::Module(module_id) => Self::Module(*module_id),
-            Value::FileArea(file_area) => Self::FileArea((**file_area).clone()),
-            Value::File(file) => Self::File(file.inner().clone()),
-            Value::Dir(dir) => Self::Dir(dir.inner().clone()),
-            Value::Internal => Self::Internal,
+            Value::Unit => Some(Self::Unit),
+            Value::Boolean(b) => Some(Self::Boolean(*b)),
+            Value::Integer(rain_integer) => Some(Self::Integer((**rain_integer).clone())),
+            Value::String(s) => Some(Self::String((**s).clone())),
+            // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
+            Value::Function(_) | Value::Module(_) => None,
+            Value::FileArea(file_area) => Some(Self::FileArea((**file_area).clone())),
+            Value::File(file) => Some(Self::File(file.inner().clone())),
+            Value::Dir(dir) => Some(Self::Dir(dir.inner().clone())),
+            Value::Internal => Some(Self::Internal),
             Value::InternalFunction(internal_function) => {
-                Self::InternalFunction(*internal_function)
+                Some(Self::InternalFunction(*internal_function))
             }
-            Value::List(rain_list) => Self::List(rain_list.0.iter().map(Self::persist).collect()),
-            Value::Record(rain_record) => Self::Record(
+            Value::List(rain_list) => Some(Self::List(
+                rain_list
+                    .0
+                    .iter()
+                    .map(Self::persist)
+                    .collect::<Option<_>>()?,
+            )),
+            Value::Record(rain_record) => Some(Self::Record(
                 rain_record
                     .0
                     .iter()
-                    .map(|(k, v)| (k.clone(), Self::persist(v)))
-                    .collect(),
-            ),
+                    .map(|(k, v)| Some((k.clone(), Self::persist(v)?)))
+                    .collect::<Option<_>>()?,
+            )),
         }
     }
 
@@ -179,8 +185,6 @@ impl PersistValue {
             Self::Boolean(b) => Some(Value::Boolean(b)),
             Self::Integer(rain_integer) => Some(Value::Integer(Arc::new(rain_integer))),
             Self::String(s) => Some(Value::String(Arc::new(s))),
-            Self::Function(declaration_id) => Some(Value::Function(declaration_id)),
-            Self::Module(module_id) => Some(Value::Module(module_id)),
             Self::FileArea(file_area) => Some(Value::FileArea(Arc::new(file_area))),
             Self::File(fsentry) => Some(Value::File(Arc::new(File::new_checked(config, fsentry)?))),
             Self::Dir(fsentry) => Some(Value::Dir(Arc::new(Dir::new_checked(config, fsentry)?))),
@@ -219,37 +223,33 @@ pub enum PersistCacheKey {
 }
 
 impl PersistCacheKey {
-    fn persist(key: &CacheKey) -> Self {
+    fn persist(key: &CacheKey) -> Option<Self> {
         match key {
-            CacheKey::Declaration { declaration, args } => Self::Declaration {
-                declaration: *declaration,
-                args: args.iter().map(PersistValue::persist).collect(),
-            },
-            CacheKey::InternalFunction { func, args } => Self::InternalFunction {
+            // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
+            CacheKey::Declaration { .. } => None,
+            CacheKey::InternalFunction { func, args } => Some(Self::InternalFunction {
                 func: *func,
-                args: args.iter().map(PersistValue::persist).collect(),
-            },
-            CacheKey::Download { url } => Self::Download { url: url.clone() },
+                args: args
+                    .iter()
+                    .map(PersistValue::persist)
+                    .collect::<Option<_>>()?,
+            }),
+            CacheKey::Download { url } => Some(Self::Download { url: url.clone() }),
         }
     }
 
     fn depersist(self, config: &Config) -> Option<CacheKey> {
-        Some(match self {
-            Self::Declaration { declaration, args } => CacheKey::Declaration {
-                declaration,
-                args: args
-                    .into_iter()
-                    .map(|a| a.depersist(config))
-                    .collect::<Option<Vec<Value>>>()?,
-            },
-            Self::InternalFunction { func, args } => CacheKey::InternalFunction {
+        match self {
+            // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
+            Self::Declaration { .. } => None,
+            Self::InternalFunction { func, args } => Some(CacheKey::InternalFunction {
                 func,
                 args: args
                     .into_iter()
                     .map(|a| a.depersist(config))
                     .collect::<Option<Vec<Value>>>()?,
-            },
-            Self::Download { url } => CacheKey::Download { url },
-        })
+            }),
+            Self::Download { url } => Some(CacheKey::Download { url }),
+        }
     }
 }

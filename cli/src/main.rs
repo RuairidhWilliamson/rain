@@ -175,7 +175,7 @@ fn clean(config: &Config) -> Result<(), ()> {
     for p in config.clean_directories() {
         println!("  {}", p.display());
     }
-    if inquire::Confirm::new("Delete all these directories?")
+    if inquire::Confirm::new("Delete all these directories recursively?")
         .prompt_skippable()
         .map_err(|err| {
             eprintln!("{err}");
