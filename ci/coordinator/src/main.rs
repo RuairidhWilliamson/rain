@@ -1,79 +1,72 @@
-mod octocrab_extensions;
+mod runner;
 
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
+use chrono::Utc;
 use http_body_util::BodyExt as _;
+use jsonwebtoken::EncodingKey;
 use octocrab::{
     OctocrabBuilder,
     models::{
-        StatusState, hooks,
-        webhook_events::{WebhookEvent, WebhookEventPayload, WebhookEventType},
+        AppId,
+        webhook_events::{
+            EventInstallation, WebhookEvent, WebhookEventPayload,
+            payload::CheckSuiteWebhookEventAction,
+        },
     },
 };
-use octocrab_extensions::OctocrabExt as _;
-use poison_panic::MutexExt as _;
-use rain_core::cache::persistent::PersistentCache;
-use rain_lang::afs::{dir::Dir, entry::FSEntry, file::File, path::FilePath};
-use rain_lang::driver::FSTrait as _;
-use smee_rs::{MessageHandler, default_smee_server_url};
+use smee_rs::MessageHandler;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
-    github_token: String,
+    github_app_id: AppId,
+    github_app_key: String,
     repository_owner: String,
     repository: String,
     target_url: url::Url,
+    smee_url: url::Url,
 }
 
+#[expect(clippy::unwrap_used)]
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv()?;
     tracing_subscriber::fmt::init();
     let config = envy::from_env::<Config>()?;
 
-    let crab = OctocrabBuilder::new()
-        .personal_token(config.github_token)
-        .build()?;
+    let key_raw = tokio::fs::read(config.github_app_key).await.unwrap();
+    let key = EncodingKey::from_rsa_pem(&key_raw).unwrap();
 
+    octocrab::auth::AppAuth {
+        app_id: config.github_app_id,
+        key: key.clone(),
+    }
+    .generate_bearer_token()
+    .unwrap();
+
+    let crab = OctocrabBuilder::new()
+        .app(config.github_app_id, key)
+        // .personal_token(config.github_token)
+        .build()?;
+    let installs = crab.apps().installations().send().await.unwrap();
+    let perms = &installs.items.first().unwrap().permissions;
+    tracing::info!("{perms:?}");
+
+    let runner = runner::Runner::new();
     let handler = Handler {
         inner: Arc::new(HandlerInner {
             crab: crab.clone(),
             owner: config.repository_owner.clone(),
             repo: config.repository.clone(),
             target_url: config.target_url.clone(),
+            runner,
         }),
     };
-    let mut smee = smee_rs::Channel::new(default_smee_server_url(), handler).await?;
+    // let mut smee = smee_rs::Channel::new(default_smee_server_url(), handler).await?;
+    let mut smee = smee_rs::Channel::from_existing_channel(config.smee_url, handler);
     let channel_url = smee.get_channel_url().to_string();
     tracing::info!("got channel url = {channel_url}");
-
-    let hooks = crab
-        .list_hooks(&config.repository_owner, &config.repository)
-        .await?;
-    tracing::info!("found {} hooks", hooks.items.len());
-
-    for h in &hooks {
-        crab.delete_hook(&config.repository_owner, &config.repository, h.id)
-            .await?;
-        tracing::info!("deleted hook {}", h.id);
-    }
-
-    crab.repos(&config.repository_owner, &config.repository)
-        .create_hook(hooks::Hook {
-            name: "web".to_owned(),
-            config: hooks::Config {
-                url: channel_url,
-                content_type: Some(hooks::ContentType::Json),
-                insecure_ssl: None,
-                secret: None,
-            },
-            active: true,
-            events: vec![WebhookEventType::Push],
-            ..Default::default()
-        })
-        .await?;
-    tracing::info!("created new hook");
 
     smee.start().await
 }
@@ -87,6 +80,7 @@ struct HandlerInner {
     owner: String,
     repo: String,
     target_url: url::Url,
+    runner: runner::Runner,
 }
 
 impl MessageHandler for Handler {
@@ -100,7 +94,7 @@ impl MessageHandler for Handler {
         let handler = Arc::clone(&self.inner);
         tokio::spawn(async move {
             if let Err(err) = Box::pin(handler.handle_hook(event)).await {
-                tracing::error!("handle_hook error: {err}");
+                tracing::error!("handle_hook error: {err:#}");
             }
         });
 
@@ -110,9 +104,10 @@ impl MessageHandler for Handler {
 
 impl HandlerInner {
     async fn handle_hook(self: Arc<Self>, event: WebhookEvent) -> Result<()> {
-        let event_repository = event
-            .repository
-            .ok_or_else(|| anyhow!("repository not present"))?;
+        let event_repository = event.repository.ok_or_else(|| {
+            tracing::info!("{:?}", event.specific);
+            anyhow!("repository not present")
+        })?;
         if event_repository.full_name
             != Some(format!(
                 "{owner}/{repo}",
@@ -125,46 +120,41 @@ impl HandlerInner {
                 event_repository.full_name
             ));
         }
+        let installation_id = match event.installation {
+            Some(EventInstallation::Full(installation)) => Some(installation.id),
+            Some(EventInstallation::Minimal(event_installation_id)) => {
+                Some(event_installation_id.id)
+            }
+            None => None,
+        };
         match event.specific {
-            WebhookEventPayload::Push(push_event) => {
+            WebhookEventPayload::Push(_push_event) => {
                 tracing::info!("webhook push event");
-                let head_commit = push_event
-                    .head_commit
-                    .as_ref()
-                    .ok_or_else(|| anyhow!("no head commit"))?;
-                self.crab
-                    .repos(&self.owner, &self.repo)
-                    .create_status(head_commit.id.clone(), StatusState::Pending)
-                    .context("rain".to_owned())
-                    .target(self.target_url.to_string())
-                    .description("yippeeee".to_owned())
-                    .send()
-                    .await?;
-
-                let download = self
-                    .crab
-                    .repos(&self.owner, &self.repo)
-                    .download_tarball(head_commit.id.clone())
-                    .await?;
-                let download = download.into_body();
-                let download = download.collect().await?.to_bytes();
-                let ok = self.run(&download, &head_commit.id).await;
-                let ci_status = if ok {
-                    StatusState::Success
-                } else {
-                    StatusState::Failure
-                };
-                self.crab
-                    .repos(&self.owner, &self.repo)
-                    .create_status(head_commit.id.clone(), ci_status)
-                    .context("rain".to_owned())
-                    .target(self.target_url.to_string())
-                    .description("yippeeee".to_owned())
-                    .send()
-                    .await?;
             }
             WebhookEventPayload::Ping(_) => {
                 tracing::info!("webhook ping event");
+            }
+            WebhookEventPayload::CheckSuite(suite_event) => {
+                tracing::info!("check suite event {:?}", suite_event.action);
+                match suite_event.action {
+                    CheckSuiteWebhookEventAction::Rerequested
+                    | CheckSuiteWebhookEventAction::Requested => (),
+                    _ => return Ok(()),
+                }
+                let installation = self
+                    .crab
+                    .installation(installation_id.context("installation_id not present")?)?;
+                let head_sha = suite_event
+                    .check_suite
+                    .get("head_sha")
+                    .context("head_sha not present")?
+                    .as_str()
+                    .context("head_sha not string")?;
+                self.handle_check_suite_request(installation, head_sha)
+                    .await?;
+            }
+            WebhookEventPayload::CheckRun(_run_event) => {
+                tracing::info!("check run event");
             }
             _ => {
                 tracing::warn!("unknown webhook event {kind:?}", kind = event.kind);
@@ -173,63 +163,62 @@ impl HandlerInner {
         Ok(())
     }
 
-    #[expect(clippy::unwrap_used)]
-    async fn run(&self, download: &[u8], git_ref: &str) -> bool {
-        // Need to do this to satisfy static lifetime
-        let download = download.to_vec();
-        let download_dir_name = format!("{}-{}-{}", self.owner, self.repo, git_ref);
-        tokio::task::spawn_blocking(move || Self::blocking_run(&download, &download_dir_name))
-            .await
-            .unwrap()
+    async fn handle_check_suite_request(
+        &self,
+        installation_crab: octocrab::Octocrab,
+        head_sha: &str,
+    ) -> Result<()> {
+        let check_run_name = "rain-test";
+        let checks = installation_crab.checks(&self.owner, &self.repo);
+        let check_run = checks
+            .create_check_run(check_run_name, head_sha)
+            .status(octocrab::params::checks::CheckRunStatus::InProgress)
+            .details_url(self.target_url.to_string())
+            .output(octocrab::params::checks::CheckRunOutput {
+                title: String::from("Rain CI Run"),
+                summary: String::from("Summary..."),
+                text: None,
+                annotations: vec![],
+                images: vec![],
+            })
+            .send()
+            .await?;
+        let download = installation_crab
+            .repos(&self.owner, &self.repo)
+            .download_tarball(head_sha.to_owned())
+            .await?;
+        let download = download.collect().await?.to_bytes();
+        let runner::RunComplete { success, output } = self.run(&download, head_sha).await?;
+        let conclusion = if success {
+            octocrab::params::checks::CheckRunConclusion::Success
+        } else {
+            octocrab::params::checks::CheckRunConclusion::Failure
+        };
+        checks
+            .update_check_run(check_run.id)
+            .status(octocrab::params::checks::CheckRunStatus::Completed)
+            .conclusion(conclusion)
+            .completed_at(Utc::now())
+            .details_url(self.target_url.to_string())
+            .output(octocrab::params::checks::CheckRunOutput {
+                title: String::from("Rain CI Run"),
+                summary: String::from("Summary..."),
+                text: Some(output),
+                annotations: vec![],
+                images: vec![],
+            })
+            .send()
+            .await?;
+        Ok(())
     }
 
-    #[expect(
-        clippy::unwrap_used,
-        clippy::print_stdout,
-        clippy::cognitive_complexity
-    )]
-    fn blocking_run(download: &[u8], download_dir_name: &str) -> bool {
-        use rain_lang::driver::DriverTrait as _;
-        let declaration = "ci";
-        let config = rain_core::config::Config::new();
-        let persistent_cache = PersistentCache::load(&config.cache_json_path()).unwrap();
-        let cache = persistent_cache.into_cache(&config);
-        let cache = rain_core::cache::Cache::new(cache);
-        let mut ir = rain_lang::ir::Rir::new();
-        let driver = rain_core::driver::DriverImpl::new(config);
-        let download_area = driver.create_area(&[]).unwrap();
-        let download_entry = FSEntry::new(download_area, FilePath::new("/download").unwrap());
-        std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
-        let download = File::new_checked(&driver, download_entry).unwrap();
-        let area = driver.extract_tar_gz(&download).unwrap();
-        let download_dir_entry = FSEntry::new(area, FilePath::new(download_dir_name).unwrap());
-        let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
-        let area = driver.create_area(&[&root]).unwrap();
-        let root_entry = FSEntry::new(area, FilePath::new("/root.rain").unwrap());
-        tracing::info!("Root entry {root_entry}");
-        let root = File::new_checked(&driver, root_entry).unwrap();
-        let src = driver.read_file(&root).unwrap();
-        let module = rain_lang::ast::parser::parse_module(&src);
-        let mid = ir.insert_module(root, src, module).unwrap();
-        let main = ir.resolve_global_declaration(mid, declaration).unwrap();
-        let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, &driver);
-        tracing::info!("Running");
-        let res = runner.evaluate_and_call(main, &[]);
-        let persistent_cache = PersistentCache::from_cache(&cache.0.plock());
-        persistent_cache
-            .save(&driver.config.cache_json_path())
-            .unwrap();
-        match res {
-            Ok(value) => {
-                tracing::info!("Value {value}");
-                true
-            }
-            Err(err) => {
-                tracing::error!("{err:?}");
-                let err = err.resolve_ir(&ir);
-                println!("{err}");
-                false
-            }
-        }
+    async fn run(&self, download: &[u8], head_sha: &str) -> Result<runner::RunComplete> {
+        // Need to do this to satisfy static lifetime
+        let download = download.to_vec();
+        let download_dir_name = format!("{}-{}-{}", self.owner, self.repo, head_sha);
+        let runner = self.runner.clone();
+        let complete =
+            tokio::task::spawn_blocking(move || runner.run(&download, &download_dir_name)).await?;
+        Ok(complete)
     }
 }
