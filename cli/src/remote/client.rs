@@ -1,7 +1,7 @@
 use std::{
     path::{Path, PathBuf},
     process::Stdio,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use rain_core::config::Config;
@@ -136,10 +136,15 @@ fn spawn_local_server(config: &Config) -> Result<ruipc::Client, Error> {
         .stderr(create_new_unlink(config.server_stderr_path())?)
         .spawn()?;
     log::info!("Started {}", p.id());
+    log::info!("waiting for server connection");
+    let start = Instant::now();
     // Wait for the socket to be created
-    for _ in 0..10 {
+    for _ in 0..50 {
         match ruipc::Client::connect(config.server_socket_path()) {
-            Ok(stream) => return Ok(stream),
+            Ok(stream) => {
+                log::info!("connected to server after {:?}", start.elapsed());
+                return Ok(stream);
+            }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 std::thread::sleep(Duration::from_millis(100));
             }
@@ -148,6 +153,7 @@ fn spawn_local_server(config: &Config) -> Result<ruipc::Client, Error> {
             }
         }
     }
+    log::error!("timeout waiting for server to start");
     Err(Error::TimeoutWaitingForServer)
 }
 

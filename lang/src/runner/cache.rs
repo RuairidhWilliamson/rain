@@ -8,14 +8,7 @@ use super::{dep::Dep, internal::InternalFunction, value::Value};
 
 pub trait CacheTrait {
     fn get(&self, key: &CacheKey) -> Option<CacheEntry>;
-    fn put(
-        &self,
-        key: CacheKey,
-        execution_time: Duration,
-        etag: Option<String>,
-        deps: &[Dep],
-        value: Value,
-    );
+    fn put(&self, key: CacheKey, entry: CacheEntry);
     fn inspect_all(&self) -> Vec<String>;
 
     fn get_value(&self, key: &CacheKey) -> Option<Value> {
@@ -85,9 +78,4 @@ pub struct CacheEntry {
     pub etag: Option<String>,
     pub deps: Vec<Dep>,
     pub value: Value,
-}
-
-pub enum CacheStrategy {
-    Always,
-    Never,
 }

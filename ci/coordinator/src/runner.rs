@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use poison_panic::MutexExt as _;
 use rain_core::{
-    cache::{Cache, persistent::PersistentCache},
+    cache::{Cache, persistent::PersistCache},
     config::Config,
 };
 use rain_lang::{
@@ -46,7 +46,7 @@ impl Runner {
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &self.cache, &driver);
         tracing::info!("Running");
         let res = runner.evaluate_and_call(main, &[]);
-        let persistent_cache = PersistentCache::from_cache(&self.cache.0.plock());
+        let persistent_cache = PersistCache::persist(&self.cache.0.plock());
         persistent_cache
             .save(&driver.config.cache_json_path())
             .unwrap();

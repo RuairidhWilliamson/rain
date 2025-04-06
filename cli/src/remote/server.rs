@@ -13,7 +13,7 @@ use rain_core::{
     CoreError,
     cache::{
         Cache,
-        persistent::{PersistentCache, PersistentCacheError},
+        persistent::{PersistCache, PersistCacheError},
     },
     config::Config,
     driver::DriverImpl,
@@ -45,7 +45,7 @@ pub enum Error {
     #[error("serde: {0}")]
     SerdeJson(#[from] serde_json::Error),
     #[error("cache: {0}")]
-    PersistentCache(#[from] PersistentCacheError),
+    PersistentCache(#[from] PersistCacheError),
 }
 
 impl From<std::io::Error> for Error {
@@ -67,6 +67,7 @@ impl From<ciborium::de::Error<std::io::Error>> for Error {
 }
 
 pub fn rain_server(config: Config) -> Result<(), Error> {
+    log::info!("starting cli server");
     let s = Server::new(config)?;
     let socket_path = s.config.server_socket_path();
     std::fs::create_dir_all(socket_path.parent().expect("path parent"))?;
@@ -102,6 +103,7 @@ impl Server {
         let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
         let modified_time = exe_stat.modified()?;
         let cache = rain_core::load_cache_or_default(&config);
+        log::info!("cache loaded {} entries", cache.len());
         Ok(Self {
             config,
             modified_time,
@@ -160,7 +162,7 @@ impl ClientHandler<'_> {
             }
             Ok(Err(err)) => Err(err),
             Ok(Ok(())) => {
-                let persistent_cache = PersistentCache::from_cache(&self.server.cache.0.plock());
+                let persistent_cache = PersistCache::persist(&self.server.cache.0.plock());
                 persistent_cache.save(&self.server.config.cache_json_path())?;
                 Ok(())
             }

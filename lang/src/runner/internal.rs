@@ -23,7 +23,7 @@ use crate::{
 
 use super::{
     Cx, Result, ResultValue,
-    cache::{CacheKey, CacheTrait},
+    cache::{CacheEntry, CacheKey, CacheTrait},
     dep::Dep,
     error::RunnerError,
     value::{RainInteger, RainList, RainRecord, RainTypeId, Value},
@@ -208,8 +208,16 @@ impl InternalCx<'_, '_> {
         }
         let start = Instant::now();
         let v = f()?;
-        self.cache
-            .put(cache_key, start.elapsed(), None, &[], v.clone());
+        self.cache.put(
+            cache_key,
+            CacheEntry {
+                execution_time: start.elapsed(),
+                expires: None,
+                etag: None,
+                deps: Vec::new(),
+                value: v.clone(),
+            },
+        );
         Ok(v)
     }
 }
@@ -565,10 +573,10 @@ fn escape_bin(icx: InternalCx) -> ResultValue {
             },
         ));
     };
-    let path = icx
-        .driver
-        .escape_bin(name)
-        .ok_or_else(|| icx.cx.nid_err(icx.nid, RunnerError::GenericRunError))?;
+    let path = icx.driver.escape_bin(name).ok_or_else(|| {
+        icx.cx
+            .nid_err(icx.nid, RunnerError::Makeshift("could not find bin".into()))
+    })?;
     let path = FilePath::new(&path.to_string_lossy())
         .map_err(|err| icx.cx.nid_err(icx.nid, RunnerError::PathError(err)))?;
     let entry = FSEntry {
@@ -666,8 +674,16 @@ fn download(icx: InternalCx) -> ResultValue {
                 m.insert("file".to_owned(), Value::Unit);
             }
             let out = Value::Record(Arc::new(RainRecord(m)));
-            icx.cache
-                .put(cache_key, start.elapsed(), etag, &[], out.clone());
+            icx.cache.put(
+                cache_key,
+                CacheEntry {
+                    execution_time: start.elapsed(),
+                    etag,
+                    expires: None,
+                    deps: Vec::new(),
+                    value: out.clone(),
+                },
+            );
             Ok(out)
         }
         _ => icx.incorrect_args(2..=2),
@@ -961,7 +977,7 @@ fn index(icx: InternalCx) -> ResultValue {
     };
     match indexable_value {
         Value::List(list) => {
-            let Value::Integer(i) = index_value else {
+            let Value::Integer(big_int) = index_value else {
                 return Err(icx.cx.nid_err(
                     *index_nid,
                     RunnerError::ExpectedType {
@@ -970,10 +986,15 @@ fn index(icx: InternalCx) -> ResultValue {
                     },
                 ));
             };
-            let Ok(i) = usize::try_from(&i.0) else {
+            let Ok(i) = usize::try_from(&big_int.0) else {
                 return Ok(Value::Unit);
             };
-            Ok(list.0.get(i).cloned().unwrap_or(Value::Unit))
+            list.0.get(i).cloned().ok_or_else(|| {
+                icx.cx.nid_err(
+                    icx.nid,
+                    RunnerError::IndexOutOfBounds(big_int.as_ref().clone()),
+                )
+            })
         }
         Value::Record(record) => {
             let Value::String(s) = index_value else {
@@ -985,7 +1006,12 @@ fn index(icx: InternalCx) -> ResultValue {
                     },
                 ));
             };
-            Ok(record.0.get(s.as_str()).cloned().unwrap_or(Value::Unit))
+            record.0.get(s.as_str()).cloned().ok_or_else(|| {
+                icx.cx.nid_err(
+                    icx.nid,
+                    RunnerError::IndexKeyNotFound(s.as_ref().to_owned()),
+                )
+            })
         }
         _ => Err(icx.cx.nid_err(
             *indexable_nid,

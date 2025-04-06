@@ -76,8 +76,8 @@ pub fn find_root_rain() -> Option<std::path::PathBuf> {
 }
 
 pub fn load_cache_or_default(config: &config::Config) -> cache::Cache {
-    match cache::persistent::PersistentCache::load(&config.cache_json_path()) {
-        Ok(p) => cache::Cache::new(p.into_cache(config)),
+    match cache::persistent::PersistCache::load(&config.cache_json_path()) {
+        Ok(p) => cache::Cache::new(p.depersist(config)),
         Err(err) => {
             log::info!("failed to load persist cache: {err}");
             cache::Cache::default()

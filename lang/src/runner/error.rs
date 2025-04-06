@@ -6,7 +6,7 @@ use crate::{
     driver::FSEntryQueryResult,
 };
 
-use super::value::RainTypeId;
+use super::value::{RainInteger, RainTypeId};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Throwing {
@@ -24,8 +24,6 @@ impl From<ParseError> for Throwing {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunnerError {
-    #[error("generic run error")]
-    GenericRunError,
     #[error("makeshift: {0}")]
     Makeshift(Cow<'static, str>),
     #[error("wrong number of args, required {required:?} but got {actual}")]
@@ -62,4 +60,8 @@ pub enum RunnerError {
     FSQuery(FSEntry, FSEntryQueryResult),
     #[error("record does not contain entry: {name}")]
     RecordMissingEntry { name: String },
+    #[error("index out of bounds: {0}")]
+    IndexOutOfBounds(RainInteger),
+    #[error("index key not found: {0}")]
+    IndexKeyNotFound(String),
 }

@@ -3,7 +3,6 @@ pub mod persistent;
 use std::{
     num::NonZeroUsize,
     sync::{Arc, Mutex},
-    time::Duration,
 };
 
 use lru::LruCache;
@@ -11,7 +10,6 @@ use poison_panic::MutexExt as _;
 use rain_lang::runner::{
     cache::{CacheEntry, CacheKey},
     dep::Dep,
-    value::Value,
 };
 
 pub const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
@@ -42,30 +40,14 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
         guard.storage.get(key).cloned()
     }
 
-    fn put(
-        &self,
-        key: CacheKey,
-        execution_time: Duration,
-        etag: Option<String>,
-        deps: &[Dep],
-        value: Value,
-    ) {
+    fn put(&self, key: CacheKey, entry: CacheEntry) {
         if !key.pure() {
             return;
         }
-        if deps.iter().any(|d| matches!(d, Dep::Uncacheable)) {
+        if entry.deps.iter().any(|d| matches!(d, Dep::Uncacheable)) {
             return;
         }
-        self.0.plock().storage.put(
-            key,
-            CacheEntry {
-                execution_time,
-                expires: None,
-                etag,
-                deps: deps.to_vec(),
-                value,
-            },
-        );
+        self.0.plock().storage.put(key, entry);
     }
 
     fn inspect_all(&self) -> Vec<String> {

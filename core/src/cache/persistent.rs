@@ -20,34 +20,47 @@ use rain_lang::{
 
 use crate::config::Config;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct PersistentCache {
-    /// Map keyed by urls
-    pub downloads: Vec<(String, PersistentCacheEntry)>,
+pub const FORMAT_VERSION: u64 = 1;
+
+#[derive(Debug, thiserror::Error)]
+pub enum PersistCacheError {
+    #[error("serde: {0}")]
+    Serde(#[from] serde_json::Error),
+    #[error("io: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("format missmatch")]
+    FormatVersionMissmatch,
+    #[error("does not exist")]
+    DoesNotExist,
 }
 
-impl PersistentCache {
-    pub fn load(path: &Path) -> Result<Self, PersistentCacheError> {
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct PersistCache {
+    pub entries: Vec<(PersistCacheKey, PersistCacheEntry)>,
+}
+
+impl PersistCache {
+    pub fn load(path: &Path) -> Result<Self, PersistCacheError> {
         let serialized = match std::fs::read(path) {
             Ok(serialized) => serialized,
             Err(err) if err.kind() == ErrorKind::NotFound => {
                 log::debug!("persistent cache did not exist");
-                return Err(PersistentCacheError::DoesNotExist);
+                return Err(PersistCacheError::DoesNotExist);
             }
             Err(err) => return Err(err.into()),
         };
-        let PersistentCacheWrapper {
+        let PersistCacheWrapper {
             format_version,
             inner,
-        }: PersistentCacheWrapper = serde_json::from_slice(&serialized)?;
+        }: PersistCacheWrapper = serde_json::from_slice(&serialized)?;
         if format_version != FORMAT_VERSION {
-            return Err(PersistentCacheError::FormatVersionMissmatch);
+            return Err(PersistCacheError::FormatVersionMissmatch);
         }
         Ok(serde_json::from_value(inner)?)
     }
 
-    pub fn save(self, path: &Path) -> Result<(), PersistentCacheError> {
-        let p = PersistentCacheWrapper {
+    pub fn save(self, path: &Path) -> Result<(), PersistCacheError> {
+        let p = PersistCacheWrapper {
             format_version: FORMAT_VERSION,
             inner: serde_json::to_value(self)?,
         };
@@ -56,49 +69,56 @@ impl PersistentCache {
         Ok(())
     }
 
-    pub fn from_cache(cache: &super::CacheCore) -> Self {
-        let downloads = cache
+    pub fn persist(cache: &super::CacheCore) -> Self {
+        let entries = cache
             .storage
             .iter()
-            .filter_map(|(k, e)| match k {
-                CacheKey::InternalFunction { .. } | CacheKey::Declaration { .. } => None,
-                CacheKey::Download { url } => Some((url.to_owned(), e.into())),
-            })
+            .map(|(k, e)| (PersistCacheKey::persist(k), PersistCacheEntry::persist(e)))
             .collect();
-        Self { downloads }
+        Self { entries }
     }
 
-    pub fn into_cache(self, config: &Config) -> super::CacheCore {
+    pub fn depersist(self, config: &Config) -> super::CacheCore {
         let mut lru = lru::LruCache::new(super::CACHE_SIZE);
-        for (url, e) in self.downloads {
-            if let Some(e) = e.into_entry_if_present(config) {
-                lru.put(CacheKey::Download { url }, e);
+        for (k, e) in self.entries {
+            if let Some(e) = e.depersist(config) {
+                if let Some(k) = k.depersist(config) {
+                    lru.put(k, e);
+                }
             }
         }
         super::CacheCore { storage: lru }
     }
 }
 
-pub const FORMAT_VERSION: u64 = 0;
-
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct PersistentCacheWrapper {
+pub struct PersistCacheWrapper {
     pub format_version: u64,
     pub inner: serde_json::Value,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct PersistentCacheEntry {
+pub struct PersistCacheEntry {
     pub execution_time: Duration,
     pub expires: Option<DateTime<Utc>>,
     pub etag: Option<String>,
     pub deps: Vec<Dep>,
-    pub value: PersistentValue,
+    pub value: PersistValue,
 }
 
-impl PersistentCacheEntry {
-    fn into_entry_if_present(self, config: &Config) -> Option<CacheEntry> {
-        let value = self.value.into_value_if_present(config)?;
+impl PersistCacheEntry {
+    fn persist(entry: &CacheEntry) -> Self {
+        Self {
+            execution_time: entry.execution_time,
+            expires: entry.expires,
+            etag: entry.etag.clone(),
+            deps: entry.deps.clone(),
+            value: PersistValue::persist(&entry.value),
+        }
+    }
+
+    fn depersist(self, config: &Config) -> Option<CacheEntry> {
+        let value = self.value.depersist(config)?;
         Some(CacheEntry {
             execution_time: self.execution_time,
             expires: self.expires,
@@ -109,20 +129,8 @@ impl PersistentCacheEntry {
     }
 }
 
-impl From<&CacheEntry> for PersistentCacheEntry {
-    fn from(entry: &CacheEntry) -> Self {
-        Self {
-            execution_time: entry.execution_time,
-            expires: entry.expires,
-            etag: entry.etag.clone(),
-            deps: entry.deps.clone(),
-            value: PersistentValue::from(&entry.value),
-        }
-    }
-}
-
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub enum PersistentValue {
+pub enum PersistValue {
     Unit,
     Boolean(bool),
     Integer(RainInteger),
@@ -134,12 +142,38 @@ pub enum PersistentValue {
     Dir(FSEntry),
     Internal,
     InternalFunction(InternalFunction),
-    List(Vec<PersistentValue>),
-    Record(IndexMap<String, PersistentValue>),
+    List(Vec<PersistValue>),
+    Record(IndexMap<String, PersistValue>),
 }
 
-impl PersistentValue {
-    fn into_value_if_present(self, config: &Config) -> Option<Value> {
+impl PersistValue {
+    fn persist(value: &Value) -> Self {
+        match value {
+            Value::Unit => Self::Unit,
+            Value::Boolean(b) => Self::Boolean(*b),
+            Value::Integer(rain_integer) => Self::Integer((**rain_integer).clone()),
+            Value::String(s) => Self::String((**s).clone()),
+            Value::Function(declaration_id) => Self::Function(*declaration_id),
+            Value::Module(module_id) => Self::Module(*module_id),
+            Value::FileArea(file_area) => Self::FileArea((**file_area).clone()),
+            Value::File(file) => Self::File(file.inner().clone()),
+            Value::Dir(dir) => Self::Dir(dir.inner().clone()),
+            Value::Internal => Self::Internal,
+            Value::InternalFunction(internal_function) => {
+                Self::InternalFunction(*internal_function)
+            }
+            Value::List(rain_list) => Self::List(rain_list.0.iter().map(Self::persist).collect()),
+            Value::Record(rain_record) => Self::Record(
+                rain_record
+                    .0
+                    .iter()
+                    .map(|(k, v)| (k.clone(), Self::persist(v)))
+                    .collect(),
+            ),
+        }
+    }
+
+    fn depersist(self, config: &Config) -> Option<Value> {
         match self {
             Self::Unit => Some(Value::Unit),
             Self::Boolean(b) => Some(Value::Boolean(b)),
@@ -156,57 +190,66 @@ impl PersistentValue {
             }
             Self::List(vec) => Some(Value::List(Arc::new(RainList(
                 vec.into_iter()
-                    .map(|v| Self::into_value_if_present(v, config))
+                    .map(|v| Self::depersist(v, config))
                     .collect::<Option<Vec<Value>>>()?,
             )))),
             Self::Record(index_map) => Some(Value::Record(Arc::new(RainRecord(
                 index_map
                     .into_iter()
-                    .map(|(k, v)| Some((k, Self::into_value_if_present(v, config)?)))
+                    .map(|(k, v)| Some((k, Self::depersist(v, config)?)))
                     .collect::<Option<IndexMap<String, Value>>>()?,
             )))),
         }
     }
 }
 
-impl From<&Value> for PersistentValue {
-    fn from(value: &Value) -> Self {
-        match value {
-            Value::Unit => Self::Unit,
-            Value::Boolean(b) => Self::Boolean(*b),
-            Value::Integer(rain_integer) => Self::Integer((**rain_integer).clone()),
-            Value::String(s) => Self::String((**s).clone()),
-            Value::Function(declaration_id) => Self::Function(*declaration_id),
-            Value::Module(module_id) => Self::Module(*module_id),
-            Value::FileArea(file_area) => Self::FileArea((**file_area).clone()),
-            Value::File(file) => Self::File(file.inner().clone()),
-            Value::Dir(dir) => Self::Dir(dir.inner().clone()),
-            Value::Internal => Self::Internal,
-            Value::InternalFunction(internal_function) => {
-                Self::InternalFunction(*internal_function)
-            }
-            Value::List(rain_list) => {
-                Self::List(rain_list.0.iter().map(std::convert::Into::into).collect())
-            }
-            Value::Record(rain_record) => Self::Record(
-                rain_record
-                    .0
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.into()))
-                    .collect(),
-            ),
-        }
-    }
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub enum PersistCacheKey {
+    Declaration {
+        declaration: DeclarationId,
+        args: Vec<PersistValue>,
+    },
+    InternalFunction {
+        func: InternalFunction,
+        args: Vec<PersistValue>,
+    },
+    Download {
+        url: String,
+    },
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum PersistentCacheError {
-    #[error("serde: {0}")]
-    Serde(#[from] serde_json::Error),
-    #[error("io: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("format missmatch")]
-    FormatVersionMissmatch,
-    #[error("does not exist")]
-    DoesNotExist,
+impl PersistCacheKey {
+    fn persist(key: &CacheKey) -> Self {
+        match key {
+            CacheKey::Declaration { declaration, args } => Self::Declaration {
+                declaration: *declaration,
+                args: args.iter().map(PersistValue::persist).collect(),
+            },
+            CacheKey::InternalFunction { func, args } => Self::InternalFunction {
+                func: *func,
+                args: args.iter().map(PersistValue::persist).collect(),
+            },
+            CacheKey::Download { url } => Self::Download { url: url.clone() },
+        }
+    }
+
+    fn depersist(self, config: &Config) -> Option<CacheKey> {
+        Some(match self {
+            Self::Declaration { declaration, args } => CacheKey::Declaration {
+                declaration,
+                args: args
+                    .into_iter()
+                    .map(|a| a.depersist(config))
+                    .collect::<Option<Vec<Value>>>()?,
+            },
+            Self::InternalFunction { func, args } => CacheKey::InternalFunction {
+                func,
+                args: args
+                    .into_iter()
+                    .map(|a| a.depersist(config))
+                    .collect::<Option<Vec<Value>>>()?,
+            },
+            Self::Download { url } => CacheKey::Download { url },
+        })
+    }
 }

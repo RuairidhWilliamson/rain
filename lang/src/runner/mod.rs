@@ -6,6 +6,7 @@ pub mod value;
 
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
+use cache::CacheEntry;
 use error::{RunnerError, Throwing};
 use indexmap::IndexMap;
 use internal::InternalFunction;
@@ -274,8 +275,16 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 };
                 let result = self.evaluate_node(&mut callee_cx, fn_declare.block)?;
                 self.driver.exit_call(function_name);
-                self.cache
-                    .put(key, start.elapsed(), None, &callee_cx.deps, result.clone());
+                self.cache.put(
+                    key,
+                    CacheEntry {
+                        execution_time: start.elapsed(),
+                        expires: None,
+                        etag: None,
+                        deps: callee_cx.deps.clone(),
+                        value: result.clone(),
+                    },
+                );
                 cx.deps.extend(callee_cx.deps);
                 Ok(result)
             }
@@ -373,16 +382,27 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     };
                     self.evaluate_declaration(did)
                 }
-                _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
+                _ => Err(cx.err(
+                    op.op_span,
+                    RunnerError::Makeshift("dot operator right side is not ident".into()),
+                )),
             },
             Value::Internal => match cx.module.get(op.right) {
                 Node::Ident(tls) => {
                     let name = tls.0.span.contents(&cx.module.src);
                     InternalFunction::evaluate_internal_function_name(name)
                         .map(Value::InternalFunction)
-                        .ok_or_else(|| cx.err(tls.0.span, RunnerError::GenericRunError))
+                        .ok_or_else(|| {
+                            cx.err(
+                                tls.0.span,
+                                RunnerError::Makeshift("unknown internal function name".into()),
+                            )
+                        })
                 }
-                _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
+                _ => Err(cx.err(
+                    op.op_span,
+                    RunnerError::Makeshift("dot operator right side is not ident".into()),
+                )),
             },
             Value::Record(record_value) => match cx.module.get(op.right) {
                 Node::Ident(tls) => {
@@ -396,9 +416,18 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         )
                     })
                 }
-                _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
+                _ => Err(cx.err(
+                    op.op_span,
+                    RunnerError::Makeshift("dot operator right side is not ident".into()),
+                )),
             },
-            _ => Err(cx.err(op.op_span, RunnerError::GenericRunError)),
+            _ => Err(cx.err(
+                op.op_span,
+                RunnerError::ExpectedType {
+                    actual: left.rain_type_id(),
+                    expected: &[RainTypeId::Module, RainTypeId::Internal, RainTypeId::Record],
+                },
+            )),
         }
     }
 

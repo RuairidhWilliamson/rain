@@ -88,11 +88,15 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             let lines: Box<dyn Iterator<Item = String>> = if let Some(p) = path {
                 Box::new(std::iter::once(p))
             } else {
-                Box::new(stdin().lines().map(|s| s.unwrap()))
+                Box::new(stdin().lines().map(|s| s.expect("read stdin")))
             };
             for line in lines {
-                let (area, rest) = line.split_once('/').unwrap();
-                let area = area.strip_prefix('<').unwrap().strip_suffix('>').unwrap();
+                let (area, rest) = line.split_once('/').unwrap_or((&line, ""));
+                let area = area
+                    .strip_prefix('<')
+                    .ok_or_else(|| eprintln!("missing <"))?
+                    .strip_suffix('>')
+                    .ok_or_else(|| eprintln!("missing >"))?;
                 let path = config.base_generated_dir.join(area).join(rest);
                 println!("{}", path.display());
             }

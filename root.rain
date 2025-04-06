@@ -47,7 +47,7 @@ fn download_test() {
 
 fn helloworld() {
 	src = std.utils.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
-	bin = std.rust.rustc.compile("stable", std.utils.host_info().triple, src, "helloworld")
+	bin = std.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple)
 	print(std.utils.run(std.utils.unit, bin, [], {}).stdout)
 }
 
