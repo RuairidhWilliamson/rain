@@ -9,7 +9,6 @@ use rain_lang::{
         entry::{FSEntry, FSEntryTrait as _},
         file::File,
     },
-    ir::DeclarationId,
     runner::{
         cache::{CacheEntry, CacheKey},
         dep::Dep,
@@ -209,10 +208,6 @@ impl PersistValue {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum PersistCacheKey {
-    Declaration {
-        declaration: DeclarationId,
-        args: Vec<PersistValue>,
-    },
     InternalFunction {
         func: InternalFunction,
         args: Vec<PersistValue>,
@@ -240,8 +235,6 @@ impl PersistCacheKey {
 
     fn depersist(self, config: &Config) -> Option<CacheKey> {
         match self {
-            // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
-            Self::Declaration { .. } => None,
             Self::InternalFunction { func, args } => Some(CacheKey::InternalFunction {
                 func,
                 args: args

@@ -127,7 +127,7 @@ impl ParsedIrModule {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ModuleId(usize);
 
 impl std::fmt::Display for ModuleId {
@@ -136,7 +136,7 @@ impl std::fmt::Display for ModuleId {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct LocalDeclarationId(usize);
 
 impl std::fmt::Display for LocalDeclarationId {
@@ -145,7 +145,7 @@ impl std::fmt::Display for LocalDeclarationId {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct DeclarationId(ModuleId, LocalDeclarationId);
 
 impl DeclarationId {
