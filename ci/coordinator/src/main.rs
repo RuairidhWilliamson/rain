@@ -22,8 +22,7 @@ use smee_rs::MessageHandler;
 struct Config {
     github_app_id: AppId,
     github_app_key: String,
-    repository_owner: String,
-    repository: String,
+    github_webhook_secret: String,
     target_url: url::Url,
     smee_url: url::Url,
 }
@@ -35,7 +34,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let config = envy::from_env::<Config>()?;
 
-    let key_raw = tokio::fs::read(config.github_app_key).await.unwrap();
+    let key_raw = tokio::fs::read(&config.github_app_key).await.unwrap();
     let key = EncodingKey::from_rsa_pem(&key_raw).unwrap();
 
     octocrab::auth::AppAuth {
@@ -57,14 +56,13 @@ async fn main() -> Result<()> {
     let handler = Handler {
         inner: Arc::new(HandlerInner {
             crab: crab.clone(),
-            owner: config.repository_owner.clone(),
-            repo: config.repository.clone(),
-            target_url: config.target_url.clone(),
+            config,
             runner,
         }),
     };
     // let mut smee = smee_rs::Channel::new(default_smee_server_url(), handler).await?;
-    let mut smee = smee_rs::Channel::from_existing_channel(config.smee_url, handler);
+    let mut smee =
+        smee_rs::Channel::from_existing_channel(handler.inner.config.smee_url.clone(), handler);
     let channel_url = smee.get_channel_url().to_string();
     tracing::info!("got channel url = {channel_url}");
 
@@ -77,19 +75,18 @@ struct Handler {
 
 struct HandlerInner {
     crab: octocrab::Octocrab,
-    owner: String,
-    repo: String,
-    target_url: url::Url,
+    config: Config,
     runner: runner::Runner,
 }
 
 impl MessageHandler for Handler {
     async fn handle(&self, headers: &smee_rs::HeaderMap, body: String) -> Result<()> {
+        verify_webhook_signature(headers, &body, &self.inner.config.github_webhook_secret)?;
         let github_event_header = headers
             .get("x-github-event")
-            .ok_or_else(|| anyhow!("x-github-event header not present"))?
+            .context("x-github-event header not present")?
             .as_str()
-            .ok_or_else(|| anyhow!("x-github-event header is not a string"))?;
+            .context("x-github-event header is not a string")?;
         let event = WebhookEvent::try_from_header_and_body(github_event_header, &body)?;
         let handler = Arc::clone(&self.inner);
         tokio::spawn(async move {
@@ -102,24 +99,25 @@ impl MessageHandler for Handler {
     }
 }
 
+fn verify_webhook_signature(headers: &smee_rs::HeaderMap, body: &str, secret: &str) -> Result<()> {
+    let github_signature_header = headers
+        .get("x-hub-signature-256")
+        .context("x-hub-signature-256 header not present")?
+        .as_str()
+        .context("x-hub-signature-256 header is not a string")?;
+    let (algo, sig_hex) = github_signature_header
+        .split_once('=')
+        .context("header does not contain =")?;
+    if algo != "sha256" {
+        return Err(anyhow!("unknown algorithm"));
+    }
+    let key = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, secret.as_bytes());
+    ring::hmac::verify(&key, body.as_bytes(), sig_hex.as_bytes())?;
+    Ok(())
+}
+
 impl HandlerInner {
     async fn handle_hook(self: Arc<Self>, event: WebhookEvent) -> Result<()> {
-        let event_repository = event.repository.ok_or_else(|| {
-            tracing::info!("{:?}", event.specific);
-            anyhow!("repository not present")
-        })?;
-        if event_repository.full_name
-            != Some(format!(
-                "{owner}/{repo}",
-                owner = &self.owner,
-                repo = &self.repo
-            ))
-        {
-            return Err(anyhow!(
-                "repository did not match expected, {:?}",
-                event_repository.full_name
-            ));
-        }
         let installation_id = match event.installation {
             Some(EventInstallation::Full(installation)) => Some(installation.id),
             Some(EventInstallation::Minimal(event_installation_id)) => {
@@ -144,14 +142,24 @@ impl HandlerInner {
                 let installation = self
                     .crab
                     .installation(installation_id.context("installation_id not present")?)?;
+                let repository = event.repository.context("no repository")?;
+                let owner = &repository.owner.context("no owner")?.login;
+                let repo = &repository.name;
                 let head_sha = suite_event
                     .check_suite
                     .get("head_sha")
                     .context("head_sha not present")?
                     .as_str()
                     .context("head_sha not string")?;
-                self.handle_check_suite_request(installation, head_sha)
-                    .await?;
+                Self::handle_check_suite_request(
+                    &self.runner,
+                    installation,
+                    &self.config.target_url,
+                    owner,
+                    repo,
+                    head_sha,
+                )
+                .await?;
             }
             WebhookEventPayload::CheckRun(_run_event) => {
                 tracing::info!("check run event");
@@ -164,16 +172,19 @@ impl HandlerInner {
     }
 
     async fn handle_check_suite_request(
-        &self,
+        runner: &runner::Runner,
         installation_crab: octocrab::Octocrab,
+        target_url: &url::Url,
+        owner: &str,
+        repo: &str,
         head_sha: &str,
     ) -> Result<()> {
         let check_run_name = "rain-test";
-        let checks = installation_crab.checks(&self.owner, &self.repo);
+        let checks = installation_crab.checks(owner, repo);
         let check_run = checks
             .create_check_run(check_run_name, head_sha)
             .status(octocrab::params::checks::CheckRunStatus::InProgress)
-            .details_url(self.target_url.to_string())
+            .details_url(target_url.to_string())
             .output(octocrab::params::checks::CheckRunOutput {
                 title: String::from("Rain CI Run"),
                 summary: String::from("Summary..."),
@@ -184,11 +195,12 @@ impl HandlerInner {
             .send()
             .await?;
         let download = installation_crab
-            .repos(&self.owner, &self.repo)
+            .repos(owner, repo)
             .download_tarball(head_sha.to_owned())
             .await?;
         let download = download.collect().await?.to_bytes();
-        let runner::RunComplete { success, output } = self.run(&download, head_sha).await?;
+        let runner::RunComplete { success, output } =
+            Self::run(runner, &download, owner, repo, head_sha).await?;
         let conclusion = if success {
             octocrab::params::checks::CheckRunConclusion::Success
         } else {
@@ -199,7 +211,7 @@ impl HandlerInner {
             .status(octocrab::params::checks::CheckRunStatus::Completed)
             .conclusion(conclusion)
             .completed_at(Utc::now())
-            .details_url(self.target_url.to_string())
+            .details_url(target_url.to_string())
             .output(octocrab::params::checks::CheckRunOutput {
                 title: String::from("Rain CI Run"),
                 summary: String::from("Summary..."),
@@ -212,11 +224,17 @@ impl HandlerInner {
         Ok(())
     }
 
-    async fn run(&self, download: &[u8], head_sha: &str) -> Result<runner::RunComplete> {
+    async fn run(
+        runner: &runner::Runner,
+        download: &[u8],
+        owner: &str,
+        repo: &str,
+        head_sha: &str,
+    ) -> Result<runner::RunComplete> {
         // Need to do this to satisfy static lifetime
         let download = download.to_vec();
-        let download_dir_name = format!("{}-{}-{}", self.owner, self.repo, head_sha);
-        let runner = self.runner.clone();
+        let download_dir_name = format!("{owner}-{repo}-{head_sha}");
+        let runner = runner.clone();
         let complete =
             tokio::task::spawn_blocking(move || runner.run(&download, &download_dir_name)).await?;
         Ok(complete)
