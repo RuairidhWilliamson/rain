@@ -84,7 +84,7 @@ impl<H: MessageHandler> Channel<H> {
             "message" => {
                 let data: serde_json::Value = serde_json::from_str(&event.data)?;
                 let h = data.as_object().context("data is not object")?;
-                let body = data.get("body").context("no body")?.to_string();
+                let body = data.get("body").context("no body")?;
                 self.handler.handle(h, body).await?;
             }
             _ => {
@@ -99,7 +99,7 @@ pub type HeaderMap = serde_json::Map<String, serde_json::Value>;
 
 pub trait MessageHandler: Send + Sync {
     #[expect(async_fn_in_trait)]
-    async fn handle(&self, headers: &HeaderMap, body: String) -> Result<()>;
+    async fn handle(&self, headers: &HeaderMap, body: &serde_json::Value) -> Result<()>;
 }
 
 pub struct ForwardHandler {
@@ -117,8 +117,9 @@ impl ForwardHandler {
 }
 
 impl MessageHandler for ForwardHandler {
-    async fn handle(&self, h: &HeaderMap, body: String) -> Result<()> {
-        log::info!("forwarding webhook of length {}", body.len());
+    async fn handle(&self, h: &HeaderMap, body: &serde_json::Value) -> Result<()> {
+        let serialized = serde_json::to_string(&body)?;
+        log::info!("forwarding webhook of length {}", serialized.len());
         let mut headers = reqwest::header::HeaderMap::new();
         for (k, v) in h {
             if let Some(v) = v.as_str() {
@@ -128,7 +129,7 @@ impl MessageHandler for ForwardHandler {
         self.client
             .post(self.target.clone())
             .headers(headers)
-            .body(body)
+            .body(serialized)
             .send()
             .await?;
         Ok(())

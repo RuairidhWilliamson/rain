@@ -9,9 +9,10 @@ use jsonwebtoken::EncodingKey;
 use octocrab::{
     OctocrabBuilder,
     models::{
-        AppId,
+        AppId, Author, Repository,
+        orgs::Organization,
         webhook_events::{
-            EventInstallation, WebhookEvent, WebhookEventPayload,
+            EventInstallation, WebhookEventPayload, WebhookEventType,
             payload::CheckSuiteWebhookEventAction,
         },
     },
@@ -22,6 +23,7 @@ use smee_rs::MessageHandler;
 struct Config {
     github_app_id: AppId,
     github_app_key: String,
+    #[allow(dead_code)]
     github_webhook_secret: String,
     target_url: url::Url,
     smee_url: url::Url,
@@ -46,7 +48,6 @@ async fn main() -> Result<()> {
 
     let crab = OctocrabBuilder::new()
         .app(config.github_app_id, key)
-        // .personal_token(config.github_token)
         .build()?;
     let installs = crab.apps().installations().send().await.unwrap();
     let perms = &installs.items.first().unwrap().permissions;
@@ -80,14 +81,55 @@ struct HandlerInner {
 }
 
 impl MessageHandler for Handler {
-    async fn handle(&self, headers: &smee_rs::HeaderMap, body: String) -> Result<()> {
-        verify_webhook_signature(headers, &body, &self.inner.config.github_webhook_secret)?;
+    async fn handle(&self, headers: &smee_rs::HeaderMap, body: &serde_json::Value) -> Result<()> {
+        // Can't verify webhook signature when using smee.io because they don't send the raw body :(
+        // A fix was made but the public version hasn't been updated
+        // Self host smee?
+        // verify_webhook_signature(headers, &self.inner.config.github_webhook_secret)?;
         let github_event_header = headers
             .get("x-github-event")
             .context("x-github-event header not present")?
             .as_str()
             .context("x-github-event header is not a string")?;
-        let event = WebhookEvent::try_from_header_and_body(github_event_header, &body)?;
+        let header = github_event_header;
+        // NOTE: this is inefficient code to simply reuse the code from "derived" serde::Deserialize instead
+        // of writing specific deserialization code for the enum.
+        let kind = if header.starts_with('"') {
+            serde_json::from_str::<WebhookEventType>(header)?
+        } else {
+            serde_json::from_str::<WebhookEventType>(&format!("\"{header}\""))?
+        };
+
+        // Intermediate structure allows to separate the common fields from
+        // the event specific one.
+        #[derive(serde::Deserialize)]
+        struct Intermediate {
+            sender: Option<Author>,
+            repository: Option<Repository>,
+            organization: Option<Organization>,
+            installation: Option<EventInstallation>,
+            #[serde(flatten)]
+            specific: serde_json::Value,
+        }
+
+        let Intermediate {
+            sender,
+            repository,
+            organization,
+            installation,
+            specific,
+        } = serde_json::from_value::<Intermediate>(body.clone())?;
+
+        let specific = kind.parse_specific_payload(specific)?;
+
+        let event = WebhookEvent {
+            sender,
+            repository,
+            organization,
+            installation,
+            kind,
+            specific,
+        };
         let handler = Arc::clone(&self.inner);
         tokio::spawn(async move {
             if let Err(err) = Box::pin(handler.handle_hook(event)).await {
@@ -98,21 +140,39 @@ impl MessageHandler for Handler {
         Ok(())
     }
 }
+/// A GitHub webhook event.
+///
+/// The structure is separated in common fields and specific fields, so you can
+/// always access the common values without needing to match the exact variant.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WebhookEvent {
+    pub sender: Option<Author>,
+    pub repository: Option<Repository>,
+    pub organization: Option<Organization>,
+    pub installation: Option<EventInstallation>,
+    #[serde(skip)]
+    pub kind: WebhookEventType,
+    #[serde(flatten)]
+    pub specific: WebhookEventPayload,
+}
 
+#[allow(dead_code)]
 fn verify_webhook_signature(headers: &smee_rs::HeaderMap, body: &str, secret: &str) -> Result<()> {
     let github_signature_header = headers
         .get("x-hub-signature-256")
         .context("x-hub-signature-256 header not present")?
         .as_str()
         .context("x-hub-signature-256 header is not a string")?;
+    dbg!(secret, headers);
     let (algo, sig_hex) = github_signature_header
         .split_once('=')
         .context("header does not contain =")?;
     if algo != "sha256" {
         return Err(anyhow!("unknown algorithm"));
     }
+    let sig = hex::decode(sig_hex).context("decode signature hex")?;
     let key = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, secret.as_bytes());
-    ring::hmac::verify(&key, body.as_bytes(), sig_hex.as_bytes())?;
+    ring::hmac::verify(&key, body.as_bytes(), &sig).context("verify signature")?;
     Ok(())
 }
 
