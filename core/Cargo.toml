@@ -16,7 +16,7 @@ dircpy = { version = "0.3.19", default-features = false }
 dirs = "6.0.0"
 flate2 = "1.1.0"
 libc.workspace = true
-liblzma = "0.3.6"
+liblzma = "0.4.1"
 log.workspace = true
 lru = "0.14.0"
 num-bigint = "0.4.6"
