@@ -15,7 +15,7 @@ base64 = "0.22.1"
 bytes.workspace = true
 dotenvy.workspace = true
 envy = "0.4.2"
-octocrab = { version = "0.43.0" }
+octocrab = { version = "0.44.0" }
 serde_json.workspace = true
 serde.workspace = true
 smee-rs.path = "../../smee_rs"
