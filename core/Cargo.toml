@@ -30,7 +30,7 @@ tar = "0.4.44"
 thiserror.workspace = true
 uuid.workspace = true
 web-time.workspace = true
-zip = "2.2.0"
+zip = { version = "2.2.0", features = ["deflate"], default-features = false }
 indexmap.workspace = true
 
 [dev-dependencies]
