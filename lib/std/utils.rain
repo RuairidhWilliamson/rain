@@ -60,3 +60,9 @@ fn exe_suffix(target_triple) {
 		""
 	}
 }
+
+fn rename_file(file, new_name) {
+	cp = escape_bin("cp")
+	result = run_check(unit, cp, [file, new_name], {})
+	get_file(result.area, new_name)
+}

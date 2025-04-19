@@ -111,7 +111,7 @@ impl InternalFunction {
             Self::ExtractZip => extract_zip(icx),
             Self::ExtractTarGz => extract_tar_gz(icx),
             Self::ExtractTarXz => extract_tar_xz(icx),
-            Self::Run => run_implementation(icx),
+            Self::Run => run(icx),
             Self::EscapeBin => escape_bin(icx),
             Self::Unit => unit(icx),
             Self::GetArea => get_area(icx),
@@ -438,7 +438,7 @@ fn extract_tar_xz(icx: InternalCx) -> ResultValue {
     })
 }
 
-fn run_implementation(icx: InternalCx) -> ResultValue {
+fn run(icx: InternalCx) -> ResultValue {
     match &icx.arg_values[..] {
         [
             (area_nid, area_value),
@@ -537,11 +537,23 @@ fn stringify_env(
             key.to_owned(),
             icx.driver.resolve_fs_entry(d.inner()).display().to_string(),
         )),
+        Value::FileArea(a) => Ok((
+            key.to_owned(),
+            icx.driver
+                .resolve_fs_entry(Dir::root(a.as_ref().clone()).inner())
+                .display()
+                .to_string(),
+        )),
         _ => Err(icx.cx.nid_err(
             env_nid,
             RunnerError::ExpectedType {
                 actual: value.rain_type_id(),
-                expected: &[RainTypeId::String, RainTypeId::File, RainTypeId::Dir],
+                expected: &[
+                    RainTypeId::String,
+                    RainTypeId::File,
+                    RainTypeId::Dir,
+                    RainTypeId::FileArea,
+                ],
             },
         )),
     }
@@ -552,11 +564,21 @@ fn stringify_args(icx: &InternalCx<'_, '_>, args_nid: NodeId, value: &Value) -> 
         Value::String(s) => Ok(s.to_string()),
         Value::File(f) => Ok(icx.driver.resolve_fs_entry(f.inner()).display().to_string()),
         Value::Dir(d) => Ok(icx.driver.resolve_fs_entry(d.inner()).display().to_string()),
+        Value::FileArea(a) => Ok(icx
+            .driver
+            .resolve_fs_entry(Dir::root(a.as_ref().clone()).inner())
+            .display()
+            .to_string()),
         _ => Err(icx.cx.nid_err(
             args_nid,
             RunnerError::ExpectedType {
                 actual: value.rain_type_id(),
-                expected: &[RainTypeId::String, RainTypeId::File],
+                expected: &[
+                    RainTypeId::String,
+                    RainTypeId::File,
+                    RainTypeId::Dir,
+                    RainTypeId::FileArea,
+                ],
             },
         )),
     }
