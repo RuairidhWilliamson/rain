@@ -24,6 +24,7 @@ let split_string = internal._split_string
 let index = internal._index
 let host_info = internal._host_info
 let string_contains = internal._string_contains
+let export_to_local = internal._export_to_local
 
 // Reserved keywords are prefixed with _
 let _import = internal._import
@@ -54,11 +55,23 @@ fn run_check(area, bin, args, env) {
 let newline = internal._bytes_to_string([10])
 
 fn exe_suffix(target_triple) {
-	if string_contains(target_triple, "-windows-") {
+	if is_windows(target_triple) {
 		".exe"
 	} else {
 		""
 	}
+}
+
+fn is_linux(target_triple) {
+	string_contains(target_triple, "-linux-")
+}
+
+fn is_windows(target_triple) {
+	string_contains(target_triple, "-windows-")
+}
+
+fn is_amd64(target_triple) {
+	string_contains(target_triple, "x86_64")
 }
 
 fn rename_file(file, new_name) {

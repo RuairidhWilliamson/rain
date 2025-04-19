@@ -1,0 +1,11 @@
+fn stdlib(version) {
+	bucket = "rw-rain-std-3a91d162"
+	stdlib_download = internal._download("https://storage.googleapis.com/" + bucket + "/lib-" + version + ".tar.gz", "lib-" + version + ".tar.gz")
+	if stdlib_download.ok {
+	} else {
+		internal._throw("failed to download stdlib")
+	}
+	lib_area = internal._extract_tar_gz(stdlib_download.file)
+	stdlib_area = internal._create_area([internal._get_dir(lib_area, "lib/std")])
+	internal._import(internal._get_file(stdlib_area, "std.rain"))
+}

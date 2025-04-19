@@ -10,7 +10,7 @@ use crate::{
         absolute::AbsolutePathBuf,
         area::FileArea,
         dir::Dir,
-        entry::{FSEntry, FSEntryTrait as _},
+        entry::{FSEntry, FSEntryTrait},
         error::PathError,
         file::File,
         path::FilePath,
@@ -58,6 +58,7 @@ pub enum InternalFunction {
     Index,
     HostInfo,
     StringContains,
+    ExportToLocal,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -96,6 +97,7 @@ impl InternalFunction {
             "_index" => Some(Self::Index),
             "_host_info" => Some(Self::HostInfo),
             "_string_contains" => Some(Self::StringContains),
+            "_export_to_local" => Some(Self::ExportToLocal),
             _ => None,
         }
     }
@@ -129,6 +131,7 @@ impl InternalFunction {
             Self::Index => index(icx),
             Self::HostInfo => host_info(icx),
             Self::StringContains => string_contains(icx),
+            Self::ExportToLocal => export_to_local(icx),
         }
     }
 }
@@ -1077,6 +1080,49 @@ fn string_contains(icx: InternalCx) -> ResultValue {
                 ));
             };
             Ok(Value::Boolean(haystack.contains(&**needle)))
+        }
+        _ => icx.incorrect_args(2..=2),
+    }
+}
+
+fn export_to_local(icx: InternalCx) -> ResultValue {
+    match &icx.arg_values[..] {
+        [(src_nid, src_value), (dst_nid, dst_value)] => {
+            let Value::File(src) = src_value else {
+                return Err(icx.cx.nid_err(
+                    *src_nid,
+                    RunnerError::ExpectedType {
+                        actual: src_value.rain_type_id(),
+                        expected: &[RainTypeId::File],
+                    },
+                ));
+            };
+            let Value::Dir(dst) = dst_value else {
+                return Err(icx.cx.nid_err(
+                    *dst_nid,
+                    RunnerError::ExpectedType {
+                        actual: dst_value.rain_type_id(),
+                        expected: &[RainTypeId::Dir],
+                    },
+                ));
+            };
+            match dst.area() {
+                FileArea::Local(_) => (),
+                _ => {
+                    return Err(icx.cx.nid_err(
+                        *dst_nid,
+                        RunnerError::Makeshift("destination must be in a local area".into()),
+                    ));
+                }
+            }
+            let src = icx.driver.resolve_fs_entry(src.inner());
+            let dst = icx.driver.resolve_fs_entry(dst.inner());
+            let filename = src.file_name().unwrap();
+            let dst = dst.join(filename);
+            if let Err(err) = std::fs::copy(src, dst) {
+                return Err(icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)));
+            }
+            Ok(Value::Unit)
         }
         _ => icx.incorrect_args(2..=2),
     }
