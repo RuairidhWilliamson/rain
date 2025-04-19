@@ -312,13 +312,28 @@ impl<'src> ModuleParser<'src> {
         let lbrace = lbrace.span;
         let mut fields = Vec::new();
         loop {
+            self.stream.skip_if_newline()?;
             let Some(peek) = self.stream.peek()? else {
                 break;
             };
             if peek.token == Token::RBrace {
                 break;
             }
-            fields.push(self.parse_record_field()?);
+            let key = self.stream.expect_parse_next(&[Token::Ident])?;
+            let colon = self.stream.expect_parse_next(&[Token::Colon])?.span;
+            let value = self.parse_expr()?;
+            let mut comma = None;
+            if let Some(tls) = self.stream.peek()? {
+                if tls.token == Token::Comma {
+                    comma = Some(self.stream.expect_parse_next(&[Token::Comma])?.span);
+                }
+            }
+            fields.push(RecordField {
+                key,
+                colon,
+                value,
+                comma,
+            });
         }
         let rbrace = self.stream.expect_parse_next(&[Token::RBrace])?.span;
         Ok(self.push(Record {
@@ -328,35 +343,26 @@ impl<'src> ModuleParser<'src> {
         }))
     }
 
-    fn parse_record_field(&mut self) -> ParseResult<RecordField> {
-        let key = self.stream.expect_parse_next(&[Token::Ident])?;
-        let colon = self.stream.expect_parse_next(&[Token::Colon])?.span;
-        let value = self.parse_expr()?;
-        let mut comma = None;
-        if let Some(tls) = self.stream.peek()? {
-            if tls.token == Token::Comma {
-                comma = Some(self.stream.expect_parse_next(&[Token::Comma])?.span);
-            }
-        }
-        Ok(RecordField {
-            key,
-            colon,
-            value,
-            comma,
-        })
-    }
-
     fn parse_list(&mut self, lbracket: TokenLocalSpan) -> ParseResult<NodeId> {
         let lbracket = lbracket.span;
         let mut elements = Vec::new();
         loop {
+            self.stream.skip_if_newline()?;
             let Some(peek) = self.stream.peek()? else {
                 break;
             };
             if peek.token == Token::RSqBracket {
                 break;
             }
-            elements.push(self.parse_list_element()?);
+            let value = self.parse_expr()?;
+            self.stream.skip_if_newline()?;
+            let mut comma = None;
+            if let Some(tls) = self.stream.peek()? {
+                if tls.token == Token::Comma {
+                    comma = Some(self.stream.expect_parse_next(&[Token::Comma])?.span);
+                }
+            }
+            elements.push(ListElement { value, comma });
         }
         let rbracket = self.stream.expect_parse_next(&[Token::RSqBracket])?.span;
         Ok(self.push(List {
@@ -364,17 +370,6 @@ impl<'src> ModuleParser<'src> {
             elements,
             rsqbracket: rbracket,
         }))
-    }
-
-    fn parse_list_element(&mut self) -> ParseResult<ListElement> {
-        let value = self.parse_expr()?;
-        let mut comma = None;
-        if let Some(tls) = self.stream.peek()? {
-            if tls.token == Token::Comma {
-                comma = Some(self.stream.expect_parse_next(&[Token::Comma])?.span);
-            }
-        }
-        Ok(ListElement { value, comma })
     }
 }
 
@@ -581,8 +576,18 @@ mod test {
     }
 
     #[test]
+    fn record_constructor_nls() {
+        insta::assert_snapshot!(parse_display_expr("{\na: b, \n c: 4\n}"));
+    }
+
+    #[test]
     fn list_constructor_nested() {
         insta::assert_snapshot!(parse_display_expr("[a, b, 123, [567, d]]"));
+    }
+
+    #[test]
+    fn list_constructor_nested_nls() {
+        insta::assert_snapshot!(parse_display_expr("[a\n, b,\n 123, [\n567, d]\n]"));
     }
 
     #[test]

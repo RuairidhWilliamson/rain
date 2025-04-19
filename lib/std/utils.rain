@@ -44,10 +44,11 @@ fn download(url) {
 fn run_check(area, bin, args, env) {
 	run_result = run(area, bin, args, env)
 	if not(run_result.success) {
-		utils.print("Stdout:", run_result.stdout)
-		utils.print("Stderr:", run_result.stderr)
+		print("Stdout:", run_result.stdout)
+		print("Stderr:", run_result.stderr)
 		_throw("run failed")
 	}
+	run_result
 }
 
 let newline = internal._bytes_to_string([10])
