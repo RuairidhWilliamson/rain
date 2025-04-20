@@ -56,7 +56,6 @@ impl<'a> PeekTokenStream<'a> {
             match tls.token {
                 Token::NewLine => {
                     self.parse_next()?;
-                    continue;
                 }
                 _ => return Ok(()),
             }

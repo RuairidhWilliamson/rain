@@ -13,7 +13,9 @@ use internal::InternalFunction;
 use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
 
 use crate::{
-    ast::{AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId},
+    ast::{
+        AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId, Not,
+    },
     driver::DriverTrait,
     ir::{DeclarationId, IrModule, Rir},
     local_span::LocalSpan,
@@ -204,6 +206,19 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     builder.push(self.evaluate_node(cx, e.value)?);
                 }
                 Ok(Value::List(Arc::new(RainList(builder))))
+            }
+            Node::Not(Not { exclamation, inner }) => {
+                let inner_value = self.evaluate_node(cx, *inner)?;
+                match inner_value {
+                    Value::Boolean(b) => Ok(Value::Boolean(!b)),
+                    _ => Err(exclamation.with_module(cx.module.id).with_error(
+                        RunnerError::ExpectedType {
+                            actual: inner_value.rain_type_id(),
+                            expected: &[RainTypeId::Boolean],
+                        }
+                        .into(),
+                    )),
+                }
             }
         }
     }

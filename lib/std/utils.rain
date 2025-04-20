@@ -31,11 +31,7 @@ let _import = internal._import
 let _throw = internal._throw
 
 fn not(b) {
-	if b {
-		false
-	} else {
-		true
-	}
+	!b
 }
 
 fn download(url) {

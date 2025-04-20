@@ -10,7 +10,7 @@ use crate::{
         absolute::AbsolutePathBuf,
         area::FileArea,
         dir::Dir,
-        entry::{FSEntry, FSEntryTrait},
+        entry::{FSEntry, FSEntryTrait as _},
         error::PathError,
         file::File,
         path::FilePath,
@@ -1117,7 +1117,12 @@ fn export_to_local(icx: InternalCx) -> ResultValue {
             }
             let src = icx.driver.resolve_fs_entry(src.inner());
             let dst = icx.driver.resolve_fs_entry(dst.inner());
-            let filename = src.file_name().unwrap();
+            let filename = src.file_name().ok_or_else(|| {
+                icx.cx.nid_err(
+                    icx.nid,
+                    RunnerError::Makeshift("src path does not have filename".into()),
+                )
+            })?;
             let dst = dst.join(filename);
             if let Err(err) = std::fs::copy(src, dst) {
                 return Err(icx.cx.nid_err(icx.nid, RunnerError::AreaIOError(err)));

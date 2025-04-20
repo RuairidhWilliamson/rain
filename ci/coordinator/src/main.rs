@@ -23,7 +23,7 @@ use smee_rs::MessageHandler;
 struct Config {
     github_app_id: AppId,
     github_app_key: String,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     github_webhook_secret: String,
     target_url: url::Url,
     smee_url: url::Url,
@@ -70,6 +70,18 @@ async fn main() -> Result<()> {
     smee.start().await
 }
 
+// Intermediate structure allows to separate the common fields from
+// the event specific one.
+#[derive(serde::Deserialize)]
+struct Intermediate {
+    sender: Option<Author>,
+    repository: Option<Repository>,
+    organization: Option<Organization>,
+    installation: Option<EventInstallation>,
+    #[serde(flatten)]
+    specific: serde_json::Value,
+}
+
 struct Handler {
     inner: Arc<HandlerInner>,
 }
@@ -99,18 +111,6 @@ impl MessageHandler for Handler {
         } else {
             serde_json::from_str::<WebhookEventType>(&format!("\"{header}\""))?
         };
-
-        // Intermediate structure allows to separate the common fields from
-        // the event specific one.
-        #[derive(serde::Deserialize)]
-        struct Intermediate {
-            sender: Option<Author>,
-            repository: Option<Repository>,
-            organization: Option<Organization>,
-            installation: Option<EventInstallation>,
-            #[serde(flatten)]
-            specific: serde_json::Value,
-        }
 
         let Intermediate {
             sender,
@@ -156,14 +156,13 @@ pub struct WebhookEvent {
     pub specific: WebhookEventPayload,
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 fn verify_webhook_signature(headers: &smee_rs::HeaderMap, body: &str, secret: &str) -> Result<()> {
     let github_signature_header = headers
         .get("x-hub-signature-256")
         .context("x-hub-signature-256 header not present")?
         .as_str()
         .context("x-hub-signature-256 header is not a string")?;
-    dbg!(secret, headers);
     let (algo, sig_hex) = github_signature_header
         .split_once('=')
         .context("header does not contain =")?;

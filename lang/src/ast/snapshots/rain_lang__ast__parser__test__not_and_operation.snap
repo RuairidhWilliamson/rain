@@ -1,0 +1,24 @@
+---
+source: lang/src/ast/parser.rs
+expression: "parse_display_expr(\"false && !!!true || !false\")"
+---
+BinaryOp(
+ BinaryOp(
+  FalseLiteral(
+  )
+  &&
+  Not(
+   Not(
+    Not(
+     TrueLiteral(
+     )
+    )
+   )
+  )
+ )
+ ||
+ Not(
+  FalseLiteral(
+  )
+ )
+)

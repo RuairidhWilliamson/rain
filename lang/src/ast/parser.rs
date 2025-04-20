@@ -7,8 +7,8 @@ use crate::{
 use super::{
     AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, FalseLiteral, FnCall,
     FnDeclare, FnDeclareArg, Ident, IfCondition, IntegerLiteral, InternalLiteral, LetDeclare, List,
-    ListElement, Module, ModuleRoot, Node, NodeId, NodeList, Record, RecordField, StringLiteral,
-    TrueLiteral,
+    ListElement, Module, ModuleRoot, Node, NodeId, NodeList, Not, Record, RecordField,
+    StringLiteral, TrueLiteral,
 };
 
 pub fn parse_module(source: &str) -> ParseResult<Module> {
@@ -216,6 +216,13 @@ impl<'src> ModuleParser<'src> {
             Token::If => self.parse_if_condition(t)?,
             Token::LBrace => self.parse_record(t)?,
             Token::LSqBracket => self.parse_list(t)?,
+            Token::Excalmation => {
+                let inner = self.parse_expr_primary()?;
+                self.push(Not {
+                    exclamation: t.span,
+                    inner,
+                })
+            }
             _ => return Err(t.span.with_error(ParseError::ExpectedExpression)),
         };
         Ok(expr)
@@ -449,6 +456,16 @@ mod test {
     }
 
     #[test]
+    fn false_literal() {
+        insta::assert_snapshot!(parse_display_expr("false"));
+    }
+
+    #[test]
+    fn true_literal() {
+        insta::assert_snapshot!(parse_display_expr("true"));
+    }
+
+    #[test]
     fn string_literal() {
         insta::assert_snapshot!(parse_display_expr("\"asldjf\""));
     }
@@ -618,5 +635,15 @@ mod test {
         }
         assert!(parse_display_module("fn foo() {5 6}").is_err());
         assert!(parse_display_module("fn foo() {a b c}").is_err());
+    }
+
+    #[test]
+    fn not_and_operation() {
+        insta::assert_snapshot!(parse_display_expr("false && !!!true || !false"));
+    }
+
+    #[test]
+    fn not_paren_operation() {
+        insta::assert_snapshot!(parse_display_expr("!(!a || !b)"));
     }
 }

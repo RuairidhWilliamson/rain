@@ -85,6 +85,7 @@ pub enum Node {
     FnCall(FnCall),
     Assignment(Assignment),
     BinaryOp(BinaryOp),
+    Not(Not),
     Ident(Ident),
     StringLiteral(StringLiteral),
     IntegerLiteral(IntegerLiteral),
@@ -106,6 +107,7 @@ impl Node {
             Self::FnCall(inner) => inner,
             Self::Assignment(inner) => inner,
             Self::BinaryOp(inner) => inner,
+            Self::Not(inner) => inner,
             Self::Ident(inner) => inner,
             Self::StringLiteral(inner) => inner,
             Self::IntegerLiteral(inner) => inner,
@@ -312,6 +314,28 @@ impl AstNode for BinaryOp {
             .child_contents(self.op_span)
             .child(self.right)
             .finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct Not {
+    pub exclamation: LocalSpan,
+    pub inner: NodeId,
+}
+
+impl From<Not> for Node {
+    fn from(inner: Not) -> Self {
+        Self::Not(inner)
+    }
+}
+
+impl AstNode for Not {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        self.exclamation + list.span(self.inner)
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("Not").child(self.inner).finish()
     }
 }
 

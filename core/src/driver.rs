@@ -1,5 +1,5 @@
 use std::{
-    os::unix::fs::OpenOptionsExt,
+    os::unix::fs::OpenOptionsExt as _,
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -100,7 +100,7 @@ impl DriverTrait for DriverImpl<'_> {
         let area = self.create_empty_area()?;
         let output_dir = Dir::root(area.clone());
         let output_dir_path = self.resolve_fs_entry(output_dir.inner());
-        log::debug!("extract zip {:?}", resolved_path);
+        log::debug!("extract zip {resolved_path:?}");
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut zip = zip::read::ZipArchive::new(f)
             .map_err(|err| RunnerError::ExtractError(Box::new(err)))?;
@@ -122,6 +122,7 @@ impl DriverTrait for DriverImpl<'_> {
             .map_err(RunnerError::AreaIOError)?;
             let mut out = std::fs::OpenOptions::new()
                 .create(true)
+                .truncate(false)
                 .write(true)
                 .mode(0o770)
                 .open(path)

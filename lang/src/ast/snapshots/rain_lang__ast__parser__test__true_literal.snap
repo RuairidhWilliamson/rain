@@ -1,0 +1,6 @@
+---
+source: lang/src/ast/parser.rs
+expression: "parse_display_expr(\"true\")"
+---
+TrueLiteral(
+)
