@@ -190,8 +190,24 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_expr(&mut self) -> ParseResult<NodeId> {
-        let (prefixes, lhs) = self.parse_expr_primary()?;
-        self.parse_expr_ops(prefixes, lhs, 0)
+        let (mut prefixes, mut lhs) = self.parse_expr_primary()?;
+        loop {
+            let min_precedence = prefixes
+                .last()
+                .map(|t| get_token_precedence_associativity(t.token).unwrap().0)
+                .unwrap_or(0);
+            lhs = self.parse_expr_ops(lhs, min_precedence)?;
+            if let Some(prefix) = prefixes.pop() {
+                debug_assert_eq!(prefix.token, Token::Excalmation);
+                lhs = self.push(Not {
+                    exclamation: prefix.span,
+                    inner: lhs,
+                });
+                continue;
+            }
+            break;
+        }
+        Ok(lhs)
     }
 
     fn parse_expr_primary(&mut self) -> ParseResult<(Vec<TokenLocalSpan>, NodeId)> {
@@ -227,12 +243,7 @@ impl<'src> ModuleParser<'src> {
         Ok((Vec::new(), expr))
     }
 
-    fn parse_expr_ops(
-        &mut self,
-        mut prefixes: Vec<TokenLocalSpan>,
-        mut lhs: NodeId,
-        min_precedence: usize,
-    ) -> ParseResult<NodeId> {
+    fn parse_expr_ops(&mut self, mut lhs: NodeId, min_precedence: usize) -> ParseResult<NodeId> {
         fn check_op(
             t: Option<TokenLocalSpan>,
             min_precedence: usize,
@@ -246,26 +257,6 @@ impl<'src> ModuleParser<'src> {
             } else {
                 None
             }
-        }
-        loop {
-            if let Some(prefix) = prefixes.last() {
-                if let Some((prefix_precedence, _)) =
-                    get_token_precedence_associativity(prefix.token)
-                {
-                    if let Some((_, precedence)) = check_op(self.stream.peek()?, min_precedence) {
-                        if prefix_precedence > precedence {
-                            // We can assume the prefix is a not operator
-                            lhs = self.push(Not {
-                                exclamation: prefix.span,
-                                inner: lhs,
-                            });
-                            prefixes.pop();
-                            continue;
-                        }
-                    }
-                }
-            }
-            break;
         }
         while let Some((t, precedence)) = check_op(self.stream.peek()?, min_precedence) {
             if t.token == Token::LParen {
@@ -282,7 +273,7 @@ impl<'src> ModuleParser<'src> {
                         if let Some((_, precedence)) = check_op(self.stream.peek()?, min_precedence)
                         {
                             if prefix_precedence > precedence {
-                                // We can assume the prefix is a not operator
+                                debug_assert_eq!(prefix.token, Token::Excalmation);
                                 rhs = self.push(Not {
                                     exclamation: prefix.span,
                                     inner: rhs,
@@ -297,10 +288,10 @@ impl<'src> ModuleParser<'src> {
             }
             while let Some((_, next_op_precedence)) = check_op(self.stream.peek()?, precedence) {
                 let next_precedence = precedence + usize::from(next_op_precedence > precedence);
-                rhs = self.parse_expr_ops(Vec::new(), rhs, next_precedence)?;
+                rhs = self.parse_expr_ops(rhs, next_precedence)?;
             }
             for prefix in prefixes {
-                // We can assume the prefix is a not operator
+                debug_assert_eq!(prefix.token, Token::Excalmation);
                 rhs = self.push(Not {
                     exclamation: prefix.span,
                     inner: rhs,
@@ -314,13 +305,6 @@ impl<'src> ModuleParser<'src> {
                 op,
                 op_span: t.span,
                 right: rhs,
-            });
-        }
-        for prefix in prefixes {
-            // We can assume the prefix is a not operator
-            lhs = self.push(Not {
-                exclamation: prefix.span,
-                inner: lhs,
             });
         }
         Ok(lhs)
@@ -724,5 +708,20 @@ mod test {
     #[test]
     fn or_not_dot_operation() {
         insta::assert_snapshot!(parse_display_expr("a || !b.c"));
+    }
+
+    #[test]
+    fn not_dot_plus_expr() {
+        insta::assert_snapshot!(parse_display_expr("!a.b + d"));
+    }
+
+    #[test]
+    fn plus_not_dot_plus_expr() {
+        insta::assert_snapshot!(parse_display_expr("f + !a.b + d"));
+    }
+
+    #[test]
+    fn dot_not_plus_dot_plus_expr() {
+        insta::assert_snapshot!(parse_display_expr("a.b + !c + !d.e"));
     }
 }

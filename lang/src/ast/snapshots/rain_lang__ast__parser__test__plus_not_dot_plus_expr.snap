@@ -1,0 +1,27 @@
+---
+source: lang/src/ast/parser.rs
+expression: "parse_display_expr(\"f + !a.b + d\")"
+---
+BinaryOp(
+ BinaryOp(
+  Ident(
+   f
+  )
+  +
+  Not(
+   BinaryOp(
+    Ident(
+     a
+    )
+    .
+    Ident(
+     b
+    )
+   )
+  )
+ )
+ +
+ Ident(
+  d
+ )
+)
