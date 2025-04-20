@@ -192,10 +192,11 @@ impl<'src> ModuleParser<'src> {
     fn parse_expr(&mut self) -> ParseResult<NodeId> {
         let (mut prefixes, mut lhs) = self.parse_expr_primary()?;
         loop {
-            let min_precedence = prefixes
-                .last()
-                .map(|t| get_token_precedence_associativity(t.token).unwrap().0)
-                .unwrap_or(0);
+            let min_precedence = prefixes.last().map_or(0, |t| {
+                get_token_precedence_associativity(t.token)
+                    .expect("not has precedence")
+                    .0
+            });
             lhs = self.parse_expr_ops(lhs, min_precedence)?;
             if let Some(prefix) = prefixes.pop() {
                 debug_assert_eq!(prefix.token, Token::Excalmation);
