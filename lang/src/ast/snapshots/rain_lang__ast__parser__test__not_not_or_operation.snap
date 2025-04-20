@@ -1,0 +1,17 @@
+---
+source: lang/src/ast/parser.rs
+expression: "parse_display_expr(\"!!a || b\")"
+---
+BinaryOp(
+ Not(
+  Not(
+   Ident(
+    a
+   )
+  )
+ )
+ ||
+ Ident(
+  b
+ )
+)

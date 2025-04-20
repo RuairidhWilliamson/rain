@@ -190,11 +190,11 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_expr(&mut self) -> ParseResult<NodeId> {
-        let lhs = self.parse_expr_primary()?;
-        self.parse_expr_ops(lhs, 0)
+        let (prefixes, lhs) = self.parse_expr_primary()?;
+        self.parse_expr_ops(prefixes, lhs, 0)
     }
 
-    fn parse_expr_primary(&mut self) -> ParseResult<NodeId> {
+    fn parse_expr_primary(&mut self) -> ParseResult<(Vec<TokenLocalSpan>, NodeId)> {
         let Some(t) = self.stream.parse_next()? else {
             return Err(self
                 .stream
@@ -217,28 +217,94 @@ impl<'src> ModuleParser<'src> {
             Token::LBrace => self.parse_record(t)?,
             Token::LSqBracket => self.parse_list(t)?,
             Token::Excalmation => {
-                let inner = self.parse_expr_primary()?;
-                self.push(Not {
-                    exclamation: t.span,
-                    inner,
-                })
+                let exclamation = t;
+                let (mut prefix, inner) = self.parse_expr_primary()?;
+                prefix.push(exclamation);
+                return Ok((prefix, inner));
             }
             _ => return Err(t.span.with_error(ParseError::ExpectedExpression)),
         };
-        Ok(expr)
+        Ok((Vec::new(), expr))
     }
 
-    fn parse_expr_ops(&mut self, mut lhs: NodeId, min_precedence: usize) -> ParseResult<NodeId> {
+    fn parse_expr_ops(
+        &mut self,
+        mut prefixes: Vec<TokenLocalSpan>,
+        mut lhs: NodeId,
+        min_precedence: usize,
+    ) -> ParseResult<NodeId> {
+        fn check_op(
+            t: Option<TokenLocalSpan>,
+            min_precedence: usize,
+        ) -> Option<(TokenLocalSpan, Precedence)> {
+            let t = t?;
+            let (precedence, associativity) = get_token_precedence_associativity(t.token)?;
+            if precedence > min_precedence
+                || precedence == min_precedence && associativity == Associativity::Right
+            {
+                Some((t, precedence))
+            } else {
+                None
+            }
+        }
+        loop {
+            if let Some(prefix) = prefixes.last() {
+                if let Some((prefix_precedence, _)) =
+                    get_token_precedence_associativity(prefix.token)
+                {
+                    if let Some((_, precedence)) = check_op(self.stream.peek()?, min_precedence) {
+                        if prefix_precedence > precedence {
+                            // We can assume the prefix is a not operator
+                            lhs = self.push(Not {
+                                exclamation: prefix.span,
+                                inner: lhs,
+                            });
+                            prefixes.pop();
+                            continue;
+                        }
+                    }
+                }
+            }
+            break;
+        }
         while let Some((t, precedence)) = check_op(self.stream.peek()?, min_precedence) {
             if t.token == Token::LParen {
                 lhs = self.parse_fn_call(lhs)?;
                 continue;
             }
             self.stream.parse_next()?;
-            let mut rhs = self.parse_expr_primary()?;
+            let (mut prefixes, mut rhs) = self.parse_expr_primary()?;
+            loop {
+                if let Some(prefix) = prefixes.last() {
+                    if let Some((prefix_precedence, _)) =
+                        get_token_precedence_associativity(prefix.token)
+                    {
+                        if let Some((_, precedence)) = check_op(self.stream.peek()?, min_precedence)
+                        {
+                            if prefix_precedence > precedence {
+                                // We can assume the prefix is a not operator
+                                rhs = self.push(Not {
+                                    exclamation: prefix.span,
+                                    inner: rhs,
+                                });
+                                prefixes.pop();
+                                continue;
+                            }
+                        }
+                    }
+                }
+                break;
+            }
             while let Some((_, next_op_precedence)) = check_op(self.stream.peek()?, precedence) {
                 let next_precedence = precedence + usize::from(next_op_precedence > precedence);
-                rhs = self.parse_expr_ops(rhs, next_precedence)?;
+                rhs = self.parse_expr_ops(Vec::new(), rhs, next_precedence)?;
+            }
+            for prefix in prefixes {
+                // We can assume the prefix is a not operator
+                rhs = self.push(Not {
+                    exclamation: prefix.span,
+                    inner: rhs,
+                });
             }
             let Some(op) = BinaryOperatorKind::new_from_token(t.token) else {
                 unreachable!("parse_expr_ops")
@@ -248,6 +314,13 @@ impl<'src> ModuleParser<'src> {
                 op,
                 op_span: t.span,
                 right: rhs,
+            });
+        }
+        for prefix in prefixes {
+            // We can assume the prefix is a not operator
+            lhs = self.push(Not {
+                exclamation: prefix.span,
+                inner: lhs,
             });
         }
         Ok(lhs)
@@ -380,21 +453,6 @@ impl<'src> ModuleParser<'src> {
     }
 }
 
-fn check_op(
-    t: Option<TokenLocalSpan>,
-    min_precedence: usize,
-) -> Option<(TokenLocalSpan, Precedence)> {
-    let t = t?;
-    let (precedence, associativity) = get_token_precedence_associativity(t.token)?;
-    if precedence > min_precedence
-        || precedence == min_precedence && associativity == Associativity::Right
-    {
-        Some((t, precedence))
-    } else {
-        None
-    }
-}
-
 #[derive(PartialEq, Eq)]
 pub enum Associativity {
     Left,
@@ -405,8 +463,9 @@ pub type Precedence = usize;
 
 pub fn get_token_precedence_associativity(token: Token) -> Option<(Precedence, Associativity)> {
     let precedence = match token {
-        Token::Dot => Some(70),
-        Token::LParen => Some(60),
+        Token::Dot => Some(120),
+        Token::LParen => Some(110),
+        Token::Excalmation => Some(100),
         Token::Star | Token::Slash => Some(50),
         Token::Plus | Token::Subtract => Some(40),
         Token::Equals | Token::NotEquals => Some(30),
@@ -645,5 +704,25 @@ mod test {
     #[test]
     fn not_paren_operation() {
         insta::assert_snapshot!(parse_display_expr("!(!a || !b)"));
+    }
+
+    #[test]
+    fn not_dot_operation() {
+        insta::assert_snapshot!(parse_display_expr("!a.b"));
+    }
+
+    #[test]
+    fn not_or_operation() {
+        insta::assert_snapshot!(parse_display_expr("!a || b"));
+    }
+
+    #[test]
+    fn not_not_or_operation() {
+        insta::assert_snapshot!(parse_display_expr("!!a || b"));
+    }
+
+    #[test]
+    fn or_not_dot_operation() {
+        insta::assert_snapshot!(parse_display_expr("a || !b.c"));
     }
 }
