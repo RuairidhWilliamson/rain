@@ -35,6 +35,8 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn create_area(&self, dirs: &[&Dir]) -> Result<FileArea, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, std::io::Error>;
     fn create_file(&self, contents: &str, name: &str) -> Result<File, RunnerError>;
+    fn file_metadata(&self, file: &File) -> Result<FileMetadata, RunnerError>;
+    fn glob(&self, dir: &Dir, pattern: &str) -> Result<Vec<File>, RunnerError>;
 }
 
 pub trait MonitoringTrait {
@@ -81,4 +83,8 @@ impl std::fmt::Display for FSEntryQueryResult {
             Self::NotExist => f.write_str("does not exist"),
         }
     }
+}
+
+pub struct FileMetadata {
+    pub size: u64,
 }

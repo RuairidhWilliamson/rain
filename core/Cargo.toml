@@ -15,15 +15,17 @@ chrono.workspace = true
 dircpy = { version = "0.3.19", default-features = false }
 dirs = "6.0.0"
 flate2 = "1.1.0"
+ignore = "0.4.23"
+indexmap.workspace = true
 libc.workspace = true
 liblzma = "0.4.1"
 log.workspace = true
 lru = "0.14.0"
 num-bigint = "0.4.6"
 poison_panic.path = "../poison_panic"
-serde_json.workspace = true
 rain-lang.path = "../lang"
 reqwest = { version = "0.12.9", features = ["blocking"] }
+serde_json.workspace = true
 serde.workspace = true
 sha2 = "0.10.8"
 tar = "0.4.44"
@@ -31,7 +33,6 @@ thiserror.workspace = true
 uuid.workspace = true
 web-time.workspace = true
 zip = { version = "2.2.0", features = ["deflate"], default-features = false }
-indexmap.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

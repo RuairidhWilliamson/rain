@@ -238,6 +238,16 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
 
     fn evaluate_fn_call(&mut self, cx: &mut Cx, nid: NodeId, fn_call: &FnCall) -> ResultValue {
         let v = self.evaluate_node(cx, fn_call.callee)?;
+        self.evaluate_fn_call_inner(cx, nid, &v, fn_call)
+    }
+
+    fn evaluate_fn_call_inner(
+        &mut self,
+        cx: &mut Cx,
+        nid: NodeId,
+        v: &Value,
+        fn_call: &FnCall,
+    ) -> ResultValue {
         match &v {
             Value::Function(f) => {
                 if cx.call_depth >= MAX_CALL_DEPTH {
@@ -312,9 +322,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 self.driver.enter_internal_call(f);
                 let v = f.call_internal_function(internal::InternalCx {
                     func: *f,
-                    driver: self.driver,
-                    cache: self.cache,
-                    rir: self.ir,
+                    runner: self,
                     cx,
                     nid,
                     fn_call,

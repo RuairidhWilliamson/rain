@@ -91,3 +91,7 @@ fn publish_lib(version) {
 	}
 	print("Published lib", version)
 }
+
+fn check_empty_files() {
+	std.utils.foreach(std.utils.glob(area), std.lints.no_empty)
+}

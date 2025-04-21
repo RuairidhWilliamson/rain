@@ -14,8 +14,8 @@ use rain_lang::{
         path::FilePath,
     },
     driver::{
-        DownloadStatus, DriverTrait, FSEntryQueryResult, FSTrait, MonitoringTrait, RunOptions,
-        RunStatus,
+        DownloadStatus, DriverTrait, FSEntryQueryResult, FSTrait, FileMetadata, MonitoringTrait,
+        RunOptions, RunStatus,
     },
     runner::{error::RunnerError, internal::InternalFunction},
 };
@@ -280,6 +280,36 @@ impl DriverTrait for DriverImpl<'_> {
         // Safety: We just created the file
         let file = unsafe { File::new(entry) };
         Ok(file)
+    }
+
+    fn file_metadata(&self, file: &File) -> Result<FileMetadata, RunnerError> {
+        let metadata = std::fs::metadata(self.resolve_fs_entry(file.inner()))
+            .map_err(RunnerError::AreaIOError)?;
+        Ok(FileMetadata {
+            size: metadata.len(),
+        })
+    }
+
+    #[expect(clippy::unwrap_used)]
+    fn glob(&self, dir: &Dir, _pattern: &str) -> Result<Vec<File>, RunnerError> {
+        let base_path = self.resolve_fs_entry(dir.inner());
+        // TODO: Implement proper globbing
+        let mut out = Vec::new();
+        for entry in ignore::Walk::new(&base_path) {
+            let entry = entry.unwrap();
+            let file_type = entry.file_type().unwrap();
+            if file_type.is_symlink() || file_type.is_dir() {
+                continue;
+            }
+            if file_type.is_file() {
+                let p = entry.path();
+                let p = p.strip_prefix(&base_path).unwrap().to_str().unwrap();
+                let p = dir.path().join(p).unwrap();
+                let file = unsafe { File::new(FSEntry::new(dir.area().clone(), p)) };
+                out.push(file);
+            }
+        }
+        Ok(out)
     }
 }
 
