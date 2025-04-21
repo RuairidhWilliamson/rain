@@ -305,6 +305,7 @@ impl DriverTrait for DriverImpl<'_> {
                 let p = entry.path();
                 let p = p.strip_prefix(&base_path).unwrap().to_str().unwrap();
                 let p = dir.path().join(p).unwrap();
+                // Safety: We know this file exists, we just checked
                 let file = unsafe { File::new(FSEntry::new(dir.area().clone(), p)) };
                 out.push(file);
             }
