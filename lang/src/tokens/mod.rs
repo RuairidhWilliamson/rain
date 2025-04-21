@@ -51,6 +51,8 @@ pub enum Token {
     NotEquals,
     LogicalAnd,
     LogicalOr,
+    LessEq,
+    GreaterEq,
 
     // Keywords that maybe used in the future
     Reserved,

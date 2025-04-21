@@ -383,6 +383,20 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
             (Value::String(left), BinaryOperatorKind::NotEquals, Value::String(right)) => {
                 Ok(Value::Boolean(left != right))
             }
+            (Value::Integer(left), BinaryOperatorKind::LessThan, Value::Integer(right)) => {
+                Ok(Value::Boolean(left.0 < right.0))
+            }
+            (Value::Integer(left), BinaryOperatorKind::GreaterThan, Value::Integer(right)) => {
+                Ok(Value::Boolean(left.0 > right.0))
+            }
+            (Value::Integer(left), BinaryOperatorKind::LessThanEquals, Value::Integer(right)) => {
+                Ok(Value::Boolean(left.0 <= right.0))
+            }
+            (
+                Value::Integer(left),
+                BinaryOperatorKind::GreaterThanEquals,
+                Value::Integer(right),
+            ) => Ok(Value::Boolean(left.0 >= right.0)),
             _ => Err(cx.err(
                 op.op_span,
                 RunnerError::Makeshift("binary op invalid for given types".into()),

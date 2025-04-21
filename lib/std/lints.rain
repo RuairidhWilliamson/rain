@@ -8,3 +8,15 @@ fn no_empty(file) {
 		utils._throw("empty file")
 	}
 }
+
+fn no_emptish(file) {
+	metadata = utils.file_metadata(file)
+	if metadata.size == 0 {
+		utils.print(file)
+		utils._throw("empty file")
+	}
+	if metadata.size == 1 {
+		utils.print(file)
+		utils._throw("1 byte file")
+	}
+}

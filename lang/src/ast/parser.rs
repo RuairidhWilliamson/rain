@@ -453,6 +453,7 @@ pub fn get_token_precedence_associativity(token: Token) -> Option<(Precedence, A
         Token::Excalmation => Some(100),
         Token::Star | Token::Slash => Some(50),
         Token::Plus | Token::Subtract => Some(40),
+        Token::LAngle | Token::RAngle | Token::LessEq | Token::GreaterEq => Some(35),
         Token::Equals | Token::NotEquals => Some(30),
         Token::LogicalAnd => Some(20),
         Token::LogicalOr => Some(10),
@@ -724,5 +725,15 @@ mod test {
     #[test]
     fn dot_not_plus_dot_plus_expr() {
         insta::assert_snapshot!(parse_display_expr("a.b + !c + !d.e"));
+    }
+
+    #[test]
+    fn less_than() {
+        insta::assert_snapshot!(parse_display_expr("b < c && d > e"));
+    }
+
+    #[test]
+    fn greater_than_eq() {
+        insta::assert_snapshot!(parse_display_expr("a >= b"));
     }
 }

@@ -1,0 +1,25 @@
+---
+source: lang/src/ast/parser.rs
+expression: "parse_display_expr(\"b < c && d > e\")"
+---
+BinaryOp(
+ BinaryOp(
+  Ident(
+   b
+  )
+  <
+  Ident(
+   c
+  )
+ )
+ &&
+ BinaryOp(
+  Ident(
+   d
+  )
+  >
+  Ident(
+   e
+  )
+ )
+)

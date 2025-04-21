@@ -65,11 +65,13 @@ fn symbols() {
 #[test]
 fn compound_symbols() {
     assert_tokens!(
-        "==&&!=||",
+        "==&&!=||<= >=",
         Token::Equals,
         Token::LogicalAnd,
         Token::NotEquals,
-        Token::LogicalOr
+        Token::LogicalOr,
+        Token::LessEq,
+        Token::GreaterEq,
     );
 }
 

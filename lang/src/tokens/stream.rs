@@ -59,6 +59,8 @@ impl TokenStream<'_> {
                 (b')', _) => self.inc(Token::RParen),
                 (b'{', _) => self.inc(Token::LBrace),
                 (b'}', _) => self.inc(Token::RBrace),
+                (b'<', Some(b'=')) => self.inc2(Token::LessEq),
+                (b'>', Some(b'=')) => self.inc2(Token::GreaterEq),
                 (b'<', _) => self.inc(Token::LAngle),
                 (b'>', _) => self.inc(Token::RAngle),
                 (b'[', _) => self.inc(Token::LSqBracket),

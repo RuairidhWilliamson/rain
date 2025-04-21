@@ -446,6 +446,10 @@ pub enum BinaryOperatorKind {
     LogicalOr,
     Equals,
     NotEquals,
+    LessThan,
+    LessThanEquals,
+    GreaterThan,
+    GreaterThanEquals,
 }
 
 impl BinaryOperatorKind {
@@ -460,6 +464,10 @@ impl BinaryOperatorKind {
             Token::NotEquals => Some(Self::NotEquals),
             Token::LogicalAnd => Some(Self::LogicalAnd),
             Token::LogicalOr => Some(Self::LogicalOr),
+            Token::LAngle => Some(Self::LessThan),
+            Token::LessEq => Some(Self::LessThanEquals),
+            Token::RAngle => Some(Self::GreaterThan),
+            Token::GreaterEq => Some(Self::GreaterThanEquals),
             _ => None,
         }
     }
