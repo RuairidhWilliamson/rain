@@ -80,7 +80,7 @@ impl Iterator for Incoming<'_> {
         if let Err(err) = unsafe { ConnectNamedPipe(*handle, None) } {
             self.0.listener = Some(handle);
             return Some(Err(err.into()));
-        };
+        }
         Some(Ok(Connection(handle)))
     }
 }

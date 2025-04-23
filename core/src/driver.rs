@@ -1,5 +1,4 @@
 use std::{
-    os::unix::fs::OpenOptionsExt as _,
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -120,13 +119,17 @@ impl DriverTrait for DriverImpl<'_> {
                     .ok_or(RunnerError::Makeshift("zip path no parent".into()))?,
             )
             .map_err(RunnerError::AreaIOError)?;
-            let mut out = std::fs::OpenOptions::new()
-                .create(true)
-                .truncate(false)
-                .write(true)
-                .mode(0o770)
-                .open(path)
-                .map_err(RunnerError::AreaIOError)?;
+            let mut opts = std::fs::OpenOptions::new();
+            opts.create(true).truncate(false).write(true);
+
+            // We want to fallback to create all files with rwx so that binaries can be executed
+            #[cfg(target_family = "unix")]
+            std::os::unix::fs::OpenOptionsExt::mode(
+                &mut opts,
+                zip_file.unix_mode().unwrap_or(0o770),
+            );
+
+            let mut out = opts.open(path).map_err(RunnerError::AreaIOError)?;
             std::io::copy(&mut zip_file, &mut out).map_err(RunnerError::AreaIOError)?;
         }
         Ok(area)
