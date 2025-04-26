@@ -32,7 +32,7 @@ impl Listener {
         let path = path.as_ref().to_str().expect("path is utf-8");
         assert!(
             path.starts_with("\\\\.\\pipe\\"),
-            "path must start with unc pipe"
+            "path must start with unc pipe {path:?}"
         );
         let path: CString = CString::new(path).expect("null char not in path");
         let mut l = Self {

@@ -208,8 +208,13 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum RainCtlCommand {
+    /// Get information about the running rain server process
     Info,
+    /// Run checks
+    /// Equivalent to `rain run check`
     Check,
+    /// Build!
+    /// Equivalent to `rain run build`
     Build,
     Run {
         target: String,
@@ -218,15 +223,14 @@ pub enum RainCtlCommand {
         resolve: bool,
         args: Vec<String>,
     },
+    /// Stop the rain server process
     Shutdown,
     /// View rain config
     Config,
     /// Inspect the rain cache
     Inspect,
     /// Resolve rain path to actual local path
-    Resolve {
-        path: Option<String>,
-    },
+    Resolve { path: Option<String> },
     /// Clean the rain cache
     Clean,
 }

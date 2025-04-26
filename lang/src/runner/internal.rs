@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, ops::RangeInclusive, sync::Arc, time::Instant};
 
+use chrono::Utc;
 use indexmap::IndexMap;
 use num_bigint::BigInt;
 
@@ -715,6 +716,14 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 let call_description = format!("Download {url}");
                 let _call = enter_call(self.runner.driver, call_description);
                 let cache_entry = self.runner.cache.get(&cache_key);
+                if let Some(cache_entry) = &cache_entry {
+                    if let Some(expires) = cache_entry.expires {
+                        if expires > Utc::now() {
+                            log::debug!("Download cache hit");
+                            return Ok(cache_entry.value.clone());
+                        }
+                    }
+                }
                 let etag: Option<&str> = cache_entry.as_ref().and_then(|e| e.etag.as_deref());
                 let DownloadStatus {
                     ok,
@@ -729,6 +738,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 if !ok && status_code == Some(304) {
                     // Etag matched we can use our cached value!
                     if let Some(cache_entry) = cache_entry {
+                        log::debug!("Download cache etag hit");
                         return Ok(cache_entry.value);
                     }
                 }
@@ -751,7 +761,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     CacheEntry {
                         execution_time: start.elapsed(),
                         etag,
-                        expires: None,
+                        expires: Some(Utc::now() + chrono::TimeDelta::hours(1)),
                         deps: Vec::new(),
                         value: out.clone(),
                     },

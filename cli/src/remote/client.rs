@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    process::Stdio,
+    process::{Command, Stdio},
     time::{Duration, Instant},
 };
 
@@ -72,6 +72,9 @@ where
             return Err(err.into());
         }
     };
+    let exe = crate::exe::current_exe()
+        .ok_or(Error::CurrentExe)?
+        .to_path_buf();
     let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
     let request: Request = request.into();
     let mut buf = Vec::new();
@@ -80,7 +83,7 @@ where
         header: RequestHeader {
             config: config.clone(),
             modified_time: exe_stat.modified()?,
-            exe: std::fs::read_link("/proc/self/exe")?,
+            exe,
         },
         request: buf,
     };
@@ -127,10 +130,9 @@ where
 
 fn spawn_local_server(config: &Config) -> Result<ruipc::Client, Error> {
     log::info!("Starting server...");
-    let p = std::process::Command::new(crate::exe::current_exe().ok_or(Error::CurrentExe)?)
+    let p = Command::new(crate::exe::current_exe().ok_or(Error::CurrentExe)?)
         .arg("server")
         .env("RAIN_SERVER", "1")
-        .env("RAIN_LOG", "debug")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(create_new_unlink(config.server_stderr_path())?)

@@ -129,7 +129,7 @@ struct ClientHandler<'a> {
 impl ClientHandler<'_> {
     fn handle_client(mut self) -> Result<(), Error> {
         let RequestWrapper { header, request } = ciborium::from_reader(&mut self.stream)?;
-        if header.exe != std::fs::read_link("/proc/self/exe")? {
+        if header.exe != crate::exe::current_exe().ok_or(Error::CurrentExe)? {
             log::info!("Restarting because exe symlink changed");
             return self.restart();
         }

@@ -42,7 +42,13 @@ fn run() {
 }
 
 fn download_test() {
-	std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore")
+	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
+	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
+	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
+	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
+	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
+	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
+	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
 }
 
 fn helloworld() {
@@ -56,6 +62,7 @@ fn print_some_stuff() {
 	print("Whats \n up")
 	// print("Whats \"dog\" up")
 	print("Whats up")
+	print(std.utils.host_info().triple)
 }
 
 fn everything() {

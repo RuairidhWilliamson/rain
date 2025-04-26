@@ -48,8 +48,14 @@ impl Config {
         self.base_cache_dir.join("cache.json")
     }
 
+    #[cfg(target_family = "unix")]
     pub fn server_socket_path(&self) -> PathBuf {
         self.base_run_dir.join("server.socket")
+    }
+
+    #[cfg(target_family = "windows")]
+    pub fn server_socket_path(&self) -> PathBuf {
+        PathBuf::from("\\\\.\\pipe\\rain")
     }
 
     pub fn server_stderr_path(&self) -> PathBuf {
