@@ -356,6 +356,7 @@ fn run_core(
         target,
         args,
         resolve: _,
+        offline,
     }: &super::msg::run::RunRequest,
     cache: &Cache,
     driver: &DriverImpl<'_>,
@@ -374,6 +375,7 @@ fn run_core(
         .resolve_global_declaration(mid, declaration)
         .ok_or_else(|| CoreError::Other(String::from("declaration does not exist")))?;
     let mut runner = Runner::new(ir, cache, driver);
+    runner.offline = *offline;
     let value = runner
         .evaluate_and_call(main, args)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;

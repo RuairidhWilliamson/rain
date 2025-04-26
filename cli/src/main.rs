@@ -46,13 +46,13 @@ fn fallible_main() -> Result<(), ()> {
 fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     let cli = Cli::parse();
     match cli.command {
-        RainCtlCommand::Check => run(config, String::from("check"), vec![], false),
-        RainCtlCommand::Build => run(config, String::from("build"), vec![], false),
+        RainCtlCommand::Check => run(config, String::from("check"), vec![], false, cli.offline),
+        RainCtlCommand::Build => run(config, String::from("build"), vec![], false, cli.offline),
         RainCtlCommand::Run {
             target,
             resolve,
             args,
-        } => run(config, target, args, resolve),
+        } => run(config, target, args, resolve, cli.offline),
         RainCtlCommand::Info => {
             let info = make_request_or_start(config, InfoRequest, |()| {}).map_err(|err| {
                 eprintln!("{err}");
@@ -106,7 +106,13 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     }
 }
 
-fn run(config: &Config, target: String, args: Vec<String>, resolve: bool) -> Result<(), ()> {
+fn run(
+    config: &Config,
+    target: String,
+    args: Vec<String>,
+    resolve: bool,
+    offline: bool,
+) -> Result<(), ()> {
     let root = rain_core::find_root_rain().ok_or(())?;
     let mut stack = Vec::new();
     let run_response = make_request_or_start(
@@ -116,6 +122,7 @@ fn run(config: &Config, target: String, args: Vec<String>, resolve: bool) -> Res
             target,
             args,
             resolve,
+            offline,
         },
         |im| {
             match im {
@@ -202,6 +209,9 @@ fn clean(config: &Config) -> Result<(), ()> {
 #[derive(Debug, Parser)]
 #[command(version)]
 struct Cli {
+    // Avoid performing actions that require an internet connection when possible
+    #[arg(long)]
+    offline: bool,
     #[command(subcommand)]
     command: RainCtlCommand,
 }

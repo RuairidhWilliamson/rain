@@ -718,11 +718,19 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 let cache_entry = self.runner.cache.get(&cache_key);
                 if let Some(cache_entry) = &cache_entry {
                     if let Some(expires) = cache_entry.expires {
-                        if expires > Utc::now() {
+                        if expires > Utc::now() || self.runner.offline {
                             log::debug!("Download cache hit");
                             return Ok(cache_entry.value.clone());
                         }
                     }
+                }
+                if self.runner.offline {
+                    return Err(self.cx.nid_err(
+                        self.nid,
+                        RunnerError::Makeshift(
+                            "offline mode: cannot download item is not in cache".into(),
+                        ),
+                    ));
                 }
                 let etag: Option<&str> = cache_entry.as_ref().and_then(|e| e.etag.as_deref());
                 let DownloadStatus {

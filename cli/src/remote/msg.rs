@@ -59,6 +59,7 @@ pub mod run {
         pub target: String,
         pub args: Vec<String>,
         pub resolve: bool,
+        pub offline: bool,
     }
 
     impl From<RunRequest> for super::Request {
