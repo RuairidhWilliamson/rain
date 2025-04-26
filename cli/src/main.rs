@@ -154,14 +154,14 @@ fn run(
     eprint!("\r[x] {:120}\r", "");
     match result {
         Ok(s) => {
-            eprintln!("Done in {elapsed:.1?}");
+            eprintln!("✔ Success in {elapsed:.1?}");
             println!("{s}");
             Ok(())
         }
         Err(s) => {
             match s {
                 CoreError::LangError(owned_resolved_error) => {
-                    eprintln!("Error in {elapsed:.1?}");
+                    eprintln!("❗ Error in {elapsed:.1?}");
                     let mut stderr =
                         termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
                     owned_resolved_error

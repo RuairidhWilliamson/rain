@@ -745,9 +745,12 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
                 if !ok && status_code == Some(304) {
                     // Etag matched we can use our cached value!
-                    if let Some(cache_entry) = cache_entry {
+                    if let Some(mut cache_entry) = cache_entry {
                         log::debug!("Download cache etag hit");
-                        return Ok(cache_entry.value);
+                        cache_entry.expires = Some(Utc::now() + chrono::TimeDelta::hours(1));
+                        let value = cache_entry.value.clone();
+                        self.runner.cache.put(cache_key, cache_entry);
+                        return Ok(value);
                     }
                 }
                 let mut m = IndexMap::new();
