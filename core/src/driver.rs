@@ -13,8 +13,8 @@ use rain_lang::{
         path::FilePath,
     },
     driver::{
-        DownloadStatus, DriverTrait, FSEntryQueryResult, FSTrait, FileMetadata, MonitoringTrait,
-        RunOptions, RunStatus,
+        DownloadStatus, DriverTrait, EscapeRunStatus, FSEntryQueryResult, FSTrait, FileMetadata,
+        MonitoringTrait, RunOptions, RunStatus,
     },
     runner::{error::RunnerError, internal::InternalFunction},
 };
@@ -126,7 +126,9 @@ impl DriverTrait for DriverImpl<'_> {
             #[cfg(target_family = "unix")]
             std::os::unix::fs::OpenOptionsExt::mode(
                 &mut opts,
-                zip_file.unix_mode().unwrap_or(0o770),
+                0o770,
+                // This doesn't work but should eventually be replaced with
+                // `zip_file.unix_mode().unwrap_or(0o770)`
             );
 
             let mut out = opts.open(path).map_err(RunnerError::AreaIOError)?;
@@ -205,6 +207,45 @@ impl DriverTrait for DriverImpl<'_> {
             success,
             exit_code,
             area: output_area,
+            stdout: String::from_utf8(output.stdout).unwrap(),
+            stderr: String::from_utf8(output.stderr).unwrap(),
+        })
+    }
+
+    #[expect(clippy::unwrap_used)]
+    fn escape_run(
+        &self,
+        current_dir: &Dir,
+        bin: &File,
+        args: Vec<String>,
+        RunOptions { inherit_env, env }: RunOptions,
+    ) -> Result<EscapeRunStatus, RunnerError> {
+        let current_dir_path = self.resolve_fs_entry(current_dir.inner());
+        let bin_file = self.resolve_fs_entry(bin.inner());
+        let mut cmd = std::process::Command::new(bin_file);
+        cmd.current_dir(current_dir_path);
+        cmd.args(args);
+        if !inherit_env {
+            cmd.env_clear();
+        }
+        cmd.envs(env);
+        log::debug!("Running {cmd:?}");
+        let output = match cmd.output() {
+            Ok(output) => output,
+            Err(err) => {
+                return Ok(EscapeRunStatus {
+                    success: false,
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: err.to_string(),
+                });
+            }
+        };
+        let success = output.status.success();
+        let exit_code = output.status.code();
+        Ok(EscapeRunStatus {
+            success,
+            exit_code,
             stdout: String::from_utf8(output.stdout).unwrap(),
             stderr: String::from_utf8(output.stderr).unwrap(),
         })

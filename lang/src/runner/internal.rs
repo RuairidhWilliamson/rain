@@ -62,6 +62,8 @@ pub enum InternalFunction {
     FileMetadata,
     Glob,
     Foreach,
+    Stringify,
+    EscapeRun,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -104,6 +106,8 @@ impl InternalFunction {
             "_file_metadata" => Some(Self::FileMetadata),
             "_glob" => Some(Self::Glob),
             "_foreach" => Some(Self::Foreach),
+            "_stringify" => Some(Self::Stringify),
+            "_escape_run" => Some(Self::EscapeRun),
             _ => None,
         }
     }
@@ -141,6 +145,8 @@ impl InternalFunction {
             Self::FileMetadata => icx.file_metadata(),
             Self::Glob => icx.glob(),
             Self::Foreach => icx.foreach(),
+            Self::Stringify => icx.stringify(),
+            Self::EscapeRun => icx.escape_run(),
         }
     }
 }
@@ -477,7 +483,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         *area_nid,
                         RunnerError::ExpectedType {
                             actual: area_value.rain_type_id(),
-                            expected: &[RainTypeId::FileArea],
+                            expected: &[RainTypeId::FileArea, RainTypeId::Unit],
                         },
                     ))?,
                 };
@@ -538,6 +544,87 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     Value::Integer(Arc::new(RainInteger(status.exit_code.unwrap_or(-1).into()))),
                 );
                 m.insert("area".to_owned(), Value::FileArea(Arc::new(status.area)));
+                m.insert("stdout".to_owned(), Value::String(Arc::new(status.stdout)));
+                m.insert("stderr".to_owned(), Value::String(Arc::new(status.stderr)));
+                Ok(Value::Record(Arc::new(RainRecord(m))))
+            }
+            _ => self.incorrect_args(4..=4),
+        }
+    }
+    fn escape_run(self) -> ResultValue {
+        match &self.arg_values[..] {
+            [
+                (area_nid, area_value),
+                (file_nid, file_value),
+                (args_nid, args_value),
+                (env_nid, env_value),
+            ] => {
+                let dir = match area_value {
+                    Value::Dir(dir) => dir.as_ref(),
+                    _ => Err(self.cx.nid_err(
+                        *area_nid,
+                        RunnerError::ExpectedType {
+                            actual: area_value.rain_type_id(),
+                            expected: &[RainTypeId::FileArea],
+                        },
+                    ))?,
+                };
+                let Value::File(file) = file_value else {
+                    return Err(self.cx.nid_err(
+                        *file_nid,
+                        RunnerError::ExpectedType {
+                            actual: file_value.rain_type_id(),
+                            expected: &[RainTypeId::File],
+                        },
+                    ));
+                };
+                let Value::List(args) = args_value else {
+                    return Err(self.cx.nid_err(
+                        *args_nid,
+                        RunnerError::ExpectedType {
+                            actual: args_value.rain_type_id(),
+                            expected: &[RainTypeId::List],
+                        },
+                    ));
+                };
+                let args = args
+                    .0
+                    .iter()
+                    .map(|value| self.stringify_args(*args_nid, value))
+                    .collect::<Result<Vec<String>>>()?;
+                let Value::Record(env) = env_value else {
+                    return Err(self.cx.nid_err(
+                        *env_nid,
+                        RunnerError::ExpectedType {
+                            actual: env_value.rain_type_id(),
+                            expected: &[RainTypeId::List],
+                        },
+                    ));
+                };
+                let env = env
+                    .0
+                    .iter()
+                    .map(|(key, value)| self.stringify_env(*env_nid, key, value))
+                    .collect::<Result<HashMap<String, String>>>()?;
+                let status = self
+                    .runner
+                    .driver
+                    .escape_run(
+                        dir,
+                        file,
+                        args,
+                        RunOptions {
+                            inherit_env: false,
+                            env,
+                        },
+                    )
+                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                let mut m = IndexMap::new();
+                m.insert("success".to_owned(), Value::Boolean(status.success));
+                m.insert(
+                    "exit_code".to_owned(),
+                    Value::Integer(Arc::new(RainInteger(status.exit_code.unwrap_or(-1).into()))),
+                );
                 m.insert("stdout".to_owned(), Value::String(Arc::new(status.stdout)));
                 m.insert("stderr".to_owned(), Value::String(Arc::new(status.stderr)));
                 Ok(Value::Record(Arc::new(RainRecord(m))))
@@ -1362,6 +1449,35 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 Ok(Value::Unit)
             }
             _ => self.incorrect_args(2..=2),
+        }
+    }
+
+    fn stringify(self) -> ResultValue {
+        match &self.arg_values[..] {
+            [(dir_nid, dir_value)] => match dir_value {
+                Value::File(f) => Ok(Value::String(Arc::new(
+                    self.runner
+                        .driver
+                        .resolve_fs_entry(f.inner())
+                        .display()
+                        .to_string(),
+                ))),
+                Value::Dir(d) => Ok(Value::String(Arc::new(
+                    self.runner
+                        .driver
+                        .resolve_fs_entry(d.inner())
+                        .display()
+                        .to_string(),
+                ))),
+                _ => Err(self.cx.nid_err(
+                    *dir_nid,
+                    RunnerError::ExpectedType {
+                        actual: dir_value.rain_type_id(),
+                        expected: &[RainTypeId::File, RainTypeId::Dir],
+                    },
+                )),
+            },
+            _ => self.incorrect_args(1..=1),
         }
     }
 }

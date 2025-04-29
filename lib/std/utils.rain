@@ -28,6 +28,8 @@ let export_to_local = internal._export_to_local
 let file_metadata = internal._file_metadata
 let glob = internal._glob
 let foreach = internal._foreach
+let stringify = internal._stringify
+let escape_run = internal._escape_run
 
 // Reserved keywords are prefixed with _
 let _import = internal._import
@@ -77,4 +79,12 @@ fn rename_file(file, new_name) {
 	cp = escape_bin("cp")
 	result = run_check(unit, cp, [file, new_name], {})
 	get_file(result.area, new_name)
+}
+
+fn path_separator(target_triple) {
+	if is_windows(target_triple) {
+		";"
+	} else {
+		":"
+	}
 }

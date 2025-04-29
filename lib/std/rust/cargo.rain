@@ -53,13 +53,18 @@ fn test(channel, area, package, features, profile) {
 
 fn clippy(channel, area) {
 	// Download components
+	// Implicitly requires cc for linking
+	cc = escape_bin("cc")
+
+	// Download components
 	rustc = rust_dist.get_rustc(channel, host_triple)
 	rust_std = rust_dist.get_rust_std(channel, host_triple)
 	cargo = rust_dist.get_cargo(channel, host_triple)
 	clippy = rust_dist.get_clippy(channel, host_triple)
 
 	merged = utils.create_area([rustc, rust_std, cargo, clippy])
-	env = {PATH: get_dir(merged, "/bin"), LD_LIBRARY_PATH: get_dir(merged, "/lib")}
+	path_sep = utils.path_separator(utils.host_info().triple)
+	env = {PATH: "/usr/bin" + path_sep + utils.stringify(get_dir(merged, "/bin")), LD_LIBRARY_PATH: get_dir(merged, "/lib")}
 	cargo_bin = get_file(merged, "/bin/cargo")
 	run_result = run(area, cargo_bin, ["clippy", "--color", "always", "-q", "--", "-Dwarnings"], env)
 	if not(run_result.success) {

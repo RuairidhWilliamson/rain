@@ -9,14 +9,16 @@ let get_area = std.utils.get_area
 let module_file = std.utils.module_file
 
 let smee = _import(get_file("smee_rs/main.rain"))
+let rust_version = "stable"
 
 fn lint() {
-	std.rust.cargo.check_fmt(area)
-	std.rust.cargo.clippy(area)
+	check_empty_files()
+	std.rust.cargo.check_fmt(rust_version, area)
+	std.rust.cargo.clippy(rust_version, area)
 }
 
 fn test() {
-	std.rust.cargo.test(area)
+	std.rust.cargo.test(rust_version, area, "rain-core", "", "dev")
 }
 
 fn check() {
@@ -41,20 +43,14 @@ fn run() {
 	std.utils.run(std.utils.unit, binary)
 }
 
-fn download_test() {
-	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
-	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
-	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
-	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
-	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
-	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
-	print(std.utils.download("https://raw.githubusercontent.com/RuairidhWilliamson/PersonalWebsite/refs/heads/main/.gitignore"))
-}
-
 fn helloworld() {
 	src = std.utils.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
 	bin = std.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple)
 	print(std.utils.run(std.utils.unit, bin, [], {}).stdout)
+}
+
+fn check_empty_files() {
+	std.utils.foreach(std.utils.glob(area), std.lints.no_empty)
 }
 
 fn print_some_stuff() {
@@ -97,8 +93,4 @@ fn publish_lib(version) {
 		std.utils._throw("gcloud upload failed")
 	}
 	print("Published lib", version)
-}
-
-fn check_empty_files() {
-	std.utils.foreach(std.utils.glob(area), std.lints.no_empty)
 }

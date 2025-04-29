@@ -24,6 +24,13 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
         args: Vec<String>,
         options: RunOptions,
     ) -> Result<RunStatus, RunnerError>;
+    fn escape_run(
+        &self,
+        current_dir: &Dir,
+        bin: &File,
+        args: Vec<String>,
+        options: RunOptions,
+    ) -> Result<EscapeRunStatus, RunnerError>;
     fn download(
         &self,
         url: &str,
@@ -55,6 +62,13 @@ pub struct RunStatus {
     pub success: bool,
     pub exit_code: Option<i32>,
     pub area: FileArea,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+pub struct EscapeRunStatus {
+    pub success: bool,
+    pub exit_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
 }
