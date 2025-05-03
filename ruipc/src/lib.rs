@@ -1,3 +1,8 @@
+//! Ruipc is a simple IPC library providing an interface that allows inter process communication on Windows, macOS and Linux.
+//! It does not support communication across OSes or across networks.
+
+// #![warn(missing_docs)]
+
 #[cfg(target_family = "unix")]
 mod unix;
 #[cfg(target_family = "windows")]
@@ -16,6 +21,7 @@ use std::{
     path::Path,
 };
 
+/// Listener is created after binding to a particular address and can recieve incoming connections from clients by calling [`incoming`].
 #[derive(Debug)]
 pub struct Listener(sys::Listener);
 

@@ -4,6 +4,7 @@ use std::{
     sync::{
         Mutex,
         atomic::{AtomicUsize, Ordering},
+        mpsc::{Receiver, SyncSender, sync_channel},
     },
     time::{Instant, SystemTime},
 };
@@ -74,9 +75,13 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
     let mut l = ruipc::Listener::bind(socket_path)?;
     for stream in l.incoming() {
         match stream {
-            Ok(stream) => {
-                log::info!("got a stream {stream:?}");
-                ClientHandler { server: &s, stream }.handle_client()?;
+            Ok(connection) => {
+                log::info!("got a stream {connection:?}");
+                ClientHandler {
+                    server: &s,
+                    stream: IpcMsgConnection { connection },
+                }
+                .handle_client()?;
             }
             Err(err) => {
                 log::error!("unix listener error: {err}");
@@ -87,7 +92,7 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
     Ok(())
 }
 
-struct Server {
+pub struct Server {
     config: Config,
     /// Time the rain binary was modified, used to check if we should restart the server if the file on disk is newer
     modified_time: SystemTime,
@@ -99,7 +104,7 @@ struct Server {
 }
 
 impl Server {
-    fn new(config: Config) -> Result<Self, Error> {
+    pub fn new(config: Config) -> Result<Self, Error> {
         let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
         let modified_time = exe_stat.modified()?;
         let cache = rain_core::load_cache_or_default(&config);
@@ -121,14 +126,59 @@ struct Stats {
     pub responses_sent: AtomicUsize,
 }
 
-struct ClientHandler<'a> {
-    server: &'a Server,
-    stream: ruipc::Connection,
+pub trait MsgConnection: Send {
+    fn send(&mut self, request: Message) -> Result<(), Error>;
+    fn receive(&mut self) -> Result<RequestWrapper, Error>;
 }
 
-impl ClientHandler<'_> {
-    fn handle_client(mut self) -> Result<(), Error> {
-        let RequestWrapper { header, request } = ciborium::from_reader(&mut self.stream)?;
+pub struct IpcMsgConnection {
+    connection: ruipc::Connection,
+}
+
+impl MsgConnection for IpcMsgConnection {
+    fn send(&mut self, request: Message) -> Result<(), Error> {
+        ciborium::into_writer(&request, &mut self.connection)?;
+        Ok(())
+    }
+
+    fn receive(&mut self) -> Result<RequestWrapper, Error> {
+        let request = ciborium::from_reader(&mut self.connection)?;
+        Ok(request)
+    }
+}
+
+pub struct InternalMsgConnection {
+    pub tx: SyncSender<Message>,
+    pub rx: Receiver<RequestWrapper>,
+}
+
+impl InternalMsgConnection {
+    pub fn new() -> (Self, SyncSender<RequestWrapper>, Receiver<Message>) {
+        let (tx1, rx1) = sync_channel(1);
+        let (tx2, rx2) = sync_channel(1);
+        (Self { tx: tx1, rx: rx2 }, tx2, rx1)
+    }
+}
+
+impl MsgConnection for InternalMsgConnection {
+    fn send(&mut self, request: Message) -> Result<(), Error> {
+        self.tx.send(request).unwrap();
+        Ok(())
+    }
+
+    fn receive(&mut self) -> Result<RequestWrapper, Error> {
+        Ok(self.rx.recv().unwrap())
+    }
+}
+
+pub struct ClientHandler<'a, C> {
+    pub server: &'a Server,
+    pub stream: C,
+}
+
+impl<C: MsgConnection> ClientHandler<'_, C> {
+    pub fn handle_client(mut self) -> Result<(), Error> {
+        let RequestWrapper { header, request } = self.stream.receive()?;
         if header.exe != crate::exe::current_exe().ok_or(Error::CurrentExe)? {
             log::info!("Restarting because exe symlink changed");
             return self.restart();
@@ -172,7 +222,7 @@ impl ClientHandler<'_> {
     fn restart(&mut self) -> Result<(), Error> {
         std::fs::remove_file(self.server.config.server_socket_path())?;
         let response = Message::RestartPls(RestartReason::RainBinaryChanged);
-        ciborium::into_writer(&response, &mut self.stream)?;
+        self.stream.send(response)?;
         std::process::exit(0)
     }
 
@@ -270,7 +320,7 @@ impl ClientHandler<'_> {
         &mut self,
         _req: &Req,
         intermediate: &Req::Intermediate,
-    ) -> Result<(), ciborium::ser::Error<std::io::Error>>
+    ) -> Result<(), Error>
     where
         Req: RequestTrait,
     {
@@ -278,14 +328,10 @@ impl ClientHandler<'_> {
         ciborium::into_writer(&intermediate, &mut buf)?;
 
         let wrapped = Message::Intermediate(buf);
-        ciborium::into_writer(&wrapped, &mut self.stream)
+        self.stream.send(wrapped)
     }
 
-    fn send_response<Req>(
-        &mut self,
-        _req: Req,
-        response: &Req::Response,
-    ) -> Result<(), ciborium::ser::Error<std::io::Error>>
+    fn send_response<Req>(&mut self, _req: Req, response: &Req::Response) -> Result<(), Error>
     where
         Req: RequestTrait,
     {
@@ -297,20 +343,20 @@ impl ClientHandler<'_> {
             .stats
             .responses_sent
             .fetch_add(1, Ordering::Relaxed);
-        ciborium::into_writer(&wrapped, &mut self.stream)
+        self.stream.send(wrapped)
     }
 
-    fn send_panic(&mut self) -> Result<(), ciborium::ser::Error<std::io::Error>> {
+    fn send_panic(&mut self) -> Result<(), Error> {
         let wrapped = Message::ServerPanic;
-        ciborium::into_writer(&wrapped, &mut self.stream)
+        self.stream.send(wrapped)
     }
 }
 
-fn run_inner(
+fn run_inner<C: MsgConnection>(
     req: &super::msg::run::RunRequest,
     config: Config,
     cache: &Cache,
-    s: &Mutex<&mut ClientHandler<'_>>,
+    s: &Mutex<&mut ClientHandler<'_, C>>,
     ir: &mut Rir,
 ) -> Result<String, CoreError> {
     let driver = DriverImpl {

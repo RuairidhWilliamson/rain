@@ -13,7 +13,7 @@ use clap::{Parser, Subcommand};
 use env_logger::Env;
 use rain_core::{CoreError, config::Config};
 use remote::{
-    client::make_request_or_start,
+    client::{ClientMode, make_request_or_start},
     msg::{
         clean::CleanRequest,
         info::InfoRequest,
@@ -45,23 +45,39 @@ fn fallible_main() -> Result<(), ()> {
 
 fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     let cli = Cli::parse();
+    let mode = ClientMode::BackgroundThread;
     match cli.command {
-        RainCtlCommand::Check => run(config, String::from("check"), vec![], false, cli.offline),
-        RainCtlCommand::Build => run(config, String::from("build"), vec![], false, cli.offline),
+        RainCtlCommand::Check => run(
+            config,
+            String::from("check"),
+            vec![],
+            false,
+            cli.offline,
+            mode,
+        ),
+        RainCtlCommand::Build => run(
+            config,
+            String::from("build"),
+            vec![],
+            false,
+            cli.offline,
+            mode,
+        ),
         RainCtlCommand::Run {
             target,
             resolve,
             args,
-        } => run(config, target, args, resolve, cli.offline),
+        } => run(config, target, args, resolve, cli.offline, mode),
         RainCtlCommand::Info => {
-            let info = make_request_or_start(config, InfoRequest, |()| {}).map_err(|err| {
-                eprintln!("{err}");
-            })?;
+            let info =
+                make_request_or_start(config, InfoRequest, |()| {}, mode).map_err(|err| {
+                    eprintln!("{err}");
+                })?;
             println!("{info:#?}");
             Ok(())
         }
         RainCtlCommand::Shutdown => {
-            make_request_or_start(config, ShutdownRequest, |()| {}).map_err(|err| {
+            make_request_or_start(config, ShutdownRequest, |()| {}, mode).map_err(|err| {
                 eprintln!("{err}");
             })?;
             eprintln!("Server shutdown");
@@ -75,7 +91,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             let InspectResponse {
                 cache_size,
                 entries,
-            } = make_request_or_start(config, InspectRequest, |()| {}).map_err(|err| {
+            } = make_request_or_start(config, InspectRequest, |()| {}, mode).map_err(|err| {
                 eprintln!("{err}");
             })?;
             eprintln!("Cache size is {cache_size}");
@@ -102,7 +118,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             }
             Ok(())
         }
-        RainCtlCommand::Clean => clean(config),
+        RainCtlCommand::Clean => clean(config, mode),
     }
 }
 
@@ -112,6 +128,7 @@ fn run(
     args: Vec<String>,
     resolve: bool,
     offline: bool,
+    mode: ClientMode,
 ) -> Result<(), ()> {
     let root = rain_core::find_root_rain().ok_or(())?;
     let mut stack = Vec::new();
@@ -143,6 +160,7 @@ fn run(
             }
             let _ = stderr().flush();
         },
+        mode,
     )
     .map_err(|err| {
         eprintln!("{err}");
@@ -177,7 +195,7 @@ fn run(
     }
 }
 
-fn clean(config: &Config) -> Result<(), ()> {
+fn clean(config: &Config, mode: ClientMode) -> Result<(), ()> {
     println!("Will delete:");
     for p in config.clean_directories() {
         println!("  {}", p.display());
@@ -189,7 +207,7 @@ fn clean(config: &Config) -> Result<(), ()> {
         })?
         == Some(true)
     {
-        let resp = make_request_or_start(config, CleanRequest, |()| {}).map_err(|err| {
+        let resp = make_request_or_start(config, CleanRequest, |()| {}, mode).map_err(|err| {
             eprintln!("{err}");
         })?;
         println!("Cleaned");

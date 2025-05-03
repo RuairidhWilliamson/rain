@@ -6,11 +6,20 @@ use std::{
 
 use rain_core::config::Config;
 
-use crate::remote::msg::{RequestHeader, RequestWrapper};
+use crate::remote::{
+    msg::{RequestHeader, RequestWrapper},
+    server::InternalMsgConnection,
+};
 
 use super::msg::{Message, Request, RequestTrait, RestartReason};
 
 const MAX_RESTARTS: usize = 1;
+
+pub enum ClientMode {
+    BackgroundThread,
+    #[allow(dead_code)]
+    ForkProcess,
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -52,76 +61,123 @@ pub fn make_request_or_start<Req>(
     config: &Config,
     request: Req,
     mut handle: impl FnMut(Req::Intermediate),
+    client_mode: ClientMode,
 ) -> Result<Req::Response, Error>
 where
     Req: RequestTrait,
 {
-    log::info!("Connecting");
-    let mut stream = match ruipc::Client::connect(config.server_socket_path()) {
-        Ok(s) => s,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            log::info!("No socket at path");
-            spawn_local_server(config)?
-        }
-        Err(err) if err.kind() == std::io::ErrorKind::ConnectionRefused => {
-            log::info!("Found stale socket, removing...");
-            std::fs::remove_file(config.server_socket_path())?;
-            spawn_local_server(config)?
-        }
-        Err(err) => {
-            return Err(err.into());
-        }
-    };
     let exe = crate::exe::current_exe()
         .ok_or(Error::CurrentExe)?
         .to_path_buf();
     let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
-    let request: Request = request.into();
-    let mut buf = Vec::new();
-    ciborium::into_writer(&request, &mut buf)?;
-    let req = RequestWrapper {
-        header: RequestHeader {
-            config: config.clone(),
-            modified_time: exe_stat.modified()?,
-            exe,
-        },
-        request: buf,
-    };
-    let mut restart_attempt = 0;
-    loop {
-        log::debug!("sending request {req:?}");
-        ciborium::into_writer(&req, &mut stream)?;
-        loop {
-            let msg: Message = ciborium::from_reader(&mut stream)?;
-            match msg {
-                Message::Intermediate(im) => {
-                    let im: <Req as RequestTrait>::Intermediate =
-                        ciborium::from_reader(std::io::Cursor::new(im))?;
-                    handle(im);
+    match client_mode {
+        ClientMode::ForkProcess => {
+            log::info!("Connecting");
+            let mut stream = match ruipc::Client::connect(config.server_socket_path()) {
+                Ok(s) => s,
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    log::info!("No socket at path");
+                    spawn_local_server(config)?
                 }
-                Message::ServerPanic => {
-                    log::error!("server panic");
-                    let panic_path = config.server_panic_path(uuid::Uuid::new_v4());
-                    let _ = std::fs::create_dir_all(panic_path.parent().expect("parent path"));
-                    match std::fs::hard_link(config.server_stderr_path(), &panic_path) {
-                        Err(err) => {
-                            log::error!("failed to hardlink panic: {err}");
-                            return Err(Error::ServerPanic(config.server_stderr_path()));
+                Err(err) if err.kind() == std::io::ErrorKind::ConnectionRefused => {
+                    log::info!("Found stale socket, removing...");
+                    std::fs::remove_file(config.server_socket_path())?;
+                    spawn_local_server(config)?
+                }
+                Err(err) => {
+                    return Err(err.into());
+                }
+            };
+            let request: Request = request.into();
+            let mut buf = Vec::new();
+            ciborium::into_writer(&request, &mut buf)?;
+            let req = RequestWrapper {
+                header: RequestHeader {
+                    config: config.clone(),
+                    modified_time: exe_stat.modified()?,
+                    exe,
+                },
+                request: buf,
+            };
+            let mut restart_attempt = 0;
+            loop {
+                log::debug!("sending request {req:?}");
+                ciborium::into_writer(&req, &mut stream)?;
+                loop {
+                    let msg: Message = ciborium::from_reader(&mut stream)?;
+                    match msg {
+                        Message::Intermediate(im) => {
+                            let im: <Req as RequestTrait>::Intermediate =
+                                ciborium::from_reader(std::io::Cursor::new(im))?;
+                            handle(im);
                         }
-                        Ok(()) => return Err(Error::ServerPanic(panic_path)),
+                        Message::ServerPanic => {
+                            log::error!("server panic");
+                            let panic_path = config.server_panic_path(uuid::Uuid::new_v4());
+                            let _ =
+                                std::fs::create_dir_all(panic_path.parent().expect("parent path"));
+                            match std::fs::hard_link(config.server_stderr_path(), &panic_path) {
+                                Err(err) => {
+                                    log::error!("failed to hardlink panic: {err}");
+                                    return Err(Error::ServerPanic(config.server_stderr_path()));
+                                }
+                                Ok(()) => return Err(Error::ServerPanic(panic_path)),
+                            }
+                        }
+                        Message::RestartPls(reason) => {
+                            if restart_attempt > MAX_RESTARTS {
+                                return Err(Error::RestartLoop(reason));
+                            }
+                            restart_attempt += 1;
+                            log::info!("server requested restart, reason {reason:?}");
+                            stream = spawn_local_server(config)?;
+                            break;
+                        }
+                        Message::Response(response) => {
+                            return Ok(ciborium::from_reader(std::io::Cursor::new(response))?);
+                        }
                     }
                 }
-                Message::RestartPls(reason) => {
-                    if restart_attempt > MAX_RESTARTS {
-                        return Err(Error::RestartLoop(reason));
+            }
+        }
+        ClientMode::BackgroundThread => {
+            let (stream, tx, rx) = InternalMsgConnection::new();
+            {
+                let config = config.clone();
+                std::thread::spawn(move || {
+                    let server = super::server::Server::new(config).unwrap();
+                    let client_handler = super::server::ClientHandler {
+                        server: &server,
+                        stream,
+                    };
+                    client_handler.handle_client().unwrap();
+                });
+            }
+            let mut buf = Vec::new();
+            let request = request.into();
+            ciborium::into_writer(&request, &mut buf)?;
+            let req = RequestWrapper {
+                header: RequestHeader {
+                    config: config.clone(),
+                    modified_time: exe_stat.modified()?,
+                    exe,
+                },
+                request: buf,
+            };
+            tx.send(req).unwrap();
+            loop {
+                let msg = rx.recv().unwrap();
+                match msg {
+                    Message::ServerPanic => todo!(),
+                    Message::RestartPls(_restart_reason) => todo!(),
+                    Message::Intermediate(im) => {
+                        let im: <Req as RequestTrait>::Intermediate =
+                            ciborium::from_reader(std::io::Cursor::new(im))?;
+                        handle(im);
                     }
-                    restart_attempt += 1;
-                    log::info!("server requested restart, reason {reason:?}");
-                    stream = spawn_local_server(config)?;
-                    break;
-                }
-                Message::Response(response) => {
-                    return Ok(ciborium::from_reader(std::io::Cursor::new(response))?);
+                    Message::Response(response) => {
+                        return Ok(ciborium::from_reader(std::io::Cursor::new(response))?);
+                    }
                 }
             }
         }
