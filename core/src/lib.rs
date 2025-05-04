@@ -50,6 +50,7 @@ pub fn run(
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CoreError {
     LangError(Box<OwnedResolvedError>),
+    UnknownDeclaration(Vec<String>),
     Other(String),
 }
 
@@ -57,6 +58,9 @@ impl std::fmt::Display for CoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::LangError(owned_resolved_error) => owned_resolved_error.fmt(f),
+            Self::UnknownDeclaration(suggestions) => f.write_fmt(format_args!(
+                "unknown declaration, try one of {suggestions:?}"
+            )),
             Self::Other(s) => std::fmt::Display::fmt(&s, f),
         }
     }

@@ -29,7 +29,7 @@ use rain_core::{
 use crate::remote::msg::{RequestWrapper, RestartReason};
 
 use super::msg::{
-    Message, Request, RequestTrait,
+    Request, RequestTrait, ServerMessage,
     run::{RunProgress, RunResponse},
 };
 
@@ -127,7 +127,7 @@ struct Stats {
 }
 
 pub trait MsgConnection: Send {
-    fn send(&mut self, request: Message) -> Result<(), Error>;
+    fn send(&mut self, request: ServerMessage) -> Result<(), Error>;
     fn receive(&mut self) -> Result<RequestWrapper, Error>;
 }
 
@@ -136,7 +136,7 @@ pub struct IpcMsgConnection {
 }
 
 impl MsgConnection for IpcMsgConnection {
-    fn send(&mut self, request: Message) -> Result<(), Error> {
+    fn send(&mut self, request: ServerMessage) -> Result<(), Error> {
         ciborium::into_writer(&request, &mut self.connection)?;
         Ok(())
     }
@@ -148,12 +148,12 @@ impl MsgConnection for IpcMsgConnection {
 }
 
 pub struct InternalMsgConnection {
-    pub tx: SyncSender<Message>,
+    pub tx: SyncSender<ServerMessage>,
     pub rx: Receiver<RequestWrapper>,
 }
 
 impl InternalMsgConnection {
-    pub fn new() -> (Self, SyncSender<RequestWrapper>, Receiver<Message>) {
+    pub fn new() -> (Self, SyncSender<RequestWrapper>, Receiver<ServerMessage>) {
         let (tx1, rx1) = sync_channel(1);
         let (tx2, rx2) = sync_channel(1);
         (Self { tx: tx1, rx: rx2 }, tx2, rx1)
@@ -161,7 +161,7 @@ impl InternalMsgConnection {
 }
 
 impl MsgConnection for InternalMsgConnection {
-    fn send(&mut self, request: Message) -> Result<(), Error> {
+    fn send(&mut self, request: ServerMessage) -> Result<(), Error> {
         self.tx.send(request).unwrap();
         Ok(())
     }
@@ -221,7 +221,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
 
     fn restart(&mut self) -> Result<(), Error> {
         std::fs::remove_file(self.server.config.server_socket_path())?;
-        let response = Message::RestartPls(RestartReason::RainBinaryChanged);
+        let response = ServerMessage::RestartPls(RestartReason::RainBinaryChanged);
         self.stream.send(response)?;
         std::process::exit(0)
     }
@@ -327,7 +327,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
         let mut buf = Vec::new();
         ciborium::into_writer(&intermediate, &mut buf)?;
 
-        let wrapped = Message::Intermediate(buf);
+        let wrapped = ServerMessage::Intermediate(buf);
         self.stream.send(wrapped)
     }
 
@@ -338,7 +338,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
         let mut buf = Vec::new();
         ciborium::into_writer(&response, &mut buf)?;
 
-        let wrapped = Message::Response(buf);
+        let wrapped = ServerMessage::Response(buf);
         self.server
             .stats
             .responses_sent
@@ -347,7 +347,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
     }
 
     fn send_panic(&mut self) -> Result<(), Error> {
-        let wrapped = Message::ServerPanic;
+        let wrapped = ServerMessage::ServerPanic;
         self.stream.send(wrapped)
     }
 }
@@ -417,9 +417,15 @@ fn run_core(
     let mid = ir
         .insert_module(file, src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(ir).into_owned())))?;
-    let main = ir
-        .resolve_global_declaration(mid, declaration)
-        .ok_or_else(|| CoreError::Other(String::from("declaration does not exist")))?;
+    let Some(main) = ir.resolve_global_declaration(mid, declaration) else {
+        let declarations = ir
+            .get_module(mid)
+            .list_fn_declaration_names()
+            .take(5)
+            .map(|s| s.to_owned())
+            .collect();
+        return Err(CoreError::UnknownDeclaration(declarations));
+    };
     let mut runner = Runner::new(ir, cache, driver);
     runner.offline = *offline;
     let value = runner

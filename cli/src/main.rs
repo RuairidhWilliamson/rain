@@ -44,6 +44,11 @@ fn fallible_main() -> Result<(), ()> {
 }
 
 fn rain_ctl_command(config: &Config) -> Result<(), ()> {
+    ctrlc::set_handler(|| {
+        println!("\nCTRL+C pressed");
+        std::process::exit(1);
+    })
+    .unwrap();
     let cli = Cli::parse();
     let mode = ClientMode::BackgroundThread;
     match cli.command {
@@ -177,17 +182,20 @@ fn run(
             Ok(())
         }
         Err(s) => {
+            eprintln!("❗ Error in {elapsed:.1?}");
             match s {
                 CoreError::LangError(owned_resolved_error) => {
-                    eprintln!("❗ Error in {elapsed:.1?}");
                     let mut stderr =
                         termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
                     owned_resolved_error
                         .write_color(&mut stderr)
                         .expect("write stdout");
                 }
+                CoreError::UnknownDeclaration(suggestions) => {
+                    eprintln!("unknown declaration, try one of {suggestions:?}");
+                }
                 CoreError::Other(s) => {
-                    println!("{s}");
+                    eprintln!("{s}");
                 }
             }
             Err(())

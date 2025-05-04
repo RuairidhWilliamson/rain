@@ -17,8 +17,9 @@ pub struct RequestHeader {
     pub exe: PathBuf,
 }
 
+// Message from the server to the client
 #[derive(Debug, Serialize, Deserialize)]
-pub enum Message {
+pub enum ServerMessage {
     ServerPanic,
     RestartPls(RestartReason),
     Intermediate(Vec<u8>),

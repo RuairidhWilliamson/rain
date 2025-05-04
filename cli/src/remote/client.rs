@@ -11,10 +11,11 @@ use crate::remote::{
     server::InternalMsgConnection,
 };
 
-use super::msg::{Message, Request, RequestTrait, RestartReason};
+use super::msg::{Request, RequestTrait, RestartReason, ServerMessage};
 
 const MAX_RESTARTS: usize = 1;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClientMode {
     BackgroundThread,
     #[allow(dead_code)]
@@ -104,14 +105,14 @@ where
                 log::debug!("sending request {req:?}");
                 ciborium::into_writer(&req, &mut stream)?;
                 loop {
-                    let msg: Message = ciborium::from_reader(&mut stream)?;
+                    let msg: ServerMessage = ciborium::from_reader(&mut stream)?;
                     match msg {
-                        Message::Intermediate(im) => {
+                        ServerMessage::Intermediate(im) => {
                             let im: <Req as RequestTrait>::Intermediate =
                                 ciborium::from_reader(std::io::Cursor::new(im))?;
                             handle(im);
                         }
-                        Message::ServerPanic => {
+                        ServerMessage::ServerPanic => {
                             log::error!("server panic");
                             let panic_path = config.server_panic_path(uuid::Uuid::new_v4());
                             let _ =
@@ -124,7 +125,7 @@ where
                                 Ok(()) => return Err(Error::ServerPanic(panic_path)),
                             }
                         }
-                        Message::RestartPls(reason) => {
+                        ServerMessage::RestartPls(reason) => {
                             if restart_attempt > MAX_RESTARTS {
                                 return Err(Error::RestartLoop(reason));
                             }
@@ -133,7 +134,7 @@ where
                             stream = spawn_local_server(config)?;
                             break;
                         }
-                        Message::Response(response) => {
+                        ServerMessage::Response(response) => {
                             return Ok(ciborium::from_reader(std::io::Cursor::new(response))?);
                         }
                     }
@@ -168,14 +169,14 @@ where
             loop {
                 let msg = rx.recv().unwrap();
                 match msg {
-                    Message::ServerPanic => todo!(),
-                    Message::RestartPls(_restart_reason) => todo!(),
-                    Message::Intermediate(im) => {
+                    ServerMessage::ServerPanic => todo!(),
+                    ServerMessage::RestartPls(_restart_reason) => todo!(),
+                    ServerMessage::Intermediate(im) => {
                         let im: <Req as RequestTrait>::Intermediate =
                             ciborium::from_reader(std::io::Cursor::new(im))?;
                         handle(im);
                     }
-                    Message::Response(response) => {
+                    ServerMessage::Response(response) => {
                         return Ok(ciborium::from_reader(std::io::Cursor::new(response))?);
                     }
                 }
