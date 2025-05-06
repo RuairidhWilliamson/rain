@@ -1,0 +1,14 @@
+let area = internal._get_area(internal._module_file())
+let utils = internal._import(internal._get_file(area, "utils.rain"))
+
+let download = utils.download
+let get_file = utils.get_file
+let get_dir = utils.get_dir
+
+fn download_grpc_tools(version) {
+	tools_download = download("https://www.nuget.org/api/v2/package/Grpc.Tools/" + version)
+	if !tools_download.ok {
+		_throw("failed to download grpc tools from nuget")
+	} 
+	utils.extract_zip(tools_download.file)
+}
