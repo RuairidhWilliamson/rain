@@ -355,6 +355,11 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
             (Value::String(left), BinaryOperatorKind::Addition, Value::String(right)) => {
                 Ok(Value::String(Arc::new(left.to_string() + &**right)))
             }
+            (Value::List(left), BinaryOperatorKind::Addition, Value::List(right)) => {
+                let mut v = left.0.clone();
+                v.append(&mut right.0.clone());
+                Ok(Value::List(Arc::new(RainList(v))))
+            }
             (Value::Integer(left), BinaryOperatorKind::Addition, Value::Integer(right)) => {
                 Ok(Value::Integer(Arc::new(RainInteger(&left.0 + &right.0))))
             }

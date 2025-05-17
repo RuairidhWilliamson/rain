@@ -525,7 +525,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     .iter()
                     .map(|(key, value)| self.stringify_env(*env_nid, key, value))
                     .collect::<Result<HashMap<String, String>>>()?;
-                let _call = enter_call(self.runner.driver, String::from("run"));
+                let _call = enter_call(self.runner.driver, format!("run {file}"));
                 let status = self
                     .runner
                     .driver
@@ -553,6 +553,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             _ => self.incorrect_args(4..=4),
         }
     }
+
     fn escape_run(self) -> ResultValue {
         match &self.arg_values[..] {
             [
