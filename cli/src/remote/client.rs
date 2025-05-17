@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::too_many_lines)]
+
 use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -18,7 +20,7 @@ const MAX_RESTARTS: usize = 1;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClientMode {
     BackgroundThread,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     ForkProcess,
 }
 

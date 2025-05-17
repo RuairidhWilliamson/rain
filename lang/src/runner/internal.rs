@@ -927,7 +927,6 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         })
     }
 
-    #[expect(clippy::unwrap_used)]
     fn bytes_to_string(self) -> ResultValue {
         let (bytes_nid, bytes_value) = self.single_arg()?;
         let Value::List(list) = bytes_value else {
@@ -940,17 +939,31 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             ));
         };
         self.cache(|| {
-            let bytes: Vec<u8> = list
+            let bytes = list
                 .0
                 .iter()
-                .map(|b| -> u8 {
+                .map(|b| -> Result<u8> {
                     let Value::Integer(b) = b else {
-                        todo!("not an integer")
+                        return Err(self.cx.nid_err(
+                            *bytes_nid,
+                            RunnerError::ExpectedType {
+                                actual: b.rain_type_id(),
+                                expected: &[RainTypeId::Integer],
+                            },
+                        ));
                     };
-                    b.0.iter_u32_digits().next().unwrap().try_into().unwrap()
+                    u8::try_from(&b.0).map_err(|err| {
+                        self.cx
+                            .nid_err(*bytes_nid, RunnerError::Makeshift(err.to_string().into()))
+                    })
                 })
-                .collect();
-            Ok(Value::String(Arc::new(String::from_utf8(bytes).unwrap())))
+                .collect::<Result<Vec<u8>>>()?;
+            Ok(Value::String(Arc::new(String::from_utf8(bytes).map_err(
+                |err| {
+                    self.cx
+                        .nid_err(*bytes_nid, RunnerError::Makeshift(err.to_string().into()))
+                },
+            )?)))
         })
     }
 

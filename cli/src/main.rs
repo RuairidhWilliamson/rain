@@ -1,4 +1,4 @@
-#![allow(clippy::print_stderr, clippy::print_stdout)]
+#![allow(clippy::print_stderr, clippy::print_stdout, clippy::exit)]
 
 mod exe;
 mod remote;
@@ -48,7 +48,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
         println!("\nCTRL+C pressed");
         std::process::exit(1);
     })
-    .unwrap();
+    .expect("init signal handler");
     let cli = Cli::parse();
     let mode = ClientMode::BackgroundThread;
     match cli.command {

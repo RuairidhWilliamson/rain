@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use std::{
     collections::HashMap,
     path::Path,
@@ -422,7 +424,7 @@ fn run_core(
             .get_module(mid)
             .list_fn_declaration_names()
             .take(5)
-            .map(|s| s.to_owned())
+            .map(std::borrow::ToOwned::to_owned)
             .collect();
         return Err(CoreError::UnknownDeclaration(declarations));
     };
