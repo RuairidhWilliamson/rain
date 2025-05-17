@@ -78,13 +78,34 @@ impl FSTrait for DriverImpl<'_> {
 }
 
 impl DriverTrait for DriverImpl<'_> {
-    #[expect(clippy::unwrap_used)]
+    #[cfg(target_family = "unix")]
     fn escape_bin(&self, name: &str) -> Option<PathBuf> {
+        // Unix separates path values using colons
+        const PATH_SEPARATOR: u8 = b':';
+        use std::os::unix::ffi::OsStrExt as _;
         std::env::var_os("PATH")?
-            .into_string()
-            .unwrap()
-            .split(PATH_SEPARATOR)
-            .find_map(|p| find_bin_in_dir(Path::new(p), name))
+            .as_bytes()
+            .split(|&b| b == PATH_SEPARATOR)
+            .find_map(|p| find_bin_in_dir(Path::new(std::ffi::OsStr::from_bytes(p)), name))
+    }
+
+    #[cfg(target_family = "windows")]
+    fn escape_bin(&self, name: &str) -> Option<PathBuf> {
+        // Windows separates path values using semi colons
+        const PATH_SEPARATOR: u16 = {
+            let mut out = [0u16; 1];
+            ';'.encode_utf16(&mut out);
+            out[0]
+        };
+        use std::os::windows::ffi::{OsStrExt as _, OsStringExt as _};
+        std::env::var_os("PATH")?
+            .encode_wide()
+            .collect::<Vec<u16>>()
+            .split(|&b| b == PATH_SEPARATOR)
+            .find_map(|p| {
+                let p = std::ffi::OsString::from_wide(p);
+                find_bin_in_dir(Path::new(&p), name)
+            })
     }
 
     fn print(&self, message: String) {
@@ -383,11 +404,6 @@ impl MonitoringTrait for DriverImpl<'_> {
         }
     }
 }
-
-#[cfg(target_family = "unix")]
-const PATH_SEPARATOR: char = ':';
-#[cfg(target_family = "windows")]
-const PATH_SEPARATOR: char = ';';
 
 fn find_bin_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
     std::fs::read_dir(dir).ok()?.find_map(|e| {
