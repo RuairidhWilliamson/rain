@@ -25,6 +25,7 @@ let index = internal._index
 let host_info = internal._host_info
 let string_contains = internal._string_contains
 let export_to_local = internal._export_to_local
+let check_export_to_local = internal._check_export_to_local
 let file_metadata = internal._file_metadata
 let glob = internal._glob
 let foreach = internal._foreach
