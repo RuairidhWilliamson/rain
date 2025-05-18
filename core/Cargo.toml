@@ -32,7 +32,7 @@ tar = "0.4.44"
 thiserror.workspace = true
 uuid.workspace = true
 web-time.workspace = true
-zip = { version = "2.2.0", features = ["deflate"], default-features = false }
+zip = { version = "3.0.0", features = ["deflate"], default-features = false }
 
 [dev-dependencies]
 insta.workspace = true

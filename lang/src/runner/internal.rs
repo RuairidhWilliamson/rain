@@ -1032,7 +1032,10 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         RunnerError::Makeshift("src path does not have filename".into()),
                     )
                 })?;
-                let dst_path = dst.path().join(filename).unwrap();
+                let dst_path = dst
+                    .path()
+                    .join(filename)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
                 let entry = FSEntry::new(dst.area().clone(), dst_path);
                 match self
                     .runner
@@ -1047,11 +1050,19 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                             RunnerError::Makeshift("exported file does not exist".into()),
                         ));
                     }
-                };
+                }
                 // Safety: We just checked this
                 let dst = unsafe { File::new(entry) };
-                let src_contents = self.runner.driver.read_file(&src).unwrap();
-                let dst_contents = self.runner.driver.read_file(&dst).unwrap();
+                let src_contents = self
+                    .runner
+                    .driver
+                    .read_file(src)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?;
+                let dst_contents = self
+                    .runner
+                    .driver
+                    .read_file(&dst)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?;
                 if src_contents != dst_contents {
                     return Err(self.cx.nid_err(
                         self.nid,
