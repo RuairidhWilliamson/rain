@@ -31,6 +31,7 @@ fn display_vec<T: Display>(v: &Vec<T>) -> String {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CacheKey {
+    Prelude,
     Declaration {
         declaration: DeclarationId,
         args: Vec<Value>,
@@ -52,7 +53,7 @@ impl CacheKey {
                 declaration: _,
                 args,
             } => args.iter().all(Value::cache_pure),
-            Self::Download { url: _ } => true,
+            Self::Prelude | Self::Download { url: _ } => true,
         }
     }
 }
@@ -67,6 +68,7 @@ impl Display for CacheKey {
                 f.write_fmt(format_args!("{func}({})", display_vec(args)))
             }
             Self::Download { url } => f.write_fmt(format_args!("Download({url})")),
+            Self::Prelude => f.write_str("Prelude"),
         }
     }
 }

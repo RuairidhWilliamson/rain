@@ -476,7 +476,7 @@ mod test {
     use super::parse_module;
 
     fn parse_display_expr(src: &str) -> String {
-        let file = File::new_local(Path::new(file!())).unwrap();
+        let file = Some(File::new_local(Path::new(file!())).unwrap());
         let mut parser = ModuleParser::new(src);
         let id = match parser.parse_expr() {
             Ok(s) => s,

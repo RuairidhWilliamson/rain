@@ -64,4 +64,6 @@ pub enum RunnerError {
     IndexOutOfBounds(RainInteger),
     #[error("index key not found: {0}")]
     IndexKeyNotFound(String),
+    #[error("cannot call from prelude")]
+    PreludeContext,
 }

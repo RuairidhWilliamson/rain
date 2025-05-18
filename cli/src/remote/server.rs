@@ -388,6 +388,7 @@ fn run_inner<C: MsgConnection>(
                 log::error!("send intermediate exit call: {err}");
             }
         })),
+        prelude: Some(include_str!("../../../lib/prelude/prelude.rain").into()),
     };
 
     run_core(req, cache, &driver, ir).map(|v| match v {
@@ -417,7 +418,7 @@ fn run_core(
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
     let module = rain_core::rain_lang::ast::parser::parse_module(&src);
     let mid = ir
-        .insert_module(file, src, module)
+        .insert_module(Some(file), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(ir).into_owned())))?;
     let Some(main) = ir.resolve_global_declaration(mid, declaration) else {
         let declarations = ir

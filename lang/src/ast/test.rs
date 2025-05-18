@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::afs::file::File;
 
 fn parse_display_script(src: &str) -> String {
-    let file = File::new_local(Path::new(file!())).unwrap();
+    let file = Some(File::new_local(Path::new(file!())).unwrap());
     let s = match super::parser::parse_module(src) {
         Ok(s) => s,
         Err(err) => {

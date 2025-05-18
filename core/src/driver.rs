@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -30,6 +31,7 @@ pub struct DriverImpl<'a> {
     pub print_handler: Option<PrintHandler<'a>>,
     pub enter_handler: Option<PrintHandler<'a>>,
     pub exit_handler: Option<PrintHandler<'a>>,
+    pub prelude: Option<Cow<'static, str>>,
 }
 
 impl DriverImpl<'_> {
@@ -40,6 +42,7 @@ impl DriverImpl<'_> {
             print_handler: None,
             enter_handler: None,
             exit_handler: None,
+            prelude: None,
         }
     }
 
@@ -376,6 +379,10 @@ impl DriverTrait for DriverImpl<'_> {
             }
         }
         Ok(out)
+    }
+
+    fn prelude_src(&self) -> Option<Cow<'static, str>> {
+        self.prelude.clone()
     }
 }
 

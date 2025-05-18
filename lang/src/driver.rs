@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 use crate::{
     afs::{area::FileArea, dir::Dir, entry::FSEntry, file::File},
@@ -44,6 +44,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn create_file(&self, contents: &str, name: &str) -> Result<File, RunnerError>;
     fn file_metadata(&self, file: &File) -> Result<FileMetadata, RunnerError>;
     fn glob(&self, dir: &Dir, pattern: &str) -> Result<Vec<File>, RunnerError>;
+    fn prelude_src(&self) -> Option<Cow<'static, str>>;
 }
 
 pub trait MonitoringTrait {

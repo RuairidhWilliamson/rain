@@ -152,7 +152,7 @@ pub struct ErrorLocalSpan<E: std::error::Error> {
 }
 
 impl<E: std::error::Error> ErrorLocalSpan<E> {
-    pub fn resolve<'a>(&'a self, file: &'a File, src: &'a str) -> ResolvedError<'a> {
+    pub fn resolve<'a>(&'a self, file: &'a Option<File>, src: &'a str) -> ResolvedError<'a> {
         ResolvedError {
             err: &self.err,
             file,

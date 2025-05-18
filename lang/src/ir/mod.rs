@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     afs::file::File,
@@ -19,8 +19,8 @@ impl Rir {
 
     pub fn insert_module(
         &mut self,
-        file: File,
-        src: String,
+        file: Option<File>,
+        src: impl Into<Cow<'static, str>>,
         ast: Result<Module, ErrorLocalSpan<ParseError>>,
     ) -> Result<ModuleId, ErrorSpan<ParseError>> {
         let id = ModuleId(self.modules.len());
@@ -31,7 +31,7 @@ impl Rir {
         self.modules.push(Arc::new(IrModule {
             id,
             file,
-            src,
+            src: src.into(),
             module,
         }));
         res
@@ -67,8 +67,8 @@ impl Rir {
 #[derive(Debug)]
 pub struct IrModule {
     pub id: ModuleId,
-    pub file: File,
-    pub src: String,
+    pub file: Option<File>,
+    pub src: Cow<'static, str>,
     module: Option<ParsedIrModule>,
 }
 

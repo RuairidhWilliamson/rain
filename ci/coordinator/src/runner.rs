@@ -41,7 +41,7 @@ impl Runner {
         let root = File::new_checked(&driver, root_entry).unwrap();
         let src = driver.read_file(&root).unwrap();
         let module = rain_lang::ast::parser::parse_module(&src);
-        let mid = ir.insert_module(root, src, module).unwrap();
+        let mid = ir.insert_module(Some(root), src, module).unwrap();
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &self.cache, &driver);
         tracing::info!("Running");

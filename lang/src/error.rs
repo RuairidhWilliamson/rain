@@ -6,7 +6,7 @@ use crate::{afs::file::File, local_span::LocalSpan};
 #[derive(Debug)]
 pub struct ResolvedError<'a> {
     pub err: &'a dyn std::error::Error,
-    pub file: &'a File,
+    pub file: &'a Option<File>,
     pub src: &'a str,
     pub span: LocalSpan,
 }
@@ -26,8 +26,12 @@ impl ResolvedError<'_> {
         let after = after.to_string();
         let arrows = span.arrow_line(src, 2);
         let err = err.to_string();
+        let file_name = file
+            .as_ref()
+            .map(|f| format!("{f}"))
+            .unwrap_or_else(|| String::from("<prelude>"));
         OwnedResolvedError {
-            file_name: format!("{file}"),
+            file_name,
             line,
             col,
             before,

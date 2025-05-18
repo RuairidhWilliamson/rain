@@ -1,5 +1,4 @@
 pub mod afs;
-pub mod append_vec;
 pub mod ast;
 pub mod driver;
 pub mod error;

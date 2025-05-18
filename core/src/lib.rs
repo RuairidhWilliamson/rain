@@ -35,7 +35,7 @@ pub fn run(
     let module = rain_lang::ast::parser::parse_module(&src);
     let mut ir = rain_lang::ir::Rir::new();
     let mid = ir
-        .insert_module(file, src, module)
+        .insert_module(Some(file), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&ir).into_owned())))?;
     let main = ir
         .resolve_global_declaration(mid, declaration)

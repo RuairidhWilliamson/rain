@@ -64,6 +64,7 @@ pub enum InternalFunction {
     Foreach,
     Stringify,
     EscapeRun,
+    Prelude,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -108,6 +109,7 @@ impl InternalFunction {
             "_foreach" => Some(Self::Foreach),
             "_stringify" => Some(Self::Stringify),
             "_escape_run" => Some(Self::EscapeRun),
+            "_prelude" => Some(Self::Prelude),
             _ => None,
         }
     }
@@ -147,6 +149,7 @@ impl InternalFunction {
             Self::Foreach => icx.foreach(),
             Self::Stringify => icx.stringify(),
             Self::EscapeRun => icx.escape_run(),
+            Self::Prelude => icx.prelude(),
         }
     }
 }
@@ -268,10 +271,13 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         },
                     ));
                 };
-                let file_path = self
+                let file = self
                     .cx
                     .module
                     .file
+                    .as_ref()
+                    .ok_or_else(|| self.cx.nid_err(self.nid, RunnerError::PreludeContext))?;
+                let file_path = file
                     .path()
                     .parent()
                     .ok_or_else(|| {
@@ -281,7 +287,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     .join(relative_path)
                     .map_err(|err| self.cx.nid_err(*relative_path_nid, err.into()))?;
                 Ok(FSEntry {
-                    area: self.cx.module.file.area().clone(),
+                    area: file.area().clone(),
                     path: file_path,
                 })
             }
@@ -396,14 +402,20 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         let id = self
             .runner
             .ir
-            .insert_module(f.as_ref().clone(), src, module)
+            .insert_module(Some(f.as_ref().clone()), src, module)
             .map_err(ErrorSpan::convert)?;
         Ok(Value::Module(id))
     }
 
     fn module_file(self) -> ResultValue {
         self.no_args()?;
-        Ok(Value::File(Arc::new(self.cx.module.file.clone())))
+        Ok(Value::File(Arc::new(
+            self.cx
+                .module
+                .file
+                .clone()
+                .ok_or_else(|| self.cx.nid_err(self.nid, RunnerError::PreludeContext))?,
+        )))
     }
 
     fn extract_zip(self) -> ResultValue {
@@ -1108,7 +1120,14 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn local_area(self) -> ResultValue {
-        let FileArea::Local(current_area_path) = &self.cx.module.file.area() else {
+        let FileArea::Local(current_area_path) = &self
+            .cx
+            .module
+            .file
+            .as_ref()
+            .ok_or_else(|| self.cx.nid_err(self.nid, RunnerError::PreludeContext))?
+            .area()
+        else {
             return Err(self.cx.nid_err(self.nid, RunnerError::IllegalLocalArea));
         };
         let (path_nid, path_value) = self.arg_values.first().ok_or_else(|| {
@@ -1495,5 +1514,40 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             },
             _ => self.incorrect_args(1..=1),
         }
+    }
+
+    fn prelude(self) -> ResultValue {
+        self.no_args()?;
+        let cache_key = CacheKey::InternalFunction {
+            func: self.func,
+            args: self.arg_values.iter().map(|(_, v)| v.clone()).collect(),
+        };
+        if let Some(v) = self.runner.cache.get_value(&cache_key) {
+            return Ok(v);
+        }
+        let start = Instant::now();
+        let Some(src) = self.runner.driver.prelude_src() else {
+            return Err(self
+                .cx
+                .nid_err(self.nid, RunnerError::Makeshift("no prelude".into())));
+        };
+        let module = crate::ast::parser::parse_module(src.as_ref());
+        let id = self
+            .runner
+            .ir
+            .insert_module(None, src, module)
+            .map_err(ErrorSpan::convert)?;
+        let v = Value::Module(id);
+        self.runner.cache.put(
+            cache_key,
+            CacheEntry {
+                execution_time: start.elapsed(),
+                expires: None,
+                etag: None,
+                deps: Vec::new(),
+                value: v.clone(),
+            },
+        );
+        Ok(v)
     }
 }
