@@ -221,6 +221,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
             }
             Ok(Err(err)) => Err(err),
             Ok(Ok(())) => {
+                log::warn!("cache size {}", self.server.cache.len());
                 let persistent_cache = PersistCache::persist(&self.server.cache.0.plock());
                 persistent_cache.save(&self.server.config.cache_json_path())?;
                 Ok(())

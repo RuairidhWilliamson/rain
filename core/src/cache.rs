@@ -15,7 +15,7 @@ use rain_lang::runner::{
 
 const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
 /// Minimum execution time to be stored in the cache
-const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(100);
+const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(10);
 
 #[derive(Default, Clone)]
 pub struct Cache(pub Arc<Mutex<CacheCore>>);
@@ -45,12 +45,15 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
 
     fn put(&self, key: CacheKey, entry: CacheEntry) {
         if !key.pure() {
+            log::debug!("not caching {key:?} because it is not pure");
             return;
         }
         if entry.execution_time < EXECUTION_TIME_THRESHOLD {
+            log::debug!("not caching {key:?} because it is too fast");
             return;
         }
         if entry.deps.iter().any(|d| matches!(d, Dep::Uncacheable)) {
+            log::debug!("not caching {key:?} because it is uncacheable");
             return;
         }
         self.0.plock().storage.put(key, entry);

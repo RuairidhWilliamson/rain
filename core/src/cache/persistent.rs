@@ -75,7 +75,15 @@ impl PersistCache {
             .storage
             .iter()
             .filter_map(|(k, e)| {
-                Some((PersistCacheKey::persist(k)?, PersistCacheEntry::persist(e)?))
+                let Some(k) = PersistCacheKey::persist(k) else {
+                    log::debug!("could not persist cache key {k:?}");
+                    return None;
+                };
+                let Some(e) = PersistCacheEntry::persist(e) else {
+                    log::debug!("could not persist cache entry {e:?}");
+                    return None;
+                };
+                Some((k, e))
             })
             .collect();
         Self { entries }
@@ -84,11 +92,15 @@ impl PersistCache {
     pub fn depersist(self, config: &Config) -> super::CacheCore {
         let mut lru = lru::LruCache::new(super::CACHE_SIZE);
         for (k, e) in self.entries {
-            if let Some(e) = e.depersist(config) {
-                if let Some(k) = k.depersist(config) {
-                    lru.put(k, e);
-                }
-            }
+            let Some(k) = k.depersist(config) else {
+                log::warn!("could not depersist cache key for {e:?}");
+                continue;
+            };
+            let Some(e) = e.depersist(config) else {
+                log::warn!("could not depersist cache entry");
+                continue;
+            };
+            lru.put(k, e);
         }
         super::CacheCore { storage: lru }
     }

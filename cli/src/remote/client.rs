@@ -145,7 +145,7 @@ where
         }
         ClientMode::BackgroundThread => {
             let (stream, tx, rx) = InternalMsgConnection::new();
-            {
+            let server_thread_handle = {
                 let config = config.clone();
                 std::thread::spawn(move || {
                     let server = super::server::Server::new(config).unwrap();
@@ -158,8 +158,8 @@ where
                         Ok(()) | Err(super::server::Error::GracefulExit) => (),
                         Err(err) => eprintln!("server error: {err:#}"),
                     }
-                });
-            }
+                })
+            };
             let mut buf = Vec::new();
             let request = request.into();
             ciborium::into_writer(&request, &mut buf)?;
@@ -183,6 +183,10 @@ where
                         handle(im);
                     }
                     ServerMessage::Response(response) => {
+                        log::debug!("waiting for server to finish");
+                        if let Err(err) = server_thread_handle.join() {
+                            log::error!("server panicked waiting for finish {err:?}");
+                        }
                         return Ok(ciborium::from_reader(std::io::Cursor::new(response))?);
                     }
                 }
