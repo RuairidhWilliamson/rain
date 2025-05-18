@@ -45,11 +45,11 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 if let Some(cache_entry) = &cache_entry {
                     if let Some(expires) = cache_entry.expires {
                         if expires > Utc::now() || self.runner.offline {
-                            log::debug!("Download cache hit");
+                            log::debug!("Download cache hit, not expired");
                             return Ok(cache_entry.value.clone());
                         }
                     } else {
-                        log::debug!("Download cache hit");
+                        log::debug!("Download cache hit, no expiry");
                         return Ok(cache_entry.value.clone());
                     }
                 }
@@ -61,6 +61,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         ),
                     ));
                 }
+                log::debug!("Download cache miss");
                 let etag: Option<&str> = cache_entry.as_ref().and_then(|e| e.etag.as_deref());
                 let DownloadStatus {
                     ok,

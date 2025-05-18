@@ -58,12 +58,14 @@ impl PersistCache {
         Ok(serde_json::from_value(inner)?)
     }
 
+    #[expect(clippy::unwrap_used, clippy::missing_panics_doc)]
     pub fn save(self, path: &Path) -> Result<(), PersistCacheError> {
         let p = PersistCacheWrapper {
             format_version: FORMAT_VERSION,
             inner: serde_json::to_value(self)?,
         };
         let serialized = serde_json::to_vec_pretty(&p)?;
+        std::fs::create_dir_all(path.parent().unwrap())?;
         std::fs::write(path, serialized)?;
         Ok(())
     }

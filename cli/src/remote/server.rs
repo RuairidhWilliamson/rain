@@ -37,8 +37,10 @@ use super::msg::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Could not get the current exe")]
+    #[error("could not get the current exe")]
     CurrentExe,
+    #[error("server graceful exit")]
+    GracefulExit,
     #[error("io: {0}")]
     IO(std::io::Error),
     #[error("encode: {0}")]
@@ -79,11 +81,16 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
         match stream {
             Ok(connection) => {
                 log::info!("got a stream {connection:?}");
-                ClientHandler {
+                let result = ClientHandler {
                     server: &s,
                     stream: IpcMsgConnection { connection },
                 }
-                .handle_client()?;
+                .handle_client();
+                match result {
+                    Ok(()) => (),
+                    Err(Error::GracefulExit) => std::process::exit(0),
+                    Err(err) => return Err(err),
+                }
             }
             Err(err) => {
                 log::error!("unix listener error: {err}");
@@ -225,7 +232,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
         std::fs::remove_file(self.server.config.server_socket_path())?;
         let response = ServerMessage::RestartPls(RestartReason::RainBinaryChanged);
         self.stream.send(response)?;
-        std::process::exit(0)
+        Err(Error::GracefulExit)
     }
 
     fn handle_request(&mut self, req: Request) -> Result<(), Error> {
@@ -264,7 +271,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
             Request::Shutdown(req) => {
                 log::info!("Goodbye");
                 self.send_response(req, &super::msg::shutdown::Goodbye)?;
-                std::process::exit(0);
+                Err(Error::GracefulExit)
             }
             Request::Clean(req) => self.clean(req),
         }
@@ -290,6 +297,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
 
     fn clean(&mut self, req: super::msg::clean::CleanRequest) -> Result<(), Error> {
         log::info!("Cleaning");
+        self.server.cache.clean();
         let clean_paths = &[
             &self.server.config.base_cache_dir,
             &self.server.config.base_generated_dir,
@@ -315,7 +323,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
         }
         log::info!("Goodbye");
         self.send_response(req, &super::msg::clean::Cleaned(sizes))?;
-        std::process::exit(0);
+        Err(Error::GracefulExit)
     }
 
     fn send_intermediate<Req>(

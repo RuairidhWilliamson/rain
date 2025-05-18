@@ -10,6 +10,7 @@ pub trait CacheTrait {
     fn get(&self, key: &CacheKey) -> Option<CacheEntry>;
     fn put(&self, key: CacheKey, entry: CacheEntry);
     fn inspect_all(&self) -> Vec<String>;
+    fn clean(&self);
 
     fn get_value(&self, key: &CacheKey) -> Option<Value> {
         self.get(key).map(|e| e.value)

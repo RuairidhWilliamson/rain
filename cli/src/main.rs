@@ -4,6 +4,7 @@ mod exe;
 mod remote;
 
 use std::{
+    borrow::Cow,
     ffi::OsStr,
     io::{Write as _, stderr, stdin},
     process::ExitCode,
@@ -58,6 +59,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             vec![],
             false,
             cli.offline,
+            ReportMode::Short,
             mode,
         ),
         RainCtlCommand::Build => run(
@@ -66,13 +68,15 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             vec![],
             false,
             cli.offline,
+            ReportMode::Short,
             mode,
         ),
         RainCtlCommand::Run {
-            target,
             resolve,
+            report,
+            target,
             args,
-        } => run(config, target, args, resolve, cli.offline, mode),
+        } => run(config, target, args, resolve, cli.offline, report, mode),
         RainCtlCommand::Info => {
             let info =
                 make_request_or_start(config, InfoRequest, |()| {}, mode).map_err(|err| {
@@ -133,6 +137,7 @@ fn run(
     args: Vec<String>,
     resolve: bool,
     offline: bool,
+    reporting: ReportMode,
     mode: ClientMode,
 ) -> Result<(), ()> {
     let root = rain_core::find_root_rain().ok_or(())?;
@@ -147,6 +152,9 @@ fn run(
             offline,
         },
         |im| {
+            if reporting != ReportMode::Short {
+                return;
+            }
             match im {
                 RunProgress::Print(s) => eprintln!("\r{s:120}"),
                 RunProgress::EnterCall(s) => {
@@ -161,7 +169,7 @@ fn run(
                 }
             }
             if let Some(last) = stack.last() {
-                eprint!("\r[ ] {last:120}");
+                eprint!("\r[ ] {:120}", trunc_string(last, 120));
             }
             let _ = stderr().flush();
         },
@@ -174,10 +182,12 @@ fn run(
         output: result,
         elapsed,
     } = run_response;
-    eprint!("\r[x] {:120}\r", "");
+    if reporting == ReportMode::Short {
+        eprint!("\r[x] {:120}\r", "");
+    }
     match result {
         Ok(s) => {
-            eprintln!("✔ Success in {elapsed:.1?}");
+            eprintln!("✔  Success in {elapsed:.1?}");
             println!("{s}");
             Ok(())
         }
@@ -218,13 +228,17 @@ fn clean(config: &Config, mode: ClientMode) -> Result<(), ()> {
         let resp = make_request_or_start(config, CleanRequest, |()| {}, mode).map_err(|err| {
             eprintln!("{err}");
         })?;
-        println!("Cleaned");
-        for (p, s) in resp.0 {
-            println!(
-                "  {:8} {}",
-                humansize::format_size(s, humansize::BINARY),
-                p.display(),
-            );
+        if resp.0.is_empty() {
+            println!("Nothing to clean");
+        } else {
+            println!("Cleaned");
+            for (p, s) in resp.0 {
+                println!(
+                    "  {:8} {}",
+                    humansize::format_size(s, humansize::BINARY),
+                    p.display(),
+                );
+            }
         }
     } else {
         println!("Did nothing");
@@ -243,7 +257,7 @@ struct Cli {
 }
 
 #[derive(Debug, Subcommand)]
-pub enum RainCtlCommand {
+enum RainCtlCommand {
     /// Get information about the running rain server process
     Info,
     /// Run checks
@@ -253,10 +267,13 @@ pub enum RainCtlCommand {
     /// Equivalent to `rain run build`
     Build,
     Run {
-        target: String,
         /// Resolve returned file paths before printing them to stdout
         #[arg(long)]
         resolve: bool,
+        /// The reporting mode to use
+        #[arg(long, default_value = "short")]
+        report: ReportMode,
+        target: String,
         args: Vec<String>,
     },
     /// Stop the rain server process
@@ -274,4 +291,18 @@ pub enum RainCtlCommand {
 #[test]
 fn validate_cli() {
     <Cli as clap::CommandFactory>::command().debug_assert();
+}
+
+fn trunc_string(s: &str, limit: usize) -> Cow<'_, str> {
+    if s.len() <= limit {
+        return s.into();
+    }
+    (s[..limit - 3].to_owned() + "...").into()
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, clap::ValueEnum)]
+enum ReportMode {
+    #[default]
+    Short,
+    None,
 }

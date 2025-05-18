@@ -153,7 +153,11 @@ where
                         server: &server,
                         stream,
                     };
-                    client_handler.handle_client().unwrap();
+                    let result = client_handler.handle_client();
+                    match result {
+                        Ok(()) | Err(super::server::Error::GracefulExit) => (),
+                        Err(err) => eprintln!("server error: {err:#}"),
+                    }
                 });
             }
             let mut buf = Vec::new();

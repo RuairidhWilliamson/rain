@@ -71,6 +71,10 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
             })
             .collect()
     }
+
+    fn clean(&self) {
+        self.0.plock().storage.clear();
+    }
 }
 
 #[derive(Clone)]
