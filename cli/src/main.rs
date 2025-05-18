@@ -236,7 +236,7 @@ fn clean(config: &Config, mode: ClientMode) -> Result<(), ()> {
 #[command(version)]
 struct Cli {
     // Avoid performing actions that require an internet connection when possible
-    #[arg(long)]
+    #[arg(long, env = "RAIN_OFFLINE")]
     offline: bool,
     #[command(subcommand)]
     command: RainCtlCommand,
