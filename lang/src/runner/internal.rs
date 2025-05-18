@@ -61,6 +61,7 @@ pub enum InternalFunction {
     HostInfo,
     StringContains,
     ExportToLocal,
+    CheckExportToLocal,
     FileMetadata,
     Glob,
     Foreach,
@@ -106,6 +107,7 @@ impl InternalFunction {
             "_host_info" => Some(Self::HostInfo),
             "_string_contains" => Some(Self::StringContains),
             "_export_to_local" => Some(Self::ExportToLocal),
+            "_check_export_to_local" => Some(Self::CheckExportToLocal),
             "_file_metadata" => Some(Self::FileMetadata),
             "_glob" => Some(Self::Glob),
             "_foreach" => Some(Self::Foreach),
@@ -146,6 +148,7 @@ impl InternalFunction {
             Self::HostInfo => icx.host_info(),
             Self::StringContains => icx.string_contains(),
             Self::ExportToLocal => icx.export_to_local(),
+            Self::CheckExportToLocal => icx.check_export_to_local(),
             Self::FileMetadata => icx.file_metadata(),
             Self::Glob => icx.glob(),
             Self::Foreach => icx.foreach(),
@@ -983,9 +986,79 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 })?;
                 let dst = dst.join(filename);
                 // TODO: Move this to driver trait
+                // TODO: Backup any old files before overwriting
                 if let Err(err) = std::fs::copy(src, dst) {
                     return Err(self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)));
                 }
+                Ok(Value::Unit)
+            }
+            _ => self.incorrect_args(2..=2),
+        }
+    }
+
+    fn check_export_to_local(self) -> ResultValue {
+        match &self.arg_values[..] {
+            [(src_nid, src_value), (dst_nid, dst_value)] => {
+                let Value::File(src) = src_value else {
+                    return Err(self.cx.nid_err(
+                        *src_nid,
+                        RunnerError::ExpectedType {
+                            actual: src_value.rain_type_id(),
+                            expected: &[RainTypeId::File],
+                        },
+                    ));
+                };
+                let Value::Dir(dst) = dst_value else {
+                    return Err(self.cx.nid_err(
+                        *dst_nid,
+                        RunnerError::ExpectedType {
+                            actual: dst_value.rain_type_id(),
+                            expected: &[RainTypeId::Dir],
+                        },
+                    ));
+                };
+                match dst.area() {
+                    FileArea::Local(_) => (),
+                    _ => {
+                        return Err(self.cx.nid_err(
+                            *dst_nid,
+                            RunnerError::Makeshift("destination must be in a local area".into()),
+                        ));
+                    }
+                }
+                let filename = src.path().last().ok_or_else(|| {
+                    self.cx.nid_err(
+                        self.nid,
+                        RunnerError::Makeshift("src path does not have filename".into()),
+                    )
+                })?;
+                let dst_path = dst.path().join(filename).unwrap();
+                let entry = FSEntry::new(dst.area().clone(), dst_path);
+                match self
+                    .runner
+                    .driver
+                    .query_fs(&entry)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?
+                {
+                    FSEntryQueryResult::File => {}
+                    _ => {
+                        return Err(self.cx.nid_err(
+                            self.nid,
+                            RunnerError::Makeshift("exported file does not exist".into()),
+                        ));
+                    }
+                };
+                // Safety: We just checked this
+                let dst = unsafe { File::new(entry) };
+                let src_contents = self.runner.driver.read_file(&src).unwrap();
+                let dst_contents = self.runner.driver.read_file(&dst).unwrap();
+                if src_contents != dst_contents {
+                    return Err(self.cx.nid_err(
+                        self.nid,
+                        RunnerError::Makeshift("exported file does not match".into()),
+                    ));
+                }
+
                 Ok(Value::Unit)
             }
             _ => self.incorrect_args(2..=2),

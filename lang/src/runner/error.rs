@@ -44,8 +44,6 @@ pub enum RunnerError {
     MaxCallDepth,
     #[error("path error: {0}")]
     PathError(#[from] PathError),
-    #[error("could not resolve import")]
-    ImportResolve,
     #[error("local areas can only be created from local areas")]
     IllegalLocalArea,
     #[error("io error when getting area: {0}")]
