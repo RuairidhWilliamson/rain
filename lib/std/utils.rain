@@ -35,6 +35,7 @@ let escape_run = internal._escape_run
 let _import = internal._import
 let _throw = internal._throw
 
+// @deprecated("the not operator should be used instead")
 fn not(b) {
 	!b
 }
@@ -60,6 +61,16 @@ fn exe_suffix(target_triple) {
 		".exe"
 	} else {
 		""
+	}
+}
+
+fn shared_library_suffix(target_triple) {
+	if is_windows(target_triple) {
+		".dll"
+	} else if is_linux(target_triple) {
+		".so"
+	} else {
+		_throw("unknown target")
 	}
 }
 

@@ -77,6 +77,10 @@ impl FilePath {
         let p = self.0.rsplit_once('/').map_or("/", |(p, _)| p);
         Some(Self(p.to_owned()))
     }
+
+    pub fn last(&self) -> Option<&str> {
+        path_segments(&self.0).last()
+    }
 }
 
 fn path_segments(s: &str) -> impl DoubleEndedIterator<Item = &'_ str> {
