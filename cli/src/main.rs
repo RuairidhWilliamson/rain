@@ -235,7 +235,7 @@ fn clean(config: &Config, mode: ClientMode) -> Result<(), ()> {
 #[derive(Debug, Parser)]
 #[command(version)]
 struct Cli {
-    // Avoid performing actions that require an internet connection when possible
+    // Disable performing actions that require an internet connection and try to use cache more often
     #[arg(long, env = "RAIN_OFFLINE")]
     offline: bool,
     #[command(subcommand)]
@@ -265,7 +265,7 @@ pub enum RainCtlCommand {
     Config,
     /// Inspect the rain cache
     Inspect,
-    /// Resolve rain path to actual local path
+    /// Resolve rain path to its actual local path
     Resolve { path: Option<String> },
     /// Clean the rain cache
     Clean,
