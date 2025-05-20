@@ -388,6 +388,14 @@ impl DriverTrait for DriverImpl<'_> {
     fn host_triple(&self) -> &'static str {
         env!("TARGET_PLATFORM")
     }
+
+    fn export_file(&self, src: &File, dst: &FSEntry) -> Result<(), RunnerError> {
+        let src_path = self.resolve_fs_entry(src.inner());
+        let dst_path = self.resolve_fs_entry(dst);
+        // TODO: Backup old file before overwriting, if it exists
+        std::fs::copy(src_path, dst_path).map_err(|err| RunnerError::AreaIOError(err))?;
+        Ok(())
+    }
 }
 
 impl MonitoringTrait for DriverImpl<'_> {

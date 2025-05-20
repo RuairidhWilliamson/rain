@@ -976,20 +976,22 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         ));
                     }
                 }
-                let src = self.runner.driver.resolve_fs_entry(src.inner());
-                let dst = self.runner.driver.resolve_fs_entry(dst.inner());
-                let filename = src.file_name().ok_or_else(|| {
+                let filename = src.path().last().ok_or_else(|| {
                     self.cx.nid_err(
                         self.nid,
                         RunnerError::Makeshift("src path does not have filename".into()),
                     )
                 })?;
-                let dst = dst.join(filename);
-                // TODO: Move this to driver trait
-                // TODO: Backup any old files before overwriting
-                if let Err(err) = std::fs::copy(src, dst) {
-                    return Err(self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)));
-                }
+                let dst_path = dst
+                    .path()
+                    .join(filename)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
+                let dst = FSEntry::new(dst.area().clone(), dst_path);
+
+                self.runner
+                    .driver
+                    .export_file(src, &dst)
+                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
                 Ok(Value::Unit)
             }
             _ => self.incorrect_args(2..=2),
