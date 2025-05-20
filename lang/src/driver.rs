@@ -45,6 +45,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn file_metadata(&self, file: &File) -> Result<FileMetadata, RunnerError>;
     fn glob(&self, dir: &Dir, pattern: &str) -> Result<Vec<File>, RunnerError>;
     fn prelude_src(&self) -> Option<Cow<'static, str>>;
+    fn host_triple(&self) -> &'static str;
 }
 
 pub trait MonitoringTrait {

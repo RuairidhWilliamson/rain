@@ -914,7 +914,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         let mut record = IndexMap::new();
         record.insert(
             String::from("triple"),
-            Value::String(Arc::new(String::from(env!("TARGET_PLATFORM")))), // Set by build script
+            Value::String(Arc::new(String::from(self.runner.driver.host_triple()))), // Set by build script
         );
         Ok(Value::Record(Arc::new(RainRecord(record))))
     }

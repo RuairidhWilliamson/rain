@@ -384,6 +384,10 @@ impl DriverTrait for DriverImpl<'_> {
     fn prelude_src(&self) -> Option<Cow<'static, str>> {
         self.prelude.clone()
     }
+
+    fn host_triple(&self) -> &'static str {
+        env!("TARGET_PLATFORM")
+    }
 }
 
 impl MonitoringTrait for DriverImpl<'_> {
