@@ -61,10 +61,30 @@ impl DriverImpl<'_> {
         let area = FileArea::Generated(GeneratedFileArea::new());
         let output_dir = Dir::root(area.clone());
         let output_dir_path = self.resolve_fs_entry(output_dir.inner());
+        if matches!(std::fs::exists(&output_dir_path), Ok(true)) {
+            return Err(RunnerError::Makeshift(
+                "overlay directory already exists".into(),
+            ));
+        }
         std::fs::create_dir_all(&output_dir_path).map_err(RunnerError::AreaIOError)?;
         for dir in overlay_dirs {
             let dir_path = self.resolve_fs_entry(dir.inner());
-            dircpy::copy_dir(dir_path, &output_dir_path).map_err(RunnerError::AreaIOError)?;
+            for entry in ignore::Walk::new(&dir_path) {
+                let Ok(entry) = entry else {
+                    continue;
+                };
+                let Some(file_type) = entry.file_type() else {
+                    continue;
+                };
+                if file_type.is_file() {
+                    let rel_dest = entry
+                        .path()
+                        .strip_prefix(&dir_path)
+                        .map_err(|_| RunnerError::Makeshift("strip prefix failed".into()))?;
+                    let dest_entry = output_dir_path.join(rel_dest);
+                    std::fs::copy(entry.path(), dest_entry).map_err(RunnerError::AreaIOError)?;
+                }
+            }
         }
         Ok(area)
     }
@@ -393,7 +413,7 @@ impl DriverTrait for DriverImpl<'_> {
         let src_path = self.resolve_fs_entry(src.inner());
         let dst_path = self.resolve_fs_entry(dst);
         // TODO: Backup old file before overwriting, if it exists
-        std::fs::copy(src_path, dst_path).map_err(|err| RunnerError::AreaIOError(err))?;
+        std::fs::copy(src_path, dst_path).map_err(RunnerError::AreaIOError)?;
         Ok(())
     }
 }

@@ -12,7 +12,6 @@ workspace = true
 [dependencies]
 base16 = "0.2.1"
 chrono.workspace = true
-dircpy = { version = "0.3.19", default-features = false }
 dirs = "6.0.0"
 flate2 = "1.1.0"
 ignore = "0.4.23"
