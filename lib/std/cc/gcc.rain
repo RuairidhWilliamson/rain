@@ -10,7 +10,11 @@ let _throw = utils._throw
 let gcc = escape_bin("gcc")
 
 fn compile(src, outname) {
-	result = run(unit, gcc, src, "-o", outname)
+	// Implictly requires cc for linking
+	ld = escape_bin("ld")
+
+	env = {PATH: "/usr/bin"}
+	result = run(unit, gcc, [src, "-o", outname], env)
 	if not(result.success) {
 		_throw(result)
 	}

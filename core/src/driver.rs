@@ -47,11 +47,7 @@ impl DriverImpl<'_> {
     }
 
     fn create_empty_area(&self) -> Result<FileArea, RunnerError> {
-        let area = FileArea::Generated(GeneratedFileArea::new());
-        let output_dir = Dir::root(area.clone());
-        let output_dir_path = self.resolve_fs_entry(output_dir.inner());
-        std::fs::create_dir_all(&output_dir_path).map_err(RunnerError::AreaIOError)?;
-        Ok(area)
+        self.create_overlay_area(std::iter::empty())
     }
 
     fn create_overlay_area<'a>(
@@ -82,6 +78,12 @@ impl DriverImpl<'_> {
                         .strip_prefix(&dir_path)
                         .map_err(|_| RunnerError::Makeshift("strip prefix failed".into()))?;
                     let dest_entry = output_dir_path.join(rel_dest);
+                    std::fs::create_dir_all(
+                        dest_entry.parent().ok_or_else(|| {
+                            RunnerError::Makeshift("parent does not exist".into())
+                        })?,
+                    )
+                    .map_err(RunnerError::AreaIOError)?;
                     std::fs::copy(entry.path(), dest_entry).map_err(RunnerError::AreaIOError)?;
                 }
             }

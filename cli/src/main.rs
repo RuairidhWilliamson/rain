@@ -35,7 +35,7 @@ fn main() -> ExitCode {
 fn fallible_main() -> Result<(), ()> {
     let config = rain_core::config::Config::default();
     if std::env::var_os("RAIN_SERVER").as_deref() == Some(OsStr::new("1")) {
-        env_logger::init_from_env(Env::new().filter_or("RAIN_LOG", "debug,dircpy=info"));
+        env_logger::init_from_env(Env::new().filter_or("RAIN_LOG", "debug"));
         return remote::server::rain_server(config).map_err(|err| {
             eprintln!("rain server error: {err:?}");
         });
