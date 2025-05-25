@@ -19,6 +19,7 @@ use remote::{
         clean::CleanRequest,
         info::InfoRequest,
         inspect::{InspectRequest, InspectResponse},
+        prune::{PruneRequest, Pruned},
         run::{RunProgress, RunRequest, RunResponse},
         shutdown::ShutdownRequest,
     },
@@ -128,6 +129,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             Ok(())
         }
         RainCtlCommand::Clean => clean(config, mode),
+        RainCtlCommand::Prune => prune(config, mode),
     }
 }
 
@@ -246,6 +248,18 @@ fn clean(config: &Config, mode: ClientMode) -> Result<(), ()> {
     Ok(())
 }
 
+fn prune(config: &Config, mode: ClientMode) -> Result<(), ()> {
+    let Pruned(size) =
+        make_request_or_start(config, PruneRequest, |()| {}, mode).map_err(|err| {
+            eprintln!("{err}");
+        })?;
+    println!(
+        "Pruned {:8}",
+        humansize::format_size(size, humansize::BINARY)
+    );
+    Ok(())
+}
+
 #[derive(Debug, Parser)]
 #[command(version)]
 struct Cli {
@@ -286,6 +300,8 @@ enum RainCtlCommand {
     Resolve { path: Option<String> },
     /// Clean the rain cache
     Clean,
+    /// Prune the rain cache
+    Prune,
 }
 
 #[test]

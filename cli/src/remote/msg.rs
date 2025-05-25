@@ -38,6 +38,7 @@ pub enum Request {
     Inspect(inspect::InspectRequest),
     Shutdown(shutdown::ShutdownRequest),
     Clean(clean::CleanRequest),
+    Prune(prune::PruneRequest),
 }
 
 pub trait RequestTrait: Into<Request> + private::Sealed {
@@ -189,4 +190,25 @@ pub mod clean {
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct Cleaned(pub HashMap<PathBuf, u64>);
+}
+
+pub mod prune {
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct PruneRequest;
+
+    impl From<PruneRequest> for super::Request {
+        fn from(req: PruneRequest) -> Self {
+            Self::Prune(req)
+        }
+    }
+
+    impl super::private::Sealed for PruneRequest {}
+
+    impl super::RequestTrait for PruneRequest {
+        type Intermediate = ();
+        type Response = Pruned;
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct Pruned(pub u64);
 }

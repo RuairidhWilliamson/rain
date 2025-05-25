@@ -1,6 +1,7 @@
 pub mod persistent;
 
 use std::{
+    collections::HashSet,
     num::NonZeroUsize,
     sync::{Arc, Mutex},
     time::Duration,
@@ -8,9 +9,12 @@ use std::{
 
 use lru::LruCache;
 use poison_panic::MutexExt as _;
-use rain_lang::runner::{
-    cache::{CacheEntry, CacheKey},
-    dep::Dep,
+use rain_lang::{
+    afs::area::FileArea,
+    runner::{
+        cache::{CacheEntry, CacheKey},
+        dep::Dep,
+    },
 };
 
 const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
@@ -104,5 +108,20 @@ impl CacheCore {
 
     pub fn len(&self) -> usize {
         self.storage.len()
+    }
+
+    pub fn get_all_generated_areas(&self) -> HashSet<&rain_lang::afs::area::GeneratedFileArea> {
+        let mut out = HashSet::new();
+        for (_, entry) in &self.storage {
+            for area in entry.value.find_areas() {
+                match area {
+                    FileArea::Generated(generated_file_area) => {
+                        out.insert(generated_file_area);
+                    }
+                    _ => (),
+                }
+            }
+        }
+        out
     }
 }

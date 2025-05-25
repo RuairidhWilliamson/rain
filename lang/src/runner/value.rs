@@ -168,4 +168,22 @@ impl Value {
             Self::Dir(_) => false,
         }
     }
+
+    pub fn find_areas(&self) -> Vec<&FileArea> {
+        match self {
+            Self::Unit
+            | Self::Boolean(_)
+            | Self::Integer(_)
+            | Self::String(_)
+            | Self::Function(_)
+            | Self::Module(_)
+            | Self::Internal => Vec::new(),
+            Self::File(f) => vec![f.area()],
+            Self::Dir(d) => vec![d.area()],
+            Self::FileArea(file_area) => vec![file_area],
+            Self::InternalFunction(_) => Vec::new(),
+            Self::List(list) => list.0.iter().flat_map(|v| v.find_areas()).collect(),
+            Self::Record(record) => record.0.iter().flat_map(|(_, v)| v.find_areas()).collect(),
+        }
+    }
 }
