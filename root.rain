@@ -8,7 +8,6 @@ let get_file = std.utils.get_file
 let get_area = std.utils.get_area
 let module_file = std.utils.module_file
 
-let smee = _import(get_file("smee_rs/main.rain"))
 let rust_version = "stable"
 
 fn lint() {

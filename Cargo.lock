@@ -1981,13 +1981,13 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "smee-rs",
  "tokio",
  "tokio-stream",
  "tokio-util",
  "tracing",
  "tracing-subscriber",
  "url",
+ "webhook-forwarder",
 ]
 
 [[package]]
@@ -2600,21 +2600,6 @@ name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
-
-[[package]]
-name = "smee-rs"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "clap",
- "eventsource-client",
- "futures",
- "log",
- "reqwest",
- "serde_json",
- "tokio",
- "url",
-]
 
 [[package]]
 name = "snafu"
@@ -3302,6 +3287,21 @@ dependencies = [
  "js-sys",
  "serde",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "webhook-forwarder"
+version = "0.0.0"
+source = "git+https://github.com/RuairidhWilliamson/webhook-forwarder.git#f6369a12c0aa7612eb917cc3d9bb45e10e947eaf"
+dependencies = [
+ "anyhow",
+ "eventsource-client",
+ "futures",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tracing",
+ "url",
 ]
 
 [[package]]

@@ -2,7 +2,6 @@
 members = [
   "core",
   "lang",
-  "smee_rs",
   "cli",
   "ruipc",
   "poison_panic",
@@ -17,7 +16,7 @@ panic = "abort"
 [workspace.package]
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.87"
 authors = ["Ruairidh Williamson"]
 publish = false
 

@@ -17,13 +17,12 @@ use octocrab::{
         },
     },
 };
-use smee_rs::MessageHandler;
+use webhook_forwarder::{HeaderMap, MessageHandler};
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
     github_app_id: AppId,
     github_app_key: String,
-    #[expect(dead_code)]
     github_webhook_secret: String,
     target_url: url::Url,
     smee_url: url::Url,
@@ -62,8 +61,10 @@ async fn main() -> Result<()> {
         }),
     };
     // let mut smee = smee_rs::Channel::new(default_smee_server_url(), handler).await?;
-    let mut smee =
-        smee_rs::Channel::from_existing_channel(handler.inner.config.smee_url.clone(), handler);
+    let mut smee = webhook_forwarder::Channel::from_existing_channel(
+        handler.inner.config.smee_url.clone(),
+        handler,
+    );
     let channel_url = smee.get_channel_url().to_string();
     tracing::info!("got channel url = {channel_url}");
 
@@ -93,16 +94,14 @@ struct HandlerInner {
 }
 
 impl MessageHandler for Handler {
-    async fn handle(&self, headers: &smee_rs::HeaderMap, body: &serde_json::Value) -> Result<()> {
-        // Can't verify webhook signature when using smee.io because they don't send the raw body :(
-        // A fix was made but the public version hasn't been updated
-        // Self host smee?
-        // verify_webhook_signature(headers, &self.inner.config.github_webhook_secret)?;
-        let github_event_header = headers
-            .get("x-github-event")
-            .context("x-github-event header not present")?
-            .as_str()
-            .context("x-github-event header is not a string")?;
+    async fn handle(&self, headers: HeaderMap, body: Vec<u8>) -> Result<()> {
+        verify_webhook_signature(&headers, &body, &self.inner.config.github_webhook_secret)?;
+        let github_event_header = str::from_utf8(
+            headers
+                .get("x-github-event")
+                .context("x-github-event header not present")?,
+        )
+        .context("x-github-event header is not a string")?;
         let header = github_event_header;
         // NOTE: this is inefficient code to simply reuse the code from "derived" serde::Deserialize instead
         // of writing specific deserialization code for the enum.
@@ -118,7 +117,7 @@ impl MessageHandler for Handler {
             organization,
             installation,
             specific,
-        } = serde_json::from_value::<Intermediate>(body.clone())?;
+        } = serde_json::from_slice(&body)?;
 
         let specific = kind.parse_specific_payload(specific)?;
 
@@ -156,13 +155,13 @@ pub struct WebhookEvent {
     pub specific: WebhookEventPayload,
 }
 
-#[expect(dead_code)]
-fn verify_webhook_signature(headers: &smee_rs::HeaderMap, body: &str, secret: &str) -> Result<()> {
-    let github_signature_header = headers
-        .get("x-hub-signature-256")
-        .context("x-hub-signature-256 header not present")?
-        .as_str()
-        .context("x-hub-signature-256 header is not a string")?;
+fn verify_webhook_signature(headers: &HeaderMap, body: &[u8], secret: &str) -> Result<()> {
+    let github_signature_header = str::from_utf8(
+        headers
+            .get("x-hub-signature-256")
+            .context("x-hub-signature-256 header not present")?,
+    )
+    .context("x-hub-signature-256 header is not a string")?;
     let (algo, sig_hex) = github_signature_header
         .split_once('=')
         .context("header does not contain =")?;
@@ -171,7 +170,7 @@ fn verify_webhook_signature(headers: &smee_rs::HeaderMap, body: &str, secret: &s
     }
     let sig = hex::decode(sig_hex).context("decode signature hex")?;
     let key = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, secret.as_bytes());
-    ring::hmac::verify(&key, body.as_bytes(), &sig).context("verify signature")?;
+    ring::hmac::verify(&key, body, &sig).context("verify signature")?;
     Ok(())
 }
 
