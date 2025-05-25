@@ -1,6 +1,6 @@
 mod runner;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use anyhow::{Context as _, Result, anyhow};
 use chrono::Utc;
@@ -16,6 +16,7 @@ use octocrab::{
             payload::CheckSuiteWebhookEventAction,
         },
     },
+    params::checks::{CheckRunOutput, CheckRunStatus},
 };
 use webhook_forwarder::{HeaderMap, MessageHandler};
 
@@ -25,7 +26,8 @@ struct Config {
     github_app_key: String,
     github_webhook_secret: String,
     target_url: url::Url,
-    smee_url: url::Url,
+    whf_server: Option<url::Url>,
+    whf_channel_url: Option<url::Url>,
 }
 
 #[expect(clippy::unwrap_used)]
@@ -60,15 +62,26 @@ async fn main() -> Result<()> {
             runner,
         }),
     };
-    // let mut smee = smee_rs::Channel::new(default_smee_server_url(), handler).await?;
-    let mut smee = webhook_forwarder::Channel::from_existing_channel(
-        handler.inner.config.smee_url.clone(),
-        handler,
-    );
-    let channel_url = smee.get_channel_url().to_string();
+    let mut channel;
+    if let Some(channel_url) = handler.inner.config.whf_channel_url.as_ref() {
+        channel = webhook_forwarder::Channel::from_existing_channel(channel_url.clone(), handler);
+    } else {
+        channel = webhook_forwarder::Channel::new(
+            handler
+                .inner
+                .config
+                .whf_server
+                .clone()
+                .context("whf server not set")?,
+            handler,
+        )
+        .await
+        .unwrap();
+    }
+    let channel_url = channel.get_channel_url().to_string();
     tracing::info!("got channel url = {channel_url}");
 
-    smee.start().await
+    channel.start().await
 }
 
 // Intermediate structure allows to separate the common fields from
@@ -241,9 +254,9 @@ impl HandlerInner {
         let checks = installation_crab.checks(owner, repo);
         let check_run = checks
             .create_check_run(check_run_name, head_sha)
-            .status(octocrab::params::checks::CheckRunStatus::InProgress)
+            .status(CheckRunStatus::Queued)
             .details_url(target_url.to_string())
-            .output(octocrab::params::checks::CheckRunOutput {
+            .output(CheckRunOutput {
                 title: String::from("Rain CI Run"),
                 summary: String::from("Summary..."),
                 text: None,
@@ -252,28 +265,43 @@ impl HandlerInner {
             })
             .send()
             .await?;
+        let check_run = checks
+            .update_check_run(check_run.id)
+            .status(CheckRunStatus::InProgress)
+            .details_url(target_url.to_string())
+            .output(CheckRunOutput {
+                title: String::from("Rain CI Run"),
+                summary: String::from("Summary..."),
+                text: None,
+                annotations: vec![],
+                images: vec![],
+            })
+            .send()
+            .await?;
+        let start = Instant::now();
         let download = installation_crab
             .repos(owner, repo)
             .download_tarball(head_sha.to_owned())
             .await?;
         let download = download.collect().await?.to_bytes();
         let runner::RunComplete { success, output } =
-            Self::run(runner, &download, owner, repo, head_sha).await?;
+            Self::run(runner, &download, owner, repo, head_sha).await;
         let conclusion = if success {
             octocrab::params::checks::CheckRunConclusion::Success
         } else {
             octocrab::params::checks::CheckRunConclusion::Failure
         };
+        let elapsed = start.elapsed();
         checks
             .update_check_run(check_run.id)
-            .status(octocrab::params::checks::CheckRunStatus::Completed)
+            .status(CheckRunStatus::Completed)
             .conclusion(conclusion)
             .completed_at(Utc::now())
             .details_url(target_url.to_string())
-            .output(octocrab::params::checks::CheckRunOutput {
+            .output(CheckRunOutput {
                 title: String::from("Rain CI Run"),
-                summary: String::from("Summary..."),
-                text: Some(output),
+                summary: format!("Completed in {elapsed:.01?}"),
+                text: Some(format!("```\n{output}\n```")),
                 annotations: vec![],
                 images: vec![],
             })
@@ -288,13 +316,21 @@ impl HandlerInner {
         owner: &str,
         repo: &str,
         head_sha: &str,
-    ) -> Result<runner::RunComplete> {
+    ) -> runner::RunComplete {
         // Need to do this to satisfy static lifetime
         let download = download.to_vec();
         let download_dir_name = format!("{owner}-{repo}-{head_sha}");
         let runner = runner.clone();
         let complete =
-            tokio::task::spawn_blocking(move || runner.run(&download, &download_dir_name)).await?;
-        Ok(complete)
+            tokio::task::spawn_blocking(move || runner.run(&download, &download_dir_name))
+                .await
+                .unwrap_or_else(|err| {
+                    tracing::error!("panic: {err}");
+                    runner::RunComplete {
+                        success: false,
+                        output: "something panicked!".into(),
+                    }
+                });
+        complete
     }
 }

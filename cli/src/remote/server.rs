@@ -371,8 +371,6 @@ fn run_inner<C: MsgConnection>(
     ir: &mut Rir,
 ) -> Result<String, CoreError> {
     let driver = DriverImpl {
-        config,
-        prints: Mutex::default(),
         print_handler: Some(Box::new(|m| {
             let send_result = s
                 .plock()
@@ -397,7 +395,7 @@ fn run_inner<C: MsgConnection>(
                 log::error!("send intermediate exit call: {err}");
             }
         })),
-        prelude: Some(include_str!("../../../lib/prelude/prelude.rain").into()),
+        ..DriverImpl::new(config)
     };
 
     run_core(req, cache, &driver, ir).map(|v| match v {

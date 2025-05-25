@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use poison_panic::MutexExt as _;
+use poison_panic::MutexExt;
 use rain_core::{
     cache::{Cache, persistent::PersistCache},
     config::Config,
@@ -41,7 +41,17 @@ impl Runner {
         let root = File::new_checked(&driver, root_entry).unwrap();
         let src = driver.read_file(&root).unwrap();
         let module = rain_lang::ast::parser::parse_module(&src);
-        let mid = ir.insert_module(Some(root), src, module).unwrap();
+        let mid = match ir.insert_module(Some(root), src, module) {
+            Ok(mid) => mid,
+            Err(err) => {
+                let err = err.resolve_ir(&ir);
+                tracing::error!("\n{err}");
+                return RunComplete {
+                    success: false,
+                    output: format!("{err}"),
+                };
+            }
+        };
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &self.cache, &driver);
         tracing::info!("Running");
@@ -50,12 +60,13 @@ impl Runner {
         persistent_cache
             .save(&driver.config.cache_json_path())
             .unwrap();
+        let prints = strip_ansi_escapes::strip_str(driver.prints.plock().join("\n"));
         match res {
             Ok(value) => {
                 tracing::info!("Value {value}");
                 RunComplete {
                     success: true,
-                    output: format!("{value}"),
+                    output: format!("{prints}\n--\n{value:#}"),
                 }
             }
             Err(err) => {
@@ -64,7 +75,7 @@ impl Runner {
                 tracing::error!("\n{err}");
                 RunComplete {
                     success: false,
-                    output: format!("{err}"),
+                    output: format!("{prints}\n--\n{err}"),
                 }
             }
         }

@@ -42,7 +42,7 @@ impl DriverImpl<'_> {
             print_handler: None,
             enter_handler: None,
             exit_handler: None,
-            prelude: None,
+            prelude: Some(include_str!("../../lib/prelude/prelude.rain").into()),
         }
     }
 
