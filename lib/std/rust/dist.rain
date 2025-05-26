@@ -122,3 +122,12 @@ fn get_rustfmt(channel, target) {
 	rustfmt = get_dir(rustfmt_pkg, "rustfmt-" + version + "-" + target + "/rustfmt-preview")
 	rustfmt
 }
+
+fn get_llvm_tools(channel, target) {
+	manifest = get_manifest(channel)
+	version = get_version_path(manifest)
+	pkg_targets = utils.index(manifest.pkg, "llvm-tools-preview")
+	llvm_tools_pkg = get_xz_artifact(utils.index(pkg_targets.target, target))
+	rustfmt = get_dir(llvm_tools_pkg, "llvm-tools-" + version + "-" + target + "/llvm-tools-preview")
+	rustfmt
+}

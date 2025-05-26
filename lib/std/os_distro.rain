@@ -1,0 +1,4 @@
+let area = internal._get_area(internal._module_file())
+
+// TODO: Add tools that are expected to be provided by the OS/distro
+// E.g. a c compiler

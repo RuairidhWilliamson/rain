@@ -5,5 +5,6 @@ let rust = internal._import(internal._get_file(area, "rust.rain"))
 let utils = internal._import(internal._get_file(area, "utils.rain"))
 let lints = internal._import(internal._get_file(area, "lints.rain"))
 let proto = internal._import(internal._get_file(area, "proto.rain"))
+let os_distro = internal._imoprt(internal._get_file(area, "os_distro.rain"))
 
 let host = internal._host_info()
