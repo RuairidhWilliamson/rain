@@ -321,16 +321,14 @@ impl HandlerInner {
         let download = download.to_vec();
         let download_dir_name = format!("{owner}-{repo}-{head_sha}");
         let runner = runner.clone();
-        let complete =
-            tokio::task::spawn_blocking(move || runner.run(&download, &download_dir_name))
-                .await
-                .unwrap_or_else(|err| {
-                    tracing::error!("panic: {err}");
-                    runner::RunComplete {
-                        success: false,
-                        output: "something panicked!".into(),
-                    }
-                });
-        complete
+        tokio::task::spawn_blocking(move || runner.run(&download, &download_dir_name))
+            .await
+            .unwrap_or_else(|err| {
+                tracing::error!("panic: {err}");
+                runner::RunComplete {
+                    success: false,
+                    output: "something panicked!".into(),
+                }
+            })
     }
 }

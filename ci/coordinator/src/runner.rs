@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use poison_panic::MutexExt;
+use poison_panic::MutexExt as _;
 use rain_core::{
     cache::{Cache, persistent::PersistCache},
     config::Config,

@@ -114,11 +114,8 @@ impl CacheCore {
         let mut out = HashSet::new();
         for (_, entry) in &self.storage {
             for area in entry.value.find_areas() {
-                match area {
-                    FileArea::Generated(generated_file_area) => {
-                        out.insert(generated_file_area);
-                    }
-                    _ => (),
+                if let FileArea::Generated(generated_file_area) = area {
+                    out.insert(generated_file_area);
                 }
             }
         }
