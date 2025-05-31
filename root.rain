@@ -93,3 +93,20 @@ fn publish_lib(version) {
 	}
 	print("Published lib", version)
 }
+
+fn test_zig() {
+	src = std.utils.create_file("const std = @import(\"std\"); pub fn main() !void {std.debug.print(\"hello world\", .{});}", "helloworld.zig")
+	zig_bin = std.zig.dist.download("0.14.1", "x86_64", "linux")
+	run_result = std.utils.run(std.utils.unit, zig_bin, ["build-exe", src], {ZIG_GLOBAL_CACHE_DIR: "."})
+	if !run_result.success {
+		std.utils.print("Stdout:", run_result.stdout)
+		std.utils.print("Stderr:", run_result.stderr)
+		std.utils._throw("build zig")
+	}
+	bin = get_file(run_result.area, "helloworld")
+	run_result = std.utils.run(std.utils.unit, bin, [], {})
+	if !run_result.success {
+		std.utils._throw("zig helloworld")
+	}
+	print(run_result.stderr)
+}

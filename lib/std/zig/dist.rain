@@ -1,0 +1,27 @@
+let area = internal._get_area(internal._module_file())
+let utils = internal._import(internal._get_file(area, "utils.rain"))
+
+// TODO: Check minisig
+
+fn download(version, arch, os) {
+	if os == "windows" {
+		url = "https://ziglang.org/download/" + version + "/zig-" + arch + "-" + os + "-" + version + ".zip"
+		download_result = utils.download(url)
+		if !download_result.ok {
+			utils.print(url)
+			utils.print(download_result)
+			utils._throw("download failed")
+		}
+		utils.get_file(utils.extract_zip(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
+		
+	} else {
+		url = "https://ziglang.org/download/" + version + "/zig-" + arch + "-" + os + "-" + version + ".tar.xz"
+		download_result = utils.download(url)
+		if !download_result.ok {
+			utils.print(url)
+			utils.print(download_result)
+			utils._throw("download failed")
+		}
+		utils.get_file(utils.extract_tar_xz(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
+	}
+}

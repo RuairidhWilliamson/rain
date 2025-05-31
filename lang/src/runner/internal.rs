@@ -912,9 +912,24 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn host_info(self) -> ResultValue {
         self.no_args()?;
         let mut record = IndexMap::new();
+        let host_triple = self.runner.driver.host_triple();
+        let host_triple_split: Vec<_> = host_triple.split("-").collect();
         record.insert(
-            String::from("triple"),
-            Value::String(Arc::new(String::from(self.runner.driver.host_triple()))), // Set by build script
+            "triple".into(),
+            Value::String(Arc::new(String::from(host_triple))),
+        );
+        record.insert(
+            "arch".into(),
+            Value::String(Arc::new(host_triple_split[0].into())),
+        );
+        // TODO: Sometimes the vendor is omitted meaning os will be in vendor
+        record.insert(
+            "vendor".into(),
+            Value::String(Arc::new(host_triple_split[1].into())),
+        );
+        record.insert(
+            "os".into(),
+            Value::String(Arc::new(host_triple_split[2].into())),
         );
         Ok(Value::Record(Arc::new(RainRecord(record))))
     }
