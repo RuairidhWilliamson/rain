@@ -59,8 +59,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             String::from("check"),
             vec![],
             false,
-            cli.offline,
-            cli.host,
+            &cli.options,
             ReportMode::Short,
             mode,
         ),
@@ -69,8 +68,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             String::from("build"),
             vec![],
             false,
-            cli.offline,
-            cli.host,
+            &cli.options,
             ReportMode::Short,
             mode,
         ),
@@ -79,16 +77,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             report,
             target,
             args,
-        } => run(
-            config,
-            target,
-            args,
-            resolve,
-            cli.offline,
-            cli.host,
-            report,
-            mode,
-        ),
+        } => run(config, target, args, resolve, &cli.options, report, mode),
         RainCtlCommand::Info => {
             let info =
                 make_request_or_start(config, InfoRequest, |()| {}, mode).map_err(|err| {
@@ -143,8 +132,7 @@ fn run(
     target: String,
     args: Vec<String>,
     resolve: bool,
-    offline: bool,
-    host_override: Option<String>,
+    options: &GlobalOptions,
     reporting: ReportMode,
     mode: ClientMode,
 ) -> Result<(), ()> {
@@ -157,8 +145,8 @@ fn run(
             target,
             args,
             resolve,
-            offline,
-            host_override,
+            offline: options.offline,
+            host_override: options.host.clone(),
         },
         |im| {
             if reporting != ReportMode::Short {
@@ -267,15 +255,21 @@ fn prune(config: &Config, mode: ClientMode) -> Result<(), ()> {
     Ok(())
 }
 
-#[derive(Debug, Parser)]
-#[command(version)]
-struct Cli {
+#[derive(Debug, Clone, Parser)]
+struct GlobalOptions {
     /// Disable performing actions that require an internet connection and try to use cache more often
     #[arg(long, global = true, env = "RAIN_OFFLINE")]
     offline: bool,
     /// Override the host to a custom triple
     #[arg(long, global = true, env = "RAIN_HOST")]
     host: Option<String>,
+}
+
+#[derive(Debug, Parser)]
+#[command(version)]
+struct Cli {
+    #[command(flatten)]
+    options: GlobalOptions,
     #[command(subcommand)]
     command: RainCtlCommand,
 }

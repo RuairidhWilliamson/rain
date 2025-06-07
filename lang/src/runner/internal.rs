@@ -913,7 +913,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         self.no_args()?;
         let mut record = IndexMap::new();
         let host_triple = self.runner.driver.host_triple();
-        let host_triple_split: Vec<_> = host_triple.split("-").collect();
+        let host_triple_split: Vec<_> = host_triple.split('-').collect();
         record.insert(
             "triple".into(),
             Value::String(Arc::new(String::from(host_triple))),
