@@ -30,7 +30,7 @@ fn error_throwing() {
     let res = rain_core::run("examples/errors/throwing.rain", "main", &cache, &driver);
     match res {
         Err(CoreError::LangError(err)) => {
-            assert_eq!(err.err, "test");
+            assert_eq!(err.err, "\"test\"");
         }
         _ => panic!("wrong error {res:?}"),
     }
