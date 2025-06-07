@@ -1,3 +1,7 @@
 let dist = internal._import(internal._get_file("rust/dist.rain"))
 let cargo = internal._import(internal._get_file("rust/cargo.rain"))
 let rustc = internal._import(internal._get_file("rust/rustc.rain"))
+
+let stable = "stable"
+let beta = "beta"
+let nightly = "nightly"

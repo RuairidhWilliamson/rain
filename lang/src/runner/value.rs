@@ -1,4 +1,8 @@
-use std::{fmt::Display, hash::Hasher, sync::Arc};
+use std::{
+    fmt::{Debug, Display},
+    hash::Hasher,
+    sync::Arc,
+};
 
 use indexmap::IndexMap;
 
@@ -32,7 +36,7 @@ impl Display for Value {
             Self::Unit => f.write_str("unit"),
             Self::Boolean(b) => Display::fmt(&b, f),
             Self::Integer(rain_integer) => Display::fmt(&rain_integer, f),
-            Self::String(s) => Display::fmt(s, f),
+            Self::String(s) => Debug::fmt(s, f),
             Self::Function(declaration_id) => Display::fmt(declaration_id, f),
             Self::Module(module_id) => Display::fmt(module_id, f),
             Self::FileArea(file_area) => Display::fmt(file_area, f),
@@ -68,7 +72,7 @@ pub struct RainInteger(pub num_bigint::BigInt);
 
 impl Display for RainInteger {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
+        Display::fmt(&self.0, f)
     }
 }
 

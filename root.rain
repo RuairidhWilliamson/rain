@@ -26,11 +26,11 @@ fn check() {
 }
 
 fn build() {
-	std.rust.cargo.build(area, "rain", "", "dev")
+	std.rust.cargo.build(std.rust.stable, area, "rain", "", "dev", std.utils.host_info().triple)
 }
 
 fn build_release() {
-	std.rust.cargo.build(area, "rain", "", "release")
+	std.rust.cargo.build(std.rust.stable, area, "rain", "", "release", std.utils.host_info().triple)
 }
 
 fn build_c() {
