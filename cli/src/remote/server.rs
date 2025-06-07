@@ -400,7 +400,7 @@ fn run_inner<C: MsgConnection>(
     s: &Mutex<&mut ClientHandler<'_, C>>,
     ir: &mut Rir,
 ) -> Result<String, CoreError> {
-    let driver = DriverImpl {
+    let mut driver = DriverImpl {
         print_handler: Some(Box::new(|m| {
             let send_result = s
                 .plock()
@@ -427,6 +427,9 @@ fn run_inner<C: MsgConnection>(
         })),
         ..DriverImpl::new(config)
     };
+    if let Some(host_override) = &req.host_override {
+        driver.host_triple = host_override.to_owned().into();
+    }
 
     run_core(req, cache, &driver, ir).map(|v| match v {
         Value::Unit => String::new(),
@@ -443,6 +446,7 @@ fn run_core(
         args,
         resolve: _,
         offline,
+        host_override: _,
     }: &super::msg::run::RunRequest,
     cache: &Cache,
     driver: &DriverImpl<'_>,

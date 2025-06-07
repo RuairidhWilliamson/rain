@@ -60,6 +60,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             vec![],
             false,
             cli.offline,
+            cli.host,
             ReportMode::Short,
             mode,
         ),
@@ -69,6 +70,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             vec![],
             false,
             cli.offline,
+            cli.host,
             ReportMode::Short,
             mode,
         ),
@@ -77,7 +79,16 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             report,
             target,
             args,
-        } => run(config, target, args, resolve, cli.offline, report, mode),
+        } => run(
+            config,
+            target,
+            args,
+            resolve,
+            cli.offline,
+            cli.host,
+            report,
+            mode,
+        ),
         RainCtlCommand::Info => {
             let info =
                 make_request_or_start(config, InfoRequest, |()| {}, mode).map_err(|err| {
@@ -139,6 +150,7 @@ fn run(
     args: Vec<String>,
     resolve: bool,
     offline: bool,
+    host_override: Option<String>,
     reporting: ReportMode,
     mode: ClientMode,
 ) -> Result<(), ()> {
@@ -152,6 +164,7 @@ fn run(
             args,
             resolve,
             offline,
+            host_override,
         },
         |im| {
             if reporting != ReportMode::Short {
@@ -263,9 +276,12 @@ fn prune(config: &Config, mode: ClientMode) -> Result<(), ()> {
 #[derive(Debug, Parser)]
 #[command(version)]
 struct Cli {
-    // Disable performing actions that require an internet connection and try to use cache more often
-    #[arg(long, env = "RAIN_OFFLINE")]
+    /// Disable performing actions that require an internet connection and try to use cache more often
+    #[arg(long, global = true, env = "RAIN_OFFLINE")]
     offline: bool,
+    /// Override the host to a custom triple
+    #[arg(long, global = true, env = "RAIN_HOST")]
+    host: Option<String>,
     #[command(subcommand)]
     command: RainCtlCommand,
 }

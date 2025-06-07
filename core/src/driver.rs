@@ -32,6 +32,11 @@ pub struct DriverImpl<'a> {
     pub enter_handler: Option<PrintHandler<'a>>,
     pub exit_handler: Option<PrintHandler<'a>>,
     pub prelude: Option<Cow<'static, str>>,
+    pub host_triple: Cow<'static, str>,
+}
+
+pub const fn default_host_triple() -> &'static str {
+    env!("TARGET_PLATFORM")
 }
 
 impl DriverImpl<'_> {
@@ -43,6 +48,7 @@ impl DriverImpl<'_> {
             enter_handler: None,
             exit_handler: None,
             prelude: Some(include_str!("../../lib/prelude/prelude.rain").into()),
+            host_triple: default_host_triple().into(),
         }
     }
 
@@ -407,8 +413,8 @@ impl DriverTrait for DriverImpl<'_> {
         self.prelude.clone()
     }
 
-    fn host_triple(&self) -> &'static str {
-        env!("TARGET_PLATFORM")
+    fn host_triple(&self) -> &str {
+        &self.host_triple
     }
 
     fn export_file(&self, src: &File, dst: &FSEntry) -> Result<(), RunnerError> {

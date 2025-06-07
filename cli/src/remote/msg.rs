@@ -62,6 +62,7 @@ pub mod run {
         pub args: Vec<String>,
         pub resolve: bool,
         pub offline: bool,
+        pub host_override: Option<String>,
     }
 
     impl From<RunRequest> for super::Request {

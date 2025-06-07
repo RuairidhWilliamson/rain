@@ -65,13 +65,23 @@ fn exe_suffix(target_triple) {
 	}
 }
 
+fn shared_library_prefix(target_triple) {
+	if is_windows(target_triple) {
+		""
+	} else if is_linux(target_triple) {
+		"lib"
+	} else {
+		_throw("unknown target: " + target_triple)
+	}
+}
+
 fn shared_library_suffix(target_triple) {
 	if is_windows(target_triple) {
 		".dll"
 	} else if is_linux(target_triple) {
 		".so"
 	} else {
-		_throw("unknown target")
+		_throw("unknown target: " + target_triple)
 	}
 }
 
