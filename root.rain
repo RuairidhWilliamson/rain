@@ -44,7 +44,7 @@ fn run() {
 
 fn helloworld() {
 	src = std.utils.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
-	bin = std.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple)
+	bin = std.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple, "2024")
 	print(std.utils.run(std.utils.unit, bin, [], {}).stdout)
 }
 
@@ -68,10 +68,10 @@ fn everything() {
 	print_some_stuff()
 }
 
-fn compress_lib(version) {
+fn compress_lib() {
 	ouch = std.utils.escape_bin("ouch")
 	lib_dir = std.utils.get_dir(area, "lib")
-	filename = "lib-" + version + ".tar.gz"
+	filename = "lib.tar.gz"
 	run_result = std.utils.run(std.utils.unit, ouch, ["compress", lib_dir, filename], {})
 	if std.utils.not(run_result.success) {
 		std.utils.print("Stdout:", run_result.stdout)
@@ -83,7 +83,7 @@ fn compress_lib(version) {
 
 fn publish_lib(version) {
 	bucket = "rw-rain-std-3a91d162"
-	compressed = compress_lib(version)
+	compressed = compress_lib()
 	gcloud = std.utils.escape_bin("gcloud")
 	run_result = std.utils.run(std.utils.unit, gcloud, ["storage", "cp", compressed, "gs://" + bucket + "/lib-" + version + ".tar.gz", "--no-clobber"], {})
 	std.utils.print("Stdout:", run_result.stdout)

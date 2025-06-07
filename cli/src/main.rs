@@ -128,13 +128,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
                 Box::new(stdin().lines().map(|s| s.expect("read stdin")))
             };
             for line in lines {
-                let (area, rest) = line.split_once('/').unwrap_or((&line, ""));
-                let area = area
-                    .strip_prefix('<')
-                    .ok_or_else(|| eprintln!("missing <"))?
-                    .strip_suffix('>')
-                    .ok_or_else(|| eprintln!("missing >"))?;
-                let path = config.base_generated_dir.join(area).join(rest);
+                let path = config.base_generated_dir.join(line);
                 println!("{}", path.display());
             }
             Ok(())

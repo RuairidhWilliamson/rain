@@ -40,6 +40,6 @@ impl FSEntryTrait for Dir {
 
 impl std::fmt::Display for Dir {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("<{}>{}", self.0.area, self.0.path.path()))
+        self.0.fmt(f)
     }
 }
