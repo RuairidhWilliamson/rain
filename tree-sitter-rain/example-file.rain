@@ -1,0 +1,13 @@
+let a = false
+let b = 2
+
+fn foo() {
+	if b == 5 {
+		std.utils.print("Wow")
+	} else {
+		std.utils.print("Woooo")
+	}
+	internal._throw("Hi")
+	!a
+	c = [1, 2, 3]
+}
