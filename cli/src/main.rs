@@ -136,7 +136,9 @@ fn run(
     reporting: ReportMode,
     mode: ClientMode,
 ) -> Result<(), ()> {
-    let root = rain_core::find_root_rain().ok_or(())?;
+    let root = rain_core::find_main_rain()
+        .ok_or(())
+        .map_err(|()| eprintln!("no main.rain found"))?;
     let mut stack = Vec::new();
     let run_response = make_request_or_start(
         config,

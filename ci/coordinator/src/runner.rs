@@ -36,7 +36,7 @@ impl Runner {
         let download_dir_entry = FSEntry::new(area, FilePath::new(download_dir_name).unwrap());
         let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
         let area = driver.create_area(&[&root]).unwrap();
-        let root_entry = FSEntry::new(area, FilePath::new("/root.rain").unwrap());
+        let root_entry = FSEntry::new(area, FilePath::new("/main.rain").unwrap());
         tracing::info!("Root entry {root_entry}");
         let root = File::new_checked(&driver, root_entry).unwrap();
         let src = driver.read_file(&root).unwrap();

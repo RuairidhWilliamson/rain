@@ -66,10 +66,10 @@ impl std::fmt::Display for CoreError {
     }
 }
 
-pub fn find_root_rain() -> Option<std::path::PathBuf> {
+pub fn find_main_rain() -> Option<std::path::PathBuf> {
     let mut directory = std::env::current_dir().ok()?;
     loop {
-        let p = directory.join("root.rain");
+        let p = directory.join("main.rain");
         if p.try_exists().is_ok_and(|b| b) {
             return Some(p);
         }
