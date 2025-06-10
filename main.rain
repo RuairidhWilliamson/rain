@@ -1,6 +1,7 @@
 let area = internal._get_area(internal._module_file())
 let stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])
 let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
+let publish_module = internal._import(internal._get_file("./publish.rain"))
 
 let print = std.utils.print
 let _import = std.utils._import
@@ -29,8 +30,8 @@ fn build() {
 	std.rust.cargo.build(std.rust.stable, area, "rain", "", "dev", std.utils.host_info().triple)
 }
 
-fn build_release() {
-	std.rust.cargo.build(std.rust.stable, area, "rain", "", "release", std.utils.host_info().triple)
+fn build_release(target_triple) {
+	std.rust.cargo.build(std.rust.stable, area, "rain", "", "release", target_triple)
 }
 
 fn build_c() {
@@ -68,32 +69,6 @@ fn everything() {
 	print_some_stuff()
 }
 
-fn compress_lib() {
-	ouch = std.utils.escape_bin("ouch")
-	lib_dir = std.utils.get_dir(area, "lib")
-	filename = "lib.tar.gz"
-	run_result = std.utils.run(std.utils.unit, ouch, ["compress", lib_dir, filename], {})
-	if std.utils.not(run_result.success) {
-		std.utils.print("Stdout:", run_result.stdout)
-		std.utils.print("Stderr:", run_result.stderr)
-		std.utils._throw("ouch compress failed")
-	}
-	get_file(run_result.area, filename)
-}
-
-fn publish_lib(version) {
-	bucket = "rw-rain-std-3a91d162"
-	compressed = compress_lib()
-	gcloud = std.utils.escape_bin("gcloud")
-	run_result = std.utils.run(std.utils.unit, gcloud, ["storage", "cp", compressed, "gs://" + bucket + "/lib-" + version + ".tar.gz", "--no-clobber"], {})
-	std.utils.print("Stdout:", run_result.stdout)
-	std.utils.print("Stderr:", run_result.stderr)
-	if std.utils.not(run_result.success) {
-		std.utils._throw("gcloud upload failed")
-	}
-	print("Published lib", version)
-}
-
 fn test_zig() {
 	src = std.utils.create_file("const std = @import(\"std\"); pub fn main() !void {std.debug.print(\"hello world\", .{});}", "helloworld.zig")
 	zig_bin = std.zig.dist.download("0.14.1", "x86_64", "linux")
@@ -109,4 +84,8 @@ fn test_zig() {
 		std.utils._throw("zig helloworld")
 	}
 	print(run_result.stderr)
+}
+
+fn publish(version) {
+	publish_module.publish(version)
 }
