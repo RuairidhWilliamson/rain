@@ -13,4 +13,4 @@
 (fn_declare (identifier) @function)
 
 (identifier) @variable
-; (comment) @comment.line
+(line_comment) @comment.line

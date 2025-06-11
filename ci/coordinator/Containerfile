@@ -1,0 +1,24 @@
+FROM docker.io/rust:slim as base
+
+RUN apt-get -qqy update && apt-get -qqy install pkg-config libssl-dev
+
+WORKDIR /usr/rain
+
+ENV \
+    CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse \
+    CARGO_BUILD_TARGET_DIR=/target
+
+# Install cargo chef
+COPY --from=docker.io/lukemathwalker/cargo-chef:0.1.71-rust-latest /usr/local/cargo/bin/cargo-chef /root/.cargo/bin/cargo-chef
+
+# Actually build things
+COPY . .
+# Build the rain-ci server
+RUN cargo install --path ci/coordinator --locked
+
+ENV \
+  RUST_LOG=info \
+  ADDR=0.0.0.0:7778
+EXPOSE 7778
+
+ENTRYPOINT ["rain-ci-coordinator"]

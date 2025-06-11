@@ -89,7 +89,3 @@ fn test_zig() {
 fn publish(version) {
 	publish_module.publish(version)
 }
-
-fn webhook_test() {
-	publish_module.webhook()
-}

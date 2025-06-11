@@ -1,9 +1,25 @@
+fn download_pre_sha(url) {
+	sha256_download_result = internal._download(url + ".sha256")
+	if !sha256_download_result.ok {
+		_throw("download sha256 failed")
+	}
+	download_result = internal._download(url)
+	if !download_result.ok {
+		_throw("download failed")
+	}
+	expected = internal._read_file(sha256_download_result.file)
+	actual = internal._sha256(download_result.file) + "  " + filename + "\n"
+	if expected != actual {
+		internal._throw("checksum does not match '" + expected + "' != '" + actual + "'")
+	}
+	download_result.file
+}
+
 fn stdlib(version) {
 	bucket = "rain-e870e063"
-	stdlib_download = internal._download("https://storage.googleapis.com/" + bucket + "/releases/" + version + "/stdlib.tar.gz", "stdlib.tar.gz")
-	if stdlib_download.ok {
-	} else {
-		internal.print(stdlib_download)
+	stdlib_download = download_pre_sha("https://storage.googleapis.com/" + bucket + "/releases/" + version + "/stdlib.tar.gz", "stdlib.tar.gz")
+	if !stdlib_download.ok {
+		internal._print(stdlib_download)
 		internal._throw("failed to download stdlib")
 	}
 	lib_area = internal._extract_tar_gz(stdlib_download.file)

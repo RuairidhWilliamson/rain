@@ -424,6 +424,21 @@ impl DriverTrait for DriverImpl<'_> {
         std::fs::copy(src_path, dst_path).map_err(RunnerError::AreaIOError)?;
         Ok(())
     }
+
+    fn create_tar(&self, dir: &Dir, name: &str) -> Result<File, RunnerError> {
+        let dir_path = self.resolve_fs_entry(dir.inner());
+        let area = self.create_empty_area()?;
+        let path = FilePath::new(name)?;
+        let entry = FSEntry::new(area, path);
+        let output_path = self.resolve_fs_entry(&entry);
+        let f = std::fs::File::create(output_path).map_err(RunnerError::AreaIOError)?;
+        let mut archive = tar::Builder::new(f);
+        archive.append_dir_all(".", dir_path).unwrap();
+        archive.into_inner().unwrap();
+        // Safety: We just created the file
+        let file = unsafe { File::new(entry) };
+        Ok(file)
+    }
 }
 
 impl MonitoringTrait for DriverImpl<'_> {

@@ -29,7 +29,7 @@ fn compile(channel, src, outname, target, edition) {
 		"--emit", "dep-info,link",
 	]
 	run_result = run(unit, rustc_bin, args, env)
-	if run_result.success {
+	if !run_result.success {
 		utils.print(run_result.stderr)
 		_throw("rustc compilation failed")
 	}

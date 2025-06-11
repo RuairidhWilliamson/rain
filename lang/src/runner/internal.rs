@@ -68,6 +68,7 @@ pub enum InternalFunction {
     Stringify,
     EscapeRun,
     Prelude,
+    CreateTar,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -114,6 +115,7 @@ impl InternalFunction {
             "_stringify" => Some(Self::Stringify),
             "_escape_run" => Some(Self::EscapeRun),
             "_prelude" => Some(Self::Prelude),
+            "_create_tar" => Some(Self::CreateTar),
             _ => None,
         }
     }
@@ -155,6 +157,7 @@ impl InternalFunction {
             Self::Stringify => icx.stringify(),
             Self::EscapeRun => icx.escape_run(),
             Self::Prelude => icx.prelude(),
+            Self::CreateTar => icx.create_tar(),
         }
     }
 }
@@ -245,6 +248,20 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             },
         );
         Ok(v)
+    }
+
+    fn arg_dir(&self, arg_nid: NodeId, arg_value: &Value) -> Result<Arc<Dir>> {
+        match arg_value {
+            Value::FileArea(file_area) => Ok(Arc::new(Dir::root(file_area.as_ref().clone()))),
+            Value::Dir(dir) => Ok(Arc::clone(dir)),
+            _ => Err(self.cx.nid_err(
+                arg_nid,
+                RunnerError::ExpectedType {
+                    actual: arg_value.rain_type_id(),
+                    expected: &[RainTypeId::Dir, RainTypeId::FileArea],
+                },
+            )),
+        }
     }
 
     fn print(self) -> ResultValue {
@@ -1307,5 +1324,29 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             },
         );
         Ok(v)
+    }
+
+    fn create_tar(self) -> ResultValue {
+        match &self.arg_values[..] {
+            [(dir_nid, dir_value), (name_nid, name_value)] => {
+                let dir = self.arg_dir(*dir_nid, dir_value)?;
+                let Value::String(name) = name_value else {
+                    return Err(self.cx.nid_err(
+                        *name_nid,
+                        RunnerError::ExpectedType {
+                            actual: name_value.rain_type_id(),
+                            expected: &[RainTypeId::String],
+                        },
+                    ));
+                };
+                Ok(Value::File(Arc::new(
+                    self.runner
+                        .driver
+                        .create_tar(&dir, name)
+                        .map_err(|err| self.cx.nid_err(self.nid, err))?,
+                )))
+            }
+            _ => self.incorrect_args(2..=2),
+        }
     }
 }

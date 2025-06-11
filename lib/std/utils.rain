@@ -32,6 +32,7 @@ let glob = internal._glob
 let foreach = internal._foreach
 let stringify = internal._stringify
 let escape_run = internal._escape_run
+let create_tar = internal._create_tar
 
 // Reserved keywords are prefixed with _
 let _import = internal._import
@@ -51,7 +52,7 @@ fn run_check(area, bin, args, env) {
 	run_result
 }
 
-let newline = internal._bytes_to_string([10])
+let newline = "\n"
 
 fn exe_suffix(target_triple) {
 	if is_windows(target_triple) {

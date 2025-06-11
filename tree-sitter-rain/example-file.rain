@@ -2,6 +2,7 @@ let a = false
 let b = 2
 
 fn foo() {
+	// Hi
 	if b == 5 {
 		std.utils.print("Wow")
 	} else {

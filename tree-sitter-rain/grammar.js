@@ -7,7 +7,7 @@ module.exports = grammar({
   rules: {
     source_file: ($) => repeat($.declaration),
 
-    declaration: ($) => choice($.let_declare, $.fn_declare),
+    declaration: ($) => choice($.let_declare, $.fn_declare, $.line_comment),
 
     let_declare: ($) => seq("let", $.identifier, "=", $.expr),
     fn_declare: ($) => seq("fn", $.identifier, $.fn_declare_args, $.block),
@@ -20,7 +20,7 @@ module.exports = grammar({
 
     block: ($) => seq("{", repeat($.statement), "}"),
 
-    statement: ($) => choice($.assignment, $.expr),
+    statement: ($) => choice($.assignment, $.expr, $.line_comment),
 
     assignment: ($) => seq($.identifier, "=", $.expr),
 
@@ -77,5 +77,6 @@ module.exports = grammar({
     bool: () => choice("true", "false"),
 
     identifier: () => /[a-zA-Z_][a-zA-Z0-9_]*/,
+    line_comment: () => /\/\/.*/,
   },
 });

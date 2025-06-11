@@ -1,6 +1,6 @@
 mod runner;
 
-use std::{sync::Arc, time::Instant};
+use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use anyhow::{Context as _, Result, anyhow};
 use chrono::Utc;
@@ -23,7 +23,7 @@ use webhook_forwarder::{HeaderMap, MessageHandler};
 #[derive(Debug, serde::Deserialize)]
 struct Config {
     github_app_id: AppId,
-    github_app_key: String,
+    github_app_key: PathBuf,
     github_webhook_secret: String,
     target_url: url::Url,
     whf_server: Option<url::Url>,
@@ -33,8 +33,11 @@ struct Config {
 #[expect(clippy::unwrap_used)]
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenvy::dotenv()?;
+    let dotenv_result = dotenvy::dotenv();
     tracing_subscriber::fmt::init();
+    if let Err(err) = dotenv_result {
+        tracing::warn!(".env could not be loaded: {err:#}");
+    }
     let config = envy::from_env::<Config>()?;
 
     let key_raw = tokio::fs::read(&config.github_app_key).await.unwrap();
@@ -81,7 +84,11 @@ async fn main() -> Result<()> {
     let channel_url = channel.get_channel_url().to_string();
     tracing::info!("got channel url = {channel_url}");
 
-    channel.start().await
+    tokio::select! {
+        res = channel.start() => {res?}
+        _ = wait_signal()? => {}
+    }
+    Ok(())
 }
 
 // Intermediate structure allows to separate the common fields from
@@ -331,4 +338,32 @@ impl HandlerInner {
                 }
             })
     }
+}
+
+#[cfg(target_family = "windows")]
+fn wait_signal() -> Result<impl Future<Output = ()>> {
+    use tokio::signal::windows;
+    let mut ctrl_c = windows::ctrl_c()?;
+    Ok(async move {
+        ctrl_c.recv().await;
+        tracing::warn!("caught CTRL+C, exiting...");
+    })
+}
+
+#[cfg(target_family = "unix")]
+fn wait_signal() -> Result<impl Future<Output = ()>> {
+    use tokio::signal::unix;
+    let mut sigterm = unix::signal(unix::SignalKind::terminate())?;
+    let mut sigint = unix::signal(unix::SignalKind::interrupt())?;
+
+    Ok(async move {
+        tokio::select! {
+            _ = sigterm.recv() => {
+                tracing::warn!("caught SIGTERM, exiting...");
+            },
+            _ = sigint.recv() => {
+                tracing::warn!("caught SIGINT, exiting...");
+            },
+        }
+    })
 }

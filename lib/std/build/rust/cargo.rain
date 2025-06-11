@@ -8,8 +8,10 @@ let escape_bin = utils.escape_bin
 let run = utils.run
 let unit = utils.unit
 let _throw = utils._throw
+let print = utils.print
 
 let host_triple = utils.host_info().triple
+let path_sep = utils.path_separator(utils.host_info().triple)
 
 fn prepare_cargo(channel) {
 	// Implicitly requires cc for linking
@@ -19,10 +21,17 @@ fn prepare_cargo(channel) {
 	rustc = rust_dist.get_rustc(channel, host_triple)
 	rust_std = rust_dist.get_rust_std(channel, host_triple)
 	cargo = rust_dist.get_cargo(channel, host_triple)
+	rustfmt = rust_dist.get_rustfmt(channel, host_triple)
+	clippy = rust_dist.get_clippy(channel, host_triple)
 
-	merged = utils.create_area([rustc, rust_std, cargo])
-	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_dir(merged, "/lib")}
-	cargo_bin = get_file(merged, "/bin/cargo")
+	merged = utils.create_area([rustc, rust_std, cargo, rustfmt, clippy])
+	bin_dir = get_dir(merged, "bin")
+	env = {
+		PATH: "/usr/bin" + path_sep + utils.stringify(bin_dir),
+		LD_LIBRARY_PATH: get_dir(merged, "lib"),
+		CARGO: get_file(bin_dir, "rustc"),
+	}
+	cargo_bin = get_file(bin_dir, "cargo")
 	{env: env, cargo_bin: cargo_bin}
 }
 
@@ -30,7 +39,7 @@ fn build(channel, area, package, features, profile, target) {
 	prep = prepare_cargo(channel)
 	run_result = run(area, prep.cargo_bin, ["build", "--package", package, "--features", features, "--target", target, "--profile", profile, "--target-dir", "target", "--quiet", "--color", "always"], prep.env)
 	if !run_result.success {
-		utils.print(run_result.stderr)
+		print(run_result.stderr)
 		_throw("cargo compilation failed")
 	}
 	profile_dir = profile
@@ -44,8 +53,8 @@ fn test(channel, area, package, features, profile) {
 	prep = prepare_cargo(channel)
 	run_result = run(area, prep.cargo_bin, ["test", "--package", package, "--features", features, "--profile", profile, "--color", "always", "--quiet"], prep.env)
 	if !run_result.success {
-		utils.print("Stdout:", run_result.stdout)
-		utils.print("Stderr:", run_result.stderr)
+		print("Stdout:", run_result.stdout)
+		print("Stderr:", run_result.stderr)
 		_throw("cargo test failed")
 	}
 }
@@ -67,20 +76,19 @@ fn clippy(channel, area) {
 	cargo_bin = get_file(merged, "/bin/cargo")
 	run_result = run(area, cargo_bin, ["clippy", "--color", "always", "--quiet", "--", "-Dwarnings"], env)
 	if !run_result.success {
-		utils.print(run_result.stderr)
+		print(run_result.stderr)
 		_throw("clippy failed")
 	}
 }
 
 fn check_fmt(channel, area) {
 	// Download components
+	prep = prepare_cargo(channel)
 	rustfmt = rust_dist.get_rustfmt(channel, host_triple)
-
-	env = {}
-	cargo_fmt_bin = get_file(rustfmt, "bin/cargo-fmt")
-	run_result = run(area, cargo_fmt_bin, ["--check", "--", "--color", "always"], env)
+	run_result = run(area, prep.cargo_bin, ["fmt", "--check", "--", "--color", "always"], prep.env)
 	if !run_result.success {
-		utils.print(run_result.stdout)
+		print(run_result.stdout)
+		print(run_result.stderr)
 		_throw("rustfmt check failed")
 	}
 }

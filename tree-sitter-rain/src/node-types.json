@@ -92,6 +92,10 @@
         {
           "type": "let_declare",
           "named": true
+        },
+        {
+          "type": "line_comment",
+          "named": true
         }
       ]
     }
@@ -353,6 +357,10 @@
         {
           "type": "expr",
           "named": true
+        },
+        {
+          "type": "line_comment",
+          "named": true
         }
       ]
     }
@@ -479,6 +487,10 @@
   {
     "type": "let",
     "named": false
+  },
+  {
+    "type": "line_comment",
+    "named": true
   },
   {
     "type": "number",
