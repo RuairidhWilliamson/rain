@@ -36,18 +36,13 @@ let escape_run = internal._escape_run
 let _import = internal._import
 let _throw = internal._throw
 
-// @deprecated("the not operator should be used instead")
-fn not(b) {
-	!b
-}
-
 fn download(url) {
 	internal._download(url, "download")
 }
 
 fn run_check(area, bin, args, env) {
 	run_result = run(area, bin, args, env)
-	if not(run_result.success) {
+	if !run_result.success {
 		print("Stdout:", run_result.stdout)
 		print("Stderr:", run_result.stderr)
 		_throw("run failed")

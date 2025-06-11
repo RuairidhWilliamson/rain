@@ -1,0 +1,11 @@
+let bin = internal._escape_bin
+
+fn run(area, bin, args, env) {
+	run_result = internal._escape_run(area, bin, args, env)
+	if !run_result.success {
+		print("Stdout:", run_result.stdout)
+		print("Stderr:", run_result.stderr)
+		_throw("run failed")
+	}
+	run_result
+}

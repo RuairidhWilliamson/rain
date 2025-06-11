@@ -165,6 +165,11 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     .iter()
                     .map(|(key, value)| self.stringify_env(*env_nid, key, value))
                     .collect::<Result<HashMap<String, String>>>()?;
+                let display_args = args.join(" ");
+                let _call = enter_call(
+                    self.runner.driver,
+                    format!("Run {} {}", file.path().last().unwrap_or(""), display_args),
+                );
                 let status = self
                     .runner
                     .driver
