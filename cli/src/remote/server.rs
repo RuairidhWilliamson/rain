@@ -446,6 +446,7 @@ fn run_core(
         args,
         resolve: _,
         offline,
+        seal,
         host_override: _,
     }: &super::msg::run::RunRequest,
     cache: &Cache,
@@ -472,6 +473,7 @@ fn run_core(
     };
     let mut runner = Runner::new(ir, cache, driver);
     runner.offline = *offline;
+    runner.seal = *seal;
     let value = runner
         .evaluate_and_call(main, args)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;

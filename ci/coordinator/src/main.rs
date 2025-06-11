@@ -86,7 +86,7 @@ async fn main() -> Result<()> {
 
     tokio::select! {
         res = channel.start() => {res?}
-        _ = wait_signal()? => {}
+        () = wait_signal()? => {}
     }
     Ok(())
 }

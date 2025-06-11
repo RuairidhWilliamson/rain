@@ -54,30 +54,9 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     let cli = Cli::parse();
     let mode = ClientMode::BackgroundThread;
     match cli.command {
-        RainCtlCommand::Check => run(
-            config,
-            String::from("check"),
-            vec![],
-            false,
-            &cli.options,
-            ReportMode::Short,
-            mode,
-        ),
-        RainCtlCommand::Build => run(
-            config,
-            String::from("build"),
-            vec![],
-            false,
-            &cli.options,
-            ReportMode::Short,
-            mode,
-        ),
-        RainCtlCommand::Run {
-            resolve,
-            report,
-            target,
-            args,
-        } => run(config, target, args, resolve, &cli.options, report, mode),
+        RainCtlCommand::Check => run(config, String::from("check"), vec![], &cli.options, mode),
+        RainCtlCommand::Build => run(config, String::from("build"), vec![], &cli.options, mode),
+        RainCtlCommand::Run { target, args } => run(config, target, args, &cli.options, mode),
         RainCtlCommand::Info => {
             let info =
                 make_request_or_start(config, InfoRequest, |()| {}, mode).map_err(|err| {
@@ -131,9 +110,7 @@ fn run(
     config: &Config,
     target: String,
     args: Vec<String>,
-    resolve: bool,
     options: &GlobalOptions,
-    reporting: ReportMode,
     mode: ClientMode,
 ) -> Result<(), ()> {
     let root = rain_core::find_main_rain()
@@ -146,12 +123,13 @@ fn run(
             root,
             target,
             args,
-            resolve,
+            resolve: options.resolve,
             offline: options.offline,
+            seal: options.seal,
             host_override: options.host.clone(),
         },
         |im| {
-            if reporting != ReportMode::Short {
+            if options.report != ReportMode::Short {
                 return;
             }
             match im {
@@ -181,7 +159,7 @@ fn run(
         output: result,
         elapsed,
     } = run_response;
-    if reporting == ReportMode::Short {
+    if options.report == ReportMode::Short {
         eprint!("\r[x] {:120}\r", "");
     }
     match result {
@@ -265,6 +243,15 @@ struct GlobalOptions {
     /// Override the host to a custom triple
     #[arg(long, global = true, env = "RAIN_HOST")]
     host: Option<String>,
+    /// Resolve returned file paths before printing them to stdout
+    #[arg(long)]
+    resolve: bool,
+    /// Disable escape commands (not a security sandbox)
+    #[arg(long, global = true, env = "RAIN_SEAL")]
+    seal: bool,
+    /// The reporting mode to use
+    #[arg(long, default_value = "short")]
+    report: ReportMode,
 }
 
 #[derive(Debug, Parser)]
@@ -287,12 +274,6 @@ enum RainCtlCommand {
     /// Equivalent to `rain run build`
     Build,
     Run {
-        /// Resolve returned file paths before printing them to stdout
-        #[arg(long)]
-        resolve: bool,
-        /// The reporting mode to use
-        #[arg(long, default_value = "short")]
-        report: ReportMode,
         target: String,
         args: Vec<String>,
     },
@@ -303,7 +284,9 @@ enum RainCtlCommand {
     /// Inspect the rain cache
     Inspect,
     /// Resolve rain path to its actual local path
-    Resolve { path: Option<String> },
+    Resolve {
+        path: Option<String>,
+    },
     /// Clean the rain cache
     Clean,
     /// Prune the rain cache

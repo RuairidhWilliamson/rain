@@ -110,6 +110,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     pub fn escape_run(self) -> ResultValue {
+        self.check_escape_mode()?;
         match &self.arg_values[..] {
             [
                 (area_nid, area_value),

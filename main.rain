@@ -50,15 +50,7 @@ fn helloworld() {
 }
 
 fn check_empty_files() {
-	std.utils.foreach(std.utils.glob(area), std.lints.no_emptish)
-}
-
-fn print_some_stuff() {
-	print("Whats up" + " " + "dog")
-	print("Whats \n up")
-	// print("Whats \"dog\" up")
-	print("Whats up")
-	print(std.utils.host_info().triple)
+	std.utils.foreach(std.utils.glob(area), std.build.lints.no_emptish)
 }
 
 fn everything() {

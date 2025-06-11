@@ -63,6 +63,7 @@ pub struct Runner<'a, D> {
     pub cache: &'a dyn cache::CacheTrait,
     pub driver: &'a D,
     pub offline: bool,
+    pub seal: bool,
 }
 
 impl<'a, D: DriverTrait> Runner<'a, D> {
@@ -72,6 +73,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
             cache,
             driver,
             offline: false,
+            seal: false,
         }
     }
 

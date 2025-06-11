@@ -1,4 +1,5 @@
-let utils = internal._import(internal._get_file("../utils.rain"))
+let area = internal._get_area(internal._module_file())
+let utils = internal._import(internal._get_file(area, "utils.rain"))
 
 let get_file = utils.get_file
 let escape_bin = utils.escape_bin

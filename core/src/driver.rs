@@ -425,6 +425,7 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(())
     }
 
+    #[expect(clippy::unwrap_used)]
     fn create_tar(&self, dir: &Dir, name: &str) -> Result<File, RunnerError> {
         let dir_path = self.resolve_fs_entry(dir.inner());
         let area = self.create_empty_area()?;

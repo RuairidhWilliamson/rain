@@ -54,6 +54,7 @@ impl Runner {
         };
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &self.cache, &driver);
+        runner.seal = true;
         tracing::info!("Running");
         let res = runner.evaluate_and_call(main, &[]);
         let persistent_cache = PersistCache::persist(&self.cache.0.plock());

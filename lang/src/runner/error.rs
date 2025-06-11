@@ -64,4 +64,6 @@ pub enum RunnerError {
     IndexKeyNotFound(String),
     #[error("cannot call from prelude")]
     PreludeContext,
+    #[error("can't escape seal 🦭")]
+    CantEscapeSeal,
 }
