@@ -1,6 +1,5 @@
 let utils = internal._import(internal._get_file("../utils.rain"))
 
-let not = utils.not
 let get_file = utils.get_file
 let escape_bin = utils.escape_bin
 let run = utils.run
@@ -15,7 +14,7 @@ fn compile(src, outname) {
 
 	env = {PATH: "/usr/bin"}
 	result = run(unit, gcc, [src, "-o", outname], env)
-	if not(result.success) {
+	if !result.success {
 		_throw(result)
 	}
 	get_file(result.area, outname)

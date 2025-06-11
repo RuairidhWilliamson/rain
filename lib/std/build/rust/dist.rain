@@ -1,7 +1,6 @@
 let area = internal._get_area(internal._module_file())
 let utils = internal._import(internal._get_file(area, "utils.rain"))
 
-let not = utils.not
 let download = utils.download
 let _throw = utils._throw
 let get_file = utils.get_file
@@ -10,11 +9,11 @@ let get_dir = utils.get_dir
 fn download_pre_sha(url, filename) {
 	file_url = url + "/" + filename
 	sha256_download_result = download(file_url + ".sha256")
-	if not(sha256_download_result.ok) {
+	if !sha256_download_result.ok {
 		_throw("download sha256 failed")
 	}
 	download_result = download(file_url)
-	if not(download_result.ok) {
+	if !download_result.ok {
 		_throw("download failed")
 	}
 	expected = utils.read_file(sha256_download_result.file)
@@ -38,11 +37,11 @@ fn get_manifest(channel) {
 }
 
 fn get_gz_artifact(artifact) {
-	if not(artifact.available) {
+	if !artifact.available {
 		_throw("requested artifact not available")
 	}
 	download_result = download(artifact.url)
-	if not(download_result.ok) {
+	if !download_result.ok {
 		_throw("download failed")
 	}
 	hash = utils.sha256(download_result.file)
@@ -53,11 +52,11 @@ fn get_gz_artifact(artifact) {
 }
 
 fn get_xz_artifact(artifact) {
-	if not(artifact.available) {
+	if !artifact.available {
 		_throw("requested artifact not available")
 	}
 	download_result = download(artifact.xz_url)
-	if not(download_result.ok) {
+	if !download_result.ok {
 		_throw("download failed")
 	}
 	hash = utils.sha256(download_result.file)

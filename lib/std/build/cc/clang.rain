@@ -1,6 +1,5 @@
 let utils = internal._import(internal._get_file("../utils.rain"))
 
-let not = utils.not
 let get_file = utils.get_file
 let escape_bin = utils.escape_bin
 let run = utils.run
@@ -11,7 +10,7 @@ let clang = escape_bin("clang")
 
 fn compile(src, outname) {
 	result = run(unit, clang, src, "-o", outname)
-	if not(result.success) {
+	if !result.success {
 		_throw(result)
 	}
 	get_file(result.area, outname)

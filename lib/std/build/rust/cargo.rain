@@ -1,8 +1,7 @@
 let area = internal._get_area(internal._module_file())
 let utils = internal._import(internal._get_file(area, "utils.rain"))
-let rust_dist = internal._import(internal._get_file(area, "rust/dist.rain"))
+let rust_dist = internal._import(internal._get_file("dist.rain"))
 
-let not = utils.not
 let get_file = utils.get_file
 let get_dir = utils.get_dir
 let escape_bin = utils.escape_bin
@@ -29,8 +28,8 @@ fn prepare_cargo(channel) {
 
 fn build(channel, area, package, features, profile, target) {
 	prep = prepare_cargo(channel)
-	run_result = run(area, prep.cargo_bin, ["build", "--quiet", "--package", package, "--features", features, "--target-dir", "target", "--profile", profile, "--color", "always", "--target", target], prep.env)
-	if not(run_result.success) {
+	run_result = run(area, prep.cargo_bin, ["build", "--package", package, "--features", features, "--target", target, "--profile", profile, "--target-dir", "target", "--quiet", "--color", "always"], prep.env)
+	if !run_result.success {
 		utils.print(run_result.stderr)
 		_throw("cargo compilation failed")
 	}
@@ -43,8 +42,8 @@ fn build(channel, area, package, features, profile, target) {
 
 fn test(channel, area, package, features, profile) {
 	prep = prepare_cargo(channel)
-	run_result = run(area, prep.cargo_bin, ["test", "--quiet", "--package", package, "--features", features, "--profile", profile, "--color", "always"], prep.env)
-	if not(run_result.success) {
+	run_result = run(area, prep.cargo_bin, ["test", "--package", package, "--features", features, "--profile", profile, "--color", "always", "--quiet"], prep.env)
+	if !run_result.success {
 		utils.print("Stdout:", run_result.stdout)
 		utils.print("Stderr:", run_result.stderr)
 		_throw("cargo test failed")
@@ -66,8 +65,8 @@ fn clippy(channel, area) {
 	path_sep = utils.path_separator(utils.host_info().triple)
 	env = {PATH: "/usr/bin" + path_sep + utils.stringify(get_dir(merged, "/bin")), LD_LIBRARY_PATH: get_dir(merged, "/lib")}
 	cargo_bin = get_file(merged, "/bin/cargo")
-	run_result = run(area, cargo_bin, ["clippy", "--color", "always", "-q", "--", "-Dwarnings"], env)
-	if not(run_result.success) {
+	run_result = run(area, cargo_bin, ["clippy", "--color", "always", "--quiet", "--", "-Dwarnings"], env)
+	if !run_result.success {
 		utils.print(run_result.stderr)
 		_throw("clippy failed")
 	}
@@ -80,7 +79,7 @@ fn check_fmt(channel, area) {
 	env = {}
 	cargo_fmt_bin = get_file(rustfmt, "bin/cargo-fmt")
 	run_result = run(area, cargo_fmt_bin, ["--check", "--", "--color", "always"], env)
-	if not(run_result.success) {
+	if !run_result.success {
 		utils.print(run_result.stdout)
 		_throw("rustfmt check failed")
 	}

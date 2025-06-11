@@ -1,4 +1,9 @@
+let area = internal._get_area(internal._module_file())
+let utils = internal._import(internal._get_file(area, "utils.rain"))
+
 let bin = internal._escape_bin
+let print = utils.print
+let _throw = utils._throw
 
 fn run(area, bin, args, env) {
 	run_result = internal._escape_run(area, bin, args, env)

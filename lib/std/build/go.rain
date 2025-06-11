@@ -1,6 +1,6 @@
-let utils = internal._import(internal._get_file("../utils.rain"))
+let area = internal._get_area(internal._module_file())
+let utils = internal._import(internal._get_file(area, "utils.rain"))
 
-let not = utils.not
 let get_file = utils.get_file
 let escape_bin = utils.escape_bin
 let run = utils.run
@@ -12,7 +12,7 @@ let go = escape_bin("go")
 // This is experimental
 fn build(package, outname) {
 	result = run(unit, go, "-o", outname, package)
-	if not(result.success) {
+	if !result.success {
 		_throw(result)
 	}
 	get_file(result.area, outname)

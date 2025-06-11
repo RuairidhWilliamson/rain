@@ -1,8 +1,7 @@
 let area = internal._get_area(internal._module_file())
 let utils = internal._import(internal._get_file(area, "utils.rain"))
-let rust_dist = internal._import(internal._get_file(area, "rust/dist.rain"))
+let rust_dist = internal._import(internal._get_file("dist.rain"))
 
-let not = utils.not
 let get_file = utils.get_file
 let get_dir = utils.get_dir
 let escape_bin = utils.escape_bin
@@ -30,7 +29,7 @@ fn compile(channel, src, outname, target, edition) {
 		"--emit", "dep-info,link",
 	]
 	run_result = run(unit, rustc_bin, args, env)
-	if not(run_result.success) {
+	if run_result.success {
 		utils.print(run_result.stderr)
 		_throw("rustc compilation failed")
 	}

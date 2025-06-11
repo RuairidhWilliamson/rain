@@ -13,12 +13,12 @@ let rust_version = "stable"
 
 fn lint() {
 	check_empty_files()
-	std.rust.cargo.check_fmt(rust_version, area)
-	std.rust.cargo.clippy(rust_version, area)
+	std.build.rust.cargo.check_fmt(rust_version, area)
+	std.build.rust.cargo.clippy(rust_version, area)
 }
 
 fn test() {
-	std.rust.cargo.test(rust_version, area, "rain-core", "", "dev")
+	std.build.rust.cargo.test(rust_version, area, "rain-core", "", "dev")
 }
 
 fn check() {
@@ -27,15 +27,15 @@ fn check() {
 }
 
 fn build() {
-	std.rust.cargo.build(std.rust.stable, area, "rain", "", "dev", std.utils.host_info().triple)
+	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", "", "dev", std.utils.host_info().triple)
 }
 
 fn build_release(target_triple) {
-	std.rust.cargo.build(std.rust.stable, area, "rain", "", "release", target_triple)
+	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", "", "release", target_triple)
 }
 
 fn build_c() {
-	std.cc.gcc.compile(get_file("core/examples/run/foo.c"), "foo")
+	std.build.cc.gcc.compile(get_file("core/examples/run/foo.c"), "foo")
 }
 
 fn run() {
@@ -45,7 +45,7 @@ fn run() {
 
 fn helloworld() {
 	src = std.utils.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
-	bin = std.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple, "2024")
+	bin = std.build.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple, "2024")
 	print(std.utils.run(std.utils.unit, bin, [], {}).stdout)
 }
 
@@ -71,7 +71,7 @@ fn everything() {
 
 fn test_zig() {
 	src = std.utils.create_file("const std = @import(\"std\"); pub fn main() !void {std.debug.print(\"hello world\", .{});}", "helloworld.zig")
-	zig_bin = std.zig.dist.download("0.14.1", "x86_64", "linux")
+	zig_bin = std.build.zig.dist.download("0.14.1", "x86_64", "linux")
 	run_result = std.utils.run(std.utils.unit, zig_bin, ["build-exe", src], {ZIG_GLOBAL_CACHE_DIR: "."})
 	if !run_result.success {
 		std.utils.print("Stdout:", run_result.stdout)
@@ -88,4 +88,8 @@ fn test_zig() {
 
 fn publish(version) {
 	publish_module.publish(version)
+}
+
+fn webhook_test() {
+	publish_module.webhook()
 }

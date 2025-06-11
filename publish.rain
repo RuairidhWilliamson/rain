@@ -11,6 +11,8 @@ let get_file = std.utils.get_file
 let _throw = std.utils._throw
 
 let bucket = "rain-e870e063"
+// TODO: Put this in secrets
+let webhook_url = "https://discord.com/api/webhooks/1382281940899463220/4XgMi2L_cNcEwWUPWKzExTh75R4iEGVQoaw_1Rd81B5rQ9G4QiPhZCTpuTx8Z7wQWKjh"
 
 fn compress_lib() {
 	ouch = escape_bin("ouch")
@@ -35,12 +37,37 @@ fn upload_gcloud(src, dst) {
 	}
 }
 
+fn upload_gcloud_with_sha256(src, dst) {
+	sha256sum = std.utils.create_file(std.utils.sha256(src), "sha256")
+	gcloud = escape_bin("gcloud")
+	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--no-clobber"], {})
+	print("Stdout:", run_result.stdout)
+	print("Stderr:", run_result.stderr)
+	if !run_result.success {
+		_throw("gcloud upload failed")
+	}
+	run_result = run(unit, gcloud, ["storage", "cp", sha256sum, dst + ".sha256", "--no-clobber"], {})
+	print("Stdout:", run_result.stdout)
+	print("Stderr:", run_result.stderr)
+	if !run_result.success {
+		_throw("gcloud sha256 upload failed")
+	}
+}
+
+fn webhook(url, contents) {
+	std.escape.run(area, std.escape.bin("xhs"), ["POST", url, "content=" + contents, "--ignore-stdin"], {})
+	unit
+}
+
 fn publish(version) {
-	prefix = "gs://" + bucket + "/releases/" + version
-	upload_gcloud(compress_lib(), prefix + "/stdlib.tar.gz")
 	win_amd64 = main.build_release("x86_64-pc-windows-gnu")
-	upload_gcloud(win_amd64, prefix + "/rain-windows-amd64.exe")
 	linux_amd64 = main.build_release("x86_64-unknown-linux-gnu")
-	upload_gcloud(linux_amd64, prefix + "/rain-linux-amd64")
+	prefix = "gs://" + bucket + "/releases/" + version
+	upload_gcloud_with_sha256(compress_lib(), prefix + "/stdlib.tar.gz")
+	upload_gcloud_with_sha256(win_amd64, prefix + "/rain-windows-amd64.exe")
+	upload_gcloud_with_sha256(linux_amd64, prefix + "/rain-linux-amd64")
+	windows_url = "https://storage.googleapis.com/" + bucket + "/releases/" + version + "/rain-windows-amd64.exe"
+	linux_url = "https://storage.googleapis.com/" + bucket + "/releases/" + version + "/rain-linux-amd64"
+	webhook(webhook_url, "Rain " + version + "\n" + windows_url + "\n" + linux_url)
 	print("Published ", version)
 }
