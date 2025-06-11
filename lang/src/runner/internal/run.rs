@@ -118,7 +118,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 (env_nid, env_value),
             ] => {
                 let dir = match area_value {
-                    Value::Dir(dir) => dir.as_ref(),
+                    Value::Dir(dir) => dir.as_ref().clone(),
+                    Value::FileArea(area) => Dir::root(area.as_ref().clone()),
                     _ => Err(self.cx.nid_err(
                         *area_nid,
                         RunnerError::ExpectedType {
@@ -168,11 +169,11 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     .runner
                     .driver
                     .escape_run(
-                        dir,
+                        &dir,
                         file,
                         args,
                         RunOptions {
-                            inherit_env: false,
+                            inherit_env: true,
                             env,
                         },
                     )
