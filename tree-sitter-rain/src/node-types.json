@@ -497,6 +497,10 @@
     "named": true
   },
   {
+    "type": "pub",
+    "named": false
+  },
+  {
     "type": "string",
     "named": true
   },

@@ -9,8 +9,9 @@ module.exports = grammar({
 
     declaration: ($) => choice($.let_declare, $.fn_declare, $.line_comment),
 
-    let_declare: ($) => seq("let", $.identifier, "=", $.expr),
-    fn_declare: ($) => seq("fn", $.identifier, $.fn_declare_args, $.block),
+    let_declare: ($) => seq(optional("pub"), "let", $.identifier, "=", $.expr),
+    fn_declare: ($) =>
+      seq(optional("pub"), "fn", $.identifier, $.fn_declare_args, $.block),
     fn_declare_args: ($) =>
       seq(
         "(",

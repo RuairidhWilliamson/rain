@@ -1,28 +1,21 @@
-fn download_pre_sha(url) {
-	sha256_download_result = internal._download(url + ".sha256")
+fn stdlib(version) {
+	bucket = "rain-e870e063"
+	url = "https://storage.googleapis.com/" + bucket + "/releases/" + version + "/stdlib.tar.gz"
+	filename = "stdlib.tar.gz"
+	sha256_download_result = internal._download(url + ".sha256", filename + ".sha256")
 	if !sha256_download_result.ok {
 		_throw("download sha256 failed")
 	}
-	download_result = internal._download(url)
+	download_result = internal._download(url, filename)
 	if !download_result.ok {
-		_throw("download failed")
+		internal._throw("failed to download stdlib")
 	}
 	expected = internal._read_file(sha256_download_result.file)
-	actual = internal._sha256(download_result.file) + "  " + filename + "\n"
+	actual = internal._sha256(download_result.file)
 	if expected != actual {
 		internal._throw("checksum does not match '" + expected + "' != '" + actual + "'")
 	}
-	download_result.file
-}
-
-fn stdlib(version) {
-	bucket = "rain-e870e063"
-	stdlib_download = download_pre_sha("https://storage.googleapis.com/" + bucket + "/releases/" + version + "/stdlib.tar.gz", "stdlib.tar.gz")
-	if !stdlib_download.ok {
-		internal._print(stdlib_download)
-		internal._throw("failed to download stdlib")
-	}
-	lib_area = internal._extract_tar_gz(stdlib_download.file)
+	lib_area = internal._extract_tar_gz(download_result.file)
 	stdlib_area = internal._create_area([internal._get_dir(lib_area, "lib/std")])
 	internal._import(internal._get_file(stdlib_area, "std.rain"))
 }

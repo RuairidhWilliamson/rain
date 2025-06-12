@@ -11,7 +11,7 @@ let module_file = std.utils.module_file
 
 let rust_version = "stable"
 
-fn lint() {
+pub fn lint() {
 	check_empty_files()
 	std.build.rust.cargo.check_fmt(rust_version, area)
 	std.build.rust.cargo.clippy(rust_version, area)
