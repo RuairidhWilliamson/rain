@@ -54,6 +54,12 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     let cli = Cli::parse();
     let mode = ClientMode::BackgroundThread;
     match cli.command {
+        RainCtlCommand::Init => {
+            let mut f = std::fs::File::create_new("main.rain").unwrap();
+            write!(f, include_str!("template_main.rain")).unwrap();
+            f.flush().unwrap();
+            Ok(())
+        }
         RainCtlCommand::Check => run(config, String::from("check"), vec![], &cli.options, mode),
         RainCtlCommand::Build => run(config, String::from("build"), vec![], &cli.options, mode),
         RainCtlCommand::Run { target, args } => run(config, target, args, &cli.options, mode),
@@ -265,6 +271,8 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum RainCtlCommand {
+    /// Create a basic main.rain file in the current directory
+    Init,
     /// Get information about the running rain server process
     Info,
     /// Run checks
