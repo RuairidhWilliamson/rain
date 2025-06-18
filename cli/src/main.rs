@@ -62,7 +62,9 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
         }
         RainCtlCommand::Check => run(config, String::from("check"), vec![], &cli.options, mode),
         RainCtlCommand::Build => run(config, String::from("build"), vec![], &cli.options, mode),
-        RainCtlCommand::Run { target, args } => run(config, target, args, &cli.options, mode),
+        RainCtlCommand::Run { target, args } => {
+            run(config, target.unwrap_or_default(), args, &cli.options, mode)
+        }
         RainCtlCommand::Info => {
             let info =
                 make_request_or_start(config, InfoRequest, |()| {}, mode).map_err(|err| {
@@ -127,7 +129,7 @@ fn run(
         config,
         RunRequest {
             root,
-            target,
+            target: target.clone(),
             args,
             resolve: options.resolve,
             offline: options.offline,
@@ -185,7 +187,8 @@ fn run(
                         .expect("write stdout");
                 }
                 CoreError::UnknownDeclaration(suggestions) => {
-                    eprintln!("unknown declaration, try one of {suggestions:?}");
+                    let suggestions = suggestions.join(", ");
+                    eprintln!("unknown declaration \"{target}\", try one of: {suggestions}");
                 }
                 CoreError::Other(s) => {
                     eprintln!("{s}");
@@ -282,7 +285,7 @@ enum RainCtlCommand {
     /// Equivalent to `rain run build`
     Build,
     Run {
-        target: String,
+        target: Option<String>,
         args: Vec<String>,
     },
     /// Stop the rain server process
@@ -292,9 +295,7 @@ enum RainCtlCommand {
     /// Inspect the rain cache
     Inspect,
     /// Resolve rain path to its actual local path
-    Resolve {
-        path: Option<String>,
-    },
+    Resolve { path: Option<String> },
     /// Clean the rain cache
     Clean,
     /// Prune the rain cache

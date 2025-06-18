@@ -465,7 +465,7 @@ fn run_core(
     let Some(main) = ir.resolve_global_declaration(mid, declaration) else {
         let declarations = ir
             .get_module(mid)
-            .list_fn_declaration_names()
+            .list_pub_fn_declaration_names()
             .take(5)
             .map(std::borrow::ToOwned::to_owned)
             .collect();
