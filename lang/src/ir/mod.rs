@@ -109,11 +109,10 @@ impl IrModule {
 
     pub fn list_pub_fn_declaration_names(&self) -> impl Iterator<Item = &str> {
         self.inner().declarations().filter_map(|node| match node {
-            Node::LetDeclare(_) => None,
             Node::FnDeclare(fn_declare) if fn_declare.pub_token.is_some() => {
                 Some(fn_declare.name.span.contents(&self.src))
             }
-            Node::FnDeclare(_) => None,
+            Node::LetDeclare(_) | Node::FnDeclare(_) => None,
             _ => unreachable!(),
         })
     }
