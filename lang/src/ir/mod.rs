@@ -4,6 +4,7 @@ use crate::{
     afs::file::File,
     ast::{Module, ModuleRoot, Node, NodeId, error::ParseError},
     local_span::{ErrorLocalSpan, LocalSpan},
+    runner::error::RunnerError,
     span::ErrorSpan,
 };
 
@@ -67,7 +68,8 @@ impl Rir {
 #[derive(Debug)]
 pub struct IrModule {
     pub id: ModuleId,
-    pub file: Option<File>,
+    // Only None for the prelude module
+    file: Option<File>,
     pub src: Cow<'static, str>,
     module: Option<ParsedIrModule>,
 }
@@ -78,6 +80,13 @@ impl IrModule {
             unreachable!("module failed to parse so can't be used")
         };
         m
+    }
+
+    // Get the file of the module, will return [`RunnerError::PreludeContext`] for the prelude module
+    pub fn file(&self) -> Result<&File, RunnerError> {
+        self.file
+            .as_ref()
+            .ok_or_else(|| RunnerError::PreludeContext)
     }
 
     pub fn get(&self, id: NodeId) -> &Node {

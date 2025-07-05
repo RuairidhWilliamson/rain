@@ -9,6 +9,7 @@ use super::{dep::Dep, internal::InternalFunction, value::Value};
 pub trait CacheTrait {
     fn get(&self, key: &CacheKey) -> Option<CacheEntry>;
     fn put(&self, key: CacheKey, entry: CacheEntry);
+    fn put_if_slow(&self, key: CacheKey, entry: CacheEntry);
     fn inspect_all(&self) -> Vec<String>;
     fn clean(&self);
 

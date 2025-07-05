@@ -19,7 +19,7 @@ use rain_lang::{
 
 const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
 /// Minimum execution time to be stored in the cache
-const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(10);
+const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(1);
 
 #[derive(Default, Clone)]
 pub struct Cache(pub Arc<Mutex<CacheCore>>);
@@ -52,14 +52,31 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
             log::debug!("not caching {key:?} because it is not pure");
             return;
         }
+        if entry.deps.iter().any(|d| matches!(d, Dep::Uncacheable)) {
+            log::debug!("not caching {key:?} because it is uncacheable");
+            return;
+        }
+        log::debug!("caching {key:?}");
+        self.0.plock().storage.put(key, entry);
+    }
+
+    fn put_if_slow(&self, key: CacheKey, entry: CacheEntry) {
+        if !key.pure() {
+            log::debug!("not caching {key:?} because it is not pure");
+            return;
+        }
         if entry.execution_time < EXECUTION_TIME_THRESHOLD {
-            log::debug!("not caching {key:?} because it is too fast");
+            log::debug!(
+                "not caching {key:?} because it is too fast {:?}",
+                entry.execution_time,
+            );
             return;
         }
         if entry.deps.iter().any(|d| matches!(d, Dep::Uncacheable)) {
             log::debug!("not caching {key:?} because it is uncacheable");
             return;
         }
+        log::debug!("caching {key:?}");
         self.0.plock().storage.put(key, entry);
     }
 

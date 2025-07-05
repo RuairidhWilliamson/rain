@@ -10,14 +10,14 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     let src_path = std::path::Path::new(&src_path);
-    let file = Some(match File::new_local(src_path) {
+    let file = match File::new_local(src_path) {
         Ok(path) => path,
         Err(err) => {
             log::error!("Path error");
             log::error!("{err:#}");
             return ExitCode::FAILURE;
         }
-    });
+    };
     let src = match std::fs::read_to_string(src_path) {
         Ok(src) => src,
         Err(err) => {
@@ -28,7 +28,7 @@ fn main() -> ExitCode {
         }
     };
     if let Err(err) = inner(&src) {
-        let resolved = err.resolve(&file, &src);
+        let resolved = err.resolve(Some(&file), &src);
         println!("{resolved}");
         ExitCode::FAILURE
     } else {

@@ -476,19 +476,19 @@ mod test {
     use super::parse_module;
 
     fn parse_display_expr(src: &str) -> String {
-        let file = Some(File::new_local(Path::new(file!())).unwrap());
+        let file = File::new_local(Path::new(file!())).unwrap();
         let mut parser = ModuleParser::new(src);
         let id = match parser.parse_expr() {
             Ok(s) => s,
             Err(err) => {
-                eprintln!("{}", err.resolve(&file, src));
+                eprintln!("{}", err.resolve(Some(&file), src));
                 panic!("parse error");
             }
         };
         let nodes = match parser.complete() {
             Ok(nodes) => nodes,
             Err(err) => {
-                eprintln!("{}", err.resolve(&file, src));
+                eprintln!("{}", err.resolve(Some(&file), src));
                 panic!("parse error");
             }
         };

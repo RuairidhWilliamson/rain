@@ -415,9 +415,9 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 Ok(Value::Boolean(false))
             }
             (left, BinaryOperatorKind::NotEquals, right)
-                if left.rain_type_id() == right.rain_type_id() =>
+                if left.rain_type_id() != right.rain_type_id() =>
             {
-                Ok(Value::Boolean(false))
+                Ok(Value::Boolean(true))
             }
             _ => Err(cx.err(
                 op.op_span,

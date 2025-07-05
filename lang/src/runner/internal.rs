@@ -26,7 +26,6 @@ use crate::{
 use super::{
     Cx, Result, ResultValue,
     cache::{CacheEntry, CacheKey},
-    dep::Dep,
     error::RunnerError,
     value::{RainInteger, RainList, RainRecord, RainTypeId, Value},
 };
@@ -69,6 +68,7 @@ pub enum InternalFunction {
     EscapeRun,
     Prelude,
     CreateTar,
+    RustEq,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -116,6 +116,7 @@ impl InternalFunction {
             "_escape_run" => Some(Self::EscapeRun),
             "_prelude" => Some(Self::Prelude),
             "_create_tar" => Some(Self::CreateTar),
+            "_rust_eq" => Some(Self::RustEq),
             _ => None,
         }
     }
@@ -158,6 +159,7 @@ impl InternalFunction {
             Self::EscapeRun => icx.escape_run(),
             Self::Prelude => icx.prelude(),
             Self::CreateTar => icx.create_tar(),
+            Self::RustEq => icx.rust_eq(),
         }
     }
 }
@@ -291,7 +293,6 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn file_area_resolve_path(&mut self) -> Result<FSEntry> {
         match &self.arg_values[..] {
             [(relative_path_nid, relative_path_value)] => {
-                self.cx.deps.push(Dep::Uncacheable);
                 let Value::String(relative_path) = relative_path_value else {
                     return Err(self.cx.nid_err(
                         *relative_path_nid,
@@ -304,9 +305,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 let file = self
                     .cx
                     .module
-                    .file
-                    .as_ref()
-                    .ok_or_else(|| self.cx.nid_err(self.nid, RunnerError::PreludeContext))?;
+                    .file()
+                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
                 let file_path = file
                     .path()
                     .parent()
@@ -322,7 +322,6 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 })
             }
             [(parent_nid, parent_value), (path_nid, path_value)] => {
-                self.cx.deps.push(Dep::Uncacheable);
                 let Value::String(path) = path_value else {
                     return Err(self.cx.nid_err(
                         *path_nid,
@@ -442,9 +441,9 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         Ok(Value::File(Arc::new(
             self.cx
                 .module
-                .file
-                .clone()
-                .ok_or_else(|| self.cx.nid_err(self.nid, RunnerError::PreludeContext))?,
+                .file()
+                .map_err(|err| self.cx.nid_err(self.nid, err))?
+                .clone(),
         )))
     }
 
@@ -523,12 +522,9 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 },
             ));
         };
-        let path = self.runner.driver.escape_bin(name).ok_or_else(|| {
-            self.cx.nid_err(
-                self.nid,
-                RunnerError::Makeshift("could not find bin".into()),
-            )
-        })?;
+        let Some(path) = self.runner.driver.escape_bin(name) else {
+            return Ok(Value::Unit);
+        };
         let path = FilePath::new(&path.to_string_lossy())
             .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
         let entry = FSEntry {
@@ -809,9 +805,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         let FileArea::Local(current_area_path) = &self
             .cx
             .module
-            .file
-            .as_ref()
-            .ok_or_else(|| self.cx.nid_err(self.nid, RunnerError::PreludeContext))?
+            .file()
+            .map_err(|err| self.cx.nid_err(self.nid, err))?
             .area()
         else {
             return Err(self.cx.nid_err(self.nid, RunnerError::IllegalLocalArea));
@@ -1305,7 +1300,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         self.no_args()?;
         let cache_key = CacheKey::InternalFunction {
             func: self.func,
-            args: self.arg_values.iter().map(|(_, v)| v.clone()).collect(),
+            args: Vec::new(),
         };
         if let Some(v) = self.runner.cache.get_value(&cache_key) {
             return Ok(v);
@@ -1355,6 +1350,15 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         .create_tar(&dir, name)
                         .map_err(|err| self.cx.nid_err(self.nid, err))?,
                 )))
+            }
+            _ => self.incorrect_args(2..=2),
+        }
+    }
+
+    fn rust_eq(self) -> ResultValue {
+        match &self.arg_values[..] {
+            [(_, a_value), (_, b_value)] => {
+                return Ok(Value::Boolean(a_value == b_value));
             }
             _ => self.incorrect_args(2..=2),
         }

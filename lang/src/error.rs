@@ -6,7 +6,7 @@ use crate::{afs::file::File, local_span::LocalSpan};
 #[derive(Debug)]
 pub struct ResolvedError<'a> {
     pub err: &'a dyn std::error::Error,
-    pub file: &'a Option<File>,
+    pub file: Option<&'a File>,
     pub src: &'a str,
     pub span: LocalSpan,
 }

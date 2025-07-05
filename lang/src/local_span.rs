@@ -152,7 +152,7 @@ pub struct ErrorLocalSpan<E: std::error::Error> {
 }
 
 impl<E: std::error::Error> ErrorLocalSpan<E> {
-    pub fn resolve<'a>(&'a self, file: &'a Option<File>, src: &'a str) -> ResolvedError<'a> {
+    pub fn resolve<'a>(&'a self, file: Option<&'a File>, src: &'a str) -> ResolvedError<'a> {
         ResolvedError {
             err: &self.err,
             file,
@@ -163,7 +163,7 @@ impl<E: std::error::Error> ErrorLocalSpan<E> {
 
     pub fn resolve_ir<'a>(&'a self, ir: &'a Rir, module_id: ModuleId) -> ResolvedError<'a> {
         let module = ir.get_module(module_id);
-        self.resolve(&module.file, &module.src)
+        self.resolve(module.file().ok(), &module.src)
     }
 
     pub fn upgrade(self, module_id: ModuleId) -> ErrorSpan<E> {
