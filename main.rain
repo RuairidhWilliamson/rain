@@ -88,6 +88,8 @@ fn install_cli() {
 }
 
 fn test() {
+	cargo = std.escape.bin("cargo")
+	std.escape.run(area, cargo, ["test", "--workspace", "--quiet"], {})
 	test_mod = internal._import(internal._get_file(area, "test.rain"))
 	test_mod.test_caching()
 }

@@ -49,10 +49,9 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
             log::debug!("not caching {key:?} because it is not pure");
             return;
         }
-        if !entry.deps.is_empty() {
-            // TODO: Correctly invalidate this differently for the different deps
+        if entry.deps.iter().any(|d| !d.is_intra_run_stable()) {
             log::debug!(
-                "not caching {key:?} because it has deps {entry_deps:?}",
+                "not caching {key:?} because it has intra run unstable deps {entry_deps:?}",
                 entry_deps = entry.deps
             );
             return;

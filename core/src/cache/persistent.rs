@@ -123,6 +123,10 @@ pub struct PersistCacheEntry {
 
 impl PersistCacheEntry {
     fn persist(entry: &CacheEntry) -> Option<Self> {
+        if entry.deps.iter().any(|d| !d.is_inter_run_stable()) {
+            // Don't cache because a dep is inter run unstable
+            return None;
+        }
         Some(Self {
             execution_time: entry.execution_time,
             expires: entry.expires,

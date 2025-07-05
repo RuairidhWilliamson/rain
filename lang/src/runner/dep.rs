@@ -11,3 +11,16 @@ pub enum Dep {
     // TODO: Specify the secret name
     Secret,
 }
+
+impl Dep {
+    pub fn is_intra_run_stable(&self) -> bool {
+        match self {
+            Dep::Uncacheable => false,
+            Dep::LocalArea | Dep::Escape | Dep::Secret => true,
+        }
+    }
+
+    pub fn is_inter_run_stable(&self) -> bool {
+        false
+    }
+}

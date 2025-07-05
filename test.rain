@@ -33,6 +33,5 @@ fn test_import_cache() {
 	rain_src = std.utils.create_file("let foo = 5", "foo.rain")
 	main1 = internal._import(rain_src)
 	main2 = internal._import(rain_src)
-	print(main1, main2)
 	std.assert.is_true(internal._rust_eq(main1, main2))
 }
