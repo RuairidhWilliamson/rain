@@ -48,6 +48,7 @@ pub enum CacheKey {
 }
 
 impl CacheKey {
+    /// A way to indicate escape file areas and local file areas are not pure and hence cannot be used as a cache key
     pub fn pure(&self) -> bool {
         match self {
             Self::InternalFunction { func: _, args }

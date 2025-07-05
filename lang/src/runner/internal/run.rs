@@ -8,6 +8,7 @@ use crate::{
     afs::{dir::Dir, entry::FSEntryTrait as _},
     ast::NodeId,
     driver::{DriverTrait, RunOptions},
+    runner::dep::Dep,
 };
 
 use crate::runner::{
@@ -110,6 +111,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     pub fn escape_run(self) -> ResultValue {
+        self.cx.deps.push(Dep::Escape);
         self.check_escape_mode()?;
         match &self.arg_values[..] {
             [

@@ -6,5 +6,5 @@ pub enum Dep {
     // TODO: Specify the local area
     LocalArea,
     /// Marks any calls that depend on this to depend on the escaped environment
-    EscapeArea,
+    Escape,
 }

@@ -26,6 +26,7 @@ use crate::{
 use super::{
     Cx, Result, ResultValue,
     cache::{CacheEntry, CacheKey},
+    dep::Dep,
     error::RunnerError,
     value::{RainInteger, RainList, RainRecord, RainTypeId, Value},
 };
@@ -535,6 +536,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
 
     fn escape_bin(self) -> ResultValue {
         self.check_escape_mode()?;
+        self.cx.deps.push(Dep::Escape);
         let (name_nid, name_value) = self.single_arg()?;
         let Value::String(name) = name_value else {
             return Err(self.cx.nid_err(

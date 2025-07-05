@@ -65,7 +65,7 @@ impl<'a> Cx<'a> {
         match area {
             FileArea::Local(_) => self.deps.push(Dep::LocalArea),
             FileArea::Generated(_) => (),
-            FileArea::Escape => self.deps.push(Dep::EscapeArea),
+            FileArea::Escape => self.deps.push(Dep::Escape),
         }
     }
 }
