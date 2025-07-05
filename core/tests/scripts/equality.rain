@@ -1,0 +1,11 @@
+fn main() {
+	[
+		0 == 1,
+		5 == 5,
+		"hi" == 0,
+		internal._unit() == internal._unit(),
+		internal._unit() != internal._unit(),
+		"hi" == "hi",
+		5 == internal._unit,
+	]
+}

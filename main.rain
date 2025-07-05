@@ -81,3 +81,8 @@ fn test_zig() {
 fn publish(version) {
 	publish_module.publish(version)
 }
+
+fn install_cli() {
+	cargo = std.escape.bin("cargo")
+	std.escape.run(area, cargo, ["install", "--path", "cli", "--locked", "-q"], {})
+}

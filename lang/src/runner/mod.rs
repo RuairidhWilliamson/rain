@@ -407,6 +407,18 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 BinaryOperatorKind::GreaterThanEquals,
                 Value::Integer(right),
             ) => Ok(Value::Boolean(left.0 >= right.0)),
+            (Value::Unit, BinaryOperatorKind::Equals, Value::Unit) => Ok(Value::Boolean(true)),
+            (Value::Unit, BinaryOperatorKind::NotEquals, Value::Unit) => Ok(Value::Boolean(false)),
+            (left, BinaryOperatorKind::Equals, right)
+                if left.rain_type_id() != right.rain_type_id() =>
+            {
+                Ok(Value::Boolean(false))
+            }
+            (left, BinaryOperatorKind::NotEquals, right)
+                if left.rain_type_id() == right.rain_type_id() =>
+            {
+                Ok(Value::Boolean(false))
+            }
             _ => Err(cx.err(
                 op.op_span,
                 RunnerError::Makeshift("binary op invalid for given types".into()),

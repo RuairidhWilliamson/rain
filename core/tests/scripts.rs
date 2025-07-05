@@ -40,3 +40,8 @@ fn internal_import() {
 fn underscore() {
     insta::assert_debug_snapshot!(run("tests/scripts/underscore.rain").unwrap());
 }
+
+#[test]
+fn equality() {
+    insta::assert_debug_snapshot!(run("tests/scripts/equality.rain").unwrap());
+}

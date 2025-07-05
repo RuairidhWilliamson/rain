@@ -1,0 +1,31 @@
+---
+source: core/tests/scripts.rs
+expression: "run(\"tests/scripts/equality.rain\").unwrap()"
+---
+List(
+    RainList(
+        [
+            Boolean(
+                false,
+            ),
+            Boolean(
+                true,
+            ),
+            Boolean(
+                false,
+            ),
+            Boolean(
+                true,
+            ),
+            Boolean(
+                false,
+            ),
+            Boolean(
+                true,
+            ),
+            Boolean(
+                false,
+            ),
+        ],
+    ),
+)
