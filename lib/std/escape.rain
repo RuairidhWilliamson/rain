@@ -1,16 +1,31 @@
 let area = internal._get_area(internal._module_file())
 let utils = internal._import(internal._get_file(area, "utils.rain"))
 
-let bin = internal._escape_bin
 let print = utils.print
 let _throw = utils._throw
+
+fn bin(name) {
+	result = internal._escape_bin(name)
+	if result == unit {
+		_throw(name + " could not be found")
+	}
+	result
+}
+
+fn bin_or_instruction(name, install_instruction) {
+	result = internal._escape_bin(name)
+	if result == unit {
+		_throw(name + " could not be found\ninstall it using " + install_instruction)
+	}
+	result
+}
 
 fn run(area, bin, args, env) {
 	run_result = internal._escape_run(area, bin, args, env)
 	if !run_result.success {
 		print("Stdout:", run_result.stdout)
 		print("Stderr:", run_result.stderr)
-		_throw("run failed")
+		_throw("run " + bin + " failed")
 	}
 	run_result
 }
