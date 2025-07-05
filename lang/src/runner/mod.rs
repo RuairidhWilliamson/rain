@@ -33,16 +33,18 @@ pub struct Cx<'a> {
     locals: HashMap<&'a str, Value>,
     args: HashMap<&'a str, Value>,
     deps: Vec<dep::Dep>,
+    previous_line: Option<Value>,
 }
 
 impl<'a> Cx<'a> {
-    fn new(module: &'a Arc<IrModule>) -> Self {
+    fn new(module: &'a Arc<IrModule>, args: HashMap<&'a str, Value>) -> Self {
         Self {
             module,
             call_depth: 0,
-            args: HashMap::new(),
+            args,
             locals: HashMap::new(),
             deps: Vec::new(),
+            previous_line: None,
         }
     }
 
@@ -107,13 +109,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         )
                     })
                     .collect();
-                let mut cx = Cx {
-                    module: m,
-                    call_depth: 0,
-                    args,
-                    locals: HashMap::new(),
-                    deps: Vec::new(),
-                };
+                let mut cx = Cx::new(m, args);
                 self.evaluate_node(&mut cx, fn_declare.block)
             }
             _ => unreachable!(),
@@ -125,7 +121,9 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         let nid = m.get_declaration(id.local_id());
         let node = m.get(nid);
         match node {
-            Node::LetDeclare(let_declare) => self.evaluate_node(&mut Cx::new(m), let_declare.expr),
+            Node::LetDeclare(let_declare) => {
+                self.evaluate_node(&mut Cx::new(m, HashMap::new()), let_declare.expr)
+            }
             Node::FnDeclare(_) => Ok(Value::Function(id)),
             _ => unreachable!(),
         }
@@ -136,15 +134,14 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
             Node::ModuleRoot(_) => {
                 panic!("can't evaluate module root")
             }
-            Node::LetDeclare(_) => panic!("can't evaluate let declare"),
-            Node::FnDeclare(_) => panic!("can't evaluate fn declare"),
+            Node::LetDeclare(_) => unreachable!("can't evaluate let declare"),
+            Node::FnDeclare(_) => unreachable!("can't evaluate fn declare"),
             Node::Block(block) => {
-                let mut prev = None;
                 for nid in &block.statements {
                     let v = self.evaluate_node(cx, *nid)?;
-                    prev = Some(v);
+                    cx.previous_line = Some(v);
                 }
-                Ok(prev.unwrap_or(Value::Unit))
+                Ok(cx.previous_line.clone().unwrap_or(Value::Unit))
             }
             Node::IfCondition(if_condition) => self.evaluate_if_condition(cx, if_condition),
             Node::FnCall(fn_call) => self.evaluate_fn_call(cx, nid, fn_call),
@@ -228,6 +225,9 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
     }
 
     fn resolve_ident(&mut self, cx: &mut Cx, ident: &str) -> Result<Option<Value>> {
+        if ident == "_" {
+            return Ok(cx.previous_line.clone());
+        }
         if let Some(v) = cx.locals.get(ident) {
             return Ok(Some(v.clone()));
         }
@@ -301,6 +301,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     args,
                     locals: HashMap::new(),
                     deps: Vec::new(),
+                    previous_line: None,
                 };
                 let result = self.evaluate_node(&mut callee_cx, fn_declare.block)?;
                 self.driver.exit_call(function_name);

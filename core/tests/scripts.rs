@@ -35,3 +35,8 @@ fn internal_print() {
 fn internal_import() {
     insta::assert_debug_snapshot!(run("tests/scripts/internal_import.rain").unwrap());
 }
+
+#[test]
+fn underscore() {
+    insta::assert_debug_snapshot!(run("tests/scripts/underscore.rain").unwrap());
+}

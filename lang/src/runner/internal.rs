@@ -1248,6 +1248,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         args,
                         locals: HashMap::new(),
                         deps: Vec::new(),
+                        previous_line: None,
                     };
                     let result = self
                         .runner
