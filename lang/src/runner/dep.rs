@@ -7,4 +7,7 @@ pub enum Dep {
     LocalArea,
     /// Marks any calls that depend on this to depend on the escaped environment
     Escape,
+    /// Marks any calls that depend on this to depend on the secret
+    // TODO: Specify the secret name
+    Secret,
 }

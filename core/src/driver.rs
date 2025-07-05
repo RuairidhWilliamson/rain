@@ -440,6 +440,29 @@ impl DriverTrait for DriverImpl<'_> {
         let file = unsafe { File::new(entry) };
         Ok(file)
     }
+
+    #[expect(clippy::unwrap_used)]
+    fn get_secret(&self, name: &str) -> Result<String, RunnerError> {
+        // TODO: Ask before accessing
+        match std::env::var(name) {
+            Ok(secret) => return Ok(secret),
+            Err(std::env::VarError::NotPresent) => {}
+            Err(std::env::VarError::NotUnicode(_)) => {
+                return Err(RunnerError::Makeshift("secret not utf8".into()));
+            }
+        }
+        match std::fs::read_to_string("secrets.toml") {
+            Ok(secrets_contents) => {
+                let toml: toml::Value = toml::from_str(&secrets_contents).unwrap();
+                return Ok(toml.get(name).unwrap().as_str().unwrap().to_owned());
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => todo!("handle secret io error: {err:?}"),
+        }
+        Err(RunnerError::Makeshift(
+            format!("secret {name:?} not found").into(),
+        ))
+    }
 }
 
 impl MonitoringTrait for DriverImpl<'_> {

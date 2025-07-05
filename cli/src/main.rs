@@ -45,6 +45,7 @@ fn fallible_main() -> Result<(), ()> {
     rain_ctl_command(&config)
 }
 
+#[expect(clippy::unwrap_used)]
 fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     ctrlc::set_handler(|| {
         println!("\nCTRL+C pressed");
@@ -60,11 +61,15 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             f.flush().unwrap();
             Ok(())
         }
-        RainCtlCommand::Check => run(config, String::from("check"), vec![], &cli.options, mode),
-        RainCtlCommand::Build => run(config, String::from("build"), vec![], &cli.options, mode),
-        RainCtlCommand::Run { target, args } => {
-            run(config, target.unwrap_or_default(), args, &cli.options, mode)
-        }
+        RainCtlCommand::Check => run(config, "check", vec![], &cli.options, mode),
+        RainCtlCommand::Build => run(config, "build", vec![], &cli.options, mode),
+        RainCtlCommand::Run { target, args } => run(
+            config,
+            &target.unwrap_or_default(),
+            args,
+            &cli.options,
+            mode,
+        ),
         RainCtlCommand::Info => {
             let info =
                 make_request_or_start(config, InfoRequest, |()| {}, mode).map_err(|err| {
@@ -116,7 +121,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
 
 fn run(
     config: &Config,
-    target: String,
+    target: &str,
     args: Vec<String>,
     options: &GlobalOptions,
     mode: ClientMode,
@@ -129,7 +134,7 @@ fn run(
         config,
         RunRequest {
             root,
-            target: target.clone(),
+            target: target.to_owned(),
             args,
             resolve: options.resolve,
             offline: options.offline,

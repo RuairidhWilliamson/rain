@@ -48,6 +48,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn host_triple(&self) -> &str;
     fn export_file(&self, src: &File, dst: &FSEntry) -> Result<(), RunnerError>;
     fn create_tar(&self, dir: &Dir, name: &str) -> Result<File, RunnerError>;
+    fn get_secret(&self, name: &str) -> Result<String, RunnerError>;
 }
 
 pub trait MonitoringTrait {

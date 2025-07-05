@@ -2040,6 +2040,7 @@ dependencies = [
  "tar",
  "test-log",
  "thiserror",
+ "toml",
  "uuid",
  "web-time",
  "zip",

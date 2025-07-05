@@ -234,8 +234,9 @@ pub enum PersistCacheKey {
 impl PersistCacheKey {
     fn persist(key: &CacheKey) -> Option<Self> {
         match key {
-            // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
-            CacheKey::Declaration { .. } => None,
+            // TODO: It is possible to persist declarations in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
+            // TODO: It is possible to persist prelude in the cache if we key it by the rain binary version
+            CacheKey::Declaration { .. } | CacheKey::Prelude => None,
             CacheKey::InternalFunction { func, args } => Some(Self::InternalFunction {
                 func: *func,
                 args: args
@@ -244,7 +245,6 @@ impl PersistCacheKey {
                     .collect::<Option<_>>()?,
             }),
             CacheKey::Download { url } => Some(Self::Download { url: url.clone() }),
-            CacheKey::Prelude => None,
         }
     }
 

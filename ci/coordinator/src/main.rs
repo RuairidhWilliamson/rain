@@ -9,7 +9,7 @@ use jsonwebtoken::EncodingKey;
 use octocrab::{
     OctocrabBuilder,
     models::{
-        AppId, Author, Repository,
+        AppId, Author, InstallationId, Repository,
         orgs::Organization,
         webhook_events::{
             EventInstallation, WebhookEventPayload, WebhookEventType,
@@ -195,14 +195,19 @@ fn verify_webhook_signature(headers: &HeaderMap, body: &[u8], secret: &str) -> R
 }
 
 impl HandlerInner {
-    async fn handle_hook(self: Arc<Self>, event: WebhookEvent) -> Result<()> {
-        let installation_id = match event.installation {
+    fn get_installation_id(event: &WebhookEvent) -> Option<InstallationId> {
+        match &event.installation {
             Some(EventInstallation::Full(installation)) => Some(installation.id),
             Some(EventInstallation::Minimal(event_installation_id)) => {
                 Some(event_installation_id.id)
             }
             None => None,
-        };
+        }
+    }
+
+    async fn handle_hook(self: Arc<Self>, event: WebhookEvent) -> Result<()> {
+        let installation_id = Self::get_installation_id(&event);
+        let repository = event.repository.context("no repository")?;
         match event.specific {
             WebhookEventPayload::Push(_push_event) => {
                 tracing::info!("webhook push event");
@@ -211,33 +216,8 @@ impl HandlerInner {
                 tracing::info!("webhook ping event");
             }
             WebhookEventPayload::CheckSuite(suite_event) => {
-                tracing::info!("check suite event {:?}", suite_event.action);
-                match suite_event.action {
-                    CheckSuiteWebhookEventAction::Rerequested
-                    | CheckSuiteWebhookEventAction::Requested => (),
-                    _ => return Ok(()),
-                }
-                let installation = self
-                    .crab
-                    .installation(installation_id.context("installation_id not present")?)?;
-                let repository = event.repository.context("no repository")?;
-                let owner = &repository.owner.context("no owner")?.login;
-                let repo = &repository.name;
-                let head_sha = suite_event
-                    .check_suite
-                    .get("head_sha")
-                    .context("head_sha not present")?
-                    .as_str()
-                    .context("head_sha not string")?;
-                Self::handle_check_suite_request(
-                    &self.runner,
-                    installation,
-                    &self.config.target_url,
-                    owner,
-                    repo,
-                    head_sha,
-                )
-                .await?;
+                self.handle_check_suite(installation_id, repository, suite_event)
+                    .await?;
             }
             WebhookEventPayload::CheckRun(_run_event) => {
                 tracing::info!("check run event");
@@ -246,6 +226,41 @@ impl HandlerInner {
                 tracing::warn!("unknown webhook event {kind:?}", kind = event.kind);
             }
         }
+        Ok(())
+    }
+
+    async fn handle_check_suite(
+        self: Arc<Self>,
+        installation_id: Option<octocrab::models::InstallationId>,
+        repository: Repository,
+        suite_event: Box<octocrab::models::webhook_events::payload::CheckSuiteWebhookEventPayload>,
+    ) -> Result<(), anyhow::Error> {
+        tracing::info!("check suite event {:?}", suite_event.action);
+        match suite_event.action {
+            CheckSuiteWebhookEventAction::Rerequested | CheckSuiteWebhookEventAction::Requested => {
+            }
+            _ => return Ok(()),
+        }
+        let installation = self
+            .crab
+            .installation(installation_id.context("installation_id not present")?)?;
+        let owner = &repository.owner.context("no owner")?.login;
+        let repo = &repository.name;
+        let head_sha = suite_event
+            .check_suite
+            .get("head_sha")
+            .context("head_sha not present")?
+            .as_str()
+            .context("head_sha not string")?;
+        Self::handle_check_suite_request(
+            &self.runner,
+            installation,
+            &self.config.target_url,
+            owner,
+            repo,
+            head_sha,
+        )
+        .await?;
         Ok(())
     }
 

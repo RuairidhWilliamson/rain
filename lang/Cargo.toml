@@ -20,7 +20,7 @@ serde_json.workspace = true
 serde.workspace = true
 termcolor.workspace = true
 thiserror.workspace = true
-toml = "0.8.20"
+toml.workspace = true
 uuid.workspace = true
 web-time.workspace = true
 

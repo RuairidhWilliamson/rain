@@ -20,6 +20,7 @@ libc.workspace = true
 liblzma = "0.4.1"
 log.workspace = true
 lru = "0.14.0"
+toml.workspace = true
 num-bigint = "0.4.6"
 poison_panic.path = "../poison_panic"
 rain-lang.path = "../lang"

@@ -70,6 +70,7 @@ pub enum InternalFunction {
     Prelude,
     CreateTar,
     RustEq,
+    GetSecret,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -118,6 +119,7 @@ impl InternalFunction {
             "_prelude" => Some(Self::Prelude),
             "_create_tar" => Some(Self::CreateTar),
             "_rust_eq" => Some(Self::RustEq),
+            "_get_secret" => Some(Self::GetSecret),
             _ => None,
         }
     }
@@ -161,8 +163,43 @@ impl InternalFunction {
             Self::Prelude => icx.prelude(),
             Self::CreateTar => icx.create_tar(),
             Self::RustEq => icx.rust_eq(),
+            Self::GetSecret => icx.get_secret(),
         }
     }
+}
+
+macro_rules! single_arg {
+    ($icx:ident) => {
+        match &$icx.arg_values[..] {
+            [(arg_nid, arg_value)] => (arg_nid, arg_value),
+            _ => {
+                return Err($icx.cx.err(
+                    $icx.fn_call.rparen_token,
+                    RunnerError::IncorrectArgs {
+                        required: 1..=1,
+                        actual: $icx.arg_values.len(),
+                    },
+                ))
+            }
+        }
+    };
+}
+
+macro_rules! expect_type {
+    ($icx:expr, $typ:ident, $nid:expr, $value:expr) => {
+        match $value {
+            Value::$typ(val) => val,
+            _ => {
+                return Err($icx.cx.nid_err(
+                    $nid,
+                    RunnerError::ExpectedType {
+                        actual: $value.rain_type_id(),
+                        expected: &[RainTypeId::$typ],
+                    },
+                ));
+            }
+        }
+    };
 }
 
 struct Call<'a> {
@@ -1357,15 +1394,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         match &self.arg_values[..] {
             [(dir_nid, dir_value), (name_nid, name_value)] => {
                 let dir = self.arg_dir(*dir_nid, dir_value)?;
-                let Value::String(name) = name_value else {
-                    return Err(self.cx.nid_err(
-                        *name_nid,
-                        RunnerError::ExpectedType {
-                            actual: name_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
-                        },
-                    ));
-                };
+                let name = expect_type!(self, String, *name_nid, name_value);
                 Ok(Value::File(Arc::new(
                     self.runner
                         .driver
@@ -1379,10 +1408,20 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
 
     fn rust_eq(self) -> ResultValue {
         match &self.arg_values[..] {
-            [(_, a_value), (_, b_value)] => {
-                return Ok(Value::Boolean(a_value == b_value));
-            }
+            [(_, a_value), (_, b_value)] => Ok(Value::Boolean(a_value == b_value)),
             _ => self.incorrect_args(2..=2),
         }
+    }
+
+    fn get_secret(self) -> ResultValue {
+        let (name_nid, name_value) = single_arg!(self);
+        let name = expect_type!(self, String, *name_nid, name_value);
+        self.cx.deps.push(Dep::Secret);
+        let secret = self
+            .runner
+            .driver
+            .get_secret(name)
+            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+        Ok(Value::String(Arc::new(secret)))
     }
 }
