@@ -7,12 +7,14 @@ pub mod value;
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use cache::CacheEntry;
+use dep::Dep;
 use error::{RunnerError, Throwing};
 use indexmap::IndexMap;
 use internal::InternalFunction;
 use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
 
 use crate::{
+    afs::area::FileArea,
     ast::{
         AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId, Not,
     },
@@ -57,6 +59,14 @@ impl<'a> Cx<'a> {
             .span(nid)
             .with_module(self.module.id)
             .with_error(err.into())
+    }
+
+    fn add_dep_file_area(&mut self, area: &FileArea) {
+        match area {
+            FileArea::Local(_) => self.deps.push(Dep::LocalArea),
+            FileArea::Generated(_) => (),
+            FileArea::Escape => self.deps.push(Dep::EscapeArea),
+        }
     }
 }
 

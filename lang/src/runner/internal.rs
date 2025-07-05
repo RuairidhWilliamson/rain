@@ -307,6 +307,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     .module
                     .file()
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                let area = file.area();
+                self.cx.add_dep_file_area(area);
                 let file_path = file
                     .path()
                     .parent()
@@ -333,6 +335,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 };
                 match parent_value {
                     Value::FileArea(area) => {
+                        self.cx.add_dep_file_area(area);
                         let file_path = FilePath::new(path)
                             .map_err(|err| self.cx.nid_err(*path_nid, err.into()))?;
                         Ok(FSEntry {
@@ -342,6 +345,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     }
                     Value::Dir(dir) => {
                         let area = dir.area();
+                        self.cx.add_dep_file_area(area);
                         let base_path = dir.path();
                         let path = base_path
                             .join(path)
@@ -422,6 +426,14 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 },
             ));
         };
+        let cache_key = CacheKey::InternalFunction {
+            func: self.func,
+            args: self.arg_values.iter().map(|(_, v)| v.clone()).collect(),
+        };
+        if let Some(v) = self.runner.cache.get_value(&cache_key) {
+            return Ok(v);
+        }
+        let start = Instant::now();
         let src = self
             .runner
             .driver
@@ -433,7 +445,18 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             .ir
             .insert_module(Some(f.as_ref().clone()), src, module)
             .map_err(ErrorSpan::convert)?;
-        Ok(Value::Module(id))
+        let v = Value::Module(id);
+        self.runner.cache.put(
+            cache_key,
+            CacheEntry {
+                execution_time: start.elapsed(),
+                expires: None,
+                etag: None,
+                deps: Vec::new(),
+                value: v.clone(),
+            },
+        );
+        Ok(v)
     }
 
     fn module_file(self) -> ResultValue {

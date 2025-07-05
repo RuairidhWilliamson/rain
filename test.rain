@@ -2,11 +2,14 @@ let area = internal._get_area(internal._module_file())
 let main = internal._import(internal._get_file(area, "main.rain"))
 let std = main.std
 
+let print = std.utils.print
+
 // Run tests to make sure intra-process caching is working
 
 fn test_caching() {
 	test_prelude_cache()
 	test_rustc_cache()
+	test_import_cache()
 }
 
 fn test_prelude_cache() {
@@ -24,4 +27,12 @@ fn test_rustc_cache() {
 	bin1 = rustc_helloworld()
 	bin2 = rustc_helloworld()
 	std.assert.is_true(internal._rust_eq(bin1, bin2))
+}
+
+fn test_import_cache() {
+	rain_src = std.utils.create_file("let foo = 5", "foo.rain")
+	main1 = internal._import(rain_src)
+	main2 = internal._import(rain_src)
+	print(main1, main2)
+	std.assert.is_true(internal._rust_eq(main1, main2))
 }

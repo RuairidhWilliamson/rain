@@ -11,10 +11,7 @@ use lru::LruCache;
 use poison_panic::MutexExt as _;
 use rain_lang::{
     afs::area::FileArea,
-    runner::{
-        cache::{CacheEntry, CacheKey},
-        dep::Dep,
-    },
+    runner::cache::{CacheEntry, CacheKey},
 };
 
 const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
@@ -52,8 +49,12 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
             log::debug!("not caching {key:?} because it is not pure");
             return;
         }
-        if entry.deps.iter().any(|d| matches!(d, Dep::Uncacheable)) {
-            log::debug!("not caching {key:?} because it is uncacheable");
+        if !entry.deps.is_empty() {
+            // TODO: Correctly invalidate this differently for the different deps
+            log::debug!(
+                "not caching {key:?} because it has deps {entry_deps:?}",
+                entry_deps = entry.deps
+            );
             return;
         }
         log::debug!("caching {key:?}");
@@ -61,10 +62,6 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
     }
 
     fn put_if_slow(&self, key: CacheKey, entry: CacheEntry) {
-        if !key.pure() {
-            log::debug!("not caching {key:?} because it is not pure");
-            return;
-        }
         if entry.execution_time < EXECUTION_TIME_THRESHOLD {
             log::debug!(
                 "not caching {key:?} because it is too fast {:?}",
@@ -72,12 +69,7 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
             );
             return;
         }
-        if entry.deps.iter().any(|d| matches!(d, Dep::Uncacheable)) {
-            log::debug!("not caching {key:?} because it is uncacheable");
-            return;
-        }
-        log::debug!("caching {key:?}");
-        self.0.plock().storage.put(key, entry);
+        self.put(key, entry);
     }
 
     fn inspect_all(&self) -> Vec<String> {
