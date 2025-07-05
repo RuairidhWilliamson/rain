@@ -229,7 +229,6 @@ pub enum PersistCacheKey {
     Download {
         url: String,
     },
-    Prelude,
 }
 
 impl PersistCacheKey {
@@ -245,7 +244,7 @@ impl PersistCacheKey {
                     .collect::<Option<_>>()?,
             }),
             CacheKey::Download { url } => Some(Self::Download { url: url.clone() }),
-            CacheKey::Prelude => Some(Self::Prelude),
+            CacheKey::Prelude => None,
         }
     }
 
@@ -259,7 +258,6 @@ impl PersistCacheKey {
                     .collect::<Option<Vec<Value>>>()?,
             }),
             Self::Download { url } => Some(CacheKey::Download { url }),
-            Self::Prelude => Some(CacheKey::Prelude),
         }
     }
 }

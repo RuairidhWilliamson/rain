@@ -1,0 +1,27 @@
+let area = internal._get_area(internal._module_file())
+let main = internal._import(internal._get_file(area, "main.rain"))
+let std = main.std
+
+// Run tests to make sure intra-process caching is working
+
+fn test_caching() {
+	test_prelude_cache()
+	test_rustc_cache()
+}
+
+fn test_prelude_cache() {
+	std1 = internal._prelude().stdlib("0.1.4")
+	std2 = internal._prelude().stdlib("0.1.4")
+	std.assert.is_true(internal._rust_eq(std1, std2))
+}
+
+fn rustc_helloworld() {
+	src = std.utils.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
+	std.build.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple, "2024")
+}
+
+fn test_rustc_cache() {
+	bin1 = rustc_helloworld()
+	bin2 = rustc_helloworld()
+	std.assert.is_true(internal._rust_eq(bin1, bin2))
+}

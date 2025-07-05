@@ -17,7 +17,7 @@ pub fn lint() {
 	std.build.rust.cargo.clippy(rust_version, area)
 }
 
-fn test() {
+fn test_rust() {
 	std.build.rust.cargo.test(rust_version, area, "rain-core", "", "dev")
 }
 
@@ -87,9 +87,7 @@ fn install_cli() {
 	std.escape.run(area, cargo, ["install", "--path", "cli", "--locked", "-q"], {})
 }
 
-fn test_cache() {
-	std1 = internal._prelude().stdlib("0.1.4")
-	std2 = internal._prelude().stdlib("0.1.4")
-	print(std1, std2)
-	std.assert.is_true(internal._rust_eq(std1, std2))
+fn test() {
+	test_mod = internal._import(internal._get_file(area, "test.rain"))
+	test_mod.test_caching()
 }

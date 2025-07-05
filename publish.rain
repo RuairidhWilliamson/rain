@@ -14,6 +14,14 @@ let bucket = "rain-e870e063"
 // TODO: Put this in secrets
 let webhook_url = "https://discord.com/api/webhooks/1382281940899463220/4XgMi2L_cNcEwWUPWKzExTh75R4iEGVQoaw_1Rd81B5rQ9G4QiPhZCTpuTx8Z7wQWKjh"
 
+fn check_version(version) {
+	cargo_toml = get_file(area, "Cargo.toml")
+	cargo_workspace_version = internal._parse_toml(internal._read_file(cargo_toml)).workspace.package.version
+	if cargo_workspace_version != version {
+		_throw("cargo workspace version does not match " + cargo_workspace_version +  " != " + version)
+	}
+}
+
 fn compress_lib() {
 	ouch = escape_bin("ouch")
 	lib_dir = get_dir(area, "lib")
@@ -60,6 +68,7 @@ fn webhook(url, contents) {
 }
 
 fn publish(version) {
+	check_version(version)
 	win_amd64 = main.build_release("x86_64-pc-windows-gnu")
 	linux_amd64 = main.build_release("x86_64-unknown-linux-gnu")
 	prefix = "gs://" + bucket + "/releases/" + version

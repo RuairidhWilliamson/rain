@@ -305,7 +305,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 };
                 let result = self.evaluate_node(&mut callee_cx, fn_declare.block)?;
                 self.driver.exit_call(function_name);
-                self.cache.put(
+                self.cache.put_if_slow(
                     key,
                     CacheEntry {
                         execution_time: start.elapsed(),

@@ -1298,10 +1298,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
 
     fn prelude(self) -> ResultValue {
         self.no_args()?;
-        let cache_key = CacheKey::InternalFunction {
-            func: self.func,
-            args: Vec::new(),
-        };
+        let cache_key = CacheKey::Prelude;
         if let Some(v) = self.runner.cache.get_value(&cache_key) {
             return Ok(v);
         }
