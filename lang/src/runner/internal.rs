@@ -171,7 +171,7 @@ impl InternalFunction {
 macro_rules! single_arg {
     ($icx:ident) => {
         match &$icx.arg_values[..] {
-            [(arg_nid, arg_value)] => (arg_nid, arg_value),
+            [(arg_nid, arg_value)] => (*arg_nid, arg_value),
             _ => {
                 return Err($icx.cx.err(
                     $icx.fn_call.rparen_token,
@@ -186,20 +186,20 @@ macro_rules! single_arg {
 }
 
 macro_rules! expect_type {
-    ($icx:expr, $typ:ident, $nid:expr, $value:expr) => {
-        match $value {
-            Value::$typ(val) => val,
-            _ => {
-                return Err($icx.cx.nid_err(
-                    $nid,
-                    RunnerError::ExpectedType {
-                        actual: $value.rain_type_id(),
-                        expected: &[RainTypeId::$typ],
-                    },
-                ));
-            }
-        }
-    };
+    ($icx:expr, $typ:ident, $nid_value:expr) => {{
+        let (nid, value) = $nid_value;
+        let Value::$typ(v) = value else {
+            return Err($icx.cx.nid_err(
+                nid,
+                RunnerError::ExpectedType {
+                    actual: value.rain_type_id(),
+                    expected: &[RainTypeId::$typ],
+                },
+            ));
+        };
+        debug_assert_eq!(value.rain_type_id(), RainTypeId::$typ);
+        v
+    }};
 }
 
 struct Call<'a> {
@@ -230,19 +230,6 @@ pub struct InternalCx<'a, 'b, 'c, 'd, 'e, D> {
 }
 
 impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
-    fn single_arg(&self) -> Result<(&NodeId, &Value)> {
-        match &self.arg_values[..] {
-            [(arg_nid, arg_value)] => Ok((arg_nid, arg_value)),
-            _ => Err(self.cx.err(
-                self.fn_call.rparen_token,
-                RunnerError::IncorrectArgs {
-                    required: 1..=1,
-                    actual: self.arg_values.len(),
-                },
-            )),
-        }
-    }
-
     fn no_args(&self) -> Result<()> {
         if self.arg_values.is_empty() {
             Ok(())
@@ -331,15 +318,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn file_area_resolve_path(&mut self) -> Result<FSEntry> {
         match &self.arg_values[..] {
             [(relative_path_nid, relative_path_value)] => {
-                let Value::String(relative_path) = relative_path_value else {
-                    return Err(self.cx.nid_err(
-                        *relative_path_nid,
-                        RunnerError::ExpectedType {
-                            actual: relative_path_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
-                        },
-                    ));
-                };
+                let relative_path =
+                    expect_type!(self, String, (*relative_path_nid, relative_path_value));
                 let file = self
                     .cx
                     .module
@@ -362,15 +342,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 })
             }
             [(parent_nid, parent_value), (path_nid, path_value)] => {
-                let Value::String(path) = path_value else {
-                    return Err(self.cx.nid_err(
-                        *path_nid,
-                        RunnerError::ExpectedType {
-                            actual: path_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
-                        },
-                    ));
-                };
+                let path = expect_type!(self, String, (path_nid, path_value));
                 match parent_value {
                     Value::FileArea(area) => {
                         self.cx.add_dep_file_area(area);
@@ -454,16 +426,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn import(self) -> ResultValue {
-        let (file_nid, file_value) = self.single_arg()?;
-        let Value::File(f) = file_value else {
-            return Err(self.cx.nid_err(
-                *file_nid,
-                RunnerError::ExpectedType {
-                    actual: file_value.rain_type_id(),
-                    expected: &[RainTypeId::File],
-                },
-            ));
-        };
+        let f = expect_type!(self, File, single_arg!(self));
         let cache_key = CacheKey::InternalFunction {
             func: self.func,
             args: self.arg_values.iter().map(|(_, v)| v.clone()).collect(),
@@ -509,16 +472,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn extract_zip(self) -> ResultValue {
-        let (file_nid, file_value) = self.single_arg()?;
-        let Value::File(f) = file_value else {
-            return Err(self.cx.nid_err(
-                *file_nid,
-                RunnerError::ExpectedType {
-                    actual: file_value.rain_type_id(),
-                    expected: &[RainTypeId::File],
-                },
-            ));
-        };
+        let f = expect_type!(self, File, single_arg!(self));
         self.cache(|| {
             let area = self
                 .runner
@@ -530,16 +484,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn extract_tar_gz(self) -> ResultValue {
-        let (file_nid, file_value) = self.single_arg()?;
-        let Value::File(f) = file_value else {
-            return Err(self.cx.nid_err(
-                *file_nid,
-                RunnerError::ExpectedType {
-                    actual: file_value.rain_type_id(),
-                    expected: &[RainTypeId::File],
-                },
-            ));
-        };
+        let f = expect_type!(self, File, single_arg!(self));
         self.cache(|| {
             let area = self
                 .runner
@@ -551,16 +496,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn extract_tar_xz(self) -> ResultValue {
-        let (file_nid, file_value) = self.single_arg()?;
-        let Value::File(f) = file_value else {
-            return Err(self.cx.nid_err(
-                *file_nid,
-                RunnerError::ExpectedType {
-                    actual: file_value.rain_type_id(),
-                    expected: &[RainTypeId::File],
-                },
-            ));
-        };
+        let f = expect_type!(self, File, single_arg!(self));
         self.cache(|| {
             let area = self
                 .runner
@@ -574,16 +510,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn escape_bin(self) -> ResultValue {
         self.check_escape_mode()?;
         self.cx.deps.push(Dep::Escape);
-        let (name_nid, name_value) = self.single_arg()?;
-        let Value::String(name) = name_value else {
-            return Err(self.cx.nid_err(
-                *name_nid,
-                RunnerError::ExpectedType {
-                    actual: name_value.rain_type_id(),
-                    expected: &[RainTypeId::String],
-                },
-            ));
-        };
+        let name = expect_type!(self, String, single_arg!(self));
         let Some(path) = self.runner.driver.escape_bin(name) else {
             return Ok(Value::Unit);
         };
@@ -616,16 +543,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn get_area(self) -> ResultValue {
-        let (file_nid, file_value) = self.single_arg()?;
-        let Value::File(f) = file_value else {
-            return Err(self.cx.nid_err(
-                *file_nid,
-                RunnerError::ExpectedType {
-                    actual: file_value.rain_type_id(),
-                    expected: &[RainTypeId::File],
-                },
-            ));
-        };
+        let f = expect_type!(self, File, single_arg!(self));
         Ok(Value::FileArea(Arc::new(f.area().clone())))
     }
 
@@ -642,16 +560,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn sha256(self) -> ResultValue {
-        let (file_nid, file_value) = self.single_arg()?;
-        let Value::File(f) = file_value else {
-            return Err(self.cx.nid_err(
-                *file_nid,
-                RunnerError::ExpectedType {
-                    actual: file_value.rain_type_id(),
-                    expected: &[RainTypeId::File],
-                },
-            ));
-        };
+        let f = expect_type!(self, File, single_arg!(self));
         self.cache(|| {
             Ok(Value::String(Arc::new(
                 self.runner
@@ -663,16 +572,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn sha512(self) -> ResultValue {
-        let (file_nid, file_value) = self.single_arg()?;
-        let Value::File(f) = file_value else {
-            return Err(self.cx.nid_err(
-                *file_nid,
-                RunnerError::ExpectedType {
-                    actual: file_value.rain_type_id(),
-                    expected: &[RainTypeId::File],
-                },
-            ));
-        };
+        let f = expect_type!(self, File, single_arg!(self));
         self.cache(|| {
             Ok(Value::String(Arc::new(
                 self.runner
@@ -684,40 +584,24 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn bytes_to_string(self) -> ResultValue {
-        let (bytes_nid, bytes_value) = self.single_arg()?;
-        let Value::List(list) = bytes_value else {
-            return Err(self.cx.nid_err(
-                *bytes_nid,
-                RunnerError::ExpectedType {
-                    actual: bytes_value.rain_type_id(),
-                    expected: &[RainTypeId::List],
-                },
-            ));
-        };
+        let (bytes_nid, bytes_value) = single_arg!(self);
+        let list = expect_type!(self, List, (bytes_nid, bytes_value));
         self.cache(|| {
             let bytes = list
                 .0
                 .iter()
                 .map(|b| -> Result<u8> {
-                    let Value::Integer(b) = b else {
-                        return Err(self.cx.nid_err(
-                            *bytes_nid,
-                            RunnerError::ExpectedType {
-                                actual: b.rain_type_id(),
-                                expected: &[RainTypeId::Integer],
-                            },
-                        ));
-                    };
+                    let b = expect_type!(self, Integer, (bytes_nid, b));
                     u8::try_from(&b.0).map_err(|err| {
                         self.cx
-                            .nid_err(*bytes_nid, RunnerError::Makeshift(err.to_string().into()))
+                            .nid_err(bytes_nid, RunnerError::Makeshift(err.to_string().into()))
                     })
                 })
                 .collect::<Result<Vec<u8>>>()?;
             Ok(Value::String(Arc::new(String::from_utf8(bytes).map_err(
                 |err| {
                     self.cx
-                        .nid_err(*bytes_nid, RunnerError::Makeshift(err.to_string().into()))
+                        .nid_err(bytes_nid, RunnerError::Makeshift(err.to_string().into()))
                 },
             )?)))
         })
@@ -740,16 +624,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             }
         }
 
-        let (contents_nid, contents_value) = self.single_arg()?;
-        let Value::String(contents) = contents_value else {
-            return Err(self.cx.nid_err(
-                *contents_nid,
-                RunnerError::ExpectedType {
-                    actual: contents_value.rain_type_id(),
-                    expected: &[RainTypeId::String],
-                },
-            ));
-        };
+        let contents = expect_type!(self, String, single_arg!(self));
         self.cache(|| {
             let parsed: toml::Value = toml::de::from_str(contents).map_err(|err| {
                 self.cx.nid_err(
@@ -762,29 +637,13 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn create_area(self) -> ResultValue {
-        let (dirs_nid, dirs_value) = self.single_arg()?;
-        let Value::List(dirs) = dirs_value else {
-            return Err(self.cx.nid_err(
-                *dirs_nid,
-                RunnerError::ExpectedType {
-                    actual: dirs_value.rain_type_id(),
-                    expected: &[RainTypeId::Dir],
-                },
-            ));
-        };
+        let (dirs_nid, dirs_value) = single_arg!(self);
+        let dirs = expect_type!(self, List, (dirs_nid, dirs_value));
         let dirs: Vec<&Dir> = dirs
             .0
             .iter()
             .map(|dir| {
-                let Value::Dir(d) = dir else {
-                    return Err(self.cx.nid_err(
-                        *dirs_nid,
-                        RunnerError::ExpectedType {
-                            actual: dir.rain_type_id(),
-                            expected: &[RainTypeId::Dir],
-                        },
-                    ));
-                };
+                let d = expect_type!(self, Dir, (dirs_nid, dir));
                 Ok(d.as_ref())
             })
             .collect::<Result<Vec<&Dir>, _>>()?;
@@ -797,16 +656,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn read_file(self) -> ResultValue {
-        let (file_nid, file_value) = self.single_arg()?;
-        let Value::File(f) = file_value else {
-            return Err(self.cx.nid_err(
-                *file_nid,
-                RunnerError::ExpectedType {
-                    actual: file_value.rain_type_id(),
-                    expected: &[RainTypeId::File],
-                },
-            ));
-        };
+        let (file_nid, file_value) = single_arg!(self);
+        let f = expect_type!(self, File, (file_nid, file_value));
         Ok(Value::String(Arc::new(
             self.runner
                 .driver
@@ -817,25 +668,9 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
 
     fn create_file(self) -> ResultValue {
         match &self.arg_values[..] {
-            [(contents_nid, contents_value), (name_nid, name_value)] => {
-                let Value::String(contents) = contents_value else {
-                    return Err(self.cx.nid_err(
-                        *contents_nid,
-                        RunnerError::ExpectedType {
-                            actual: contents_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
-                        },
-                    ));
-                };
-                let Value::String(name) = name_value else {
-                    return Err(self.cx.nid_err(
-                        *name_nid,
-                        RunnerError::ExpectedType {
-                            actual: name_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
-                        },
-                    ));
-                };
+            [contents, name] => {
+                let contents = expect_type!(self, String, contents);
+                let name = expect_type!(self, String, name);
                 Ok(Value::File(Arc::new(
                     self.runner
                         .driver
@@ -882,16 +717,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 },
             )
         })?;
-        let Value::String(path) = path_value else {
-            return Err(self.cx.nid_err(
-                *path_nid,
-                RunnerError::ExpectedType {
-                    actual: path_value.rain_type_id(),
-                    expected: &[RainTypeId::String],
-                },
-            ));
-        };
-        let area_path = current_area_path.join(&**path);
+        let path = expect_type!(self, String, (path_nid, path_value));
+        let area_path = current_area_path.join(path.as_ref());
         let area_path = AbsolutePathBuf::try_from(area_path.as_path())
             .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?;
         let entry = FSEntry::new(FileArea::Local(area_path), FilePath::root());
@@ -911,24 +738,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn split_string(self) -> ResultValue {
         match &self.arg_values[..] {
             [(string_nid, string_value), (sep_nid, sep_value)] => {
-                let Value::String(s) = string_value else {
-                    return Err(self.cx.nid_err(
-                        *string_nid,
-                        RunnerError::ExpectedType {
-                            actual: string_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
-                        },
-                    ));
-                };
-                let Value::String(sep) = sep_value else {
-                    return Err(self.cx.nid_err(
-                        *sep_nid,
-                        RunnerError::ExpectedType {
-                            actual: sep_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
-                        },
-                    ));
-                };
+                let s = expect_type!(self, String, (string_nid, string_value));
+                let sep = expect_type!(self, String, (sep_nid, sep_value));
                 Ok(Value::List(Arc::new(RainList(
                     s.split(sep.as_str())
                         .map(|s| Value::String(Arc::new(s.to_owned())))
@@ -946,15 +757,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         };
         match indexable_value {
             Value::List(list) => {
-                let Value::Integer(big_int) = index_value else {
-                    return Err(self.cx.nid_err(
-                        *index_nid,
-                        RunnerError::ExpectedType {
-                            actual: index_value.rain_type_id(),
-                            expected: &[RainTypeId::Integer],
-                        },
-                    ));
-                };
+                let big_int = expect_type!(self, Integer, (index_nid, index_value));
                 let Ok(i) = usize::try_from(&big_int.0) else {
                     return Ok(Value::Unit);
                 };
@@ -966,15 +769,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 })
             }
             Value::Record(record) => {
-                let Value::String(s) = index_value else {
-                    return Err(self.cx.nid_err(
-                        *index_nid,
-                        RunnerError::ExpectedType {
-                            actual: index_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
-                        },
-                    ));
-                };
+                let s = expect_type!(self, String, (index_nid, index_value));
                 record.0.get(s.as_str()).cloned().ok_or_else(|| {
                     self.cx.nid_err(
                         self.nid,
@@ -1019,25 +814,9 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
 
     fn string_contains(self) -> ResultValue {
         match &self.arg_values[..] {
-            [(haystack_nid, haystack_value), (needle_nid, needle_value)] => {
-                let Value::String(haystack) = haystack_value else {
-                    return Err(self.cx.nid_err(
-                        *haystack_nid,
-                        RunnerError::ExpectedType {
-                            actual: haystack_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
-                        },
-                    ));
-                };
-                let Value::String(needle) = needle_value else {
-                    return Err(self.cx.nid_err(
-                        *needle_nid,
-                        RunnerError::ExpectedType {
-                            actual: needle_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
-                        },
-                    ));
-                };
+            [haystack, needle] => {
+                let haystack = expect_type!(self, String, haystack);
+                let needle = expect_type!(self, String, needle);
                 Ok(Value::Boolean(haystack.contains(&**needle)))
             }
             _ => self.incorrect_args(2..=2),
@@ -1047,24 +826,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn export_to_local(self) -> ResultValue {
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
-                let Value::File(src) = src_value else {
-                    return Err(self.cx.nid_err(
-                        *src_nid,
-                        RunnerError::ExpectedType {
-                            actual: src_value.rain_type_id(),
-                            expected: &[RainTypeId::File],
-                        },
-                    ));
-                };
-                let Value::Dir(dst) = dst_value else {
-                    return Err(self.cx.nid_err(
-                        *dst_nid,
-                        RunnerError::ExpectedType {
-                            actual: dst_value.rain_type_id(),
-                            expected: &[RainTypeId::Dir],
-                        },
-                    ));
-                };
+                let src = expect_type!(self, File, (src_nid, src_value));
+                let dst = expect_type!(self, Dir, (dst_nid, dst_value));
                 match dst.area() {
                     FileArea::Local(_) => (),
                     _ => {
@@ -1099,24 +862,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn check_export_to_local(self) -> ResultValue {
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
-                let Value::File(src) = src_value else {
-                    return Err(self.cx.nid_err(
-                        *src_nid,
-                        RunnerError::ExpectedType {
-                            actual: src_value.rain_type_id(),
-                            expected: &[RainTypeId::File],
-                        },
-                    ));
-                };
-                let Value::Dir(dst) = dst_value else {
-                    return Err(self.cx.nid_err(
-                        *dst_nid,
-                        RunnerError::ExpectedType {
-                            actual: dst_value.rain_type_id(),
-                            expected: &[RainTypeId::Dir],
-                        },
-                    ));
-                };
+                let src = expect_type!(self, File, (src_nid, src_value));
+                let dst = expect_type!(self, Dir, (dst_nid, dst_value));
                 match dst.area() {
                     FileArea::Local(_) => (),
                     _ => {
@@ -1177,31 +924,18 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn file_metadata(self) -> ResultValue {
-        match &self.arg_values[..] {
-            [(file_nid, file_value)] => {
-                let Value::File(f) = file_value else {
-                    return Err(self.cx.nid_err(
-                        *file_nid,
-                        RunnerError::ExpectedType {
-                            actual: file_value.rain_type_id(),
-                            expected: &[RainTypeId::File],
-                        },
-                    ));
-                };
-                let metadata = self
-                    .runner
-                    .driver
-                    .file_metadata(f)
-                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
-                let mut record = IndexMap::new();
-                record.insert(
-                    "size".to_owned(),
-                    Value::Integer(Arc::new(RainInteger(metadata.size.into()))),
-                );
-                Ok(Value::Record(Arc::new(RainRecord(record))))
-            }
-            _ => self.incorrect_args(1..=1),
-        }
+        let f = expect_type!(self, File, single_arg!(self));
+        let metadata = self
+            .runner
+            .driver
+            .file_metadata(f)
+            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+        let mut record = IndexMap::new();
+        record.insert(
+            "size".to_owned(),
+            Value::Integer(Arc::new(RainInteger(metadata.size.into()))),
+        );
+        Ok(Value::Record(Arc::new(RainRecord(record))))
     }
 
     fn glob(self) -> ResultValue {
@@ -1241,15 +975,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn foreach(self) -> ResultValue {
         match &self.arg_values[..] {
             [(list_nid, list_value), (func_nid, func_value)] => {
-                let Value::List(list) = list_value else {
-                    return Err(self.cx.nid_err(
-                        *list_nid,
-                        RunnerError::ExpectedType {
-                            actual: list_value.rain_type_id(),
-                            expected: &[RainTypeId::List],
-                        },
-                    ));
-                };
+                let list = expect_type!(self, List, (list_nid, list_value));
                 let Value::Function(func) = func_value else {
                     return Err(self.cx.nid_err(
                         *func_nid,
@@ -1394,7 +1120,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         match &self.arg_values[..] {
             [(dir_nid, dir_value), (name_nid, name_value)] => {
                 let dir = self.arg_dir(*dir_nid, dir_value)?;
-                let name = expect_type!(self, String, *name_nid, name_value);
+                let name = expect_type!(self, String, (*name_nid, name_value));
                 Ok(Value::File(Arc::new(
                     self.runner
                         .driver
@@ -1414,8 +1140,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn get_secret(self) -> ResultValue {
-        let (name_nid, name_value) = single_arg!(self);
-        let name = expect_type!(self, String, *name_nid, name_value);
+        let name = expect_type!(self, String, single_arg!(self));
         self.cx.deps.push(Dep::Secret);
         let secret = self
             .runner

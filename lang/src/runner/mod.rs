@@ -54,9 +54,9 @@ impl<'a> Cx<'a> {
         s.into().with_module(self.module.id).with_error(err.into())
     }
 
-    fn nid_err(&self, nid: NodeId, err: RunnerError) -> ErrorSpan<Throwing> {
+    fn nid_err(&self, nid: impl Into<NodeId>, err: RunnerError) -> ErrorSpan<Throwing> {
         self.module
-            .span(nid)
+            .span(nid.into())
             .with_module(self.module.id)
             .with_error(err.into())
     }

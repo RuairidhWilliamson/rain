@@ -75,6 +75,12 @@ impl NodeList {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NodeId(usize);
 
+impl From<&Self> for NodeId {
+    fn from(value: &Self) -> Self {
+        *value
+    }
+}
+
 #[derive(Debug)]
 pub enum Node {
     ModuleRoot(ModuleRoot),

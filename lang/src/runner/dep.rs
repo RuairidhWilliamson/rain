@@ -15,8 +15,8 @@ pub enum Dep {
 impl Dep {
     pub fn is_intra_run_stable(&self) -> bool {
         match self {
-            Dep::Uncacheable => false,
-            Dep::LocalArea | Dep::Escape | Dep::Secret => true,
+            Self::Uncacheable => false,
+            Self::LocalArea | Self::Escape | Self::Secret => true,
         }
     }
 
