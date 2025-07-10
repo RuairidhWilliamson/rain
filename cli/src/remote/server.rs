@@ -463,12 +463,22 @@ fn run_core(
         .insert_module(Some(file), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(ir).into_owned())))?;
     let Some(main) = ir.resolve_global_declaration(mid, declaration) else {
-        let declarations = ir
+        const SUGGESTION_LIMIT: usize = 20;
+        let mut declarations: Vec<String> = ir
             .get_module(mid)
             .list_pub_fn_declaration_names()
-            .take(5)
+            .take(SUGGESTION_LIMIT)
             .map(std::borrow::ToOwned::to_owned)
             .collect();
+        if declarations.is_empty() {
+            // If there are no pub fns fallback to private fns
+            declarations = ir
+                .get_module(mid)
+                .list_fn_declaration_names()
+                .take(SUGGESTION_LIMIT)
+                .map(std::borrow::ToOwned::to_owned)
+                .collect();
+        }
         return Err(CoreError::UnknownDeclaration(declarations));
     };
     let mut runner = Runner::new(ir, cache, driver);

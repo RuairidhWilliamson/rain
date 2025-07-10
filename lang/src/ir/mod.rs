@@ -116,6 +116,14 @@ impl IrModule {
             .map(|(id, _)| LocalDeclarationId(id))
     }
 
+    pub fn list_fn_declaration_names(&self) -> impl Iterator<Item = &str> {
+        self.inner().declarations().filter_map(|node| match node {
+            Node::FnDeclare(fn_declare) => Some(fn_declare.name.span.contents(&self.src)),
+            Node::LetDeclare(_) => None,
+            _ => unreachable!(),
+        })
+    }
+
     pub fn list_pub_fn_declaration_names(&self) -> impl Iterator<Item = &str> {
         self.inner().declarations().filter_map(|node| match node {
             Node::FnDeclare(fn_declare) if fn_declare.pub_token.is_some() => {

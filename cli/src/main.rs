@@ -192,8 +192,11 @@ fn run(
                         .expect("write stdout");
                 }
                 CoreError::UnknownDeclaration(suggestions) => {
-                    let suggestions = suggestions.join(", ");
-                    eprintln!("unknown declaration \"{target}\", try one of: {suggestions}");
+                    let suggestions: String = suggestions
+                        .into_iter()
+                        .map(|s| format!("\t{s}\n"))
+                        .collect();
+                    eprintln!("unknown declaration \"{target}\", try one of:\n{suggestions}");
                 }
                 CoreError::Other(s) => {
                     eprintln!("{s}");
