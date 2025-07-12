@@ -58,48 +58,57 @@ impl PersistCache {
         Ok(serde_json::from_value(inner)?)
     }
 
-    #[expect(clippy::unwrap_used, clippy::missing_panics_doc)]
     pub fn save(self, path: &Path) -> Result<(), PersistCacheError> {
+        let path = path.canonicalize()?;
+        let Some(dir_path) = path.parent() else {
+            return Err(PersistCacheError::DoesNotExist);
+        };
         let p = PersistCacheWrapper {
             format_version: FORMAT_VERSION,
             inner: serde_json::to_value(self)?,
         };
         let serialized = serde_json::to_vec_pretty(&p)?;
-        std::fs::create_dir_all(path.parent().unwrap())?;
+        std::fs::create_dir_all(dir_path)?;
         std::fs::write(path, serialized)?;
         Ok(())
     }
 
-    pub fn persist(cache: &super::CacheCore) -> Self {
+    pub fn persist(cache: &super::CacheCore, stats: &super::CacheStats) -> Self {
         let entries = cache
             .storage
             .iter()
             .filter_map(|(k, e)| {
                 let Some(k) = PersistCacheKey::persist(k) else {
                     log::debug!("could not persist cache key {k:?}");
+                    stats.persist_fails.inc();
                     return None;
                 };
                 let Some(e) = PersistCacheEntry::persist(e) else {
                     log::debug!("could not persist cache entry {e:?}");
+                    stats.persist_fails.inc();
                     return None;
                 };
+                stats.persists.inc();
                 Some((k, e))
             })
             .collect();
         Self { entries }
     }
 
-    pub fn depersist(self, config: &Config) -> super::CacheCore {
+    pub fn depersist(self, config: &Config, stats: &super::CacheStats) -> super::CacheCore {
         let mut lru = lru::LruCache::new(super::CACHE_SIZE);
         for (k, e) in self.entries {
             let Some(k) = k.depersist(config) else {
                 log::warn!("could not depersist cache key for {e:?}");
+                stats.depersist_fails.inc();
                 continue;
             };
             let Some(e) = e.depersist(config) else {
                 log::warn!("could not depersist cache entry");
+                stats.depersist_fails.inc();
                 continue;
             };
+            stats.depersists.inc();
             lru.put(k, e);
         }
         super::CacheCore { storage: lru }

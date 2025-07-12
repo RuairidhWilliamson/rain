@@ -143,27 +143,27 @@ fn run(
             seal: options.seal,
             host_override: options.host.clone(),
         },
-        |im| {
-            if options.report != ReportMode::Short {
-                return;
-            }
-            match im {
-                RunProgress::Print(s) => eprintln!("\r{s:120}"),
-                RunProgress::EnterCall(s) => {
-                    if !s.starts_with("internal.") {
-                        stack.push(s);
+        |im| match options.report {
+            ReportMode::Short => {
+                match im {
+                    RunProgress::Print(s) => eprintln!("\r{s:120}"),
+                    RunProgress::EnterCall(s) => {
+                        if !s.starts_with("internal.") {
+                            stack.push(s);
+                        }
+                    }
+                    RunProgress::ExitCall(s) => {
+                        if !s.starts_with("internal.") {
+                            stack.pop();
+                        }
                     }
                 }
-                RunProgress::ExitCall(s) => {
-                    if !s.starts_with("internal.") {
-                        stack.pop();
-                    }
+                if let Some(last) = stack.last() {
+                    eprint!("\r{:120}", trunc_string(last, 120));
                 }
+                let _ = stderr().flush();
             }
-            if let Some(last) = stack.last() {
-                eprint!("\r{:120}", trunc_string(last, 120));
-            }
-            let _ = stderr().flush();
+            ReportMode::None => {}
         },
         mode,
     )

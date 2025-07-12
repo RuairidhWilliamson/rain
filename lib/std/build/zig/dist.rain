@@ -13,7 +13,6 @@ fn download(version, arch, os) {
 			utils._throw("download failed")
 		}
 		utils.get_file(utils.extract_zip(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
-		
 	} else {
 		url = "https://ziglang.org/download/" + version + "/zig-" + arch + "-" + os + "-" + version + ".tar.xz"
 		download_result = utils.download(url)

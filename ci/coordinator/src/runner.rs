@@ -57,7 +57,7 @@ impl Runner {
         runner.seal = true;
         tracing::info!("Running");
         let res = runner.evaluate_and_call(main, &[]);
-        let persistent_cache = PersistCache::persist(&self.cache.0.plock());
+        let persistent_cache = PersistCache::persist(&self.cache.core.plock(), &self.cache.stats);
         persistent_cache
             .save(&driver.config.cache_json_path())
             .unwrap();

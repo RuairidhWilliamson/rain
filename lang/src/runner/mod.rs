@@ -313,7 +313,14 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     deps: Vec::new(),
                     previous_line: None,
                 };
+                log::trace!("begin function call {:?} {:?}", m.id, function_name);
                 let result = self.evaluate_node(&mut callee_cx, fn_declare.block)?;
+                log::trace!(
+                    "end function call {:?} {:?} {:?}",
+                    m.id,
+                    function_name,
+                    start.elapsed()
+                );
                 self.driver.exit_call(function_name);
                 self.cache.put_if_slow(
                     key,
@@ -335,6 +342,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     .map(|&a| Ok((a, self.evaluate_node(cx, a)?)))
                     .collect::<Result<_, _>>()?;
                 self.driver.enter_internal_call(f);
+                log::trace!("internal function call {f:?} {arg_values:?}");
                 let v = f.call_internal_function(internal::InternalCx {
                     func: *f,
                     runner: self,

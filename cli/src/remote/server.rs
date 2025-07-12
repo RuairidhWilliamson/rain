@@ -221,9 +221,13 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
             }
             Ok(Err(err)) => Err(err),
             Ok(Ok(())) => {
-                log::warn!("cache size {}", self.server.cache.len());
-                let persistent_cache = PersistCache::persist(&self.server.cache.0.plock());
+                log::info!("cache size {}", self.server.cache.len());
+                let persistent_cache = PersistCache::persist(
+                    &self.server.cache.core.plock(),
+                    &self.server.cache.stats,
+                );
                 persistent_cache.save(&self.server.config.cache_json_path())?;
+                log::info!("cache stats {:#?}", self.server.cache.stats);
                 Ok(())
             }
         }
@@ -330,7 +334,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
 
     fn prune(&mut self, req: super::msg::prune::PruneRequest) -> Result<(), Error> {
         log::info!("Pruning");
-        let guard = self.server.cache.0.plock();
+        let guard = self.server.cache.core.plock();
         let connected = guard.get_all_generated_areas();
         let mut size = 0;
         for entry in std::fs::read_dir(&self.server.config.base_generated_dir)? {

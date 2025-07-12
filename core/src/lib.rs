@@ -2,7 +2,10 @@ pub mod cache;
 pub mod config;
 pub mod driver;
 
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 pub use rain_lang;
 
@@ -80,8 +83,15 @@ pub fn find_main_rain() -> Option<std::path::PathBuf> {
 }
 
 pub fn load_cache_or_default(config: &config::Config) -> cache::Cache {
+    let stats = cache::CacheStats::default();
     match cache::persistent::PersistCache::load(&config.cache_json_path()) {
-        Ok(p) => cache::Cache::new(p.depersist(config)),
+        Ok(p) => {
+            let core = p.depersist(config, &stats);
+            cache::Cache {
+                core: Arc::new(Mutex::new(core)),
+                stats: Arc::new(stats),
+            }
+        }
         Err(err) => {
             log::info!("failed to load persist cache: {err}");
             cache::Cache::default()

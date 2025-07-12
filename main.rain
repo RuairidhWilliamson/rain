@@ -1,7 +1,12 @@
 let area = internal._get_area(internal._module_file())
-let stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])
-let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
+let std = load_stdlib()
 let publish_module = internal._import(internal._get_file("./publish.rain"))
+
+fn load_stdlib() {
+	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])
+	std = internal._import(internal._get_file(stdlib_area, "std.rain"))
+	std
+}
 
 let print = std.utils.print
 let _import = std.utils._import
