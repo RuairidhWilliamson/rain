@@ -4,9 +4,53 @@ use crate::{
     afs::{entry::FSEntry, error::PathError},
     ast::error::ParseError,
     driver::FSEntryQueryResult,
+    error::{ResolvedError, ResolvedSpan},
+    ir::{DeclarationId, Rir},
+    span::ErrorSpan,
 };
 
 use super::value::{RainInteger, RainTypeId};
+
+#[derive(Debug)]
+pub struct ErrorTrace<E: std::error::Error> {
+    pub err_span: ErrorSpan<E>,
+    pub stacktrace: Vec<DeclarationId>,
+}
+
+impl<E: std::error::Error> ErrorTrace<E> {
+    pub fn resolve_ir<'a>(&'a self, ir: &'a Rir) -> ResolvedError<'a> {
+        let mut trace = Vec::new();
+        for s in &self.stacktrace {
+            let module = ir.get_module(s.module_id());
+            let span = module.get_declaration_name_span(s.local_id());
+            let file = module.file().ok();
+            let src = &module.src;
+            trace.push(ResolvedSpan { file, src, span });
+        }
+        let module = ir.get_module(self.err_span.span.module);
+        let file = module.file().ok();
+        let src = &module.src;
+        trace.push(ResolvedSpan {
+            file,
+            src,
+            span: self.err_span.span.span,
+        });
+        ResolvedError {
+            err: &self.err_span.err,
+            trace,
+        }
+    }
+
+    pub fn convert<T>(self) -> ErrorTrace<T>
+    where
+        T: From<E> + std::error::Error,
+    {
+        ErrorTrace {
+            err_span: self.err_span.convert(),
+            stacktrace: self.stacktrace,
+        }
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Throwing {

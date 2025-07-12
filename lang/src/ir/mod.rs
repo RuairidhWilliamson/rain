@@ -104,6 +104,14 @@ impl IrModule {
         *id
     }
 
+    pub fn get_declaration_name_span(&self, id: LocalDeclarationId) -> LocalSpan {
+        match self.get(self.get_declaration(id)) {
+            Node::LetDeclare(let_declare) => let_declare.name.span,
+            Node::FnDeclare(fn_declare) => fn_declare.name.span,
+            _ => unreachable!(),
+        }
+    }
+
     pub fn find_declaration_by_name(&self, name: &str) -> Option<LocalDeclarationId> {
         self.inner()
             .declarations()

@@ -1,7 +1,8 @@
 use crate::{
-    error::ResolvedError,
-    ir::{ModuleId, Rir},
+    error::{ResolvedError, ResolvedSpan},
+    ir::{DeclarationId, ModuleId, Rir},
     local_span::LocalSpan,
+    runner::error::ErrorTrace,
 };
 
 #[derive(Debug)]
@@ -23,15 +24,24 @@ pub struct ErrorSpan<E: std::error::Error> {
 }
 
 impl<E: std::error::Error> ErrorSpan<E> {
+    pub fn with_trace(self, stacktrace: Vec<DeclarationId>) -> ErrorTrace<E> {
+        ErrorTrace {
+            err_span: self,
+            stacktrace,
+        }
+    }
+
     pub fn resolve_ir<'a>(&'a self, ir: &'a Rir) -> ResolvedError<'a> {
         let module = ir.get_module(self.span.module);
         let file = module.file().ok();
         let src = &module.src;
         ResolvedError {
             err: &self.err,
-            file,
-            src,
-            span: self.span.span,
+            trace: vec![ResolvedSpan {
+                file,
+                src,
+                span: self.span.span,
+            }],
         }
     }
 

@@ -8,7 +8,7 @@ use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use cache::CacheEntry;
 use dep::Dep;
-use error::{RunnerError, Throwing};
+use error::{ErrorTrace, RunnerError, Throwing};
 use indexmap::IndexMap;
 use internal::InternalFunction;
 use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
@@ -21,13 +21,12 @@ use crate::{
     driver::DriverTrait,
     ir::{DeclarationId, IrModule, Rir},
     local_span::LocalSpan,
-    span::ErrorSpan,
 };
 
 const MAX_CALL_DEPTH: usize = 250;
 
 type ResultValue = Result<Value>;
-type Result<T, E = ErrorSpan<Throwing>> = core::result::Result<T, E>;
+type Result<T, E = ErrorTrace<Throwing>> = core::result::Result<T, E>;
 
 pub struct Cx<'a> {
     module: &'a Arc<IrModule>,
@@ -36,29 +35,36 @@ pub struct Cx<'a> {
     args: HashMap<&'a str, Value>,
     deps: Vec<dep::Dep>,
     previous_line: Option<Value>,
+    stacktrace: Vec<DeclarationId>,
 }
 
 impl<'a> Cx<'a> {
-    fn new(module: &'a Arc<IrModule>, args: HashMap<&'a str, Value>) -> Self {
+    fn new(
+        module: &'a Arc<IrModule>,
+        call_depth: usize,
+        args: HashMap<&'a str, Value>,
+        stacktrace: Vec<DeclarationId>,
+    ) -> Self {
         Self {
             module,
-            call_depth: 0,
+            call_depth,
             args,
             locals: HashMap::new(),
             deps: Vec::new(),
             previous_line: None,
+            stacktrace,
         }
     }
 
-    fn err(&self, s: impl Into<LocalSpan>, err: RunnerError) -> ErrorSpan<Throwing> {
-        s.into().with_module(self.module.id).with_error(err.into())
-    }
-
-    fn nid_err(&self, nid: impl Into<NodeId>, err: RunnerError) -> ErrorSpan<Throwing> {
-        self.module
-            .span(nid.into())
+    fn err(&self, s: impl Into<LocalSpan>, err: RunnerError) -> ErrorTrace<Throwing> {
+        s.into()
             .with_module(self.module.id)
             .with_error(err.into())
+            .with_trace(self.stacktrace.clone())
+    }
+
+    fn nid_err(&self, nid: impl Into<NodeId>, err: RunnerError) -> ErrorTrace<Throwing> {
+        self.err(self.module.span(nid.into()), err)
     }
 
     fn add_dep_file_area(&mut self, area: &FileArea) {
@@ -91,7 +97,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
 
     pub fn evaluate_and_call(&mut self, id: DeclarationId, args: &[String]) -> ResultValue {
         let m = &Arc::clone(self.ir.get_module(id.module_id()));
-        let mut initial_cx = Cx::new(m, HashMap::new());
+        let mut initial_cx = Cx::new(m, 0, HashMap::new(), Vec::new());
         let v = self.evaluate_declaration(&mut initial_cx, id)?;
         let Value::Function(f) = v else {
             return Ok(v);
@@ -102,13 +108,18 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         match node {
             Node::FnDeclare(fn_declare) => {
                 if fn_declare.args.len() != args.len() {
-                    return Err(fn_declare.rparen_token.span.with_module(m.id).with_error(
-                        RunnerError::IncorrectArgs {
-                            required: fn_declare.args.len()..=fn_declare.args.len(),
-                            actual: args.len(),
-                        }
-                        .into(),
-                    ));
+                    return Err(fn_declare
+                        .rparen_token
+                        .span
+                        .with_module(m.id)
+                        .with_error(
+                            RunnerError::IncorrectArgs {
+                                required: fn_declare.args.len()..=fn_declare.args.len(),
+                                actual: args.len(),
+                            }
+                            .into(),
+                        )
+                        .with_trace(Vec::new()));
                 }
                 let args = fn_declare
                     .args
@@ -121,7 +132,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         )
                     })
                     .collect();
-                let mut cx = Cx::new(m, args);
+                let mut cx = Cx::new(m, 0, args, vec![f]);
                 self.evaluate_node(&mut cx, fn_declare.block)
             }
             _ => unreachable!(),
@@ -134,14 +145,9 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         let node = m.get(nid);
         match node {
             Node::LetDeclare(let_declare) => {
-                let mut callee_cx = Cx {
-                    module: m,
-                    call_depth: cx.call_depth + 1,
-                    locals: HashMap::new(),
-                    args: HashMap::new(),
-                    deps: Vec::new(),
-                    previous_line: None,
-                };
+                let mut stacktrace = cx.stacktrace.clone();
+                stacktrace.push(id);
+                let mut callee_cx = Cx::new(m, cx.call_depth + 1, HashMap::new(), stacktrace);
                 let start = Instant::now();
                 let key = cache::CacheKey::Declaration {
                     declaration: id,
@@ -162,6 +168,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         value: result.clone(),
                     },
                 );
+                cx.deps.append(&mut callee_cx.deps);
                 Ok(result)
             }
             Node::FnDeclare(_) => Ok(Value::Function(id)),
@@ -194,12 +201,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
             Node::BinaryOp(binary_op) => self.evaluate_binary_op(cx, binary_op),
             Node::Ident(tls) => self
                 .resolve_ident(cx, tls.0.span.contents(&cx.module.src))?
-                .ok_or_else(|| {
-                    tls.0
-                        .span
-                        .with_module(cx.module.id)
-                        .with_error(RunnerError::UnknownIdent.into())
-                }),
+                .ok_or_else(|| cx.err(tls.0, RunnerError::UnknownIdent)),
             Node::InternalLiteral(_) => Ok(Value::Internal),
             Node::StringLiteral(lit) => match lit.prefix() {
                 Some(crate::tokens::StringLiteralPrefix::Format) => {
@@ -252,12 +254,12 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 let inner_value = self.evaluate_node(cx, *inner)?;
                 match inner_value {
                     Value::Boolean(b) => Ok(Value::Boolean(!b)),
-                    _ => Err(exclamation.with_module(cx.module.id).with_error(
+                    _ => Err(cx.err(
+                        exclamation,
                         RunnerError::ExpectedType {
                             actual: inner_value.rain_type_id(),
                             expected: &[RainTypeId::Boolean],
-                        }
-                        .into(),
+                        },
                     )),
                 }
             }
@@ -335,14 +337,9 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     .zip(arg_values)
                     .map(|(a, v)| (a.name.span.contents(&m.src), v))
                     .collect();
-                let mut callee_cx = Cx {
-                    module: m,
-                    call_depth: cx.call_depth + 1,
-                    args,
-                    locals: HashMap::new(),
-                    deps: Vec::new(),
-                    previous_line: None,
-                };
+                let mut stacktrace = cx.stacktrace.clone();
+                stacktrace.push(*f);
+                let mut callee_cx = Cx::new(m, cx.call_depth + 1, args, stacktrace);
                 log::trace!("begin function call {:?} {:?}", m.id, function_name);
                 let result = self.evaluate_node(&mut callee_cx, fn_declare.block)?;
                 log::trace!(
@@ -362,7 +359,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         value: result.clone(),
                     },
                 );
-                cx.deps.extend(callee_cx.deps);
+                cx.deps.append(&mut callee_cx.deps);
                 Ok(result)
             }
             Value::InternalFunction(f) => {
@@ -474,12 +471,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         }
     }
 
-    fn evaluate_dot_operator(
-        &mut self,
-        cx: &mut Cx,
-        op: &BinaryOp,
-        left: &Value,
-    ) -> std::result::Result<Value, ErrorSpan<Throwing>> {
+    fn evaluate_dot_operator(&mut self, cx: &mut Cx, op: &BinaryOp, left: &Value) -> ResultValue {
         match left {
             Value::Module(module_value) => match cx.module.get(op.right) {
                 Node::Ident(tls) => {

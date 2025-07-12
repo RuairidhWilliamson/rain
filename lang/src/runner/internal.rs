@@ -3,7 +3,7 @@
 mod download;
 mod run;
 
-use std::{collections::HashMap, ops::RangeInclusive, sync::Arc, time::Instant};
+use std::{ops::RangeInclusive, sync::Arc, time::Instant};
 
 use indexmap::IndexMap;
 use num_bigint::BigInt;
@@ -20,14 +20,13 @@ use crate::{
     },
     ast::{FnCall, Node, NodeId},
     driver::{DriverTrait, FSEntryQueryResult},
-    span::ErrorSpan,
 };
 
 use super::{
     Cx, Result, ResultValue,
     cache::{CacheEntry, CacheKey},
     dep::Dep,
-    error::RunnerError,
+    error::{RunnerError, Throwing},
     value::{RainInteger, RainList, RainRecord, RainTypeId, Value},
 };
 
@@ -451,7 +450,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             .runner
             .ir
             .insert_module(Some(f.as_ref().clone()), src, module)
-            .map_err(ErrorSpan::convert)?;
+            .map_err(|err| err.convert().with_trace(self.cx.stacktrace.clone()))?;
         let v = Value::Module(id);
         self.runner.cache.put(
             cache_key,
@@ -554,15 +553,14 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn throw(self) -> ResultValue {
-        match &self.arg_values[..] {
-            [(_, err_value)] => Err(self
-                .cx
-                .module
-                .span(self.nid)
-                .with_module(self.cx.module.id)
-                .with_error(super::error::Throwing::Recoverable(err_value.clone()))),
-            _ => self.incorrect_args(1..=1),
-        }
+        let (_, err_value) = single_arg!(self);
+        Err(self
+            .cx
+            .module
+            .span(self.nid)
+            .with_module(self.cx.module.id)
+            .with_error(Throwing::Recoverable(err_value.clone()))
+            .with_trace(self.cx.stacktrace.clone()))
     }
 
     fn sha256(self) -> ResultValue {
@@ -1033,14 +1031,9 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         .zip(arg_values)
                         .map(|(a, v)| (a.name.span.contents(&m.src), v))
                         .collect();
-                    let mut callee_cx = Cx {
-                        module: m,
-                        call_depth: self.cx.call_depth + 1,
-                        args,
-                        locals: HashMap::new(),
-                        deps: Vec::new(),
-                        previous_line: None,
-                    };
+                    let mut stacktrace = self.cx.stacktrace.clone();
+                    stacktrace.push(*func);
+                    let mut callee_cx = Cx::new(m, self.cx.call_depth + 1, args, stacktrace);
                     let result = self
                         .runner
                         .evaluate_node(&mut callee_cx, fn_declare.block)?;
@@ -1109,7 +1102,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             .runner
             .ir
             .insert_module(None, src, module)
-            .map_err(ErrorSpan::convert)?;
+            .map_err(|err| err.convert().with_trace(self.cx.stacktrace.clone()))?;
         let v = Value::Module(id);
         self.runner.cache.put(
             cache_key,

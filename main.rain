@@ -90,7 +90,3 @@ fn install_cli() {
 fn test() {
 	test_mod.test_caching()
 }
-
-fn foo() {
-	test_mod.test_create_file_cache()
-}

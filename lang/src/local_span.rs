@@ -2,7 +2,7 @@ use std::ops::{Add, AddAssign};
 
 use crate::{
     afs::file::File,
-    error::ResolvedError,
+    error::{ResolvedError, ResolvedSpan},
     ir::{ModuleId, Rir},
     span::{ErrorSpan, Span},
 };
@@ -128,6 +128,12 @@ impl LocalSpan {
     }
 }
 
+impl From<&Self> for LocalSpan {
+    fn from(value: &Self) -> Self {
+        *value
+    }
+}
+
 impl Add for LocalSpan {
     type Output = Self;
 
@@ -155,9 +161,11 @@ impl<E: std::error::Error> ErrorLocalSpan<E> {
     pub fn resolve<'a>(&'a self, file: Option<&'a File>, src: &'a str) -> ResolvedError<'a> {
         ResolvedError {
             err: &self.err,
-            file,
-            src,
-            span: self.span,
+            trace: vec![ResolvedSpan {
+                file,
+                src,
+                span: self.span,
+            }],
         }
     }
 
