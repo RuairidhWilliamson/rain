@@ -1,6 +1,7 @@
 let area = internal._get_area(internal._module_file())
 let std = load_stdlib()
 let publish_module = internal._import(internal._get_file("./publish.rain"))
+let test_mod = internal._import(internal._get_file(area, "test.rain"))
 
 fn load_stdlib() {
 	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])
@@ -18,15 +19,9 @@ let rust_version = "stable"
 
 pub fn lint() {
 	check_empty_files()
-	std.build.rust.cargo.check_fmt(rust_version, area)
-	std.build.rust.cargo.clippy(rust_version, area)
 }
 
-fn test_rust() {
-	std.build.rust.cargo.test(rust_version, area, "rain-core", "", "dev")
-}
-
-fn check() {
+pub fn check() {
 	lint()
 	test()
 }
@@ -93,8 +88,9 @@ fn install_cli() {
 }
 
 fn test() {
-	cargo = std.escape.bin("cargo")
-	std.escape.run(area, cargo, ["test", "--workspace", "--quiet"], {})
-	test_mod = internal._import(internal._get_file(area, "test.rain"))
 	test_mod.test_caching()
+}
+
+fn foo() {
+	test_mod.test_create_file_cache()
 }

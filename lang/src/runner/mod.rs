@@ -90,7 +90,9 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
     }
 
     pub fn evaluate_and_call(&mut self, id: DeclarationId, args: &[String]) -> ResultValue {
-        let v = self.evaluate_declaration(id)?;
+        let m = &Arc::clone(self.ir.get_module(id.module_id()));
+        let mut initial_cx = Cx::new(m, HashMap::new());
+        let v = self.evaluate_declaration(&mut initial_cx, id)?;
         let Value::Function(f) = v else {
             return Ok(v);
         };
@@ -126,13 +128,41 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         }
     }
 
-    pub fn evaluate_declaration(&mut self, id: DeclarationId) -> ResultValue {
+    pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> ResultValue {
         let m = &Arc::clone(self.ir.get_module(id.module_id()));
         let nid = m.get_declaration(id.local_id());
         let node = m.get(nid);
         match node {
             Node::LetDeclare(let_declare) => {
-                self.evaluate_node(&mut Cx::new(m, HashMap::new()), let_declare.expr)
+                let mut callee_cx = Cx {
+                    module: m,
+                    call_depth: cx.call_depth + 1,
+                    locals: HashMap::new(),
+                    args: HashMap::new(),
+                    deps: Vec::new(),
+                    previous_line: None,
+                };
+                let start = Instant::now();
+                let key = cache::CacheKey::Declaration {
+                    declaration: id,
+                    args: Vec::new(),
+                };
+                if let Some(cache_entry) = self.cache.get(&key) {
+                    cx.deps.extend(cache_entry.deps);
+                    return Ok(cache_entry.value);
+                }
+                let result = self.evaluate_node(&mut callee_cx, let_declare.expr)?;
+                self.cache.put_if_slow(
+                    key,
+                    CacheEntry {
+                        execution_time: start.elapsed(),
+                        expires: None,
+                        etag: None,
+                        deps: callee_cx.deps.clone(),
+                        value: result.clone(),
+                    },
+                );
+                Ok(result)
             }
             Node::FnDeclare(_) => Ok(Value::Function(id)),
             _ => unreachable!(),
@@ -247,7 +277,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         let Some(declaration_id) = self.ir.resolve_global_declaration(cx.module.id, ident) else {
             return Ok(None);
         };
-        Ok(Some(self.evaluate_declaration(declaration_id)?))
+        Ok(Some(self.evaluate_declaration(cx, declaration_id)?))
     }
 
     fn evaluate_fn_call(&mut self, cx: &mut Cx, nid: NodeId, fn_call: &FnCall) -> ResultValue {
@@ -457,7 +487,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     let Some(did) = self.ir.resolve_global_declaration(*module_value, name) else {
                         return Err(cx.err(tls.0.span, RunnerError::UnknownIdent));
                     };
-                    self.evaluate_declaration(did)
+                    self.evaluate_declaration(cx, did)
                 }
                 _ => Err(cx.err(
                     op.op_span,

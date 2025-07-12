@@ -9,6 +9,7 @@ let print = std.utils.print
 fn test_caching() {
 	test_prelude_cache()
 	test_rustc_cache()
+	test_create_file_cache()
 	test_import_cache()
 }
 
@@ -27,6 +28,14 @@ fn test_rustc_cache() {
 	bin1 = rustc_helloworld()
 	bin2 = rustc_helloworld()
 	std.assert.is_true(internal._rust_eq(bin1, bin2))
+}
+
+fn test_create_file_cache() {
+	contents = "hello world"
+	name = "helloworld.txt"
+	file1 = std.utils.create_file(contents, name)
+	file2 = std.utils.create_file(contents, name)
+	std.assert.is_true(internal._rust_eq(file1, file2))
 }
 
 fn test_import_cache() {

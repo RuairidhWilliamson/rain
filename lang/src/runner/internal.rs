@@ -677,12 +677,14 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             [contents, name] => {
                 let contents = expect_type!(self, String, contents);
                 let name = expect_type!(self, String, name);
-                Ok(Value::File(Arc::new(
-                    self.runner
-                        .driver
-                        .create_file(contents, name)
-                        .map_err(|err| self.cx.nid_err(self.nid, err))?,
-                )))
+                self.cache(|| {
+                    Ok(Value::File(Arc::new(
+                        self.runner
+                            .driver
+                            .create_file(contents, name)
+                            .map_err(|err| self.cx.nid_err(self.nid, err))?,
+                    )))
+                })
             }
             _ => self.incorrect_args(2..=2),
         }
