@@ -1,5 +1,7 @@
 #![allow(clippy::print_stderr, clippy::print_stdout, clippy::exit)]
 
+use std::fmt::Write as _;
+
 mod exe;
 mod remote;
 
@@ -159,7 +161,7 @@ fn run(
                 }
             }
             if let Some(last) = stack.last() {
-                eprint!("\r[ ] {:120}", trunc_string(last, 120));
+                eprint!("\r{:120}", trunc_string(last, 120));
             }
             let _ = stderr().flush();
         },
@@ -173,7 +175,7 @@ fn run(
         elapsed,
     } = run_response;
     if options.report == ReportMode::Short {
-        eprint!("\r[x] {:120}\r", "");
+        eprint!("\r{:120}\r", "");
     }
     match result {
         Ok(s) => {
@@ -192,10 +194,11 @@ fn run(
                         .expect("write stdout");
                 }
                 CoreError::UnknownDeclaration(suggestions) => {
-                    let suggestions: String = suggestions
-                        .into_iter()
-                        .map(|s| format!("\t{s}\n"))
-                        .collect();
+                    let suggestions: String =
+                        suggestions.into_iter().fold(String::new(), |mut acc, s| {
+                            let _ = writeln!(acc, "\t{s}");
+                            acc
+                        });
                     eprintln!("unknown declaration \"{target}\", try one of:\n{suggestions}");
                 }
                 CoreError::Other(s) => {

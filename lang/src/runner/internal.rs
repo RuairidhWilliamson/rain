@@ -71,6 +71,8 @@ pub enum InternalFunction {
     CreateTar,
     RustEq,
     GetSecret,
+    SetCacheNever,
+    ClearCacheDeps,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -120,6 +122,8 @@ impl InternalFunction {
             "_create_tar" => Some(Self::CreateTar),
             "_rust_eq" => Some(Self::RustEq),
             "_get_secret" => Some(Self::GetSecret),
+            "_set_cache_never" => Some(Self::SetCacheNever),
+            "_clear_cache_deps" => Some(Self::ClearCacheDeps),
             _ => None,
         }
     }
@@ -164,6 +168,8 @@ impl InternalFunction {
             Self::CreateTar => icx.create_tar(),
             Self::RustEq => icx.rust_eq(),
             Self::GetSecret => icx.get_secret(),
+            Self::SetCacheNever => icx.set_cache_never(),
+            Self::ClearCacheDeps => icx.clear_cache_deps(),
         }
     }
 }
@@ -1148,5 +1154,17 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             .get_secret(name)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
         Ok(Value::String(Arc::new(secret)))
+    }
+
+    fn set_cache_never(self) -> ResultValue {
+        self.no_args()?;
+        self.cx.deps.push(Dep::Uncacheable);
+        Ok(Value::Unit)
+    }
+
+    fn clear_cache_deps(self) -> ResultValue {
+        self.no_args()?;
+        self.cx.deps.clear();
+        Ok(Value::Unit)
     }
 }
