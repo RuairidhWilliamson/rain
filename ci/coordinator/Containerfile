@@ -8,6 +8,8 @@ ENV \
     CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse \
     CARGO_BUILD_TARGET_DIR=/target
 
+FROM base as build
+
 # Install cargo chef
 COPY --from=docker.io/lukemathwalker/cargo-chef:0.1.71-rust-latest /usr/local/cargo/bin/cargo-chef /root/.cargo/bin/cargo-chef
 
@@ -16,6 +18,9 @@ COPY . .
 # Build the rain-ci server
 RUN cargo install --path ci/coordinator --locked
 
+FROM base as rain
+
+COPY --from=build /usr/local/cargo/bin/rain-ci-coordinator /usr/local/cargo/bin/rain-ci-coordinator
 ENV \
   RUST_LOG=info \
   ADDR=0.0.0.0:7778
