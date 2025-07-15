@@ -1,9 +1,11 @@
 mod runner;
 
-use std::{path::PathBuf, sync::Arc, time::Instant};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Instant};
 
 use anyhow::{Context as _, Result, anyhow};
+use axum::{Router, extract::State, routing::post};
 use chrono::Utc;
+use http::StatusCode;
 use http_body_util::BodyExt as _;
 use jsonwebtoken::EncodingKey;
 use octocrab::{
@@ -18,16 +20,16 @@ use octocrab::{
     },
     params::checks::{CheckRunOutput, CheckRunStatus},
 };
+use tokio::net::TcpListener;
 use webhook_forwarder::{HeaderMap, MessageHandler};
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
+    addr: SocketAddr,
     github_app_id: AppId,
     github_app_key: PathBuf,
     github_webhook_secret: String,
     target_url: url::Url,
-    whf_server: Option<url::Url>,
-    whf_channel_url: Option<url::Url>,
 }
 
 #[expect(clippy::unwrap_used)]
@@ -57,6 +59,8 @@ async fn main() -> Result<()> {
     let perms = &installs.items.first().unwrap().permissions;
     tracing::info!("{perms:?}");
 
+    let listener = TcpListener::bind(&config.addr).await?;
+
     let runner = runner::Runner::new();
     let handler = Handler {
         inner: Arc::new(HandlerInner {
@@ -65,30 +69,31 @@ async fn main() -> Result<()> {
             runner,
         }),
     };
-    let mut channel;
-    if let Some(channel_url) = handler.inner.config.whf_channel_url.as_ref() {
-        channel = webhook_forwarder::Channel::from_existing_channel(channel_url.clone(), handler);
-    } else {
-        channel = webhook_forwarder::Channel::new(
-            handler
-                .inner
-                .config
-                .whf_server
-                .clone()
-                .context("whf server not set")?,
-            handler,
-        )
-        .await
-        .unwrap();
-    }
-    let channel_url = channel.get_channel_url().to_string();
-    tracing::info!("got channel url = {channel_url}");
 
-    tokio::select! {
-        res = channel.start() => {res?}
-        () = wait_signal()? => {}
-    }
+    axum::serve(
+        listener,
+        Router::new()
+            .route("/webhook/github", post(handle_raw_webhook))
+            .with_state(handler),
+    )
+    .with_graceful_shutdown(wait_signal()?)
+    .await?;
     Ok(())
+}
+
+async fn handle_raw_webhook(
+    headers: axum::http::HeaderMap,
+    State(handler): State<Handler>,
+    body: axum::body::Bytes,
+) -> StatusCode {
+    let headers = headers
+        .iter()
+        .map(|(k, v)| (k.as_str().to_owned(), v.as_bytes().to_vec()))
+        .collect();
+    if let Err(err) = handler.handle(headers, body[..].to_vec()).await {
+        tracing::error!("handler error {err:#}");
+    }
+    StatusCode::OK
 }
 
 // Intermediate structure allows to separate the common fields from
@@ -103,6 +108,7 @@ struct Intermediate {
     specific: serde_json::Value,
 }
 
+#[derive(Clone)]
 struct Handler {
     inner: Arc<HandlerInner>,
 }
