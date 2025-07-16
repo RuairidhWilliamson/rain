@@ -6,10 +6,33 @@
 "let" @keyword.storage.type
 "fn" @keyword.function
 "pub" @keyword
-["if" "else"] @keyword.control.conditional
-["=" "!" "==" "!=" "<" ">" "<=" ">=" "&&" "||" "+" "*" "-" "/"] @operator
-[","] @punctuation.delimiter
-["(" ")" "[" "]" "{" "}"] @punctuation.bracket
+
+"if" @keyword.control.conditional
+"else" @keyword.control.conditional
+
+"=" @operator
+"!" @operator
+"==" @operator
+"!=" @operator
+"<" @operator
+">" @operator
+"<=" @operator
+">=" @operator
+"&&" @operator
+"||" @operator
+"+" @operator
+"*" @operator
+"-" @operator
+"/" @operator
+
+"," @punctuation.delimiter
+
+"(" @punctuation.bracket
+")" @punctuation.bracket
+"[" @punctuation.bracket
+"]" @punctuation.bracket
+"{" @punctuation.bracket
+"}" @punctuation.bracket
 
 (fn_declare (identifier) @function)
 (fn_call (expr) @function)
