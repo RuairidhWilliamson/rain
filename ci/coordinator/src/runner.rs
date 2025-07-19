@@ -9,6 +9,7 @@ use rain_lang::{
     afs::{dir::Dir, entry::FSEntry, file::File, path::FilePath},
     driver::{DriverTrait as _, FSTrait as _},
 };
+use tracing::{error, info};
 
 #[derive(Clone)]
 pub struct Runner {
@@ -37,7 +38,7 @@ impl Runner {
         let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
         let area = driver.create_area(&[&root]).unwrap();
         let root_entry = FSEntry::new(area, FilePath::new("/main.rain").unwrap());
-        tracing::info!("Root entry {root_entry}");
+        info!("Root entry {root_entry}");
         let root = File::new_checked(&driver, root_entry).unwrap();
         let src = driver.read_file(&root).unwrap();
         let module = rain_lang::ast::parser::parse_module(&src);
@@ -45,7 +46,7 @@ impl Runner {
             Ok(mid) => mid,
             Err(err) => {
                 let err = err.resolve_ir(&ir);
-                tracing::error!("\n{err}");
+                error!("\n{err}");
                 return RunComplete {
                     success: false,
                     output: format!("{err}"),
@@ -55,25 +56,25 @@ impl Runner {
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &self.cache, &driver);
         runner.seal = true;
-        tracing::info!("Running");
+        info!("Running");
         let res = runner.evaluate_and_call(main, &[]);
         let persistent_cache = PersistCache::persist(&self.cache.core.plock(), &self.cache.stats);
-        let cache_path = driver.config.cache_json_path();
-        std::fs::create_dir_all(cache_path.parent().unwrap()).unwrap();
-        persistent_cache.save(&cache_path).unwrap();
+        if let Err(err) = persistent_cache.save(&driver.config.cache_json_path()) {
+            error!("save persist cache failed: {err:#}");
+        }
         let prints = strip_ansi_escapes::strip_str(driver.prints.plock().join("\n"));
         match res {
             Ok(value) => {
-                tracing::info!("Value {value}");
+                info!("Value {value}");
                 RunComplete {
                     success: true,
                     output: format!("{prints}\n--\n{value:#}"),
                 }
             }
             Err(err) => {
-                tracing::error!("{err:?}");
+                error!("{err:?}");
                 let err = err.resolve_ir(&ir);
-                tracing::error!("\n{err}");
+                error!("\n{err}");
                 RunComplete {
                     success: false,
                     output: format!("{prints}\n--\n{err}"),
