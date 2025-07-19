@@ -58,9 +58,9 @@ impl Runner {
         tracing::info!("Running");
         let res = runner.evaluate_and_call(main, &[]);
         let persistent_cache = PersistCache::persist(&self.cache.core.plock(), &self.cache.stats);
-        persistent_cache
-            .save(&driver.config.cache_json_path())
-            .unwrap();
+        let cache_path = driver.config.cache_json_path();
+        std::fs::create_dir_all(cache_path.parent().unwrap()).unwrap();
+        persistent_cache.save(&cache_path).unwrap();
         let prints = strip_ansi_escapes::strip_str(driver.prints.plock().join("\n"));
         match res {
             Ok(value) => {
