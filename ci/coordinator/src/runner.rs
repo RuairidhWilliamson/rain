@@ -15,13 +15,18 @@ use tracing::{error, info};
 pub struct Runner {
     config: Arc<Config>,
     cache: Cache,
+    seal: bool,
 }
 
 impl Runner {
-    pub fn new() -> Self {
+    pub fn new(seal: bool) -> Self {
         let config = Arc::new(rain_core::config::Config::new());
         let cache = rain_core::load_cache_or_default(&config);
-        Self { config, cache }
+        Self {
+            config,
+            cache,
+            seal,
+        }
     }
 
     #[expect(clippy::unwrap_used, clippy::cognitive_complexity)]
@@ -55,7 +60,7 @@ impl Runner {
         };
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &self.cache, &driver);
-        runner.seal = true;
+        runner.seal = self.seal;
         info!("Running");
         let res = runner.evaluate_and_call(main, &[]);
         let persistent_cache = PersistCache::persist(&self.cache.core.plock(), &self.cache.stats);

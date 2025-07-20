@@ -30,6 +30,7 @@ struct Config {
     github_app_key: PathBuf,
     github_webhook_secret: String,
     target_url: url::Url,
+    seal: bool,
 }
 
 #[expect(clippy::unwrap_used)]
@@ -61,7 +62,7 @@ async fn main() -> Result<()> {
 
     let listener = TcpListener::bind(&config.addr).await?;
 
-    let runner = runner::Runner::new();
+    let runner = runner::Runner::new(config.seal);
     let handler = Handler {
         inner: Arc::new(HandlerInner {
             crab: crab.clone(),
@@ -128,13 +129,12 @@ impl MessageHandler for Handler {
                 .context("x-github-event header not present")?,
         )
         .context("x-github-event header is not a string")?;
-        let header = github_event_header;
         // NOTE: this is inefficient code to simply reuse the code from "derived" serde::Deserialize instead
         // of writing specific deserialization code for the enum.
-        let kind = if header.starts_with('"') {
-            serde_json::from_str::<WebhookEventType>(header)?
+        let kind = if github_event_header.starts_with('"') {
+            serde_json::from_str::<WebhookEventType>(github_event_header)?
         } else {
-            serde_json::from_str::<WebhookEventType>(&format!("\"{header}\""))?
+            serde_json::from_str::<WebhookEventType>(&format!("\"{github_event_header}\""))?
         };
 
         let Intermediate {
