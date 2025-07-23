@@ -219,7 +219,7 @@ impl Drop for Call<'_> {
 }
 
 #[must_use]
-fn enter_call(driver: &dyn DriverTrait, s: String) -> Call {
+fn enter_call(driver: &dyn DriverTrait, s: String) -> Call<'_> {
     driver.enter_call(&s);
     Call { driver, s }
 }

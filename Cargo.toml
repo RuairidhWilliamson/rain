@@ -80,7 +80,6 @@ thiserror = "2.0"
 toml = "0.8.20"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-url = "2.5.2"
+url = { version = "2.5.2", features = ["serde"] }
 uuid = { version = "1.8", features = ["v4", "fast-rng", "js", "serde"] }
-web-time = "1.1.0"
 indexmap = { version = "2.8.0", features = ["serde"] }
