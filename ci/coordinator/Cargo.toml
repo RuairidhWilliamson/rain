@@ -19,9 +19,6 @@ octocrab = { version = "0.44.0" }
 serde_json.workspace = true
 serde.workspace = true
 webhook-forwarder = { git = "https://github.com/RuairidhWilliamson/webhook-forwarder.git", default-features = false }
-tokio = { version = "1.36.0", features = ["full"] }
-tracing-subscriber.workspace = true
-tracing.workspace = true
 url.workspace = true
 rain-core = { path = "../../core" }
 rain-lang = { path = "../../lang" }
@@ -32,10 +29,11 @@ poison_panic.path = "../../poison_panic"
 ring = { version = "0.17.14", features = ["std"] }
 jsonwebtoken = { version = "9.3.1", default-features = false , features = ["use_pem"]}
 chrono.workspace = true
-sha2 = "0.10.8"
 hex = "0.4.3"
-cmov = "0.3.1"
 strip-ansi-escapes = "0.2.1"
-hyper = { version = "1.6.0", features = ["full"] }
 http = "1"
-axum = "0.8.4"
+log.workspace = true
+httparse = "1.10.1"
+env_logger.workspace = true
+ureq = { version = "3.0.12", features = ["json"] }
+ipnet = { version = "2.11.0", features = ["serde"] }

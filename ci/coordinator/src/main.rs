@@ -1,32 +1,26 @@
+mod github;
 mod runner;
 
-use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    borrow::Cow,
+    io::{Read as _, Write as _},
+    net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream},
+    path::PathBuf,
+    sync::Mutex,
+    time::Duration,
+};
 
 use anyhow::{Context as _, Result, anyhow};
-use axum::{Router, extract::State, routing::post};
-use chrono::Utc;
-use http::StatusCode;
-use http_body_util::BodyExt as _;
+use httparse::Request;
+use ipnet::IpNet;
 use jsonwebtoken::EncodingKey;
-use octocrab::{
-    OctocrabBuilder,
-    models::{
-        AppId, Author, InstallationId, Repository,
-        orgs::Organization,
-        webhook_events::{
-            EventInstallation, WebhookEventPayload, WebhookEventType,
-            payload::CheckSuiteWebhookEventAction,
-        },
-    },
-    params::checks::{CheckRunOutput, CheckRunStatus},
-};
-use tokio::net::TcpListener;
-use webhook_forwarder::{HeaderMap, MessageHandler};
+use log::{error, info, warn};
+use poison_panic::MutexExt as _;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
     addr: SocketAddr,
-    github_app_id: AppId,
+    github_app_id: github::model::AppId,
     github_app_key: PathBuf,
     github_webhook_secret: String,
     target_url: url::Url,
@@ -34,357 +28,235 @@ struct Config {
 }
 
 #[expect(clippy::unwrap_used)]
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let dotenv_result = dotenvy::dotenv();
-    tracing_subscriber::fmt::init();
+    env_logger::init();
     if let Err(err) = dotenv_result {
-        tracing::warn!(".env could not be loaded: {err:#}");
+        warn!(".env could not be loaded: {err:#}");
     }
     let config = envy::from_env::<Config>()?;
 
-    let key_raw = tokio::fs::read(&config.github_app_key).await.unwrap();
+    let key_raw = std::fs::read(&config.github_app_key).unwrap();
     let key = EncodingKey::from_rsa_pem(&key_raw).unwrap();
 
-    octocrab::auth::AppAuth {
+    let github_client = github::AppClient::new(github::AppAuth {
         app_id: config.github_app_id,
-        key: key.clone(),
-    }
-    .generate_bearer_token()
-    .unwrap();
-
-    let crab = OctocrabBuilder::new()
-        .app(config.github_app_id, key)
-        .build()?;
-    let installs = crab.apps().installations().send().await.unwrap();
-    let perms = &installs.items.first().unwrap().permissions;
-    tracing::info!("{perms:?}");
-
-    let listener = TcpListener::bind(&config.addr).await?;
+        key,
+    });
 
     let runner = runner::Runner::new(config.seal);
-    let handler = Handler {
-        inner: Arc::new(HandlerInner {
-            crab: crab.clone(),
-            config,
-            runner,
-        }),
+
+    let ipnets = [IpNet::from(IpAddr::V4(Ipv4Addr::LOCALHOST))];
+    let allowed_ipnets = Some(&ipnets);
+    let listener = std::net::TcpListener::bind(config.addr)?;
+    let server = Server {
+        config,
+        github_client,
+        runner: Mutex::new(runner),
     };
-
-    axum::serve(
-        listener,
-        Router::new()
-            .route("/webhook/github", post(handle_raw_webhook))
-            .with_state(handler),
-    )
-    .with_graceful_shutdown(wait_signal()?)
-    .await?;
-    Ok(())
-}
-
-async fn handle_raw_webhook(
-    headers: axum::http::HeaderMap,
-    State(handler): State<Handler>,
-    body: axum::body::Bytes,
-) -> StatusCode {
-    let headers = headers
-        .iter()
-        .map(|(k, v)| (k.as_str().to_owned(), v.as_bytes().to_vec()))
-        .collect();
-    if let Err(err) = handler.handle(headers, body[..].to_vec()).await {
-        tracing::error!("handler error {err:#}");
+    loop {
+        let (stream, addr) = listener.accept()?;
+        if let Some(allowed_ipnets) = allowed_ipnets {
+            if !allowed_ipnets
+                .iter()
+                .any(|ipnet| ipnet.contains(&addr.ip()))
+            {
+                continue;
+            }
+        }
+        if let Err(err) = server.handle_connection(stream, addr) {
+            error!("handle connection: {err:#}");
+        }
     }
-    StatusCode::OK
 }
 
-// Intermediate structure allows to separate the common fields from
-// the event specific one.
-#[derive(serde::Deserialize)]
-struct Intermediate {
-    sender: Option<Author>,
-    repository: Option<Repository>,
-    organization: Option<Organization>,
-    installation: Option<EventInstallation>,
-    #[serde(flatten)]
-    specific: serde_json::Value,
-}
-
-#[derive(Clone)]
-struct Handler {
-    inner: Arc<HandlerInner>,
-}
-
-struct HandlerInner {
-    crab: octocrab::Octocrab,
+struct Server {
     config: Config,
-    runner: runner::Runner,
+    github_client: github::AppClient,
+    runner: Mutex<runner::Runner>,
 }
 
-impl MessageHandler for Handler {
-    async fn handle(&self, headers: HeaderMap, body: Vec<u8>) -> Result<()> {
-        verify_webhook_signature(&headers, &body, &self.inner.config.github_webhook_secret)?;
-        let github_event_header = str::from_utf8(
-            headers
-                .get("x-github-event")
-                .context("x-github-event header not present")?,
-        )
-        .context("x-github-event header is not a string")?;
-        // NOTE: this is inefficient code to simply reuse the code from "derived" serde::Deserialize instead
-        // of writing specific deserialization code for the enum.
-        let kind = if github_event_header.starts_with('"') {
-            serde_json::from_str::<WebhookEventType>(github_event_header)?
-        } else {
-            serde_json::from_str::<WebhookEventType>(&format!("\"{github_event_header}\""))?
-        };
-
-        let Intermediate {
-            sender,
-            repository,
-            organization,
-            installation,
-            specific,
-        } = serde_json::from_slice(&body)?;
-
-        let specific = kind.parse_specific_payload(specific)?;
-
-        let event = WebhookEvent {
-            sender,
-            repository,
-            organization,
-            installation,
-            kind,
-            specific,
-        };
-        let handler = Arc::clone(&self.inner);
-        tokio::spawn(async move {
-            if let Err(err) = Box::pin(handler.handle_hook(event)).await {
-                tracing::error!("handle_hook error: {err:#}");
-            }
-        });
-
-        Ok(())
-    }
-}
-/// A GitHub webhook event.
-///
-/// The structure is separated in common fields and specific fields, so you can
-/// always access the common values without needing to match the exact variant.
-#[derive(Debug, Clone, PartialEq, serde::Serialize)]
-pub struct WebhookEvent {
-    pub sender: Option<Author>,
-    pub repository: Option<Repository>,
-    pub organization: Option<Organization>,
-    pub installation: Option<EventInstallation>,
-    #[serde(skip)]
-    pub kind: WebhookEventType,
-    #[serde(flatten)]
-    pub specific: WebhookEventPayload,
-}
-
-fn verify_webhook_signature(headers: &HeaderMap, body: &[u8], secret: &str) -> Result<()> {
-    let github_signature_header = str::from_utf8(
-        headers
-            .get("x-hub-signature-256")
-            .context("x-hub-signature-256 header not present")?,
-    )
-    .context("x-hub-signature-256 header is not a string")?;
-    let (algo, sig_hex) = github_signature_header
-        .split_once('=')
-        .context("header does not contain =")?;
-    if algo != "sha256" {
-        return Err(anyhow!("unknown algorithm"));
-    }
-    let sig = hex::decode(sig_hex).context("decode signature hex")?;
-    let key = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, secret.as_bytes());
-    ring::hmac::verify(&key, body, &sig).context("verify signature")?;
-    Ok(())
-}
-
-impl HandlerInner {
-    fn get_installation_id(event: &WebhookEvent) -> Option<InstallationId> {
-        match &event.installation {
-            Some(EventInstallation::Full(installation)) => Some(installation.id),
-            Some(EventInstallation::Minimal(event_installation_id)) => {
-                Some(event_installation_id.id)
-            }
-            None => None,
+impl Server {
+    fn handle_connection(&self, mut stream: TcpStream, addr: SocketAddr) -> Result<()> {
+        const OK_REPSONSE: &str = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+        stream.set_read_timeout(Some(Duration::from_secs(1)))?;
+        info!("Connection {addr:?}");
+        let mut headers = [httparse::EMPTY_HEADER; 64];
+        let mut request = Request::new(&mut headers);
+        let mut buffer = [0u8; 1024];
+        let len = stream.read(&mut buffer)?;
+        let buffer = &buffer[..len];
+        let parsed = request.parse(buffer)?;
+        if parsed.is_partial() {
+            return Err(anyhow!("partial http request"));
         }
-    }
-
-    async fn handle_hook(self: Arc<Self>, event: WebhookEvent) -> Result<()> {
-        let installation_id = Self::get_installation_id(&event);
-        let repository = event.repository.context("no repository")?;
-        match event.specific {
-            WebhookEventPayload::Push(_push_event) => {
-                tracing::info!("webhook push event");
-            }
-            WebhookEventPayload::Ping(_) => {
-                tracing::info!("webhook ping event");
-            }
-            WebhookEventPayload::CheckSuite(suite_event) => {
-                self.handle_check_suite(installation_id, repository, suite_event)
-                    .await?;
-            }
-            WebhookEventPayload::CheckRun(_run_event) => {
-                tracing::info!("check run event");
-            }
-            _ => {
-                tracing::warn!("unknown webhook event {kind:?}", kind = event.kind);
-            }
-        }
+        let handle_res = self.handle_request(&request, &mut stream, &buffer[parsed.unwrap()..]);
+        let write_res = stream.write_all(OK_REPSONSE.as_bytes());
+        handle_res?;
+        write_res?;
         Ok(())
     }
 
-    async fn handle_check_suite(
-        self: Arc<Self>,
-        installation_id: Option<octocrab::models::InstallationId>,
-        repository: Repository,
-        suite_event: Box<octocrab::models::webhook_events::payload::CheckSuiteWebhookEventPayload>,
-    ) -> Result<(), anyhow::Error> {
-        tracing::info!("check suite event {:?}", suite_event.action);
-        match suite_event.action {
-            CheckSuiteWebhookEventAction::Rerequested | CheckSuiteWebhookEventAction::Requested => {
-            }
-            _ => return Ok(()),
-        }
-        let installation = self
-            .crab
-            .installation(installation_id.context("installation_id not present")?)?;
-        let owner = &repository.owner.context("no owner")?.login;
-        let repo = &repository.name;
-        let head_sha = suite_event
-            .check_suite
-            .get("head_sha")
-            .context("head_sha not present")?
-            .as_str()
-            .context("head_sha not string")?;
-        Self::handle_check_suite_request(
-            &self.runner,
-            installation,
-            &self.config.target_url,
-            owner,
-            repo,
-            head_sha,
-        )
-        .await?;
-        Ok(())
-    }
-
-    async fn handle_check_suite_request(
-        runner: &runner::Runner,
-        installation_crab: octocrab::Octocrab,
-        target_url: &url::Url,
-        owner: &str,
-        repo: &str,
-        head_sha: &str,
+    fn handle_request(
+        &self,
+        request: &Request,
+        stream: &mut TcpStream,
+        body_prefix: &[u8],
     ) -> Result<()> {
-        let check_run_name = "rain-test";
-        let checks = installation_crab.checks(owner, repo);
-        let check_run = checks
-            .create_check_run(check_run_name, head_sha)
-            .status(CheckRunStatus::Queued)
-            .details_url(target_url.to_string())
-            .output(CheckRunOutput {
-                title: String::from("Rain CI Run"),
-                summary: String::from("Summary..."),
-                text: None,
-                annotations: vec![],
-                images: vec![],
-            })
-            .send()
-            .await?;
-        let check_run = checks
-            .update_check_run(check_run.id)
-            .status(CheckRunStatus::InProgress)
-            .details_url(target_url.to_string())
-            .output(CheckRunOutput {
-                title: String::from("Rain CI Run"),
-                summary: String::from("Summary..."),
-                text: None,
-                annotations: vec![],
-                images: vec![],
-            })
-            .send()
-            .await?;
-        let start = Instant::now();
-        let download = installation_crab
-            .repos(owner, repo)
-            .download_tarball(head_sha.to_owned())
-            .await?;
-        let download = download.collect().await?.to_bytes();
-        let runner::RunComplete { success, output } =
-            Self::run(runner, &download, owner, repo, head_sha).await;
-        let conclusion = if success {
-            octocrab::params::checks::CheckRunConclusion::Success
+        match request.version {
+            Some(1) => {}
+            v => return Err(anyhow!("invalid http version: {v:?}")),
+        }
+        match request.path {
+            Some("/webhook/github") => self.handle_github(request, stream, body_prefix),
+            _ => Err(anyhow!("bad path")),
+        }
+    }
+
+    fn handle_github(
+        &self,
+        request: &Request,
+        stream: &mut TcpStream,
+        body_prefix: &[u8],
+    ) -> Result<()> {
+        let content_type = find_header(request, "Content-Type").context("missing content type")?;
+        if content_type != b"application/json" {
+            return Err(anyhow!("unexpected content type"));
+        }
+        let user_agent = find_header(request, "User-Agent").context("missing user agent")?;
+        if !user_agent.starts_with(b"GitHub-Hookshot/") {
+            return Err(anyhow!("unexpected user agent"));
+        }
+        let raw_body = get_body(request, stream, body_prefix)?;
+        self.verify_webhook_signature(request, &raw_body)?;
+
+        let event_kind = std::str::from_utf8(
+            find_header(request, "x-github-event").context("missing github event kind")?,
+        )?;
+
+        if event_kind != "check_suite" {
+            return Err(anyhow!("unexpected event kind: {event_kind:?}"));
+        }
+
+        let check_suite_event: github::model::CheckSuiteEvent = serde_json::from_slice(&raw_body)?;
+
+        let installation_client = self
+            .github_client
+            .auth_installation(check_suite_event.installation.id)?;
+        info!("Received {check_suite_event:?}");
+
+        let owner = &check_suite_event.repository.owner.login;
+        let repo = &check_suite_event.repository.name;
+        let head_sha = &check_suite_event.check_suite.head_sha;
+
+        let check_run = installation_client
+            .create_check_run(
+                owner,
+                repo,
+                github::model::CreateCheckRun {
+                    name: String::from("rainci"),
+                    head_sha: head_sha.into(),
+                    status: github::model::Status::Queued,
+                    details_url: Some(self.config.target_url.to_string()),
+                    output: None,
+                },
+            )
+            .context("create check run")?;
+        info!("Created check run {check_run:#?}");
+
+        let runner = self.runner.plock();
+
+        installation_client
+            .update_check_run(
+                owner,
+                repo,
+                check_run.id,
+                github::model::PatchCheckRun {
+                    status: Some(github::model::Status::InProgress),
+                    ..Default::default()
+                },
+            )
+            .context("update check run")?;
+
+        let download = installation_client
+            .download_repo_tar(owner, repo, head_sha)
+            .context("download repo")?;
+        let download_dir_name = format!("{owner}-{repo}-{head_sha}");
+        let run_complete = runner.run(&download, &download_dir_name);
+
+        let conclusion = if run_complete.success {
+            github::model::CheckRunConclusion::Success
         } else {
-            octocrab::params::checks::CheckRunConclusion::Failure
+            github::model::CheckRunConclusion::Failure
         };
-        let elapsed = start.elapsed();
-        checks
-            .update_check_run(check_run.id)
-            .status(CheckRunStatus::Completed)
-            .conclusion(conclusion)
-            .completed_at(Utc::now())
-            .details_url(target_url.to_string())
-            .output(CheckRunOutput {
-                title: String::from("Rain CI Run"),
-                summary: format!("Completed in {elapsed:.01?}"),
-                text: Some(format!("```\n{output}\n```")),
-                annotations: vec![],
-                images: vec![],
-            })
-            .send()
-            .await?;
+        installation_client
+            .update_check_run(
+                owner,
+                repo,
+                check_run.id,
+                github::model::PatchCheckRun {
+                    status: Some(github::model::Status::Completed),
+                    conclusion: Some(conclusion),
+                    output: Some(github::model::CheckRunOutput {
+                        title: String::from("rain run"),
+                        summary: String::from("rain run complete"),
+                        text: run_complete.output,
+                    }),
+                    ..Default::default()
+                },
+            )
+            .context("update check run")?;
+
         Ok(())
     }
 
-    async fn run(
-        runner: &runner::Runner,
-        download: &[u8],
-        owner: &str,
-        repo: &str,
-        head_sha: &str,
-    ) -> runner::RunComplete {
-        // Need to do this to satisfy static lifetime
-        let download = download.to_vec();
-        let download_dir_name = format!("{owner}-{repo}-{head_sha}");
-        let runner = runner.clone();
-        tokio::task::spawn_blocking(move || runner.run(&download, &download_dir_name))
-            .await
-            .unwrap_or_else(|err| {
-                tracing::error!("panic: {err}");
-                runner::RunComplete {
-                    success: false,
-                    output: "something panicked!".into(),
-                }
-            })
+    fn verify_webhook_signature(&self, request: &Request, body: &[u8]) -> Result<()> {
+        let raw_signature =
+            find_header(request, "x-hub-signature-256").context("signature not present")?;
+        let signature = std::str::from_utf8(raw_signature)?;
+        let (algo, sig_hex) = signature
+            .split_once('=')
+            .context("header does not contain =")?;
+        if algo != "sha256" {
+            return Err(anyhow!("unknown algorithm"));
+        }
+        let sig = hex::decode(sig_hex).context("decode signature hex")?;
+        let key = ring::hmac::Key::new(
+            ring::hmac::HMAC_SHA256,
+            self.config.github_webhook_secret.as_bytes(),
+        );
+        ring::hmac::verify(&key, body, &sig).context("verify signature")?;
+        Ok(())
     }
 }
 
-#[cfg(target_family = "windows")]
-fn wait_signal() -> Result<impl Future<Output = ()>> {
-    use tokio::signal::windows;
-    let mut ctrl_c = windows::ctrl_c()?;
-    Ok(async move {
-        ctrl_c.recv().await;
-        tracing::warn!("caught CTRL+C, exiting...");
-    })
+fn find_header<'buf>(request: &Request<'_, 'buf>, header_name: &str) -> Option<&'buf [u8]> {
+    request
+        .headers
+        .iter()
+        .find(|h| h.name.eq_ignore_ascii_case(header_name))
+        .map(|h| h.value)
 }
 
-#[cfg(target_family = "unix")]
-fn wait_signal() -> Result<impl Future<Output = ()>> {
-    use tokio::signal::unix;
-    let mut sigterm = unix::signal(unix::SignalKind::terminate())?;
-    let mut sigint = unix::signal(unix::SignalKind::interrupt())?;
+fn get_body<'buf>(
+    request: &Request,
+    stream: &'buf mut TcpStream,
+    body_prefix: &'buf [u8],
+) -> Result<Cow<'buf, [u8]>> {
+    const MAXIMUM_BODY_LENGTH: usize = 102_400; // 100 KiB
+    let content_length: usize = std::str::from_utf8(
+        find_header(request, "Content-Length").context("missing content length")?,
+    )?
+    .parse()?;
+    if content_length > MAXIMUM_BODY_LENGTH {
+        return Err(anyhow!("content length exceeds max length"));
+    }
+    if content_length <= body_prefix.len() {
+        return Ok(Cow::Borrowed(&body_prefix[..content_length]));
+    }
+    let mut body = vec![0u8; content_length];
+    stream.read_exact(&mut body[body_prefix.len()..])?;
+    body[..body_prefix.len()].copy_from_slice(body_prefix);
 
-    Ok(async move {
-        tokio::select! {
-            _ = sigterm.recv() => {
-                tracing::warn!("caught SIGTERM, exiting...");
-            },
-            _ = sigint.recv() => {
-                tracing::warn!("caught SIGINT, exiting...");
-            },
-        }
-    })
+    Ok(Cow::Owned(body))
 }

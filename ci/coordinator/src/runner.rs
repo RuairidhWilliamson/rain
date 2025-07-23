@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use log::{error, info};
 use poison_panic::MutexExt as _;
 use rain_core::{
     cache::{Cache, persistent::PersistCache},
@@ -9,7 +10,6 @@ use rain_lang::{
     afs::{dir::Dir, entry::FSEntry, file::File, path::FilePath},
     driver::{DriverTrait as _, FSTrait as _},
 };
-use tracing::{error, info};
 
 #[derive(Clone)]
 pub struct Runner {
@@ -29,7 +29,7 @@ impl Runner {
         }
     }
 
-    #[expect(clippy::unwrap_used, clippy::cognitive_complexity)]
+    #[expect(clippy::unwrap_used)]
     pub fn run(&self, download: &[u8], download_dir_name: &str) -> RunComplete {
         let declaration = "ci";
         let mut ir = rain_lang::ir::Rir::new();
