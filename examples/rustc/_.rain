@@ -6,7 +6,13 @@ fn build() {
 	channel = std.build.rust.stable
 	src = std.utils.get_file("main.rs")
 	outname = "rust-helloworld"
-	target = "x86_64-unknown-linux-musl"
+	target = "x86_64-unknown-linux-gnu"
 	edition = "2024"
-	std.build.rust.rustc.compile(channel, src, outname, target, edition)
+	extra_args = [
+		"-C", "debuginfo=0",
+		"-C", "opt-level=3",
+		"-C", "link-arg=-target",
+		"-C", "link-arg=x86_64-linux-gnu.2.19",
+	]
+	std.build.rust.rustc.compile(channel, src, outname, target, edition, extra_args)
 }

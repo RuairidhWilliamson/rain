@@ -1,24 +1,34 @@
 let area = internal._get_area(internal._module_file())
-let utils = internal._import(internal._get_file(area, "utils.rain"))
-let rust_dist = internal._import(internal._get_file("dist.rain"))
+let std = internal._import(internal._get_file(area, "std.rain"))
 
-let get_file = utils.get_file
-let get_dir = utils.get_dir
-let escape_bin = utils.escape_bin
-let run = utils.run
-let unit = utils.unit
-let _throw = utils._throw
+let get_file = std.utils.get_file
+let get_dir = std.utils.get_dir
+let escape_bin = std.utils.escape_bin
+let run = std.utils.run
+let unit = std.utils.unit
+let _throw = std.utils._throw
 
-fn compile(channel, src, outname, target, edition) {
+let zig = std.build.zig.dist.download("0.14.1", "x86_64", "linux")
+
+fn zig_linker() {
+	linker_script = std.utils.create_file("#!/bin/sh\n" + std.utils.stringify(zig) + " cc \"$@\"", "zig_linker.sh")
+	std.utils.run_check(unit, std.escape.bin("chmod"), ["a+x", linker_script], {})
+	linker_script
+}
+
+fn compile(channel, src, outname, target, edition, extra_args) {
 	// Implicitly requires cc for linking
-	cc = escape_bin("cc")
+	// cc = escape_bin("cc")
 
 	// Download components
-	rustc = rust_dist.get_rustc(channel, utils.host_info().triple)
-	rust_std = rust_dist.get_rust_std(channel, target)
+	rustc = std.build.rust.dist.get_rustc(channel, std.utils.host_info().triple)
+	rust_std = std.build.rust.dist.get_rust_std(channel, target)
 
-	merged = utils.create_area([rustc, rust_std])
-	env = {PATH: "/usr/bin", LD_LIBRARY_PATH: get_dir(merged, "/lib")}
+	merged = std.utils.create_area([rustc, rust_std])
+	env = {
+		LD_LIBRARY_PATH: get_dir(merged, "/lib"),
+		ZIG_GLOBAL_CACHE_DIR: ".",
+	}
 	rustc_bin = get_file(merged, "/bin/rustc")
 	args = [
 		src,
@@ -27,11 +37,12 @@ fn compile(channel, src, outname, target, edition) {
 		"--target", target,
 		"--edition", edition,
 		"--emit", "dep-info,link",
-	]
+		"-C", "linker=" + std.utils.stringify(zig_linker()),
+	] + extra_args
 	run_result = run(unit, rustc_bin, args, env)
 	if !run_result.success {
-		utils.print(run_result.stderr)
+		std.utils.print(run_result.stderr)
 		_throw("rustc compilation failed")
 	}
-	get_file(run_result.area, outname + utils.exe_suffix(target))
+	get_file(run_result.area, outname + std.utils.exe_suffix(target))
 }
