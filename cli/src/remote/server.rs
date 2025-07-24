@@ -458,40 +458,50 @@ fn run_core(
     ir: &mut Rir,
 ) -> Result<Value, CoreError> {
     let path = root;
-    let declaration: &str = target;
     let file = File::new_local(path.as_ref()).map_err(|err| CoreError::Other(err.to_string()))?;
     let path = driver.resolve_fs_entry(file.inner());
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
     let module = rain_core::rain_lang::ast::parser::parse_module(&src);
-    let mid = ir
+    let mut mid = ir
         .insert_module(Some(file), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(ir).into_owned())))?;
-    let Some(main) = ir.resolve_global_declaration(mid, declaration) else {
-        const SUGGESTION_LIMIT: usize = 20;
-        let mut declarations: Vec<String> = ir
-            .get_module(mid)
-            .list_pub_fn_declaration_names()
-            .take(SUGGESTION_LIMIT)
-            .map(std::borrow::ToOwned::to_owned)
-            .collect();
-        if declarations.is_empty() {
-            // If there are no pub fns fallback to private fns
-            declarations = ir
-                .get_module(mid)
-                .list_fn_declaration_names()
-                .take(SUGGESTION_LIMIT)
-                .map(std::borrow::ToOwned::to_owned)
-                .collect();
-        }
-        return Err(CoreError::UnknownDeclaration(declarations));
-    };
     let mut runner = Runner::new(ir, cache, driver);
     runner.offline = *offline;
     runner.seal = *seal;
-    let value = runner
-        .evaluate_and_call(main, args)
-        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;
-    Ok(value)
+    let declarations = target.split('.');
+    let mut value: Option<Value> = None;
+    for declaration in declarations {
+        if let Some(v) = value {
+            if let Value::Module(deeper_mid) = v {
+                mid = deeper_mid;
+            } else {
+                panic!("not a module");
+            }
+        }
+        let Some(main) = runner.ir.resolve_global_declaration(mid, declaration) else {
+            const SUGGESTION_LIMIT: usize = 20;
+            let mut declarations: Vec<String> = ir
+                .get_module(mid)
+                .list_pub_fn_declaration_names()
+                .take(SUGGESTION_LIMIT)
+                .map(std::borrow::ToOwned::to_owned)
+                .collect();
+            if declarations.is_empty() {
+                // If there are no pub fns fallback to private fns
+                declarations = ir
+                    .get_module(mid)
+                    .list_fn_declaration_names()
+                    .take(SUGGESTION_LIMIT)
+                    .map(std::borrow::ToOwned::to_owned)
+                    .collect();
+            }
+            return Err(CoreError::UnknownDeclaration(declarations));
+        };
+        value = Some(runner.evaluate_and_call(main, args).map_err(|err| {
+            CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned()))
+        })?);
+    }
+    Ok(value.unwrap())
 }
 
 fn remove_recursive(path: &Path) -> std::io::Result<u64> {

@@ -1,0 +1,5 @@
+let area = internal._get_area(internal._module_file())
+let main = internal._import(internal._get_file(area, "main.rain"))
+let std = main.std
+
+let rustc = internal._import(internal._get_file(area, "examples/rustc/_.rain"))

@@ -2,6 +2,7 @@ let area = internal._get_area(internal._module_file())
 let std = load_stdlib()
 let publish_module = internal._import(internal._get_file("./publish.rain"))
 let test_mod = internal._import(internal._get_file(area, "test.rain"))
+pub let examples = internal._import(internal._get_file(area, "examples/_.rain"))
 
 fn load_stdlib() {
 	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])
