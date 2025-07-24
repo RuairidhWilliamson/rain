@@ -59,7 +59,6 @@ impl PersistCache {
     }
 
     pub fn save(self, path: &Path) -> Result<(), PersistCacheError> {
-        let path = path.canonicalize()?;
         let Some(dir_path) = path.parent() else {
             return Err(PersistCacheError::DoesNotExist);
         };
