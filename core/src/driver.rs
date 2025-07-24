@@ -310,25 +310,29 @@ impl DriverTrait for DriverImpl<'_> {
         name: &str,
         etag: Option<&str>,
     ) -> Result<DownloadStatus, RunnerError> {
-        let client = reqwest::blocking::Client::new();
-        let mut request = client.request(reqwest::Method::GET, url);
+        let agent = ureq::Agent::new_with_config(
+            ureq::config::Config::builder()
+                .http_status_as_error(false)
+                .build(),
+        );
+        let mut request = agent.get(url);
         if let Some(etag) = etag {
-            request = request.header(reqwest::header::IF_NONE_MATCH, etag);
+            request = request.header(ureq::http::header::IF_NONE_MATCH, etag);
         }
-        let request = request.build().unwrap();
         log::debug!("Download {url}");
-        let mut response = client.execute(request).unwrap();
+        let mut response = request.call().unwrap();
         log::debug!("Download complete {url} {}", response.status());
         let etag = response
             .headers()
-            .get(reqwest::header::ETAG)
+            .get(ureq::http::header::ETAG)
             .map(|h| h.to_str().unwrap().to_owned());
         let area = self.create_empty_area()?;
         let path = FilePath::new(name)?;
         let entry = FSEntry::new(area, path);
         let output_path = self.resolve_fs_entry(&entry);
         let mut out = std::fs::File::create_new(output_path).unwrap();
-        std::io::copy(&mut response, &mut out).unwrap();
+        let body = response.body_mut();
+        std::io::copy(&mut body.as_reader(), &mut out).unwrap();
         // Safety: We just created the file and checked for errors so it is present
         let output = unsafe { File::new(entry) };
         Ok(DownloadStatus {

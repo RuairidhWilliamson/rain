@@ -100,7 +100,7 @@ fn rename_file(file, new_name) {
 	get_file(result.area, new_name)
 }
 
-fn path_separator(target_triple) {
+fn path_var_separator(target_triple) {
 	if is_windows(target_triple) {
 		";"
 	} else {

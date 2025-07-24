@@ -11,7 +11,7 @@ let _throw = utils._throw
 let print = utils.print
 
 let host_triple = utils.host_info().triple
-let path_sep = utils.path_separator(utils.host_info().triple)
+let path_var_sep = utils.path_var_separator(utils.host_info().triple)
 
 fn prepare_cargo(channel) {
 	// Implicitly requires cc for linking
@@ -27,7 +27,7 @@ fn prepare_cargo(channel) {
 	merged = utils.create_area([rustc, rust_std, cargo, rustfmt, clippy])
 	bin_dir = get_dir(merged, "bin")
 	env = {
-		PATH: "/usr/bin" + path_sep + utils.stringify(bin_dir),
+		PATH: "/usr/bin" + path_var_sep + utils.stringify(bin_dir),
 		LD_LIBRARY_PATH: get_dir(merged, "lib"),
 		CARGO: get_file(bin_dir, "rustc"),
 	}
@@ -35,9 +35,22 @@ fn prepare_cargo(channel) {
 	{env: env, cargo_bin: cargo_bin}
 }
 
-fn build(channel, area, package, features, profile, target) {
+fn build(channel, area, package, default_features, features, profile, target, extra_args, env) {
 	prep = prepare_cargo(channel)
-	run_result = run(area, prep.cargo_bin, ["build", "--package", package, "--features", features, "--target", target, "--profile", profile, "--target-dir", "target", "--quiet", "--color", "always"], prep.env)
+	args = [
+		"build",
+		"--package", package,
+		"--features", features,
+		"--target", target,
+		"--profile", profile,
+		"--target-dir", "target",
+		"--quiet",
+		"--color", "always"
+	]
+	if !default_features {
+		args = args + ["--no-default-features"]
+	}
+	run_result = run(area, prep.cargo_bin, args + extra_args, prep.env + env)
 	if !run_result.success {
 		print(run_result.stderr)
 		_throw("cargo compilation failed")
@@ -71,8 +84,7 @@ fn clippy(channel, area) {
 	clippy = rust_dist.get_clippy(channel, host_triple)
 
 	merged = utils.create_area([rustc, rust_std, cargo, clippy])
-	path_sep = utils.path_separator(utils.host_info().triple)
-	env = {PATH: "/usr/bin" + path_sep + utils.stringify(get_dir(merged, "/bin")), LD_LIBRARY_PATH: get_dir(merged, "/lib")}
+	env = {PATH: "/usr/bin" + path_var_sep + utils.stringify(get_dir(merged, "/bin")), LD_LIBRARY_PATH: get_dir(merged, "/lib")}
 	cargo_bin = get_file(merged, "/bin/cargo")
 	run_result = run(area, cargo_bin, ["clippy", "--color", "always", "--quiet", "--", "-Dwarnings"], env)
 	if !run_result.success {
