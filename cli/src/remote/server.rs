@@ -226,7 +226,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
                     &self.server.cache.core.plock(),
                     &self.server.cache.stats,
                 );
-                dbg!(persistent_cache.save(&self.server.config.cache_json_path()))?;
+                persistent_cache.save(&self.server.config.cache_json_path())?;
                 log::info!("cache stats {:#?}", self.server.cache.stats);
                 Ok(())
             }
