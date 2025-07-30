@@ -26,7 +26,7 @@ fn run(area, bin, args, env) {
 	if !run_result.success {
 		print("Stdout:", run_result.stdout)
 		print("Stderr:", run_result.stderr)
-		_throw("run " + bin + " failed")
+		_throw("run " + utils.stringify(bin) + " failed")
 	}
 	run_result
 }
