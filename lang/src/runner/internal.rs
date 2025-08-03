@@ -3,7 +3,7 @@
 mod download;
 mod run;
 
-use std::{ops::RangeInclusive, sync::Arc, time::Instant};
+use std::{ops::RangeInclusive, str::FromStr, sync::Arc, time::Instant};
 
 use indexmap::IndexMap;
 use num_bigint::BigInt;
@@ -73,6 +73,7 @@ pub enum InternalFunction {
     SetCacheNever,
     ClearCacheDeps,
     MergeRecords,
+    ParseTargetTriple,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -125,6 +126,7 @@ impl InternalFunction {
             "_set_cache_never" => Some(Self::SetCacheNever),
             "_clear_cache_deps" => Some(Self::ClearCacheDeps),
             "_merge_records" => Some(Self::MergeRecords),
+            "_parse_target_triple" => Some(Self::ParseTargetTriple),
             _ => None,
         }
     }
@@ -172,6 +174,7 @@ impl InternalFunction {
             Self::SetCacheNever => icx.set_cache_never(),
             Self::ClearCacheDeps => icx.clear_cache_deps(),
             Self::MergeRecords => icx.merge_records(),
+            Self::ParseTargetTriple => icx.parse_target_triple(),
         }
     }
 }
@@ -800,23 +803,9 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         self.no_args()?;
         let mut record = IndexMap::new();
         let host_triple = self.runner.driver.host_triple();
-        let host_triple_split: Vec<_> = host_triple.split('-').collect();
         record.insert(
             "triple".into(),
             Value::String(Arc::new(String::from(host_triple))),
-        );
-        record.insert(
-            "arch".into(),
-            Value::String(Arc::new(host_triple_split[0].into())),
-        );
-        // TODO: Sometimes the vendor is omitted meaning os will be in vendor
-        record.insert(
-            "vendor".into(),
-            Value::String(Arc::new(host_triple_split[1].into())),
-        );
-        record.insert(
-            "os".into(),
-            Value::String(Arc::new(host_triple_split[2].into())),
         );
         Ok(Value::Record(Arc::new(RainRecord(record))))
     }
@@ -1265,5 +1254,32 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             }
             _ => self.incorrect_args(2..=2),
         }
+    }
+
+    fn parse_target_triple(self) -> ResultValue {
+        let triple = expect_type!(self, String, single_arg!(self));
+        let triple = target_lexicon::Triple::from_str(triple).unwrap();
+        let mut out = IndexMap::new();
+        out.insert(
+            "arch".into(),
+            Value::String(Arc::new(triple.architecture.to_string())),
+        );
+        out.insert(
+            "vendor".into(),
+            Value::String(Arc::new(triple.vendor.to_string())),
+        );
+        out.insert(
+            "os".into(),
+            Value::String(Arc::new(triple.operating_system.to_string())),
+        );
+        out.insert(
+            "env".into(),
+            Value::String(Arc::new(triple.environment.to_string())),
+        );
+        out.insert(
+            "bin".into(),
+            Value::String(Arc::new(triple.binary_format.to_string())),
+        );
+        Ok(Value::Record(Arc::new(RainRecord(out))))
     }
 }
