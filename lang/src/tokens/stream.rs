@@ -159,7 +159,7 @@ impl TokenStream<'_> {
             "false" => Token::False,
             "internal" => Token::Internal,
             "throw" | "try" | "type" | "for" | "in" | "while" | "match" | "record" | "import"
-            | "async" => Token::Reserved,
+            | "async" | "await" => Token::Reserved,
             _ => Token::Ident,
         };
         TokenLocalSpan {
