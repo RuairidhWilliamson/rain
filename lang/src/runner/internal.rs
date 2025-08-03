@@ -861,7 +861,36 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
                 Ok(Value::Unit)
             }
-            _ => self.incorrect_args(2..=2),
+            [
+                (src_nid, src_value),
+                (dst_nid, dst_value),
+                (filename_nid, filename_value),
+            ] => {
+                let src = expect_type!(self, File, (src_nid, src_value));
+                let dst = expect_type!(self, Dir, (dst_nid, dst_value));
+                let filename = expect_type!(self, String, (filename_nid, filename_value));
+                match dst.area() {
+                    FileArea::Local(_) => (),
+                    _ => {
+                        return Err(self.cx.nid_err(
+                            *dst_nid,
+                            RunnerError::Makeshift("destination must be in a local area".into()),
+                        ));
+                    }
+                }
+                let dst_path = dst
+                    .path()
+                    .join(filename)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
+                let dst = FSEntry::new(dst.area().clone(), dst_path);
+
+                self.runner
+                    .driver
+                    .export_file(src, &dst)
+                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                Ok(Value::Unit)
+            }
+            _ => self.incorrect_args(2..=3),
         }
     }
 
@@ -925,7 +954,64 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
 
                 Ok(Value::Unit)
             }
-            _ => self.incorrect_args(2..=2),
+            [
+                (src_nid, src_value),
+                (dst_nid, dst_value),
+                (filename_nid, filename_value),
+            ] => {
+                let src = expect_type!(self, File, (src_nid, src_value));
+                let dst = expect_type!(self, Dir, (dst_nid, dst_value));
+                let filename = expect_type!(self, String, (filename_nid, filename_value));
+                match dst.area() {
+                    FileArea::Local(_) => (),
+                    _ => {
+                        return Err(self.cx.nid_err(
+                            *dst_nid,
+                            RunnerError::Makeshift("destination must be in a local area".into()),
+                        ));
+                    }
+                }
+                let dst_path = dst
+                    .path()
+                    .join(filename)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
+                let entry = FSEntry::new(dst.area().clone(), dst_path);
+                match self
+                    .runner
+                    .driver
+                    .query_fs(&entry)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?
+                {
+                    FSEntryQueryResult::File => {}
+                    _ => {
+                        return Err(self.cx.nid_err(
+                            self.nid,
+                            RunnerError::Makeshift("exported file does not exist".into()),
+                        ));
+                    }
+                }
+                // Safety: We just checked this
+                let dst = unsafe { File::new(entry) };
+                let src_contents = self
+                    .runner
+                    .driver
+                    .read_file(src)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?;
+                let dst_contents = self
+                    .runner
+                    .driver
+                    .read_file(&dst)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?;
+                if src_contents != dst_contents {
+                    return Err(self.cx.nid_err(
+                        self.nid,
+                        RunnerError::Makeshift("exported file does not match".into()),
+                    ));
+                }
+
+                Ok(Value::Unit)
+            }
+            _ => self.incorrect_args(2..=3),
         }
     }
 
