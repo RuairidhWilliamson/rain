@@ -28,11 +28,11 @@ pub fn check() {
 }
 
 fn build() {
-	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", "", "dev", std.utils.host_info().triple)
+	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", true, "", "dev", std.utils.host_info().triple, [], {})
 }
 
 fn build_release(target_triple) {
-	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", "", "release", target_triple)
+	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", false, "", "release", target_triple, [], {})
 }
 
 fn build_c() {
