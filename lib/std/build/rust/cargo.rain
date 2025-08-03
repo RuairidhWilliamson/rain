@@ -50,7 +50,7 @@ fn build(channel, area, package, default_features, features, profile, target, ex
 	if !default_features {
 		args = args + ["--no-default-features"]
 	}
-	run_result = run(area, prep.cargo_bin, args + extra_args, prep.env + env)
+	run_result = run(area, prep.cargo_bin, args + extra_args, internal._merge_records(prep.env, env))
 	if !run_result.success {
 		print(run_result.stderr)
 		_throw("cargo compilation failed")

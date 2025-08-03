@@ -72,6 +72,7 @@ pub enum InternalFunction {
     GetSecret,
     SetCacheNever,
     ClearCacheDeps,
+    MergeRecords,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -123,6 +124,7 @@ impl InternalFunction {
             "_get_secret" => Some(Self::GetSecret),
             "_set_cache_never" => Some(Self::SetCacheNever),
             "_clear_cache_deps" => Some(Self::ClearCacheDeps),
+            "_merge_records" => Some(Self::MergeRecords),
             _ => None,
         }
     }
@@ -169,6 +171,7 @@ impl InternalFunction {
             Self::GetSecret => icx.get_secret(),
             Self::SetCacheNever => icx.set_cache_never(),
             Self::ClearCacheDeps => icx.clear_cache_deps(),
+            Self::MergeRecords => icx.merge_records(),
         }
     }
 }
@@ -1247,5 +1250,20 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         self.no_args()?;
         self.cx.deps.clear();
         Ok(Value::Unit)
+    }
+
+    fn merge_records(self) -> ResultValue {
+        match &self.arg_values[..] {
+            [(record1_nid, record1_value), (record2_nid, record2_value)] => {
+                let record1 = expect_type!(self, Record, (*record1_nid, record1_value));
+                let record2 = expect_type!(self, Record, (*record2_nid, record2_value));
+                let mut out_record = record1.as_ref().clone();
+                for (k, v) in &record2.as_ref().0 {
+                    out_record.0.insert(k.clone(), v.clone());
+                }
+                Ok(Value::Record(Arc::new(out_record)))
+            }
+            _ => self.incorrect_args(2..=2),
+        }
     }
 }
