@@ -55,12 +55,15 @@ fn main() -> Result<()> {
         runner: Mutex::new(runner),
     };
     loop {
+        info!("waiting for connection");
         let (stream, addr) = listener.accept()?;
+        info!("received connection {addr:?}");
         if let Some(allowed_ipnets) = allowed_ipnets {
             if !allowed_ipnets
                 .iter()
                 .any(|ipnet| ipnet.contains(&addr.ip()))
             {
+                warn!("connection {addr:?} did not match allowed ipnets");
                 continue;
             }
         }
@@ -80,7 +83,7 @@ impl Server {
     fn handle_connection(&self, mut stream: TcpStream, addr: SocketAddr) -> Result<()> {
         const OK_REPSONSE: &str = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
         stream.set_read_timeout(Some(Duration::from_secs(1)))?;
-        info!("Connection {addr:?}");
+        info!("connection {addr:?}");
         let mut headers = [httparse::EMPTY_HEADER; 64];
         let mut request = Request::new(&mut headers);
         let mut buffer = [0u8; 1024];
@@ -143,7 +146,7 @@ impl Server {
         let installation_client = self
             .github_client
             .auth_installation(check_suite_event.installation.id)?;
-        info!("Received {check_suite_event:?}");
+        info!("received {check_suite_event:?}");
 
         let owner = &check_suite_event.repository.owner.login;
         let repo = &check_suite_event.repository.name;
@@ -162,7 +165,7 @@ impl Server {
                 },
             )
             .context("create check run")?;
-        info!("Created check run {check_run:#?}");
+        info!("created check run {check_run:#?}");
 
         let runner = self.runner.plock();
 

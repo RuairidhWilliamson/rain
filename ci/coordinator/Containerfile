@@ -17,9 +17,5 @@ RUN cargo install --path ci/coordinator --locked
 FROM base as rain
 
 COPY --from=build /usr/local/cargo/bin/rain-ci-coordinator /usr/local/cargo/bin/rain-ci-coordinator
-ENV \
-  RUST_LOG=info \
-  ADDR=0.0.0.0:7778
-EXPOSE 7778
-
+ENV RUST_LOG=info
 ENTRYPOINT ["rain-ci-coordinator"]
