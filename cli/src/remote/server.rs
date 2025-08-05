@@ -21,7 +21,7 @@ use rain_core::{
     config::Config,
     driver::DriverImpl,
     rain_lang::{
-        afs::{area::GeneratedFileArea, entry::FSEntryTrait as _, file::File},
+        afs::{entry::FSEntryTrait as _, file::File},
         driver::FSTrait as _,
         ir::Rir,
         runner::{Runner, cache::CacheTrait as _, value::Value},
@@ -333,30 +333,8 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
     }
 
     fn prune(&mut self, req: super::msg::prune::PruneRequest) -> Result<(), Error> {
-        log::info!("Pruning");
         let guard = self.server.cache.core.plock();
-        let connected = guard.get_all_generated_areas();
-        let mut size = 0;
-        for entry in std::fs::read_dir(&self.server.config.base_generated_dir)? {
-            let entry = entry?;
-            if !entry.file_type()?.is_dir() {
-                continue;
-            }
-            let Ok(name) = entry.file_name().into_string() else {
-                continue;
-            };
-            let Ok(id) = uuid::Uuid::parse_str(&name) else {
-                continue;
-            };
-            let area = GeneratedFileArea { id };
-            if connected.contains(&area) {
-                log::info!("Not Pruning {area:?}");
-                continue;
-            }
-            log::info!("Pruning {area:?}");
-            size += remove_recursive(&entry.path())?;
-        }
-        log::info!("Prune complete");
+        let size = guard.prune_generated_areas(&self.server.config)?;
         self.send_response(req, &super::msg::prune::Pruned(size))?;
         Ok(())
     }

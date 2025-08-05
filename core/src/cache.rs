@@ -3,6 +3,7 @@ pub mod persistent;
 use std::{
     collections::HashSet,
     num::NonZeroUsize,
+    path::Path,
     sync::{
         Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
@@ -13,7 +14,7 @@ use std::{
 use lru::LruCache;
 use poison_panic::MutexExt as _;
 use rain_lang::{
-    afs::area::FileArea,
+    afs::area::{FileArea, GeneratedFileArea},
     runner::cache::{CacheEntry, CacheKey},
 };
 
@@ -151,6 +152,33 @@ impl CacheCore {
         }
         out
     }
+
+    pub fn prune_generated_areas(&self, config: &crate::config::Config) -> std::io::Result<u64> {
+        log::info!("Pruning");
+        let connected = self.get_all_generated_areas();
+        let mut size = 0;
+        for entry in std::fs::read_dir(&config.base_generated_dir)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_dir() {
+                continue;
+            }
+            let Ok(name) = entry.file_name().into_string() else {
+                continue;
+            };
+            let Ok(id) = uuid::Uuid::parse_str(&name) else {
+                continue;
+            };
+            let area = GeneratedFileArea { id };
+            if connected.contains(&area) {
+                log::info!("Not Pruning {area:?}");
+                continue;
+            }
+            log::info!("Pruning {area:?}");
+            size += remove_recursive(&entry.path())?;
+        }
+        log::info!("Prune complete");
+        Ok(size)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -179,4 +207,29 @@ impl std::fmt::Debug for Counter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.0, f)
     }
+}
+
+fn remove_recursive(path: &Path) -> std::io::Result<u64> {
+    let metadata = std::fs::symlink_metadata(path)?;
+    let filetype = metadata.file_type();
+    if filetype.is_symlink() {
+        std::fs::remove_file(path)?;
+        return Ok(metadata.len());
+    }
+    remove_dir_all_recursive(path)
+}
+
+fn remove_dir_all_recursive(path: &Path) -> std::io::Result<u64> {
+    let mut size = 0;
+    for child in std::fs::read_dir(path)? {
+        let child = child?;
+        if child.file_type()?.is_dir() {
+            size += remove_dir_all_recursive(&child.path())?;
+        } else {
+            size += child.metadata()?.len();
+            std::fs::remove_file(child.path())?;
+        }
+    }
+    std::fs::remove_dir(path)?;
+    Ok(size)
 }

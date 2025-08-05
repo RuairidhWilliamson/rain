@@ -14,6 +14,7 @@ use httparse::Request;
 use ipnet::IpNet;
 use jsonwebtoken::EncodingKey;
 use log::{error, info, warn};
+use runner::Runner;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
@@ -47,6 +48,7 @@ fn main() -> Result<()> {
     let allowed_ipnets: Option<&[IpNet]> = None;
     let listener = std::net::TcpListener::bind(config.addr)?;
     let server = Server {
+        runner: Runner::new(config.seal),
         config,
         github_client,
     };
@@ -69,6 +71,7 @@ fn main() -> Result<()> {
 
 struct Server {
     config: Config,
+    runner: Runner,
     github_client: github::AppClient,
 }
 
@@ -171,8 +174,6 @@ impl Server {
             .context("create check run")?;
         info!("created check run {check_run:#?}");
 
-        let runner = runner::Runner::new(self.config.seal);
-
         installation_client
             .update_check_run(
                 owner,
@@ -189,7 +190,7 @@ impl Server {
             .download_repo_tar(owner, repo, head_sha)
             .context("download repo")?;
         let download_dir_name = format!("{owner}-{repo}-{head_sha}");
-        let run_complete = runner.run(&download, &download_dir_name);
+        let run_complete = self.runner.run(&download, &download_dir_name);
 
         let conclusion = if run_complete.success {
             github::model::CheckRunConclusion::Success
@@ -213,6 +214,8 @@ impl Server {
                 },
             )
             .context("update check run")?;
+
+        self.runner.prune();
 
         Ok(())
     }

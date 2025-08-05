@@ -61,9 +61,8 @@ impl Runner {
             }
         };
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
-        let cache_core = self
-            .persistent_cache
-            .plock()
+        let mut persistent_cache = self.persistent_cache.plock();
+        let cache_core = persistent_cache
             .take()
             .map(|c| c.depersist(&self.config, &self.cache_stats))
             .unwrap_or_default();
@@ -75,8 +74,8 @@ impl Runner {
         runner.seal = self.seal;
         info!("Running");
         let res = runner.evaluate_and_call(main, &[]);
-        let persistent_cache = PersistCache::persist(&cache.core.plock(), &self.cache_stats);
-        *self.persistent_cache.plock() = Some(persistent_cache);
+        let new_persistent_cache = PersistCache::persist(&cache.core.plock(), &self.cache_stats);
+        *persistent_cache = Some(new_persistent_cache);
         let prints = strip_ansi_escapes::strip_str(driver.prints.plock().join("\n"));
         match res {
             Ok(value) => {
@@ -96,6 +95,18 @@ impl Runner {
                 }
             }
         }
+    }
+
+    pub fn prune(&self) {
+        let mut persistent_cache = self.persistent_cache.plock();
+        let Some(pcache) = persistent_cache.take() else {
+            return;
+        };
+        let cache = pcache.depersist(&self.config, &self.cache_stats);
+        if let Err(err) = cache.prune_generated_areas(&self.config) {
+            error!("prune error: {err:#}");
+        };
+        *persistent_cache = Some(PersistCache::persist(&cache, &self.cache_stats));
     }
 }
 
