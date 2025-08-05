@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use log::{error, info};
 use poison_panic::MutexExt as _;
 use rain_core::{
-    cache::{Cache, persistent::PersistCache},
+    cache::{Cache, CacheStats, persistent::PersistCache},
     config::Config,
 };
 use rain_lang::{
@@ -14,17 +14,19 @@ use rain_lang::{
 #[derive(Clone)]
 pub struct Runner {
     config: Arc<Config>,
-    cache: Cache,
+    persistent_cache: Arc<Mutex<Option<PersistCache>>>,
+    cache_stats: Arc<CacheStats>,
     seal: bool,
 }
 
 impl Runner {
     pub fn new(seal: bool) -> Self {
         let config = Arc::new(rain_core::config::Config::new());
-        let cache = rain_core::load_cache_or_default(&config);
+        let persistent_cache = Arc::new(Mutex::new(None));
         Self {
             config,
-            cache,
+            persistent_cache,
+            cache_stats: Default::default(),
             seal,
         }
     }
@@ -59,14 +61,22 @@ impl Runner {
             }
         };
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
-        let mut runner = rain_lang::runner::Runner::new(&mut ir, &self.cache, &driver);
+        let cache_core = self
+            .persistent_cache
+            .plock()
+            .take()
+            .map(|c| c.depersist(&self.config, &self.cache_stats))
+            .unwrap_or_default();
+        let cache = Cache {
+            core: Arc::new(Mutex::new(cache_core)),
+            stats: Arc::clone(&self.cache_stats),
+        };
+        let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, &driver);
         runner.seal = self.seal;
         info!("Running");
         let res = runner.evaluate_and_call(main, &[]);
-        let persistent_cache = PersistCache::persist(&self.cache.core.plock(), &self.cache.stats);
-        if let Err(err) = persistent_cache.save(&driver.config.cache_json_path()) {
-            error!("save persist cache failed: {err:#}");
-        }
+        let persistent_cache = PersistCache::persist(&cache.core.plock(), &self.cache_stats);
+        *self.persistent_cache.plock() = Some(persistent_cache);
         let prints = strip_ansi_escapes::strip_str(driver.prints.plock().join("\n"));
         match res {
             Ok(value) => {

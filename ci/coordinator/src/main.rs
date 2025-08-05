@@ -4,9 +4,8 @@ mod runner;
 use std::{
     borrow::Cow,
     io::{Read as _, Write as _},
-    net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream},
+    net::{SocketAddr, TcpStream},
     path::PathBuf,
-    sync::Mutex,
     time::Duration,
 };
 
@@ -15,7 +14,6 @@ use httparse::Request;
 use ipnet::IpNet;
 use jsonwebtoken::EncodingKey;
 use log::{error, info, warn};
-use poison_panic::MutexExt as _;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
@@ -44,20 +42,16 @@ fn main() -> Result<()> {
         key,
     });
 
-    let runner = runner::Runner::new(config.seal);
-
-    let ipnets = [IpNet::from(IpAddr::V4(Ipv4Addr::LOCALHOST))];
-    let allowed_ipnets = Some(&ipnets);
+    // let ipnets = [IpNet::from(IpAddr::V4(Ipv4Addr::LOCALHOST))];
+    // let mut allowed_ipnets = Some(&ipnets);
+    let allowed_ipnets: Option<&[IpNet]> = None;
     let listener = std::net::TcpListener::bind(config.addr)?;
     let server = Server {
         config,
         github_client,
-        runner: Mutex::new(runner),
     };
     loop {
-        info!("waiting for connection");
         let (stream, addr) = listener.accept()?;
-        info!("received connection {addr:?}");
         if let Some(allowed_ipnets) = allowed_ipnets {
             if !allowed_ipnets
                 .iter()
@@ -76,7 +70,6 @@ fn main() -> Result<()> {
 struct Server {
     config: Config,
     github_client: github::AppClient,
-    runner: Mutex<runner::Runner>,
 }
 
 impl Server {
@@ -107,7 +100,7 @@ impl Server {
         body_prefix: &[u8],
     ) -> Result<()> {
         match request.version {
-            Some(1) => {}
+            Some(0 | 1) => {}
             v => return Err(anyhow!("invalid http version: {v:?}")),
         }
         match request.path {
@@ -143,6 +136,17 @@ impl Server {
 
         let check_suite_event: github::model::CheckSuiteEvent = serde_json::from_slice(&raw_body)?;
 
+        if !matches!(
+            check_suite_event.check_suite.status,
+            Some(github::model::Status::Queued)
+        ) {
+            info!(
+                "skipping check suite event {:?}",
+                check_suite_event.check_suite.status
+            );
+            return Ok(());
+        }
+
         let installation_client = self
             .github_client
             .auth_installation(check_suite_event.installation.id)?;
@@ -167,7 +171,7 @@ impl Server {
             .context("create check run")?;
         info!("created check run {check_run:#?}");
 
-        let runner = self.runner.plock();
+        let runner = runner::Runner::new(self.config.seal);
 
         installation_client
             .update_check_run(
