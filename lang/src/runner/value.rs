@@ -7,7 +7,9 @@ use std::{
 use indexmap::IndexMap;
 
 use crate::{
-    afs::{area::FileArea, dir::Dir, entry::FSEntryTrait as _, file::File},
+    afs::{
+        absolute::AbsolutePathBuf, area::FileArea, dir::Dir, entry::FSEntryTrait as _, file::File,
+    },
     ir::{DeclarationId, ModuleId},
 };
 
@@ -23,6 +25,7 @@ pub enum Value {
     Module(ModuleId),
     FileArea(Arc<FileArea>),
     File(Arc<File>),
+    EscapeFile(Arc<AbsolutePathBuf>),
     Dir(Arc<Dir>),
     Internal,
     InternalFunction(InternalFunction),
@@ -41,6 +44,7 @@ impl Display for Value {
             Self::Module(module_id) => Display::fmt(module_id, f),
             Self::FileArea(file_area) => Display::fmt(file_area, f),
             Self::File(file) => Display::fmt(file, f),
+            Self::EscapeFile(path) => Display::fmt(&path.display(), f),
             Self::Dir(dir) => Display::fmt(dir, f),
             Self::Internal => f.write_str("internal"),
             Self::InternalFunction(internal_function) => Display::fmt(internal_function, f),
@@ -60,6 +64,7 @@ pub enum RainTypeId {
     Module,
     FileArea,
     File,
+    EscapeFile,
     Dir,
     Internal,
     InternalFunction,
@@ -142,6 +147,7 @@ impl Value {
             Self::Module(_) => RainTypeId::Module,
             Self::FileArea(_) => RainTypeId::FileArea,
             Self::File(_) => RainTypeId::File,
+            Self::EscapeFile(_) => RainTypeId::EscapeFile,
             Self::Dir(_) => RainTypeId::Dir,
             Self::Internal => RainTypeId::Internal,
             Self::InternalFunction(_) => RainTypeId::InternalFunction,
@@ -166,8 +172,9 @@ impl Value {
             // TODO: Change
             Self::File(f) => match f.area() {
                 FileArea::Generated(_) => true,
-                FileArea::Escape | FileArea::Local(_) => false,
+                FileArea::Local(_) => false,
             },
+            Self::EscapeFile(_) => false,
             // TODO: Change
             Self::Dir(_) => false,
         }
@@ -181,6 +188,7 @@ impl Value {
             | Self::String(_)
             | Self::Function(_)
             | Self::Module(_)
+            | Self::EscapeFile(_)
             | Self::Internal
             | Self::InternalFunction(_) => Vec::new(),
             Self::File(f) => vec![f.area()],

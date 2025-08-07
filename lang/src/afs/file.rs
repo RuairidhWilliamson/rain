@@ -7,7 +7,7 @@ use super::{
     area::FileArea,
     entry::{FSEntry, FSEntryTrait},
     error::PathError,
-    path::FilePath,
+    path::SealedFilePath,
 };
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
@@ -44,7 +44,7 @@ impl File {
             .ok_or(PathError::NotUnicode)?;
         Ok(Self(FSEntry {
             area: FileArea::Local(dir),
-            path: FilePath::new(file_name)?,
+            path: SealedFilePath::new(file_name)?,
         }))
     }
 }

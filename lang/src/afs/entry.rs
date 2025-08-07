@@ -1,4 +1,4 @@
-use super::{area::FileArea, path::FilePath};
+use super::{area::FileArea, path::SealedFilePath};
 
 pub trait FSEntryTrait {
     fn inner(&self) -> &FSEntry;
@@ -7,7 +7,7 @@ pub trait FSEntryTrait {
         &self.inner().area
     }
 
-    fn path(&self) -> &FilePath {
+    fn path(&self) -> &SealedFilePath {
         &self.inner().path
     }
 }
@@ -16,11 +16,11 @@ pub trait FSEntryTrait {
 pub struct FSEntry {
     // TODO: Make this Arc<FileArea> so we don't have an expensive clone
     pub area: FileArea,
-    pub path: FilePath,
+    pub path: SealedFilePath,
 }
 
 impl FSEntry {
-    pub fn new(area: FileArea, path: FilePath) -> Self {
+    pub fn new(area: FileArea, path: SealedFilePath) -> Self {
         Self { area, path }
     }
 }

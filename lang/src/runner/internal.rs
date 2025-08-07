@@ -16,7 +16,7 @@ use crate::{
         entry::{FSEntry, FSEntryTrait as _},
         error::PathError,
         file::File,
-        path::FilePath,
+        path::SealedFilePath,
     },
     ast::{FnCall, Node, NodeId},
     driver::{DriverTrait, FSEntryQueryResult},
@@ -336,8 +336,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     .module
                     .file()
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
-                let area = file.area();
-                self.cx.add_dep_file_area(area);
+                self.cx.add_dep_file_area(&file.area());
                 let file_path = file
                     .path()
                     .parent()
@@ -345,7 +344,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         self.cx
                             .nid_err(self.nid, PathError::NoParentDirectory.into())
                     })?
-                    .join(relative_path)
+                    .join(relative_path.as_str())
                     .map_err(|err| self.cx.nid_err(*relative_path_nid, err.into()))?;
                 Ok(FSEntry {
                     area: file.area().clone(),
@@ -357,7 +356,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 match parent_value {
                     Value::FileArea(area) => {
                         self.cx.add_dep_file_area(area);
-                        let file_path = FilePath::new(path)
+                        let file_path = SealedFilePath::new(path)
                             .map_err(|err| self.cx.nid_err(*path_nid, err.into()))?;
                         Ok(FSEntry {
                             area: area.as_ref().clone(),
@@ -525,27 +524,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         let Some(path) = self.runner.driver.escape_bin(name) else {
             return Ok(Value::Unit);
         };
-        let path = FilePath::new(&path.to_string_lossy())
-            .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
-        let entry = FSEntry {
-            area: FileArea::Escape,
-            path,
-        };
-        match self
-            .runner
-            .driver
-            .query_fs(&entry)
-            .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?
-        {
-            FSEntryQueryResult::File => {
-                // Safety: Checked that the file exists and is a file
-                let file = unsafe { File::new(entry) };
-                Ok(Value::File(Arc::new(file)))
-            }
-            result => Err(self
-                .cx
-                .nid_err(self.nid, RunnerError::FSQuery(entry, result))),
-        }
+        Ok(Value::EscapeFile(Arc::new(path)))
     }
 
     fn unit(self) -> ResultValue {
@@ -733,7 +712,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         let area_path = current_area_path.join(path.as_ref());
         let area_path = AbsolutePathBuf::try_from(area_path.as_path())
             .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?;
-        let entry = FSEntry::new(FileArea::Local(area_path), FilePath::root());
+        let entry = FSEntry::new(FileArea::Local(area_path), SealedFilePath::root());
         match self
             .runner
             .driver

@@ -11,6 +11,14 @@ impl TryFrom<&Path> for AbsolutePathBuf {
     }
 }
 
+impl TryFrom<PathBuf> for AbsolutePathBuf {
+    type Error = std::io::Error;
+
+    fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
+        std::path::absolute(path).map(Self)
+    }
+}
+
 impl std::ops::Deref for AbsolutePathBuf {
     type Target = Path;
 

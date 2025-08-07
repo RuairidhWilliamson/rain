@@ -5,9 +5,9 @@ use super::error::PathError;
 /// Must start with /
 /// Path segments are separated by /
 #[derive(Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct FilePath(String);
+pub struct SealedFilePath(String);
 
-impl FilePath {
+impl SealedFilePath {
     /// Create a new absolute file path
     ///
     /// If path doesn't start with / it will be prefixed

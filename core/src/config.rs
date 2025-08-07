@@ -88,7 +88,6 @@ impl FSTrait for Config {
             FileArea::Generated(GeneratedFileArea { id }) => {
                 self.base_generated_dir.join(id.to_string()).join(rel_path)
             }
-            FileArea::Escape => PathBuf::from(abs_path),
         }
     }
 

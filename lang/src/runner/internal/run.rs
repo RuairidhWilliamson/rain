@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use indexmap::IndexMap;
 
 use crate::{
-    afs::{dir::Dir, entry::FSEntryTrait as _},
+    afs::{dir::Dir, entry::FSEntryTrait},
     ast::NodeId,
     driver::{DriverTrait, RunOptions},
     runner::dep::Dep,
@@ -39,14 +39,18 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         },
                     ))?,
                 };
-                let Value::File(file) = file_value else {
-                    return Err(self.cx.nid_err(
-                        *file_nid,
-                        RunnerError::ExpectedType {
-                            actual: file_value.rain_type_id(),
-                            expected: &[RainTypeId::File],
-                        },
-                    ));
+                let bin = match file_value {
+                    Value::File(file) => &self.runner.driver.resolve_fs_entry(file.inner()),
+                    Value::EscapeFile(escaped_file) => escaped_file.0.as_path(),
+                    _ => {
+                        return Err(self.cx.nid_err(
+                            *file_nid,
+                            RunnerError::ExpectedType {
+                                actual: file_value.rain_type_id(),
+                                expected: &[RainTypeId::File, RainTypeId::EscapeFile],
+                            },
+                        ));
+                    }
                 };
                 let Value::List(args) = args_value else {
                     return Err(self.cx.nid_err(
@@ -80,14 +84,14 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 let display_args = args.join(" ");
                 let _call = enter_call(
                     self.runner.driver,
-                    format!("Run {} {}", file.path().last().unwrap_or(""), display_args),
+                    format!("Run {} {display_args}", bin.display()),
                 );
                 let status = self
                     .runner
                     .driver
                     .run(
                         overlay_area,
-                        file,
+                        bin,
                         args,
                         RunOptions {
                             inherit_env: false,
@@ -131,14 +135,18 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         },
                     ))?,
                 };
-                let Value::File(file) = file_value else {
-                    return Err(self.cx.nid_err(
-                        *file_nid,
-                        RunnerError::ExpectedType {
-                            actual: file_value.rain_type_id(),
-                            expected: &[RainTypeId::File],
-                        },
-                    ));
+                let bin = match file_value {
+                    Value::File(file) => &self.runner.driver.resolve_fs_entry(file.inner()),
+                    Value::EscapeFile(escaped_file) => escaped_file.0.as_path(),
+                    _ => {
+                        return Err(self.cx.nid_err(
+                            *file_nid,
+                            RunnerError::ExpectedType {
+                                actual: file_value.rain_type_id(),
+                                expected: &[RainTypeId::File, RainTypeId::EscapeFile],
+                            },
+                        ));
+                    }
                 };
                 let Value::List(args) = args_value else {
                     return Err(self.cx.nid_err(
@@ -171,14 +179,14 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 let display_args = args.join(" ");
                 let _call = enter_call(
                     self.runner.driver,
-                    format!("Run {} {}", file.path().last().unwrap_or(""), display_args),
+                    format!("Run {} {display_args}", bin.display()),
                 );
                 let status = self
                     .runner
                     .driver
                     .escape_run(
                         &dir,
-                        file,
+                        bin,
                         args,
                         RunOptions {
                             inherit_env: true,

@@ -3,7 +3,7 @@ use crate::driver::{FSEntryQueryResult, FSTrait};
 use super::{
     area::FileArea,
     entry::{FSEntry, FSEntryTrait},
-    path::FilePath,
+    path::SealedFilePath,
 };
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
@@ -27,7 +27,7 @@ impl Dir {
     pub fn root(area: FileArea) -> Self {
         Self(FSEntry {
             area,
-            path: FilePath::root(),
+            path: SealedFilePath::root(),
         })
     }
 }

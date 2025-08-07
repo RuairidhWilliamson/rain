@@ -1,7 +1,11 @@
-use std::{borrow::Cow, collections::HashMap, path::PathBuf};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use crate::{
-    afs::{area::FileArea, dir::Dir, entry::FSEntry, file::File},
+    afs::{absolute::AbsolutePathBuf, area::FileArea, dir::Dir, entry::FSEntry, file::File},
     runner::{error::RunnerError, internal::InternalFunction},
 };
 
@@ -13,21 +17,21 @@ pub trait FSTrait {
 
 pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn print(&self, message: String);
-    fn escape_bin(&self, name: &str) -> Option<PathBuf>;
+    fn escape_bin(&self, name: &str) -> Option<AbsolutePathBuf>;
     fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError>;
     fn extract_tar_gz(&self, file: &File) -> Result<FileArea, RunnerError>;
     fn extract_tar_xz(&self, file: &File) -> Result<FileArea, RunnerError>;
     fn run(
         &self,
         area: Option<&FileArea>,
-        bin: &File,
+        bin: &Path,
         args: Vec<String>,
         options: RunOptions,
     ) -> Result<RunStatus, RunnerError>;
     fn escape_run(
         &self,
         current_dir: &Dir,
-        bin: &File,
+        bin: &Path,
         args: Vec<String>,
         options: RunOptions,
     ) -> Result<EscapeRunStatus, RunnerError>;

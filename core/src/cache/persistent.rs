@@ -182,6 +182,7 @@ impl PersistValue {
             Value::Function(_) | Value::Module(_) => None,
             Value::FileArea(file_area) => Some(Self::FileArea((**file_area).clone())),
             Value::File(file) => Some(Self::File(file.inner().clone())),
+            Value::EscapeFile(_) => None,
             Value::Dir(dir) => Some(Self::Dir(dir.inner().clone())),
             Value::Internal => Some(Self::Internal),
             Value::InternalFunction(internal_function) => {

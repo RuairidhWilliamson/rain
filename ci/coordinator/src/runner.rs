@@ -7,7 +7,7 @@ use rain_core::{
     config::Config,
 };
 use rain_lang::{
-    afs::{dir::Dir, entry::FSEntry, file::File, path::FilePath},
+    afs::{dir::Dir, entry::FSEntry, file::File, path::SealedFilePath},
     driver::{DriverTrait as _, FSTrait as _},
 };
 
@@ -37,14 +37,15 @@ impl Runner {
         let mut ir = rain_lang::ir::Rir::new();
         let driver = rain_core::driver::DriverImpl::new(self.config.as_ref().clone());
         let download_area = driver.create_area(&[]).unwrap();
-        let download_entry = FSEntry::new(download_area, FilePath::new("/download").unwrap());
+        let download_entry = FSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
         std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
         let download = File::new_checked(&driver, download_entry).unwrap();
         let area = driver.extract_tar_gz(&download).unwrap();
-        let download_dir_entry = FSEntry::new(area, FilePath::new(download_dir_name).unwrap());
+        let download_dir_entry =
+            FSEntry::new(area, SealedFilePath::new(download_dir_name).unwrap());
         let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
         let area = driver.create_area(&[&root]).unwrap();
-        let root_entry = FSEntry::new(area, FilePath::new("/main.rain").unwrap());
+        let root_entry = FSEntry::new(area, SealedFilePath::new("/main.rain").unwrap());
         info!("Root entry {root_entry}");
         let root = File::new_checked(&driver, root_entry).unwrap();
         let src = driver.read_file(&root).unwrap();

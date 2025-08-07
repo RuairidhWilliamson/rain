@@ -7,11 +7,12 @@ use std::{
 use poison_panic::MutexExt as _;
 use rain_lang::{
     afs::{
+        absolute::AbsolutePathBuf,
         area::{FileArea, GeneratedFileArea},
         dir::Dir,
         entry::{FSEntry, FSEntryTrait as _},
         file::File,
-        path::FilePath,
+        path::SealedFilePath,
     },
     driver::{
         DownloadStatus, DriverTrait, EscapeRunStatus, FSEntryQueryResult, FSTrait, FileMetadata,
@@ -19,6 +20,7 @@ use rain_lang::{
     },
     runner::{error::RunnerError, internal::InternalFunction},
 };
+
 use sha2::Digest as _;
 
 use crate::config::Config;
@@ -110,10 +112,11 @@ impl FSTrait for DriverImpl<'_> {
 
 impl DriverTrait for DriverImpl<'_> {
     #[cfg(target_family = "unix")]
-    fn escape_bin(&self, name: &str) -> Option<PathBuf> {
+    fn escape_bin(&self, name: &str) -> Option<AbsolutePathBuf> {
         // Unix separates path values using colons
         const PATH_SEPARATOR: u8 = b':';
         use std::os::unix::ffi::OsStrExt as _;
+
         std::env::var_os("PATH")?
             .as_bytes()
             .split(|&b| b == PATH_SEPARATOR)
@@ -121,7 +124,7 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     #[cfg(target_family = "windows")]
-    fn escape_bin(&self, name: &str) -> Option<PathBuf> {
+    fn escape_bin(&self, name: &str) -> Option<AbsolutePathBuf> {
         // Windows separates path values using semi colons
         const PATH_SEPARATOR: u16 = {
             let mut out = [0u16; 1];
@@ -221,7 +224,7 @@ impl DriverTrait for DriverImpl<'_> {
     fn run(
         &self,
         overlay_area: Option<&FileArea>,
-        bin: &File,
+        bin: &Path,
         args: Vec<String>,
         RunOptions { inherit_env, env }: RunOptions,
     ) -> Result<RunStatus, RunnerError> {
@@ -232,8 +235,7 @@ impl DriverTrait for DriverImpl<'_> {
         };
         let output_dir = Dir::root(output_area.clone());
         let output_dir_path = self.resolve_fs_entry(output_dir.inner());
-        let bin_file = self.resolve_fs_entry(bin.inner());
-        let mut cmd = std::process::Command::new(bin_file);
+        let mut cmd = std::process::Command::new(bin);
         cmd.current_dir(output_dir_path);
         cmd.args(args);
         if !inherit_env {
@@ -268,13 +270,12 @@ impl DriverTrait for DriverImpl<'_> {
     fn escape_run(
         &self,
         current_dir: &Dir,
-        bin: &File,
+        bin: &Path,
         args: Vec<String>,
         RunOptions { inherit_env, env }: RunOptions,
     ) -> Result<EscapeRunStatus, RunnerError> {
         let current_dir_path = self.resolve_fs_entry(current_dir.inner());
-        let bin_file = self.resolve_fs_entry(bin.inner());
-        let mut cmd = std::process::Command::new(bin_file);
+        let mut cmd = std::process::Command::new(bin);
         cmd.current_dir(current_dir_path);
         cmd.args(args);
         if !inherit_env {
@@ -327,7 +328,7 @@ impl DriverTrait for DriverImpl<'_> {
             .get(ureq::http::header::ETAG)
             .map(|h| h.to_str().unwrap().to_owned());
         let area = self.create_empty_area()?;
-        let path = FilePath::new(name)?;
+        let path = SealedFilePath::new(name)?;
         let entry = FSEntry::new(area, path);
         let output_path = self.resolve_fs_entry(&entry);
         let mut out = std::fs::File::create_new(output_path).unwrap();
@@ -373,7 +374,7 @@ impl DriverTrait for DriverImpl<'_> {
 
     fn create_file(&self, contents: &str, name: &str) -> Result<File, RunnerError> {
         let area = self.create_empty_area()?;
-        let path = FilePath::new(name)?;
+        let path = SealedFilePath::new(name)?;
         let entry = FSEntry::new(area, path);
         let resolved_path = self.resolve_fs_entry(&entry);
         std::fs::write(resolved_path, contents).map_err(RunnerError::AreaIOError)?;
@@ -433,7 +434,7 @@ impl DriverTrait for DriverImpl<'_> {
     fn create_tar(&self, dir: &Dir, name: &str) -> Result<File, RunnerError> {
         let dir_path = self.resolve_fs_entry(dir.inner());
         let area = self.create_empty_area()?;
-        let path = FilePath::new(name)?;
+        let path = SealedFilePath::new(name)?;
         let entry = FSEntry::new(area, path);
         let output_path = self.resolve_fs_entry(&entry);
         let f = std::fs::File::create(output_path).map_err(RunnerError::AreaIOError)?;
@@ -495,11 +496,26 @@ impl MonitoringTrait for DriverImpl<'_> {
     }
 }
 
-fn find_bin_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
+#[cfg(target_family = "unix")]
+fn find_bin_in_dir(dir: &Path, name: &str) -> Option<AbsolutePathBuf> {
     std::fs::read_dir(dir).ok()?.find_map(|e| {
         let p = e.ok()?;
         if p.file_name().to_str()? == name {
-            Some(p.path())
+            Some(AbsolutePathBuf::try_from(p.path()).ok()?)
+        } else {
+            None
+        }
+    })
+}
+
+#[cfg(target_family = "windows")]
+fn find_bin_in_dir(dir: &Path, name: &str) -> Option<AbsolutePathBuf> {
+    std::fs::read_dir(dir).ok()?.find_map(|e| {
+        let entry = e.ok()?;
+        let path = entry.path();
+        let filename = path.file_stem()?.to_str()?;
+        if filename == name {
+            Some(AbsolutePathBuf::try_from(path).ok()?)
         } else {
             None
         }

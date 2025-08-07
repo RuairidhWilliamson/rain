@@ -5,7 +5,6 @@ use super::absolute::AbsolutePathBuf;
 pub enum FileArea {
     Local(AbsolutePathBuf),
     Generated(GeneratedFileArea),
-    Escape,
 }
 
 impl std::fmt::Display for FileArea {
@@ -13,7 +12,6 @@ impl std::fmt::Display for FileArea {
         match self {
             Self::Local(path) => f.write_fmt(format_args!("{}", path.0.display())),
             Self::Generated(GeneratedFileArea { id }) => f.write_fmt(format_args!("{id}")),
-            Self::Escape => f.write_str("escape"),
         }
     }
 }
