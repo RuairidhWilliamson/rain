@@ -3,7 +3,7 @@
 mod download;
 mod run;
 
-use std::{ops::RangeInclusive, str::FromStr, sync::Arc, time::Instant};
+use std::{ops::RangeInclusive, str::FromStr as _, sync::Arc, time::Instant};
 
 use indexmap::IndexMap;
 use num_bigint::BigInt;
@@ -336,7 +336,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     .module
                     .file()
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
-                self.cx.add_dep_file_area(&file.area());
+                self.cx.add_dep_file_area(file.area());
                 let file_path = file
                     .path()
                     .parent()
@@ -807,7 +807,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 let dst = expect_type!(self, Dir, (dst_nid, dst_value));
                 match dst.area() {
                     FileArea::Local(_) => (),
-                    _ => {
+                    FileArea::Generated(_) => {
                         return Err(self.cx.nid_err(
                             *dst_nid,
                             RunnerError::Makeshift("destination must be in a local area".into()),
@@ -842,7 +842,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 let filename = expect_type!(self, String, (filename_nid, filename_value));
                 match dst.area() {
                     FileArea::Local(_) => (),
-                    _ => {
+                    FileArea::Generated(_) => {
                         return Err(self.cx.nid_err(
                             *dst_nid,
                             RunnerError::Makeshift("destination must be in a local area".into()),

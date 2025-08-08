@@ -162,10 +162,12 @@ fn number() {
 
 #[test]
 fn illegal_chars() {
-    assert_eq!(
-        str_tokens("`"),
-        Err(LocalSpan::byte(0).with_error(TokenError::IllegalChar))
-    );
+    for (s, c) in [("`", b'`'), ("\r", b'\r'), ("\0", b'\0')] {
+        assert_eq!(
+            str_tokens(s),
+            Err(LocalSpan::byte(0).with_error(TokenError::IllegalAsciiChar(c)))
+        );
+    }
 }
 
 #[expect(clippy::needless_pass_by_value)]

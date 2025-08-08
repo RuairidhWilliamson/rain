@@ -85,7 +85,9 @@ impl TokenStream<'_> {
                 (b'a'..=b'z' | b'A'..=b'Z' | b'_', _) => self.ident(),
                 (b'0'..=b'9', _) => self.number(),
                 (c, _) if c.is_ascii() => {
-                    return Err(LocalSpan::byte(self.index).with_error(TokenError::IllegalChar));
+                    return Err(
+                        LocalSpan::byte(self.index).with_error(TokenError::IllegalAsciiChar(c))
+                    );
                 }
                 _ => self.ident(),
             };

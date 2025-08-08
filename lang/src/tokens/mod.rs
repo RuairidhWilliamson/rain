@@ -85,7 +85,7 @@ impl StringLiteralPrefix {
 pub enum TokenError {
     UnclosedSingleQuote,
     UnclosedDoubleQuote,
-    IllegalChar,
+    IllegalAsciiChar(u8),
     ReservedKeyword,
 }
 
@@ -94,7 +94,7 @@ impl std::fmt::Display for TokenError {
         match self {
             Self::UnclosedSingleQuote => f.write_str("unclosed single quotes"),
             Self::UnclosedDoubleQuote => f.write_str("unclosed double quotes"),
-            Self::IllegalChar => f.write_fmt(format_args!("illegal char")),
+            Self::IllegalAsciiChar(c) => f.write_fmt(format_args!("illegal ascii char {c:?}")),
             Self::ReservedKeyword => f.write_str("reserved keyword"),
         }
     }

@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use indexmap::IndexMap;
 
 use crate::{
-    afs::{dir::Dir, entry::FSEntryTrait},
+    afs::{dir::Dir, entry::FSEntryTrait as _},
     ast::NodeId,
     driver::{DriverTrait, RunOptions},
     runner::dep::Dep,
