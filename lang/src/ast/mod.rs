@@ -608,7 +608,7 @@ impl AstNode for Record {
 #[derive(Debug)]
 pub struct RecordField {
     pub key: TokenLocalSpan,
-    pub colon: LocalSpan,
+    pub equals: LocalSpan,
     pub value: NodeId,
     pub comma: Option<LocalSpan>,
 }

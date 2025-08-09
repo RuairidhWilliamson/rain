@@ -377,7 +377,7 @@ impl<'src> ModuleParser<'src> {
         let lbrace = lbrace.span;
         let mut fields = Vec::new();
         loop {
-            self.stream.skip_if_newline()?;
+            self.stream.skip_if_newline_or_comment()?;
             let Some(peek) = self.stream.peek()? else {
                 break;
             };
@@ -385,7 +385,7 @@ impl<'src> ModuleParser<'src> {
                 break;
             }
             let key = self.stream.expect_parse_next(&[Token::Ident])?;
-            let colon = self.stream.expect_parse_next(&[Token::Colon])?.span;
+            let equals = self.stream.expect_parse_next(&[Token::Assign])?.span;
             let value = self.parse_expr()?;
             let mut comma = None;
             if let Some(tls) = self.stream.peek()? {
@@ -395,7 +395,7 @@ impl<'src> ModuleParser<'src> {
             }
             fields.push(RecordField {
                 key,
-                colon,
+                equals,
                 value,
                 comma,
             });
@@ -412,7 +412,7 @@ impl<'src> ModuleParser<'src> {
         let lbracket = lbracket.span;
         let mut elements = Vec::new();
         loop {
-            self.stream.skip_if_newline()?;
+            self.stream.skip_if_newline_or_comment()?;
             let Some(peek) = self.stream.peek()? else {
                 break;
             };
@@ -629,17 +629,17 @@ mod test {
 
     #[test]
     fn record_constructor() {
-        insta::assert_snapshot!(parse_display_expr("{a: 1, b: 2, c: \"ajlsdkf\"}"));
+        insta::assert_snapshot!(parse_display_expr("{a = 1, b = 2, c = \"ajlsdkf\"}"));
     }
 
     #[test]
     fn record_constructor_nested() {
-        insta::assert_snapshot!(parse_display_expr("{a: {b: {c: 5}},}"));
+        insta::assert_snapshot!(parse_display_expr("{a = {b = {c = 5}},}"));
     }
 
     #[test]
     fn record_constructor_nls() {
-        insta::assert_snapshot!(parse_display_expr("{\na: b, \n c: 4\n}"));
+        insta::assert_snapshot!(parse_display_expr("{\na = b, \n// comment \n c = 4\n}"));
     }
 
     #[test]
@@ -649,7 +649,9 @@ mod test {
 
     #[test]
     fn list_constructor_nested_nls() {
-        insta::assert_snapshot!(parse_display_expr("[a\n, b,\n 123, [\n567, d]\n]"));
+        insta::assert_snapshot!(parse_display_expr(
+            "[a\n, b,\n 123, // comment \n [\n567, d]\n]"
+        ));
     }
 
     #[test]

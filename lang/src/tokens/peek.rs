@@ -62,6 +62,21 @@ impl<'a> PeekTokenStream<'a> {
         }
     }
 
+    /// Consumes zero or more newlines or comments
+    pub fn skip_if_newline_or_comment(&mut self) -> Result<(), ErrorLocalSpan<TokenError>> {
+        loop {
+            let Some(tls) = self.peek()? else {
+                return Ok(());
+            };
+            match tls.token {
+                Token::Comment | Token::NewLine => {
+                    self.parse_next()?;
+                }
+                _ => return Ok(()),
+            }
+        }
+    }
+
     #[expect(unsafe_code)]
     pub fn peek_many<const N: usize>(
         &mut self,
