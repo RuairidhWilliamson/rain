@@ -106,7 +106,7 @@ impl Runner {
         let cache = pcache.depersist(&self.config, &self.cache_stats);
         if let Err(err) = cache.prune_generated_areas(&self.config) {
             error!("prune error: {err:#}");
-        };
+        }
         *persistent_cache = Some(PersistCache::persist(&cache, &self.cache_stats));
     }
 }

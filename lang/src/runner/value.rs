@@ -174,9 +174,7 @@ impl Value {
                 FileArea::Generated(_) => true,
                 FileArea::Local(_) => false,
             },
-            Self::EscapeFile(_) => false,
-            // TODO: Change
-            Self::Dir(_) => false,
+            Self::EscapeFile(_) | Self::Dir(_) => false,
         }
     }
 

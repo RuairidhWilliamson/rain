@@ -865,6 +865,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         }
     }
 
+    #[expect(clippy::too_many_lines)]
     fn check_export_to_local(self) -> ResultValue {
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
@@ -872,7 +873,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 let dst = expect_type!(self, Dir, (dst_nid, dst_value));
                 match dst.area() {
                     FileArea::Local(_) => (),
-                    _ => {
+                    FileArea::Generated(_) => {
                         return Err(self.cx.nid_err(
                             *dst_nid,
                             RunnerError::Makeshift("destination must be in a local area".into()),
@@ -935,7 +936,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 let filename = expect_type!(self, String, (filename_nid, filename_value));
                 match dst.area() {
                     FileArea::Local(_) => (),
-                    _ => {
+                    FileArea::Generated(_) => {
                         return Err(self.cx.nid_err(
                             *dst_nid,
                             RunnerError::Makeshift("destination must be in a local area".into()),
@@ -1237,7 +1238,15 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
 
     fn parse_target_triple(self) -> ResultValue {
         let triple = expect_type!(self, String, single_arg!(self));
-        let triple = target_lexicon::Triple::from_str(triple).unwrap();
+        let triple = match target_lexicon::Triple::from_str(triple) {
+            Ok(triple) => triple,
+            Err(err) => {
+                return Err(self.cx.nid_err(
+                    self.nid,
+                    RunnerError::Makeshift(std::borrow::Cow::Owned(err.to_string())),
+                ));
+            }
+        };
         let mut out = IndexMap::new();
         out.insert(
             "arch".into(),
