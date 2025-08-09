@@ -1284,7 +1284,7 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
 name = "poison_panic"
-version = "0.1.8"
+version = "0.1.9-pre"
 
 [[package]]
 name = "portable-atomic"
@@ -1373,7 +1373,7 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "rain"
-version = "0.1.8"
+version = "0.1.9-pre"
 dependencies = [
  "chrono",
  "ciborium",
@@ -1395,7 +1395,7 @@ dependencies = [
 
 [[package]]
 name = "rain-ci-coordinator"
-version = "0.1.8"
+version = "0.1.9-pre"
 dependencies = [
  "anyhow",
  "base64",
@@ -1422,7 +1422,7 @@ dependencies = [
 
 [[package]]
 name = "rain-core"
-version = "0.1.8"
+version = "0.1.9-pre"
 dependencies = [
  "base16",
  "chrono",
@@ -1454,7 +1454,7 @@ dependencies = [
 
 [[package]]
 name = "rain-lang"
-version = "0.1.8"
+version = "0.1.9-pre"
 dependencies = [
  "chrono",
  "indexmap",
@@ -1599,7 +1599,7 @@ dependencies = [
 
 [[package]]
 name = "ruipc"
-version = "0.1.8"
+version = "0.1.9-pre"
 dependencies = [
  "libc",
  "windows",
