@@ -21,7 +21,7 @@ fn test_prelude_cache() {
 
 fn rustc_helloworld() {
 	src = std.utils.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
-	std.build.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple, "2024")
+	std.build.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple, "2024", [])
 }
 
 fn test_rustc_cache() {

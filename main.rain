@@ -65,7 +65,7 @@ fn everything() {
 fn test_zig() {
 	src = std.utils.create_file("const std = @import(\"std\"); pub fn main() !void {std.debug.print(\"hello world\", .{});}", "helloworld.zig")
 	zig_bin = std.build.zig.dist.download("0.14.1", "x86_64", "linux")
-	run_result = std.utils.run(std.utils.unit, zig_bin, ["build-exe", src], {ZIG_GLOBAL_CACHE_DIR: "."})
+	run_result = std.utils.run(std.utils.unit, zig_bin, ["build-exe", src], {ZIG_GLOBAL_CACHE_DIR = "."})
 	if !run_result.success {
 		std.utils.print("Stdout:", run_result.stdout)
 		std.utils.print("Stderr:", run_result.stderr)

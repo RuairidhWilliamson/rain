@@ -26,8 +26,8 @@ fn compile(channel, src, outname, target, edition, extra_args) {
 
 	merged = std.utils.create_area([rustc, rust_std])
 	env = {
-		LD_LIBRARY_PATH: get_dir(merged, "/lib"),
-		ZIG_GLOBAL_CACHE_DIR: ".",
+		LD_LIBRARY_PATH = get_dir(merged, "/lib"),
+		ZIG_GLOBAL_CACHE_DIR = ".",
 	}
 	rustc_bin = get_file(merged, "/bin/rustc")
 	args = [
