@@ -786,6 +786,10 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             "triple".into(),
             Value::String(Arc::new(String::from(host_triple))),
         );
+        record.insert(
+            "rain_version".into(),
+            Value::String(Arc::new(String::from(env!("CARGO_PKG_VERSION")))),
+        );
         Ok(Value::Record(Arc::new(RainRecord(record))))
     }
 
