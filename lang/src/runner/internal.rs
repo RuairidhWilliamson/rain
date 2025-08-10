@@ -1116,7 +1116,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
 
     fn stringify(self) -> ResultValue {
         match &self.arg_values[..] {
-            [(dir_nid, dir_value)] => match dir_value {
+            [(nid, value)] => match value {
                 Value::File(f) => Ok(Value::String(Arc::new(
                     self.runner
                         .driver
@@ -1131,10 +1131,11 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         .display()
                         .to_string(),
                 ))),
+                Value::EscapeFile(f) => Ok(Value::String(Arc::new(format!("{}", f.0.display())))),
                 _ => Err(self.cx.nid_err(
-                    *dir_nid,
+                    *nid,
                     RunnerError::ExpectedType {
-                        actual: dir_value.rain_type_id(),
+                        actual: value.rain_type_id(),
                         expected: &[RainTypeId::File, RainTypeId::Dir],
                     },
                 )),

@@ -168,13 +168,14 @@ impl Value {
             | Self::String(_)
             | Self::Function(_)
             | Self::Module(_)
-            | Self::FileArea(_) => true,
+            | Self::FileArea(_)
+            | Self::EscapeFile(_) => true,
             // TODO: Change
             Self::File(f) => match f.area() {
                 FileArea::Generated(_) => true,
                 FileArea::Local(_) => false,
             },
-            Self::EscapeFile(_) | Self::Dir(_) => false,
+            Self::Dir(_) => false,
         }
     }
 
