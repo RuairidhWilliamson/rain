@@ -91,3 +91,7 @@ fn install_cli() {
 fn test() {
 	test_mod.test_caching()
 }
+
+fn ci() {
+	check()
+}
