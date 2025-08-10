@@ -91,7 +91,3 @@ fn install_cli() {
 fn test() {
 	test_mod.test_caching()
 }
-
-fn test_win_bin() {
-	std.escape.bin("regedit")
-}
