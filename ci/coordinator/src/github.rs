@@ -95,12 +95,12 @@ impl AppClient {
 }
 
 pub struct InstallationClient {
-    agent: ureq::Agent,
-    token: model::InstallationAccessToken,
+    pub agent: ureq::Agent,
+    pub token: model::InstallationAccessToken,
 }
 
 impl InstallationClient {
-    fn auth<Any>(&self, req: RequestBuilder<Any>) -> RequestBuilder<Any> {
+    pub fn auth<Any>(&self, req: RequestBuilder<Any>) -> RequestBuilder<Any> {
         req.header(
             http::header::AUTHORIZATION,
             format!("Bearer {}", self.token.token),

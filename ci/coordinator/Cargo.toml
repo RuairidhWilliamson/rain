@@ -16,6 +16,7 @@ bytes.workspace = true
 dotenvy.workspace = true
 env_logger.workspace = true
 envy = "0.4.2"
+git-lfs-rs.workspace = true
 hex = "0.4.3"
 http = "1"
 httparse = "1.10.1"

@@ -5,9 +5,16 @@ use poison_panic::MutexExt as _;
 use rain_core::{
     cache::{Cache, CacheStats, persistent::PersistCache},
     config::Config,
+    driver::DriverImpl,
 };
 use rain_lang::{
-    afs::{dir::Dir, entry::FSEntry, file::File, path::SealedFilePath},
+    afs::{
+        area::FileArea,
+        dir::Dir,
+        entry::{FSEntry, FSEntryTrait},
+        file::File,
+        path::SealedFilePath,
+    },
     driver::{DriverTrait as _, FSTrait as _},
 };
 
@@ -32,24 +39,13 @@ impl Runner {
     }
 
     #[expect(clippy::unwrap_used)]
-    pub fn run(&self, download: &[u8], download_dir_name: &str) -> RunComplete {
-        let declaration = "ci";
-        let mut ir = rain_lang::ir::Rir::new();
-        let driver = rain_core::driver::DriverImpl::new(self.config.as_ref().clone());
-        let download_area = driver.create_area(&[]).unwrap();
-        let download_entry = FSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
-        std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
-        let download = File::new_checked(&driver, download_entry).unwrap();
-        let area = driver.extract_tar_gz(&download).unwrap();
-        let download_dir_entry =
-            FSEntry::new(area, SealedFilePath::new(download_dir_name).unwrap());
-        let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
-        let area = driver.create_area(&[&root]).unwrap();
+    pub fn run(&self, driver: &DriverImpl, area: FileArea) -> RunComplete {
         let root_entry = FSEntry::new(area, SealedFilePath::new("/main.rain").unwrap());
         info!("Root entry {root_entry}");
-        let root = File::new_checked(&driver, root_entry).unwrap();
+        let root = File::new_checked(driver, root_entry).unwrap();
         let src = driver.read_file(&root).unwrap();
         let module = rain_lang::ast::parser::parse_module(&src);
+        let mut ir = rain_lang::ir::Rir::new();
         let mid = match ir.insert_module(Some(root), src, module) {
             Ok(mid) => mid,
             Err(err) => {
@@ -61,6 +57,7 @@ impl Runner {
                 };
             }
         };
+        let declaration = "ci";
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
         let mut persistent_cache = self.persistent_cache.plock();
         let cache_core = persistent_cache
@@ -71,7 +68,7 @@ impl Runner {
             core: Arc::new(Mutex::new(cache_core)),
             stats: Arc::clone(&self.cache_stats),
         };
-        let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, &driver);
+        let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, driver);
         runner.seal = self.seal;
         info!("Running");
         let res = runner.evaluate_and_call(main, &[]);

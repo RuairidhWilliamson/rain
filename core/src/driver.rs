@@ -4,6 +4,7 @@ use std::{
     sync::Mutex,
 };
 
+use git2::{Cred, Oid};
 use poison_panic::MutexExt as _;
 use rain_lang::{
     afs::{
@@ -55,12 +56,13 @@ impl DriverImpl<'_> {
     }
 
     fn create_empty_area(&self) -> Result<FileArea, RunnerError> {
-        self.create_overlay_area(std::iter::empty())
+        self.create_overlay_area(std::iter::empty(), false)
     }
 
     fn create_overlay_area<'a>(
         &self,
         overlay_dirs: impl Iterator<Item = &'a Dir>,
+        include_hidden: bool,
     ) -> Result<FileArea, RunnerError> {
         let area = FileArea::Generated(GeneratedFileArea::new());
         let output_dir = Dir::root(area.clone());
@@ -73,7 +75,10 @@ impl DriverImpl<'_> {
         std::fs::create_dir_all(&output_dir_path).map_err(RunnerError::AreaIOError)?;
         for dir in overlay_dirs {
             let dir_path = self.resolve_fs_entry(dir.inner());
-            for entry in ignore::Walk::new(&dir_path) {
+            let walker = ignore::WalkBuilder::new(&dir_path)
+                .hidden(!include_hidden)
+                .build();
+            for entry in walker {
                 let Ok(entry) = entry else {
                     continue;
                 };
@@ -229,7 +234,7 @@ impl DriverTrait for DriverImpl<'_> {
         RunOptions { inherit_env, env }: RunOptions,
     ) -> Result<RunStatus, RunnerError> {
         let output_area = if let Some(overlay_area) = overlay_area {
-            self.create_overlay_area(std::iter::once(&Dir::root(overlay_area.clone())))?
+            self.create_overlay_area(std::iter::once(&Dir::root(overlay_area.clone())), true)?
         } else {
             self.create_empty_area()?
         };
@@ -363,7 +368,7 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     fn create_area(&self, dirs: &[&Dir]) -> Result<FileArea, RunnerError> {
-        self.create_overlay_area(dirs.iter().copied())
+        self.create_overlay_area(dirs.iter().copied(), false)
     }
 
     fn read_file(&self, file: &File) -> Result<String, std::io::Error> {
@@ -394,7 +399,7 @@ impl DriverTrait for DriverImpl<'_> {
     #[expect(clippy::unwrap_used)]
     fn glob(&self, dir: &Dir, _pattern: &str) -> Result<Vec<File>, RunnerError> {
         let base_path = self.resolve_fs_entry(dir.inner());
-        // TODO: Implement proper globbing
+        // TODO: Implement proper globbing instead of ignoring the pattern
         let mut out = Vec::new();
         for entry in ignore::Walk::new(&base_path) {
             let entry = entry.unwrap();
@@ -466,6 +471,49 @@ impl DriverTrait for DriverImpl<'_> {
         }
         Err(RunnerError::Makeshift(
             format!("secret {name:?} not found").into(),
+        ))
+    }
+
+    fn git_contents(&self, url: &str, commit: &str) -> Result<FileArea, RunnerError> {
+        let area = self.create_empty_area()?;
+        let dir = Dir::root(area);
+        let commit = Oid::from_str(commit)
+            .map_err(|err| RunnerError::Makeshift(format!("parse commit hash: {err}").into()))?;
+        let mut fo = git2::FetchOptions::new();
+        let mut rcb = git2::RemoteCallbacks::new();
+        rcb.credentials(|_url, username_from_url, allowed_types| {
+            let username = username_from_url.unwrap_or("git");
+            if allowed_types.contains(git2::CredentialType::USERNAME) {
+                return git2::Cred::username(username);
+            }
+            Cred::ssh_key_from_agent(username)
+        });
+        fo.remote_callbacks(rcb);
+        let repo = git2::build::RepoBuilder::new()
+            .fetch_options(fo)
+            .with_checkout(git2::build::CheckoutBuilder::new())
+            .clone(&url, &self.resolve_fs_entry(dir.inner()))
+            .unwrap();
+        repo.set_head_detached(commit).unwrap();
+        Ok(dir.area().clone())
+    }
+
+    fn git_lfs_smudge(&self, _area: &FileArea) -> Result<FileArea, RunnerError> {
+        // let dir = Dir::root(area.clone());
+        // let path = self.resolve_fs_entry(dir.inner());
+        // for entry in ignore::Walk::new(&path) {
+        //     let entry = entry.unwrap();
+        //     if !entry.file_type().unwrap().is_file() {
+        //         continue;
+        //     }
+        //     let Ok(lfs_entry) = git_lfs_rs::Pointer::from_path(entry.path()) else {
+        //         continue;
+        //     };
+        //     dbg!(lfs_entry);
+        // }
+
+        Err(RunnerError::Makeshift(
+            "git lfs smudge unimplemented".into(),
         ))
     }
 }

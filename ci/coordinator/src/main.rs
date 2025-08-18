@@ -1,6 +1,8 @@
 mod github;
 mod runner;
 
+use http::header::CONTENT_TYPE;
+use rain_lang::afs::{dir::Dir, file::File};
 use std::{
     borrow::Cow,
     io::{Read as _, Write as _},
@@ -14,6 +16,8 @@ use httparse::Request;
 use ipnet::IpNet;
 use jsonwebtoken::EncodingKey;
 use log::{error, info, warn};
+use rain_lang::afs::{entry::FSEntry, entry::FSEntryTrait, path::SealedFilePath};
+use rain_lang::driver::{DriverTrait as _, FSTrait as _};
 use runner::Runner;
 
 #[derive(Debug, serde::Deserialize)]
@@ -35,8 +39,8 @@ fn main() -> Result<()> {
     }
     let config = envy::from_env::<Config>()?;
 
-    let key_raw = std::fs::read(&config.github_app_key).unwrap();
-    let key = EncodingKey::from_rsa_pem(&key_raw).unwrap();
+    let key_raw = std::fs::read(&config.github_app_key).context("read github app key")?;
+    let key = EncodingKey::from_rsa_pem(&key_raw).context("decode github app key")?;
 
     let github_client = github::AppClient::new(github::AppAuth {
         app_id: config.github_app_id,
@@ -190,7 +194,59 @@ impl Server {
             .download_repo_tar(owner, repo, head_sha)
             .context("download repo")?;
         let download_dir_name = format!("{owner}-{repo}-{head_sha}");
-        let run_complete = self.runner.run(&download, &download_dir_name);
+        let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
+        let download_area = driver.create_area(&[]).unwrap();
+        let download_entry = FSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
+        std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
+        let download = File::new_checked(&driver, download_entry).unwrap();
+        let area = driver.extract_tar_gz(&download).unwrap();
+        let download_dir_entry =
+            FSEntry::new(area, SealedFilePath::new(&download_dir_name).unwrap());
+        let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
+        let lfs_entries: Vec<_> = driver
+            .glob(&root, "**/*")
+            .unwrap()
+            .into_iter()
+            .filter_map(|entry| {
+                let path = driver.resolve_fs_entry(entry.inner());
+                let lfs_object = git_lfs_rs::object::Object::from_path(&path).ok()?;
+                Some((path, lfs_object))
+            })
+            .collect();
+        let request = git_lfs_rs::api::Request {
+            operation: git_lfs_rs::api::Operation::Download,
+            transfers: vec![git_lfs_rs::api::Transfer::Basic],
+            r#ref: None,
+            objects: lfs_entries.iter().map(|(_, o)| o.clone().into()).collect(),
+            hash_algo: git_lfs_rs::api::HashAlgorithm::Sha256,
+        };
+        let response = installation_client
+            .auth(installation_client.agent.post(format!(
+                "https://github.com/{owner}/{repo}.git/info/lfs/objects/batch"
+            )))
+            .header(CONTENT_TYPE, "application/vnd.git-lfs+json")
+            .send_json(request)
+            .unwrap();
+        let response: git_lfs_rs::api::Response = response.into_body().read_json().unwrap();
+        for (resp, (path, _)) in response.objects.into_iter().zip(lfs_entries.into_iter()) {
+            let mut f = std::fs::File::create(&path).unwrap();
+            let mut reader = installation_client
+                .agent
+                .get(
+                    &resp
+                        .actions
+                        .get(&git_lfs_rs::api::Operation::Download)
+                        .unwrap()
+                        .href,
+                )
+                .call()
+                .unwrap()
+                .into_body()
+                .into_reader();
+            std::io::copy(&mut reader, &mut f).unwrap();
+        }
+        let area = driver.create_area(&[&root]).unwrap();
+        let run_complete = self.runner.run(&driver, area);
 
         let conclusion = if run_complete.success {
             github::model::CheckRunConclusion::Success

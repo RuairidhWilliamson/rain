@@ -74,6 +74,9 @@ pub enum InternalFunction {
     ClearCacheDeps,
     MergeRecords,
     ParseTargetTriple,
+    GitContents,
+    GitLfsSmudge,
+    EnvVar,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -127,6 +130,9 @@ impl InternalFunction {
             "_clear_cache_deps" => Some(Self::ClearCacheDeps),
             "_merge_records" => Some(Self::MergeRecords),
             "_parse_target_triple" => Some(Self::ParseTargetTriple),
+            "_git_contents" => Some(Self::GitContents),
+            "_git_lfs_smudge" => Some(Self::GitLfsSmudge),
+            "_env_var" => Some(Self::EnvVar),
             _ => None,
         }
     }
@@ -175,6 +181,9 @@ impl InternalFunction {
             Self::ClearCacheDeps => icx.clear_cache_deps(),
             Self::MergeRecords => icx.merge_records(),
             Self::ParseTargetTriple => icx.parse_target_triple(),
+            Self::GitContents => icx.git_contents(),
+            Self::GitLfsSmudge => icx.git_lfs_smudge(),
+            Self::EnvVar => icx.env_var(),
         }
     }
 }
@@ -1274,5 +1283,38 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             Value::String(Arc::new(triple.binary_format.to_string())),
         );
         Ok(Value::Record(Arc::new(RainRecord(out))))
+    }
+
+    fn git_contents(self) -> ResultValue {
+        match &self.arg_values[..] {
+            [(url_nid, url_value), (commit_nid, commit_value)] => self.cache(|| {
+                let url = expect_type!(self, String, (url_nid, url_value));
+                let commit = expect_type!(self, String, (commit_nid, commit_value));
+                let area = self
+                    .runner
+                    .driver
+                    .git_contents(url, commit)
+                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                Ok(Value::FileArea(Arc::new(area)))
+            }),
+            _ => self.incorrect_args(2..=2),
+        }
+    }
+
+    fn git_lfs_smudge(self) -> ResultValue {
+        let area = expect_type!(self, FileArea, single_arg!(self));
+        let new_area = self
+            .runner
+            .driver
+            .git_lfs_smudge(area)
+            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+        Ok(Value::FileArea(Arc::new(new_area)))
+    }
+
+    fn env_var(self) -> ResultValue {
+        let var_name = expect_type!(self, String, single_arg!(self));
+        Ok(Value::String(Arc::new(
+            std::env::var(var_name.as_str()).unwrap(),
+        )))
     }
 }

@@ -91,7 +91,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
             eprintln!("{config:#?}");
             Ok(())
         }
-        RainCtlCommand::Inspect => {
+        RainCtlCommand::Cache => {
             let InspectResponse {
                 cache_size,
                 entries,
@@ -304,7 +304,7 @@ enum RainCtlCommand {
     /// View rain config
     Config,
     /// Inspect the rain cache
-    Inspect,
+    Cache,
     /// Resolve rain path to its actual local path
     Resolve { path: Option<String> },
     /// Clean the rain cache
