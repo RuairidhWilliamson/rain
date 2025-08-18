@@ -1,7 +1,7 @@
 mod github;
 mod runner;
 
-use http::header::CONTENT_TYPE;
+use http::header::{ACCEPT, CONTENT_TYPE};
 use rain_lang::afs::{dir::Dir, file::File};
 use std::{
     borrow::Cow,
@@ -225,6 +225,7 @@ impl Server {
                 "https://github.com/{owner}/{repo}.git/info/lfs/objects/batch"
             )))
             .header(CONTENT_TYPE, "application/vnd.git-lfs+json")
+            .header(ACCEPT, "application/vnd.git-lfs+json")
             .send_json(request)
             .unwrap();
         let response: git_lfs_rs::api::Response = response.into_body().read_json().unwrap();
