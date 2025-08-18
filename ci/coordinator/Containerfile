@@ -1,12 +1,10 @@
 FROM docker.io/rust:slim as base
 RUN rustup component add rustfmt clippy
-RUN apt-get -qqy update && apt-get -qqy install pkg-config libssl-dev curl xz-utils
+RUN apt-get -qqy update && apt-get -qqy install pkg-config libssl-dev curl xz-utils libasound2-dev
 
 WORKDIR /usr/rain
 
-ENV \
-    CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse \
-    CARGO_BUILD_TARGET_DIR=/target
+ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
 FROM base as build
 # Actually build things

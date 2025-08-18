@@ -20,6 +20,8 @@ use rain_lang::afs::{entry::FSEntry, entry::FSEntryTrait as _, path::SealedFileP
 use rain_lang::driver::{DriverTrait as _, FSTrait as _};
 use runner::Runner;
 
+use crate::runner::RunComplete;
+
 #[derive(Debug, serde::Deserialize)]
 struct Config {
     addr: SocketAddr,
@@ -190,69 +192,99 @@ impl Server {
             )
             .context("update check run")?;
 
-        let download = installation_client
-            .download_repo_tar(owner, repo, head_sha)
-            .context("download repo")?;
-        let download_dir_name = format!("{owner}-{repo}-{head_sha}");
-        let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
-        let download_area = driver.create_area(&[]).unwrap();
-        let download_entry = FSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
-        std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
-        let download = File::new_checked(&driver, download_entry).unwrap();
-        let area = driver.extract_tar_gz(&download).unwrap();
-        let download_dir_entry =
-            FSEntry::new(area, SealedFilePath::new(&download_dir_name).unwrap());
-        let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
-        let lfs_entries: Vec<_> = driver
-            .glob(&root, "**/*")
-            .unwrap()
-            .into_iter()
-            .filter_map(|entry| {
-                let path = driver.resolve_fs_entry(entry.inner());
-                let lfs_object = git_lfs_rs::object::Object::from_path(&path).ok()?;
-                Some((path, lfs_object))
-            })
-            .collect();
-        let request = git_lfs_rs::api::Request {
-            operation: git_lfs_rs::api::Operation::Download,
-            transfers: vec![git_lfs_rs::api::Transfer::Basic],
-            r#ref: None,
-            objects: lfs_entries.iter().map(|(_, o)| o.into()).collect(),
-            hash_algo: git_lfs_rs::api::HashAlgorithm::Sha256,
-        };
-        let response = installation_client
-            .auth(installation_client.agent.post(format!(
-                "https://github.com/{owner}/{repo}.git/info/lfs/objects/batch"
-            )))
-            .header(CONTENT_TYPE, "application/vnd.git-lfs+json")
-            .header(ACCEPT, "application/vnd.git-lfs+json")
-            .send_json(request)
-            .unwrap();
-        let response: git_lfs_rs::api::Response = response.into_body().read_json().unwrap();
-        for (resp, (path, _)) in response.objects.into_iter().zip(lfs_entries.into_iter()) {
-            let mut f = std::fs::File::create(&path).unwrap();
-            let mut reader = installation_client
-                .agent
-                .get(
-                    &resp
-                        .actions
-                        .get(&git_lfs_rs::api::Operation::Download)
+        let result = std::thread::scope(|s| {
+            s.spawn::<_, Result<RunComplete>>(|| {
+                let download = installation_client
+                    .download_repo_tar(owner, repo, head_sha)
+                    .context("download repo")?;
+                let download_dir_name = format!("{owner}-{repo}-{head_sha}");
+                let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
+                let download_area = driver.create_area(&[]).unwrap();
+                let download_entry =
+                    FSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
+                std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
+                let download = File::new_checked(&driver, download_entry).unwrap();
+                let area = driver.extract_tar_gz(&download).unwrap();
+                let download_dir_entry =
+                    FSEntry::new(area, SealedFilePath::new(&download_dir_name).unwrap());
+                let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
+                let lfs_entries: Vec<_> = driver
+                    .glob(&root, "**/*")
+                    .unwrap()
+                    .into_iter()
+                    .filter_map(|entry| {
+                        let path = driver.resolve_fs_entry(entry.inner());
+                        let lfs_object = git_lfs_rs::object::Object::from_path(&path).ok()?;
+                        Some((path, lfs_object))
+                    })
+                    .collect();
+                let request = git_lfs_rs::api::Request {
+                    operation: git_lfs_rs::api::Operation::Download,
+                    transfers: vec![git_lfs_rs::api::Transfer::Basic],
+                    r#ref: None,
+                    objects: lfs_entries.iter().map(|(_, o)| o.into()).collect(),
+                    hash_algo: git_lfs_rs::api::HashAlgorithm::Sha256,
+                };
+                let response = installation_client
+                    .agent
+                    .post(format!(
+                        "https://github.com/{owner}/{repo}.git/info/lfs/objects/batch"
+                    ))
+                    .header(
+                        http::header::AUTHORIZATION,
+                        format!("Bearer {}", installation_client.token.token),
+                    )
+                    .header(CONTENT_TYPE, "application/vnd.git-lfs+json")
+                    .header(ACCEPT, "application/vnd.git-lfs+json")
+                    .send_json(request)
+                    .unwrap();
+                let response: git_lfs_rs::api::Response = response.into_body().read_json().unwrap();
+                for (resp, (path, _)) in response.objects.into_iter().zip(lfs_entries.into_iter()) {
+                    let mut f = std::fs::File::create(&path).unwrap();
+                    let mut reader = installation_client
+                        .agent
+                        .get(
+                            &resp
+                                .actions
+                                .get(&git_lfs_rs::api::Operation::Download)
+                                .unwrap()
+                                .href,
+                        )
+                        .call()
                         .unwrap()
-                        .href,
+                        .into_body()
+                        .into_reader();
+                    std::io::copy(&mut reader, &mut f).unwrap();
+                }
+                let area = driver.create_area(&[&root]).unwrap();
+                let run_complete = self.runner.run(&driver, area);
+                Ok(run_complete)
+            })
+            .join()
+        });
+        let (conclusion, output) = match result {
+            Ok(Ok(RunComplete {
+                success: true,
+                output,
+            })) => (github::model::CheckRunConclusion::Success, output),
+            Ok(Ok(RunComplete {
+                success: false,
+                output,
+            })) => (github::model::CheckRunConclusion::Failure, output),
+            Ok(Err(err)) => {
+                log::error!("runner error: {err:?}");
+                (
+                    github::model::CheckRunConclusion::Failure,
+                    String::default(),
                 )
-                .call()
-                .unwrap()
-                .into_body()
-                .into_reader();
-            std::io::copy(&mut reader, &mut f).unwrap();
-        }
-        let area = driver.create_area(&[&root]).unwrap();
-        let run_complete = self.runner.run(&driver, area);
-
-        let conclusion = if run_complete.success {
-            github::model::CheckRunConclusion::Success
-        } else {
-            github::model::CheckRunConclusion::Failure
+            }
+            Err(err) => {
+                log::error!("runner panicked: {err:?}");
+                (
+                    github::model::CheckRunConclusion::Failure,
+                    String::default(),
+                )
+            }
         };
         installation_client
             .update_check_run(
@@ -265,7 +297,7 @@ impl Server {
                     output: Some(github::model::CheckRunOutput {
                         title: String::from("rain run"),
                         summary: String::from("rain run complete"),
-                        text: run_complete.output,
+                        text: output,
                     }),
                     ..Default::default()
                 },
