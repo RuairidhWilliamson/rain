@@ -55,6 +55,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn get_secret(&self, name: &str) -> Result<String, RunnerError>;
     fn git_contents(&self, url: &str, commit: &str) -> Result<FileArea, RunnerError>;
     fn git_lfs_smudge(&self, area: &FileArea) -> Result<FileArea, RunnerError>;
+    fn env_var(&self, key: &str) -> Result<Option<String>, RunnerError>;
 }
 
 pub trait MonitoringTrait {

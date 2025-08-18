@@ -8,14 +8,8 @@ use rain_core::{
     driver::DriverImpl,
 };
 use rain_lang::{
-    afs::{
-        area::FileArea,
-        dir::Dir,
-        entry::{FSEntry, FSEntryTrait},
-        file::File,
-        path::SealedFilePath,
-    },
-    driver::{DriverTrait as _, FSTrait as _},
+    afs::{area::FileArea, entry::FSEntry, file::File, path::SealedFilePath},
+    driver::DriverTrait as _,
 };
 
 #[derive(Clone)]

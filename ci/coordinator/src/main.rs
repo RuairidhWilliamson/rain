@@ -16,7 +16,7 @@ use httparse::Request;
 use ipnet::IpNet;
 use jsonwebtoken::EncodingKey;
 use log::{error, info, warn};
-use rain_lang::afs::{entry::FSEntry, entry::FSEntryTrait, path::SealedFilePath};
+use rain_lang::afs::{entry::FSEntry, entry::FSEntryTrait as _, path::SealedFilePath};
 use rain_lang::driver::{DriverTrait as _, FSTrait as _};
 use runner::Runner;
 
@@ -30,7 +30,6 @@ struct Config {
     seal: bool,
 }
 
-#[expect(clippy::unwrap_used)]
 fn main() -> Result<()> {
     let dotenv_result = dotenvy::dotenv();
     env_logger::init();
@@ -116,6 +115,7 @@ impl Server {
         }
     }
 
+    #[expect(clippy::unwrap_used)]
     fn handle_github(
         &self,
         request: &Request,
@@ -217,7 +217,7 @@ impl Server {
             operation: git_lfs_rs::api::Operation::Download,
             transfers: vec![git_lfs_rs::api::Transfer::Basic],
             r#ref: None,
-            objects: lfs_entries.iter().map(|(_, o)| o.clone().into()).collect(),
+            objects: lfs_entries.iter().map(|(_, o)| o.into()).collect(),
             hash_algo: git_lfs_rs::api::HashAlgorithm::Sha256,
         };
         let response = installation_client

@@ -474,6 +474,7 @@ impl DriverTrait for DriverImpl<'_> {
         ))
     }
 
+    #[expect(clippy::unwrap_used)]
     fn git_contents(&self, url: &str, commit: &str) -> Result<FileArea, RunnerError> {
         let area = self.create_empty_area()?;
         let dir = Dir::root(area);
@@ -492,7 +493,7 @@ impl DriverTrait for DriverImpl<'_> {
         let repo = git2::build::RepoBuilder::new()
             .fetch_options(fo)
             .with_checkout(git2::build::CheckoutBuilder::new())
-            .clone(&url, &self.resolve_fs_entry(dir.inner()))
+            .clone(url, &self.resolve_fs_entry(dir.inner()))
             .unwrap();
         repo.set_head_detached(commit).unwrap();
         Ok(dir.area().clone())
@@ -515,6 +516,10 @@ impl DriverTrait for DriverImpl<'_> {
         Err(RunnerError::Makeshift(
             "git lfs smudge unimplemented".into(),
         ))
+    }
+
+    fn env_var(&self, key: &str) -> Result<Option<String>, RunnerError> {
+        Ok(std::env::var(key).ok())
     }
 }
 

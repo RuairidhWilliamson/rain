@@ -1313,8 +1313,15 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
 
     fn env_var(self) -> ResultValue {
         let var_name = expect_type!(self, String, single_arg!(self));
-        Ok(Value::String(Arc::new(
-            std::env::var(var_name.as_str()).unwrap(),
-        )))
+        if let Some(value) = self
+            .runner
+            .driver
+            .env_var(var_name)
+            .map_err(|err| self.cx.nid_err(self.nid, err))?
+        {
+            Ok(Value::String(Arc::new(value)))
+        } else {
+            Ok(Value::Unit)
+        }
     }
 }
