@@ -77,6 +77,7 @@ pub enum InternalFunction {
     GitContents,
     GitLfsSmudge,
     EnvVar,
+    CopyFile,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -133,6 +134,7 @@ impl InternalFunction {
             "_git_contents" => Some(Self::GitContents),
             "_git_lfs_smudge" => Some(Self::GitLfsSmudge),
             "_env_var" => Some(Self::EnvVar),
+            "_copy_file" => Some(Self::CopyFile),
             _ => None,
         }
     }
@@ -184,6 +186,7 @@ impl InternalFunction {
             Self::GitContents => icx.git_contents(),
             Self::GitLfsSmudge => icx.git_lfs_smudge(),
             Self::EnvVar => icx.env_var(),
+            Self::CopyFile => icx.copy_file(),
         }
     }
 }
@@ -192,6 +195,25 @@ macro_rules! single_arg {
     ($icx:ident) => {
         match &$icx.arg_values[..] {
             [(arg_nid, arg_value)] => (*arg_nid, arg_value),
+            _ => {
+                return Err($icx.cx.err(
+                    $icx.fn_call.rparen_token,
+                    RunnerError::IncorrectArgs {
+                        required: 1..=1,
+                        actual: $icx.arg_values.len(),
+                    },
+                ))
+            }
+        }
+    };
+}
+
+macro_rules! two_args {
+    ($icx:ident) => {
+        match &$icx.arg_values[..] {
+            [(arg1_nid, arg1_value), (arg2_nid, arg2_value)] => {
+                (*arg1_nid, arg1_value, *arg2_nid, arg2_value)
+            }
             _ => {
                 return Err($icx.cx.err(
                     $icx.fn_call.rparen_token,
@@ -1062,6 +1084,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         },
                     ));
                 };
+                let mut out = Vec::with_capacity(list.0.len());
                 for item in list.0.clone() {
                     if self.cx.call_depth >= super::MAX_CALL_DEPTH {
                         return Err(self
@@ -1120,8 +1143,9 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         },
                     );
                     self.cx.deps.extend(callee_cx.deps);
+                    out.push(result);
                 }
-                Ok(Value::Unit)
+                Ok(Value::List(Arc::new(RainList(out))))
             }
             _ => self.incorrect_args(2..=2),
         }
@@ -1323,5 +1347,17 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         } else {
             Ok(Value::Unit)
         }
+    }
+
+    fn copy_file(self) -> ResultValue {
+        let (file_nid, file_value, name_nid, name_value) = two_args!(self);
+        let file = expect_type!(self, File, (file_nid, file_value));
+        let name = expect_type!(self, String, (name_nid, name_value));
+        let new_file = self
+            .runner
+            .driver
+            .copy_file(file, name)
+            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+        Ok(Value::File(Arc::new(new_file)))
     }
 }

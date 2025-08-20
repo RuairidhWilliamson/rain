@@ -521,6 +521,18 @@ impl DriverTrait for DriverImpl<'_> {
     fn env_var(&self, key: &str) -> Result<Option<String>, RunnerError> {
         Ok(std::env::var(key).ok())
     }
+
+    fn copy_file(&self, file: &File, name: &str) -> Result<File, RunnerError> {
+        let area = self.create_empty_area()?;
+        let path = SealedFilePath::new(name)?;
+        let entry = FSEntry::new(area, path);
+        let input_path = self.resolve_fs_entry(file.inner());
+        let output_path = self.resolve_fs_entry(&entry);
+        // OPTIMISE: Can use hardlink instead
+        std::fs::copy(input_path, output_path).map_err(RunnerError::AreaIOError)?;
+        // Safety: We just created it
+        Ok(unsafe { File::new(entry) })
+    }
 }
 
 impl MonitoringTrait for DriverImpl<'_> {
