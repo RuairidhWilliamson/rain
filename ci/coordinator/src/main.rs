@@ -256,7 +256,7 @@ impl Server {
                         .into_reader();
                     std::io::copy(&mut reader, &mut f).unwrap();
                 }
-                let area = driver.create_area(&[&root]).unwrap();
+                let area = driver.create_area(&[root.inner()]).unwrap();
                 let run_complete = self.runner.run(&driver, area);
                 Ok(run_complete)
             })

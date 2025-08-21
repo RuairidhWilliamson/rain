@@ -45,3 +45,8 @@ fn underscore() {
 fn equality() {
     insta::assert_debug_snapshot!(run("tests/scripts/equality.rain").unwrap());
 }
+
+#[test]
+fn create_area() {
+    insta::assert_debug_snapshot!(run("tests/scripts/create_area.rain").unwrap());
+}

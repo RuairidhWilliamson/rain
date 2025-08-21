@@ -1,0 +1,5 @@
+---
+source: core/tests/scripts.rs
+expression: "run(\"tests/scripts/create_area.rain\").unwrap()"
+---
+Unit

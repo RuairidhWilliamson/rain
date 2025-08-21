@@ -1,0 +1,11 @@
+fn main() {
+	create_area_from_files()
+}
+
+fn create_area_from_files() {
+	f = internal._create_file("hi", "hello.txt")
+	g = internal._create_file("bye", "goodbye.txt")
+	if internal._list_length(internal._glob(internal._create_area([f, g]))) != 2 {
+		internal._throw("list wrong length")
+	}
+}

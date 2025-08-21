@@ -70,6 +70,8 @@ impl From<ParseError> for Throwing {
 pub enum RunnerError {
     #[error("makeshift: {0}")]
     Makeshift(Cow<'static, str>),
+    #[error("makeshift io: {0}: {1}")]
+    MakeshiftIO(Cow<'static, str>, std::io::Error),
     #[error("wrong number of args, required {required:?} but got {actual}")]
     IncorrectArgs {
         required: RangeInclusive<usize>,

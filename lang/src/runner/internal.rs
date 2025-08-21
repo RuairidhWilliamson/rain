@@ -13,7 +13,7 @@ use crate::{
         absolute::AbsolutePathBuf,
         area::FileArea,
         dir::Dir,
-        entry::{FSEntry, FSEntryTrait as _},
+        entry::{FSEntry, FSEntryTrait},
         error::PathError,
         file::File,
         path::SealedFilePath,
@@ -78,6 +78,7 @@ pub enum InternalFunction {
     GitLfsSmudge,
     EnvVar,
     CopyFile,
+    ListLength,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -135,6 +136,7 @@ impl InternalFunction {
             "_git_lfs_smudge" => Some(Self::GitLfsSmudge),
             "_env_var" => Some(Self::EnvVar),
             "_copy_file" => Some(Self::CopyFile),
+            "_list_length" => Some(Self::ListLength),
             _ => None,
         }
     }
@@ -187,6 +189,7 @@ impl InternalFunction {
             Self::GitLfsSmudge => icx.git_lfs_smudge(),
             Self::EnvVar => icx.env_var(),
             Self::CopyFile => icx.copy_file(),
+            Self::ListLength => icx.list_length(),
         }
     }
 }
@@ -659,14 +662,21 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn create_area(self) -> ResultValue {
         let (dirs_nid, dirs_value) = single_arg!(self);
         let dirs = expect_type!(self, List, (dirs_nid, dirs_value));
-        let dirs: Vec<&Dir> = dirs
+        let dirs: Vec<&FSEntry> = dirs
             .0
             .iter()
-            .map(|dir| {
-                let d = expect_type!(self, Dir, (dirs_nid, dir));
-                Ok(d.as_ref())
+            .map(|dir| match dir {
+                Value::Dir(d) => Ok(d.inner()),
+                Value::File(f) => Ok(f.inner()),
+                _ => Err(self.cx.nid_err(
+                    dirs_nid,
+                    RunnerError::ExpectedType {
+                        actual: dir.rain_type_id(),
+                        expected: &[RainTypeId::Dir, RainTypeId::File],
+                    },
+                )),
             })
-            .collect::<Result<Vec<&Dir>, _>>()?;
+            .collect::<Result<Vec<&FSEntry>, _>>()?;
         let merged_area = self
             .runner
             .driver
@@ -1064,9 +1074,13 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     .collect();
                 Ok(Value::List(Arc::new(RainList(files))))
             }
-            [_, _] => {
-                todo!("implement globbing")
-            }
+            [_, _] => Err(self.cx.nid_err(
+                self.nid,
+                RunnerError::Makeshift(
+                    "implement globbing, for now you can only use globbing with a single arg"
+                        .into(),
+                ),
+            )),
             _ => self.incorrect_args(1..=2),
         }
     }
@@ -1359,5 +1373,12 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             .copy_file(file, name)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
         Ok(Value::File(Arc::new(new_file)))
+    }
+
+    fn list_length(self) -> ResultValue {
+        let list = expect_type!(self, List, single_arg!(self));
+        Ok(Value::Integer(Arc::new(RainInteger(BigInt::from(
+            list.0.len(),
+        )))))
     }
 }

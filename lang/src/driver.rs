@@ -43,7 +43,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     ) -> Result<DownloadStatus, RunnerError>;
     fn sha256(&self, file: &File) -> Result<String, RunnerError>;
     fn sha512(&self, file: &File) -> Result<String, RunnerError>;
-    fn create_area(&self, dirs: &[&Dir]) -> Result<FileArea, RunnerError>;
+    fn create_area(&self, dirs: &[&FSEntry]) -> Result<FileArea, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, std::io::Error>;
     fn create_file(&self, contents: &str, name: &str) -> Result<File, RunnerError>;
     fn file_metadata(&self, file: &File) -> Result<FileMetadata, RunnerError>;
