@@ -13,7 +13,7 @@ use crate::{
         absolute::AbsolutePathBuf,
         area::FileArea,
         dir::Dir,
-        entry::{FSEntry, FSEntryTrait},
+        entry::{FSEntry, FSEntryTrait as _},
         error::PathError,
         file::File,
         path::SealedFilePath,
