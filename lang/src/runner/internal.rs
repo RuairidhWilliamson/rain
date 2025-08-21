@@ -1,4 +1,4 @@
-#![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
+#![allow(clippy::unnecessary_wraps)]
 
 mod download;
 mod run;
@@ -215,7 +215,7 @@ macro_rules! two_args {
     ($icx:ident) => {
         match &$icx.arg_values[..] {
             [(arg1_nid, arg1_value), (arg2_nid, arg2_value)] => {
-                (*arg1_nid, arg1_value, *arg2_nid, arg2_value)
+                ((*arg1_nid, arg1_value), (*arg2_nid, arg2_value))
             }
             _ => {
                 return Err($icx.cx.err(
@@ -697,37 +697,28 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn create_file(self) -> ResultValue {
-        match &self.arg_values[..] {
-            [contents, name] => {
-                let contents = expect_type!(self, String, contents);
-                let name = expect_type!(self, String, name);
-                self.cache(|| {
-                    Ok(Value::File(Arc::new(
-                        self.runner
-                            .driver
-                            .create_file(contents, name)
-                            .map_err(|err| self.cx.nid_err(self.nid, err))?,
-                    )))
-                })
-            }
-            _ => self.incorrect_args(2..=2),
-        }
+        let (contents, name) = two_args!(self);
+        let contents = expect_type!(self, String, contents);
+        let name = expect_type!(self, String, name);
+        self.cache(|| {
+            Ok(Value::File(Arc::new(
+                self.runner
+                    .driver
+                    .create_file(contents, name)
+                    .map_err(|err| self.cx.nid_err(self.nid, err))?,
+            )))
+        })
     }
 
-    fn debug(mut self) -> ResultValue {
-        if self.arg_values.len() != 1 {
-            return self.incorrect_args(1..=1);
-        }
-        let Some((_nid, value)) = self.arg_values.pop() else {
-            return self.incorrect_args(1..=1);
-        };
+    fn debug(self) -> ResultValue {
+        let (_nid, value) = single_arg!(self);
         let p = if let Value::String(s) = &value {
             s.to_string()
         } else {
             format!("{value}")
         };
         self.runner.driver.print(p);
-        Ok(value)
+        Ok(value.clone())
     }
 
     fn local_area(self) -> ResultValue {
@@ -1244,10 +1235,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn rust_eq(self) -> ResultValue {
-        match &self.arg_values[..] {
-            [(_, a_value), (_, b_value)] => Ok(Value::Boolean(a_value == b_value)),
-            _ => self.incorrect_args(2..=2),
-        }
+        let ((_, a), (_, b)) = two_args!(self);
+        Ok(Value::Boolean(a == b))
     }
 
     fn get_secret(self) -> ResultValue {
@@ -1364,9 +1353,9 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn copy_file(self) -> ResultValue {
-        let (file_nid, file_value, name_nid, name_value) = two_args!(self);
-        let file = expect_type!(self, File, (file_nid, file_value));
-        let name = expect_type!(self, String, (name_nid, name_value));
+        let (file, name) = two_args!(self);
+        let file = expect_type!(self, File, file);
+        let name = expect_type!(self, String, name);
         let new_file = self
             .runner
             .driver
