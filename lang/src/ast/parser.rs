@@ -34,7 +34,7 @@ impl<'src> ModuleParser<'src> {
 
     pub fn complete(mut self) -> Result<NodeList, ErrorLocalSpan<ParseError>> {
         if let Some(tls) = self.stream.parse_next()? {
-            Err(tls.span.with_error(ParseError::InputNotFullConsumed))
+            Err(tls.span.with_error(ParseError::InputNotFullyConsumed))
         } else {
             Ok(self.nodes)
         }

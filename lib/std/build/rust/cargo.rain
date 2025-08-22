@@ -62,9 +62,21 @@ fn build(channel, area, package, default_features, features, profile, target, ex
 	get_file(run_result.area, "target/" + target + "/" + profile_dir + "/" + package + utils.exe_suffix(target))
 }
 
-fn test(channel, area, package, features, profile) {
+fn test(channel, area, package, default_features, features, profile) {
 	prep = prepare_cargo(channel)
-	run_result = run(area, prep.cargo_bin, ["test", "--package", package, "--features", features, "--profile", profile, "--color", "always", "--quiet"], prep.env)
+	args = [
+		"test",
+		"--package", package,
+		"--features", features,
+		"--profile", profile,
+		"--target-dir", "target",
+		"--color", "always",
+		"--quiet"
+	]
+	if !default_features {
+		args = args + ["--no-default-features"]
+	}
+	run_result = run(area, prep.cargo_bin, args, prep.env)
 	if !run_result.success {
 		print("Stdout:", run_result.stdout)
 		print("Stderr:", run_result.stderr)

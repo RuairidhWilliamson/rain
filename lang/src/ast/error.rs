@@ -12,7 +12,7 @@ pub enum ParseError {
     ExpectedTokenAfter(&'static [Token]),
     UnmatchedPair(Token),
     ExpectedExpression,
-    InputNotFullConsumed,
+    InputNotFullyConsumed,
 }
 
 impl From<TokenError> for ParseError {
@@ -47,7 +47,7 @@ impl std::fmt::Display for ParseError {
                 f.write_fmt(format_args!("bad syntax: unmatched pair {token:?}"))
             }
             Self::ExpectedExpression => f.write_str("bad syntax: expected expression"),
-            Self::InputNotFullConsumed => f.write_str("bad syntax: input not fully consumed"),
+            Self::InputNotFullyConsumed => f.write_str("bad syntax: input not fully consumed"),
         }
     }
 }

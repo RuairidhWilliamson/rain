@@ -5,7 +5,15 @@ fn main() {
 fn create_area_from_files() {
 	f = internal._create_file("hi", "hello.txt")
 	g = internal._create_file("bye", "goodbye.txt")
-	if internal._list_length(internal._glob(internal._create_area([f, g]))) != 2 {
+	area = internal._create_area([f, g])
+	if internal._list_length(internal._glob(area)) != 2 {
 		internal._throw("list wrong length")
+	}
+	metadata = internal._file_metadata(internal._get_file(area, "goodbye.txt"))
+	if metadata.size != 3 {
+		internal._throw("unexpected file size")
+	}
+	if internal._read_file(internal._get_file(area, "hello.txt")) != "hi" {
+		internal._throw("unexpected contents of file")
 	}
 }
