@@ -839,6 +839,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         }
     }
 
+    #[expect(clippy::too_many_lines)]
     fn export_to_local(self) -> ResultValue {
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
