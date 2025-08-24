@@ -51,6 +51,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn prelude_src(&self) -> Option<Cow<'static, str>>;
     fn host_triple(&self) -> &str;
     fn export_file(&self, src: &File, dst: &FSEntry) -> Result<(), RunnerError>;
+    fn export_dir(&self, src: &Dir, dst: &FSEntry) -> Result<(), RunnerError>;
     fn create_tar(&self, dir: &Dir, name: &str) -> Result<File, RunnerError>;
     fn get_secret(&self, name: &str) -> Result<String, RunnerError>;
     fn git_contents(&self, url: &str, commit: &str) -> Result<FileArea, RunnerError>;

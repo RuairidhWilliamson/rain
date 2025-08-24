@@ -449,7 +449,39 @@ impl DriverTrait for DriverImpl<'_> {
         let src_path = self.resolve_fs_entry(src.inner());
         let dst_path = self.resolve_fs_entry(dst);
         // TODO: Backup old file before overwriting, if it exists
-        std::fs::copy(src_path, dst_path).map_err(RunnerError::AreaIOError)?;
+        std::fs::copy(src_path, dst_path)
+            .map_err(|err| RunnerError::MakeshiftIO("copy file".into(), err))?;
+        Ok(())
+    }
+
+    fn export_dir(&self, src: &Dir, dst: &FSEntry) -> Result<(), RunnerError> {
+        let src_path = self.resolve_fs_entry(src.inner());
+        let dst_path = self.resolve_fs_entry(dst);
+        // TODO: Backup old file before overwriting, if it exists
+        let walker = ignore::WalkBuilder::new(&src_path).build();
+        for entry in walker {
+            let Ok(entry) = entry else {
+                continue;
+            };
+            let Some(file_type) = entry.file_type() else {
+                continue;
+            };
+            if file_type.is_file() {
+                let rel_dest = entry
+                    .path()
+                    .strip_prefix(&src_path)
+                    .map_err(|_| RunnerError::Makeshift("strip prefix failed".into()))?;
+                let dest_entry = dst_path.join(rel_dest);
+                std::fs::create_dir_all(
+                    dest_entry
+                        .parent()
+                        .ok_or_else(|| RunnerError::Makeshift("parent does not exist".into()))?,
+                )
+                .map_err(|err| RunnerError::MakeshiftIO("create parent dir".into(), err))?;
+                std::fs::copy(entry.path(), dest_entry)
+                    .map_err(|err| RunnerError::MakeshiftIO("copy file".into(), err))?;
+            }
+        }
         Ok(())
     }
 
@@ -596,8 +628,12 @@ fn find_bin_in_dir(dir: &Path, name: &str) -> Option<AbsolutePathBuf> {
     std::fs::read_dir(dir).ok()?.find_map(|e| {
         let entry = e.ok()?;
         let path = entry.path();
-        let filename = path.file_stem()?.to_str()?;
-        if filename == name {
+        // Only recognise .exe files, this is not correct because .cmd and .bat files should also match
+        if path.extension()?.to_str()? != "exe" {
+            return None;
+        }
+        let filestem = path.file_stem()?.to_str()?;
+        if filestem == name {
             Some(AbsolutePathBuf::try_from(path).ok()?)
         } else {
             None

@@ -3,7 +3,7 @@
 mod download;
 mod run;
 
-use std::{ops::RangeInclusive, str::FromStr as _, sync::Arc, time::Instant};
+use std::{ops::RangeInclusive, path::Path, str::FromStr as _, sync::Arc, time::Instant};
 
 use indexmap::IndexMap;
 use num_bigint::BigInt;
@@ -79,6 +79,7 @@ pub enum InternalFunction {
     EnvVar,
     CopyFile,
     ListLength,
+    EscapeHard,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -137,6 +138,7 @@ impl InternalFunction {
             "_env_var" => Some(Self::EnvVar),
             "_copy_file" => Some(Self::CopyFile),
             "_list_length" => Some(Self::ListLength),
+            "_escape_hard" => Some(Self::EscapeHard),
             _ => None,
         }
     }
@@ -190,6 +192,7 @@ impl InternalFunction {
             Self::EnvVar => icx.env_var(),
             Self::CopyFile => icx.copy_file(),
             Self::ListLength => icx.list_length(),
+            Self::EscapeHard => icx.escape_hard(),
         }
     }
 }
@@ -322,7 +325,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         Ok(v)
     }
 
-    fn arg_dir(&self, arg_nid: NodeId, arg_value: &Value) -> Result<Arc<Dir>> {
+    fn expect_dir_or_area(&self, arg_nid: NodeId, arg_value: &Value) -> Result<Arc<Dir>> {
         match arg_value {
             Value::FileArea(file_area) => Ok(Arc::new(Dir::root(file_area.as_ref().clone()))),
             Value::Dir(dir) => Ok(Arc::clone(dir)),
@@ -839,8 +842,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn export_to_local(self) -> ResultValue {
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
-                let src = expect_type!(self, File, (src_nid, src_value));
-                let dst = expect_type!(self, Dir, (dst_nid, dst_value));
+                let dst = self.expect_dir_or_area(*dst_nid, dst_value)?;
                 match dst.area() {
                     FileArea::Local(_) => (),
                     FileArea::Generated(_) => {
@@ -850,31 +852,58 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         ));
                     }
                 }
-                let filename = src.path().last().ok_or_else(|| {
-                    self.cx.nid_err(
-                        self.nid,
-                        RunnerError::Makeshift("src path does not have filename".into()),
-                    )
-                })?;
-                let dst_path = dst
-                    .path()
-                    .join(filename)
-                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
-                let dst = FSEntry::new(dst.area().clone(), dst_path);
+                match src_value {
+                    Value::File(src) => {
+                        let filename = src.path().last().ok_or_else(|| {
+                            self.cx.nid_err(
+                                src_nid,
+                                RunnerError::Makeshift("src path does not have filename".into()),
+                            )
+                        })?;
+                        let dst_path = dst.path().join(filename).map_err(|err| {
+                            self.cx.nid_err(self.nid, RunnerError::PathError(err))
+                        })?;
+                        let dst = FSEntry::new(dst.area().clone(), dst_path);
 
-                self.runner
-                    .driver
-                    .export_file(src, &dst)
-                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
-                Ok(Value::Unit)
+                        self.runner
+                            .driver
+                            .export_file(src, &dst)
+                            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                        Ok(Value::Unit)
+                    }
+                    Value::Dir(src) => {
+                        let filename = src.path().last().ok_or_else(|| {
+                            self.cx.nid_err(
+                                src_nid,
+                                RunnerError::Makeshift("src path does not have last part".into()),
+                            )
+                        })?;
+                        let dst_path = dst.path().join(filename).map_err(|err| {
+                            self.cx.nid_err(self.nid, RunnerError::PathError(err))
+                        })?;
+                        let dst = FSEntry::new(dst.area().clone(), dst_path);
+
+                        self.runner
+                            .driver
+                            .export_dir(src, &dst)
+                            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                        Ok(Value::Unit)
+                    }
+                    _ => Err(self.cx.nid_err(
+                        src_nid,
+                        RunnerError::ExpectedType {
+                            actual: src_value.rain_type_id(),
+                            expected: &[RainTypeId::File, RainTypeId::Dir],
+                        },
+                    )),
+                }
             }
             [
                 (src_nid, src_value),
                 (dst_nid, dst_value),
                 (filename_nid, filename_value),
             ] => {
-                let src = expect_type!(self, File, (src_nid, src_value));
-                let dst = expect_type!(self, Dir, (dst_nid, dst_value));
+                let dst = self.expect_dir_or_area(*dst_nid, dst_value)?;
                 let filename = expect_type!(self, String, (filename_nid, filename_value));
                 match dst.area() {
                     FileArea::Local(_) => (),
@@ -885,17 +914,44 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         ));
                     }
                 }
+
                 let dst_path = dst
                     .path()
                     .join(filename)
                     .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
                 let dst = FSEntry::new(dst.area().clone(), dst_path);
 
-                self.runner
-                    .driver
-                    .export_file(src, &dst)
-                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
-                Ok(Value::Unit)
+                match src_value {
+                    Value::File(src) => {
+                        self.runner
+                            .driver
+                            .export_file(src, &dst)
+                            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                        Ok(Value::Unit)
+                    }
+                    Value::Dir(src) => {
+                        self.runner
+                            .driver
+                            .export_dir(src, &dst)
+                            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                        Ok(Value::Unit)
+                    }
+                    Value::FileArea(area) => {
+                        let src = Dir::root(area.as_ref().clone());
+                        self.runner
+                            .driver
+                            .export_dir(&src, &dst)
+                            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                        Ok(Value::Unit)
+                    }
+                    _ => Err(self.cx.nid_err(
+                        src_nid,
+                        RunnerError::ExpectedType {
+                            actual: src_value.rain_type_id(),
+                            expected: &[RainTypeId::File, RainTypeId::Dir, RainTypeId::FileArea],
+                        },
+                    )),
+                }
             }
             _ => self.incorrect_args(2..=3),
         }
@@ -1221,7 +1277,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn create_tar(self) -> ResultValue {
         match &self.arg_values[..] {
             [(dir_nid, dir_value), (name_nid, name_value)] => {
-                let dir = self.arg_dir(*dir_nid, dir_value)?;
+                let dir = self.expect_dir_or_area(*dir_nid, dir_value)?;
                 let name = expect_type!(self, String, (*name_nid, name_value));
                 Ok(Value::File(Arc::new(
                     self.runner
@@ -1369,5 +1425,17 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
         Ok(Value::Integer(Arc::new(RainInteger(BigInt::from(
             list.0.len(),
         )))))
+    }
+
+    fn escape_hard(self) -> ResultValue {
+        let file_path = expect_type!(self, String, single_arg!(self));
+        Ok(Value::EscapeFile(Arc::new(
+            AbsolutePathBuf::try_from(Path::new(file_path.as_str())).map_err(|err| {
+                self.cx.nid_err(
+                    self.nid,
+                    RunnerError::MakeshiftIO("absolute path".into(), err),
+                )
+            })?,
+        )))
     }
 }
