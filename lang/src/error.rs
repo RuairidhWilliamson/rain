@@ -105,6 +105,7 @@ impl OwnedResolvedError {
         writeln!(writer, "| {before}{contents}{after}")?;
         writer.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
         writeln!(writer, "  {arrows} {err}")?;
+        writer.reset()?;
         Ok(())
     }
 }
