@@ -13,7 +13,7 @@ impl Display for AppId {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct InstallationId(u64);
+pub struct InstallationId(pub u64);
 
 impl Display for InstallationId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -52,7 +52,7 @@ pub struct CheckSuite {
     pub status: Option<Status>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
     Requested,
@@ -118,6 +118,7 @@ pub struct CheckRun {
     pub name: String,
     pub head_sha: String,
     pub status: Status,
+    pub conclusion: Option<CheckRunConclusion>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
