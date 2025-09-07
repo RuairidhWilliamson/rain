@@ -240,7 +240,6 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(area)
     }
 
-    #[expect(clippy::unwrap_used)]
     fn run(
         &self,
         overlay_area: Option<&FileArea>,
@@ -284,12 +283,11 @@ impl DriverTrait for DriverImpl<'_> {
             success,
             exit_code,
             area: output_area,
-            stdout: String::from_utf8(output.stdout).unwrap(),
-            stderr: String::from_utf8(output.stderr).unwrap(),
+            stdout: String::from_utf8(output.stdout)?,
+            stderr: String::from_utf8(output.stderr)?,
         })
     }
 
-    #[expect(clippy::unwrap_used)]
     fn escape_run(
         &self,
         current_dir: &Dir,
@@ -322,17 +320,16 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(EscapeRunStatus {
             success,
             exit_code,
-            stdout: String::from_utf8(output.stdout).unwrap(),
-            stderr: String::from_utf8(output.stderr).unwrap(),
+            stdout: String::from_utf8(output.stdout)?,
+            stderr: String::from_utf8(output.stderr)?,
         })
     }
 
-    #[expect(clippy::unwrap_used)]
     fn download(
         &self,
         url: &str,
         name: &str,
-        etag: Option<&str>,
+        etag: Option<&[u8]>,
     ) -> Result<DownloadStatus, RunnerError> {
         let agent = ureq::Agent::new_with_config(
             ureq::config::Config::builder()
@@ -344,19 +341,23 @@ impl DriverTrait for DriverImpl<'_> {
             request = request.header(ureq::http::header::IF_NONE_MATCH, etag);
         }
         log::debug!("Download {url}");
-        let mut response = request.call().unwrap();
+        let mut response = request
+            .call()
+            .map_err(|err| RunnerError::MakeshiftIO("download request".into(), err.into_io()))?;
         log::debug!("Download complete {url} {}", response.status());
-        let etag = response
+        let etag: Option<Vec<u8>> = response
             .headers()
             .get(ureq::http::header::ETAG)
-            .map(|h| h.to_str().unwrap().to_owned());
+            .map(|h| h.as_bytes().to_vec());
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
         let entry = FSEntry::new(area, path);
         let output_path = self.resolve_fs_entry(&entry);
-        let mut out = std::fs::File::create_new(output_path).unwrap();
+        let mut out = std::fs::File::create_new(output_path)
+            .map_err(|err| RunnerError::MakeshiftIO("create download file".into(), err))?;
         let body = response.body_mut();
-        std::io::copy(&mut body.as_reader(), &mut out).unwrap();
+        std::io::copy(&mut body.as_reader(), &mut out)
+            .map_err(|err| RunnerError::MakeshiftIO("download file".into(), err))?;
         // Safety: We just created the file and checked for errors so it is present
         let output = unsafe { File::new(entry) };
         Ok(DownloadStatus {
@@ -485,7 +486,6 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(())
     }
 
-    #[expect(clippy::unwrap_used)]
     fn create_tar(&self, dir: &Dir, name: &str) -> Result<File, RunnerError> {
         let dir_path = self.resolve_fs_entry(dir.inner());
         let area = self.create_empty_area()?;
@@ -494,8 +494,12 @@ impl DriverTrait for DriverImpl<'_> {
         let output_path = self.resolve_fs_entry(&entry);
         let f = std::fs::File::create(output_path).map_err(RunnerError::AreaIOError)?;
         let mut archive = tar::Builder::new(f);
-        archive.append_dir_all(".", dir_path).unwrap();
-        archive.into_inner().unwrap();
+        archive
+            .append_dir_all(".", dir_path)
+            .map_err(|err| RunnerError::MakeshiftIO("create tar".into(), err))?;
+        archive
+            .into_inner()
+            .map_err(|err| RunnerError::MakeshiftIO("create tar flush".into(), err))?;
         // Safety: We just created the file
         let file = unsafe { File::new(entry) };
         Ok(file)
@@ -513,11 +517,12 @@ impl DriverTrait for DriverImpl<'_> {
         }
         match std::fs::read_to_string("secrets.toml") {
             Ok(secrets_contents) => {
-                let toml: toml::Value = toml::from_str(&secrets_contents).unwrap();
+                let toml: toml::Value = toml::from_str(&secrets_contents)
+                    .map_err(|_err| RunnerError::Makeshift("parse secrets.toml".into()))?;
                 return Ok(toml.get(name).unwrap().as_str().unwrap().to_owned());
             }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-            Err(err) => todo!("handle secret io error: {err:?}"),
+            Err(err) => return Err(RunnerError::MakeshiftIO("open secrets.toml".into(), err)),
         }
         Err(RunnerError::Makeshift(
             format!("secret {name:?} not found").into(),

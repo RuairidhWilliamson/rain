@@ -124,7 +124,7 @@ pub struct PersistCacheWrapper {
 pub struct PersistCacheEntry {
     pub execution_time: Duration,
     pub expires: Option<DateTime<Utc>>,
-    pub etag: Option<String>,
+    pub etag: Option<Vec<u8>>,
     pub deps: Vec<Dep>,
     pub value: PersistValue,
 }

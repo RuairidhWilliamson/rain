@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::RangeInclusive};
+use std::{borrow::Cow, ops::RangeInclusive, string::FromUtf8Error};
 
 use crate::{
     afs::{entry::FSEntry, error::PathError},
@@ -112,4 +112,6 @@ pub enum RunnerError {
     PreludeContext,
     #[error("can't escape seal 🦭")]
     CantEscapeSeal,
+    #[error("{0}")]
+    FromUtf8Error(#[from] FromUtf8Error),
 }

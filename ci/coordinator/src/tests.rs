@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use test_log::test;
 
 use crate::{runner::Runner, server::Server};
@@ -53,11 +53,11 @@ impl crate::github::InstallationClient for TestGithubInstallationClient {
     ) -> Result<crate::github::model::CheckRun> {
         let mut check_runs = self.check_runs.lock().unwrap();
         let check_run = check_runs
-            .get_mut(check_run_id as usize)
+            .get_mut(usize::try_from(check_run_id).unwrap())
             .context("check run does not exist")?;
         let new_check_run = crate::github::model::CheckRun {
             id: check_run_id,
-            name: patch.name.unwrap_or(check_run.name.clone()),
+            name: patch.name.unwrap_or_else(|| check_run.name.clone()),
             head_sha: check_run.head_sha.clone(),
             status: patch.status.unwrap_or(check_run.status),
             conclusion: patch.conclusion.or(check_run.conclusion),
@@ -124,7 +124,7 @@ fn github_check_run() {
         })
         .unwrap();
     let check_runs = server.github_client.check_runs.lock().unwrap();
-    let check_run = check_runs.get(0).unwrap();
+    let check_run = check_runs.first().unwrap();
     assert_eq!(check_run.head_sha, "abcd");
     assert_eq!(check_run.status, crate::github::model::Status::Completed);
 }

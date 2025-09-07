@@ -39,7 +39,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
         &self,
         url: &str,
         outname: &str,
-        etag: Option<&str>,
+        etag: Option<&[u8]>,
     ) -> Result<DownloadStatus, RunnerError>;
     fn sha256(&self, file: &File) -> Result<String, RunnerError>;
     fn sha512(&self, file: &File) -> Result<String, RunnerError>;
@@ -91,7 +91,7 @@ pub struct DownloadStatus {
     pub ok: bool,
     pub status_code: Option<u16>,
     pub file: Option<File>,
-    pub etag: Option<String>,
+    pub etag: Option<Vec<u8>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

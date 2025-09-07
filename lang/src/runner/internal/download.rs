@@ -62,7 +62,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     ));
                 }
                 log::debug!("Download cache miss");
-                let etag: Option<&str> = cache_entry.as_ref().and_then(|e| e.etag.as_deref());
+                let etag: Option<&[u8]> = cache_entry.as_ref().and_then(|e| e.etag.as_deref());
                 let DownloadStatus {
                     ok,
                     status_code,
