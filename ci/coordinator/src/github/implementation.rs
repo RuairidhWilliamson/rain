@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use http::header::{ACCEPT, CONTENT_TYPE};
 use jsonwebtoken::EncodingKey;
 use serde::Serialize;
@@ -13,24 +13,24 @@ pub struct AppAuth {
 }
 
 impl AppAuth {
-    fn generate_bearer_token(&self) -> jsonwebtoken::errors::Result<String> {
+    fn generate_bearer_token(&self) -> Result<String> {
         #[derive(Serialize)]
         struct Claims {
             iss: super::model::AppId,
             iat: u64,
             exp: u64,
         }
-        let now = SystemTime::UNIX_EPOCH.elapsed().unwrap().as_secs();
+        let now = SystemTime::UNIX_EPOCH.elapsed()?.as_secs();
         let claims = Claims {
             iss: self.app_id,
             iat: now - 60,
             exp: now + 9 * 60,
         };
-        jsonwebtoken::encode(
+        Ok(jsonwebtoken::encode(
             &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256),
             &claims,
             &self.key,
-        )
+        )?)
     }
 }
 
@@ -139,9 +139,8 @@ impl InstallationClient {
             )
             .header(CONTENT_TYPE, "application/vnd.git-lfs+json")
             .header(ACCEPT, "application/vnd.git-lfs+json")
-            .send_json(request)
-            .unwrap();
-        let response: git_lfs_rs::api::Response = response.into_body().read_json().unwrap();
+            .send_json(request)?;
+        let response: git_lfs_rs::api::Response = response.into_body().read_json()?;
         Ok(response)
     }
 }
@@ -203,21 +202,20 @@ impl super::InstallationClient for InstallationClient {
         };
         let response = self.git_lfs_api(owner, repo, request)?;
         for (resp, (path, _)) in response.objects.into_iter().zip(entries.into_iter()) {
-            let mut f = std::fs::File::create(&path).unwrap();
+            let mut f = std::fs::File::create(&path)?;
             let mut reader = self
                 .agent
                 .get(
                     &resp
                         .actions
                         .get(&git_lfs_rs::api::Operation::Download)
-                        .unwrap()
+                        .context("no download action")?
                         .href,
                 )
-                .call()
-                .unwrap()
+                .call()?
                 .into_body()
                 .into_reader();
-            std::io::copy(&mut reader, &mut f).unwrap();
+            std::io::copy(&mut reader, &mut f)?;
         }
         Ok(())
     }

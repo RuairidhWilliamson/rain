@@ -8,12 +8,17 @@ use std::{
 use crate::{github::InstallationClient as _, runner::Runner};
 use anyhow::{Context as _, Result, anyhow};
 use httparse::Request;
-use log::info;
+use log::{error, info};
 use rain_lang::afs::{dir::Dir, file::File};
 use rain_lang::afs::{entry::FSEntry, entry::FSEntryTrait as _, path::SealedFilePath};
 use rain_lang::driver::{DriverTrait as _, FSTrait as _};
 
 use crate::runner::RunComplete;
+
+const OK_REPSONSE: &str = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+const NOT_FOUND_RESPONSE: &str = "HTTP/1.1 404 NOT FOUND\r\nContent-Length: 0\r\n\r\n";
+const INTERNAL_ERR_RESPONSE: &str =
+    "HTTP/1.1 500 INTERNAL SERVER ERROR\r\nContent-Length: 0\r\n\r\n";
 
 pub struct Server<GH: crate::github::Client> {
     pub target_url: url::Url,
@@ -25,22 +30,28 @@ pub struct Server<GH: crate::github::Client> {
 
 impl<GH: crate::github::Client> Server<GH> {
     pub fn handle_connection(&self, mut stream: TcpStream, addr: SocketAddr) -> Result<()> {
-        const OK_REPSONSE: &str = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
         stream.set_read_timeout(Some(Duration::from_secs(1)))?;
         info!("connection {addr:?}");
-        let mut headers = [httparse::EMPTY_HEADER; 64];
-        let mut request = Request::new(&mut headers);
         let mut buffer = [0u8; 1024];
         let len = stream.read(&mut buffer)?;
         let buffer = &buffer[..len];
+        let mut headers = [httparse::EMPTY_HEADER; 64];
+        let mut request = Request::new(&mut headers);
         let parsed = request.parse(buffer)?;
         if parsed.is_partial() {
             return Err(anyhow!("partial http request"));
         }
-        let handle_res = self.handle_request(&request, &mut stream, &buffer[parsed.unwrap()..]);
-        let write_res = stream.write_all(OK_REPSONSE.as_bytes());
-        handle_res?;
-        write_res?;
+        match request.version {
+            Some(0 | 1) => {}
+            v => return Err(anyhow!("invalid http version: {v:?}")),
+        }
+        match self.handle_request(&request, &mut stream, &buffer[parsed.unwrap()..]) {
+            Ok(()) => {}
+            Err(err) => {
+                error!("handle request error: {err:#}");
+                stream.write_all(INTERNAL_ERR_RESPONSE.as_bytes())?;
+            }
+        }
         Ok(())
     }
 
@@ -50,14 +61,16 @@ impl<GH: crate::github::Client> Server<GH> {
         stream: &mut TcpStream,
         body_prefix: &[u8],
     ) -> Result<()> {
-        match request.version {
-            Some(0 | 1) => {}
-            v => return Err(anyhow!("invalid http version: {v:?}")),
-        }
         match request.path {
-            Some("/webhook/github") => self.handle_github_event(request, stream, body_prefix),
-            _ => Err(anyhow!("bad path")),
+            Some("/webhook/github") => {
+                self.handle_github_event(request, stream, body_prefix)?;
+                stream.write_all(OK_REPSONSE.as_bytes())?;
+            }
+            _ => {
+                stream.write_all(NOT_FOUND_RESPONSE.as_bytes())?;
+            }
         }
+        Ok(())
     }
 
     fn handle_github_event(
@@ -131,7 +144,7 @@ impl<GH: crate::github::Client> Server<GH> {
             .context("create check run")?;
         info!("created check run {check_run:#?}");
         self.storage
-            .insert_run(crate::storage::Run {
+            .insert_run(&crate::storage::Run {
                 source: crate::storage::RunSource::Github,
             })
             .context("insert storage")?;
