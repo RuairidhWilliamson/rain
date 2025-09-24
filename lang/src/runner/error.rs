@@ -5,7 +5,8 @@ use crate::{
     ast::error::ParseError,
     driver::FSEntryQueryResult,
     error::{ResolvedError, ResolvedSpan},
-    ir::{DeclarationId, Rir},
+    ir::Rir,
+    runner::StacktraceEntry,
     span::ErrorSpan,
 };
 
@@ -14,18 +15,26 @@ use super::value::{RainInteger, RainTypeId};
 #[derive(Debug)]
 pub struct ErrorTrace<E: std::error::Error> {
     pub err_span: ErrorSpan<E>,
-    pub stacktrace: Vec<DeclarationId>,
+    pub stacktrace: Vec<StacktraceEntry>,
 }
 
 impl<E: std::error::Error> ErrorTrace<E> {
     pub fn resolve_ir<'a>(&'a self, ir: &'a Rir) -> ResolvedError<'a> {
         let mut trace = Vec::new();
         for s in &self.stacktrace {
-            let module = ir.get_module(s.module_id());
-            let span = module.get_declaration_name_span(s.local_id());
+            let module = ir.get_module(s.m);
+            let span = module.span(s.n);
             let file = module.file().ok();
             let src = &module.src;
-            trace.push(ResolvedSpan { file, src, span });
+            trace.push(ResolvedSpan {
+                file,
+                src,
+                call_span: span,
+                declaration_span: Some(
+                    ir.get_module(s.d.module_id())
+                        .get_declaration_name_span(s.d.local_id()),
+                ),
+            });
         }
         let module = ir.get_module(self.err_span.span.module);
         let file = module.file().ok();
@@ -33,7 +42,8 @@ impl<E: std::error::Error> ErrorTrace<E> {
         trace.push(ResolvedSpan {
             file,
             src,
-            span: self.err_span.span.span,
+            call_span: self.err_span.span.span,
+            declaration_span: None,
         });
         ResolvedError {
             err: &self.err_span.err,

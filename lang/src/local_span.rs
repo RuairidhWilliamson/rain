@@ -3,7 +3,7 @@ use std::ops::{Add, AddAssign};
 use crate::{
     afs::file::File,
     error::{ResolvedError, ResolvedSpan},
-    ir::{ModuleId, Rir},
+    ir::ModuleId,
     span::{ErrorSpan, Span},
 };
 
@@ -164,14 +164,10 @@ impl<E: std::error::Error> ErrorLocalSpan<E> {
             trace: vec![ResolvedSpan {
                 file,
                 src,
-                span: self.span,
+                call_span: self.span,
+                declaration_span: None,
             }],
         }
-    }
-
-    pub fn resolve_ir<'a>(&'a self, ir: &'a Rir, module_id: ModuleId) -> ResolvedError<'a> {
-        let module = ir.get_module(module_id);
-        self.resolve(module.file().ok(), &module.src)
     }
 
     pub fn upgrade(self, module_id: ModuleId) -> ErrorSpan<E> {

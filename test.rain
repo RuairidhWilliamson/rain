@@ -54,3 +54,11 @@ fn clone_repo() {
 	// 	SSH_AUTH_SOCK = internal._env_var("SSH_AUTH_SOCK"),
 	// })
 }
+
+fn bar() {
+	foo()
+}
+
+fn foo() {
+	internal._throw("hi")
+}

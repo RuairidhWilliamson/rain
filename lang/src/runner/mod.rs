@@ -19,7 +19,7 @@ use crate::{
         AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId, Not,
     },
     driver::DriverTrait,
-    ir::{DeclarationId, IrModule, Rir},
+    ir::{DeclarationId, IrModule, ModuleId, Rir},
     local_span::LocalSpan,
 };
 
@@ -35,7 +35,14 @@ pub struct Cx<'a> {
     args: HashMap<&'a str, Value>,
     deps: Vec<dep::Dep>,
     previous_line: Option<Value>,
-    stacktrace: Vec<DeclarationId>,
+    stacktrace: Vec<StacktraceEntry>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StacktraceEntry {
+    m: ModuleId,
+    n: NodeId,
+    d: DeclarationId,
 }
 
 impl<'a> Cx<'a> {
@@ -43,7 +50,7 @@ impl<'a> Cx<'a> {
         module: &'a Arc<IrModule>,
         call_depth: usize,
         args: HashMap<&'a str, Value>,
-        stacktrace: Vec<DeclarationId>,
+        stacktrace: Vec<StacktraceEntry>,
     ) -> Self {
         Self {
             module,
@@ -131,7 +138,16 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         )
                     })
                     .collect();
-                let mut cx = Cx::new(m, 0, args, vec![f]);
+                let mut cx = Cx::new(
+                    m,
+                    0,
+                    args,
+                    vec![StacktraceEntry {
+                        m: m.id,
+                        n: nid,
+                        d: id,
+                    }],
+                );
                 self.evaluate_node(&mut cx, fn_declare.block)
             }
             _ => unreachable!(),
@@ -145,7 +161,11 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         match node {
             Node::LetDeclare(let_declare) => {
                 let mut stacktrace = cx.stacktrace.clone();
-                stacktrace.push(id);
+                stacktrace.push(StacktraceEntry {
+                    m: id.module_id(),
+                    n: nid,
+                    d: id,
+                });
                 let mut callee_cx = Cx::new(m, cx.call_depth + 1, HashMap::new(), stacktrace);
                 let start = Instant::now();
                 let key = cache::CacheKey::Declaration {
@@ -314,8 +334,8 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 }
                 let start = Instant::now();
                 let m = &Arc::clone(self.ir.get_module(f.module_id()));
-                let nid = m.get_declaration(f.local_id());
-                let node = m.get(nid);
+                let func_nid = m.get_declaration(f.local_id());
+                let node = m.get(func_nid);
                 let Node::FnDeclare(fn_declare) = node else {
                     unreachable!();
                 };
@@ -337,7 +357,11 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     .map(|(a, v)| (a.name.span.contents(&m.src), v))
                     .collect();
                 let mut stacktrace = cx.stacktrace.clone();
-                stacktrace.push(*f);
+                stacktrace.push(StacktraceEntry {
+                    m: cx.module.id,
+                    n: nid,
+                    d: *f,
+                });
                 let mut callee_cx = Cx::new(m, cx.call_depth + 1, args, stacktrace);
                 log::trace!("begin function call {:?} {:?}", m.id, function_name);
                 let result = self.evaluate_node(&mut callee_cx, fn_declare.block)?;

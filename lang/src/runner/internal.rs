@@ -20,6 +20,7 @@ use crate::{
     },
     ast::{FnCall, Node, NodeId},
     driver::{DriverTrait, FSEntryQueryResult},
+    runner::StacktraceEntry,
 };
 
 use super::{
@@ -1188,7 +1189,11 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                         .map(|(a, v)| (a.name.span.contents(&m.src), v))
                         .collect();
                     let mut stacktrace = self.cx.stacktrace.clone();
-                    stacktrace.push(*func);
+                    stacktrace.push(StacktraceEntry {
+                        m: self.cx.module.id,
+                        n: *func_nid,
+                        d: *func,
+                    });
                     let mut callee_cx = Cx::new(m, self.cx.call_depth + 1, args, stacktrace);
                     let result = self
                         .runner

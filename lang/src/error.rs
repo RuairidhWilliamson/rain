@@ -7,7 +7,8 @@ use crate::{afs::file::File, local_span::LocalSpan};
 pub struct ResolvedSpan<'a> {
     pub file: Option<&'a File>,
     pub src: &'a str,
-    pub span: LocalSpan,
+    pub call_span: LocalSpan,
+    pub declaration_span: Option<LocalSpan>,
 }
 
 #[derive(Debug)]
@@ -20,22 +21,35 @@ impl ResolvedError<'_> {
     pub fn into_owned(&self) -> OwnedResolvedError {
         let Self { err, trace } = self;
         let mut trace_out = Vec::new();
-        for ResolvedSpan { file, src, span } in &trace[..trace.len() - 1] {
-            let (line, col) = span.line_col(src);
+        for ResolvedSpan {
+            file,
+            src,
+            call_span,
+            declaration_span,
+        } in &trace[..trace.len() - 1]
+        {
+            let (line, col) = call_span.line_col(src);
             let filename = file
                 .as_ref()
                 .map(|f| format!("{f}"))
                 .unwrap_or_else(|| String::from("<prelude>"));
-            let name = span.contents(src).to_owned();
+            let name = declaration_span
+                .map(|span| span.contents(src).to_owned())
+                .unwrap_or_default();
             trace_out.push((name, filename, line, col));
         }
-        let ResolvedSpan { file, src, span } = &trace[trace.len() - 1];
-        let (line, col) = span.line_col(src);
-        let [before, contents, after] = span.surrounding_lines(src, 2);
+        let ResolvedSpan {
+            file,
+            src,
+            call_span,
+            declaration_span: _,
+        } = &trace[trace.len() - 1];
+        let (line, col) = call_span.line_col(src);
+        let [before, contents, after] = call_span.surrounding_lines(src, 2);
         let before = before.replace('\n', "\n| ");
         let contents = contents.replace('\n', "\\n");
         let after = after.to_string();
-        let arrows = span.arrow_line(src, 2);
+        let arrows = call_span.arrow_line(src, 2);
         let err = err.to_string();
         let filename = file
             .as_ref()
