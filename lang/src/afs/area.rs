@@ -10,8 +10,8 @@ pub enum FileArea {
 impl FileArea {
     pub fn is_local(&self) -> bool {
         match self {
-            FileArea::Local(_) => true,
-            FileArea::Generated(_) => false,
+            Self::Local(_) => true,
+            Self::Generated(_) => false,
         }
     }
 }

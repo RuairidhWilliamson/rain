@@ -6,7 +6,7 @@ use rain_lang::{
     afs::{
         area::FileArea,
         dir::Dir,
-        entry::{FSEntry, FSEntryTrait},
+        entry::{FSEntry, FSEntryTrait as _},
         file::File,
     },
     ir::Rir,

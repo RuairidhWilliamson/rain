@@ -83,7 +83,7 @@ impl Display for RainInteger {
 
 impl From<i32> for RainInteger {
     fn from(value: i32) -> Self {
-        RainInteger(num_bigint::BigInt::from(value))
+        Self(num_bigint::BigInt::from(value))
     }
 }
 
