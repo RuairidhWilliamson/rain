@@ -290,10 +290,10 @@ enum RainCtlCommand {
     /// Get information about the running rain server process
     Info,
     /// Run checks
-    /// Equivalent to `rain run check`
+    /// Equivalent to `rain exec check`
     Check,
     /// Build!
-    /// Equivalent to `rain run build`
+    /// Equivalent to `rain exec build`
     Build,
     /// Execute a rain function
     Exec {
