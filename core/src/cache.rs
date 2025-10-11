@@ -47,11 +47,6 @@ impl Cache {
 
 impl rain_lang::runner::cache::CacheTrait for Cache {
     fn get(&self, key: &CacheKey) -> Option<CacheEntry> {
-        if !key.pure() {
-            log::debug!("cache get failed because it is not pure {key:?}");
-            self.stats.get_impure.inc();
-            return None;
-        }
         let mut guard = self.core.plock();
         let res = guard.storage.get(key).cloned();
         if res.is_some() {
@@ -65,11 +60,6 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
     }
 
     fn put(&self, key: CacheKey, entry: CacheEntry) {
-        if !key.pure() {
-            log::debug!("not caching {key:?} because it is not pure");
-            self.stats.put_fails.inc();
-            return;
-        }
         if entry.deps.iter().any(|d| !d.is_intra_run_stable()) {
             log::debug!(
                 "not caching {key:?} because it has intra run unstable deps {entry_deps:?}",
@@ -185,7 +175,6 @@ impl CacheCore {
 pub struct CacheStats {
     pub hits: Counter,
     pub misses: Counter,
-    pub get_impure: Counter,
     pub puts: Counter,
     pub put_fails: Counter,
     pub depersists: Counter,

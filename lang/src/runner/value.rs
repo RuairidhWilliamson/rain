@@ -81,6 +81,12 @@ impl Display for RainInteger {
     }
 }
 
+impl From<i32> for RainInteger {
+    fn from(value: i32) -> Self {
+        RainInteger(num_bigint::BigInt::from(value))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RainList(pub Vec<Value>);
 
@@ -153,29 +159,6 @@ impl Value {
             Self::InternalFunction(_) => RainTypeId::InternalFunction,
             Self::List(_) => RainTypeId::List,
             Self::Record(_) => RainTypeId::Record,
-        }
-    }
-
-    pub fn cache_pure(&self) -> bool {
-        match self {
-            Self::Internal
-            | Self::InternalFunction(_)
-            | Self::List(_)
-            | Self::Record(_)
-            | Self::Unit
-            | Self::Boolean(_)
-            | Self::Integer(_)
-            | Self::String(_)
-            | Self::Function(_)
-            | Self::Module(_)
-            | Self::FileArea(_)
-            | Self::EscapeFile(_) => true,
-            // TODO: Change
-            Self::File(f) => match f.area() {
-                FileArea::Generated(_) => true,
-                FileArea::Local(_) => false,
-            },
-            Self::Dir(_) => false,
         }
     }
 

@@ -7,6 +7,15 @@ pub enum FileArea {
     Generated(GeneratedFileArea),
 }
 
+impl FileArea {
+    pub fn is_local(&self) -> bool {
+        match self {
+            FileArea::Local(_) => true,
+            FileArea::Generated(_) => false,
+        }
+    }
+}
+
 impl std::fmt::Display for FileArea {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

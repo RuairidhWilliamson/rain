@@ -47,20 +47,6 @@ pub enum CacheKey {
     },
 }
 
-impl CacheKey {
-    /// A way to indicate escape file areas and local file areas are not pure and hence cannot be used as a cache key
-    pub fn pure(&self) -> bool {
-        match self {
-            Self::InternalFunction { func: _, args }
-            | Self::Declaration {
-                declaration: _,
-                args,
-            } => args.iter().all(Value::cache_pure),
-            Self::Prelude | Self::Download { url: _ } => true,
-        }
-    }
-}
-
 impl Display for CacheKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

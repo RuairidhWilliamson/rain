@@ -41,3 +41,4 @@ insta.workspace = true
 quickcheck_macros.workspace = true
 quickcheck.workspace = true
 test-log.workspace = true
+tempfile.workspace = true

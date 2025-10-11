@@ -6,7 +6,7 @@ use rain_lang::{
     afs::{
         area::FileArea,
         dir::Dir,
-        entry::{FSEntry, FSEntryTrait as _},
+        entry::{FSEntry, FSEntryTrait},
         file::File,
     },
     ir::Rir,
@@ -34,7 +34,7 @@ pub enum PersistCacheError {
     DoesNotExist,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct PersistCache {
     pub entries: Vec<(PersistCacheKey, PersistCacheEntry)>,
 }
@@ -194,8 +194,20 @@ impl PersistValue {
             }
             // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
             Value::Function(_) | Value::EscapeFile(_) => None,
-            Value::FileArea(file_area) => Some(Self::FileArea((**file_area).clone())),
-            Value::File(file) => Some(Self::File(file.inner().clone())),
+            Value::FileArea(file_area) => {
+                if file_area.is_local() {
+                    None
+                } else {
+                    Some(Self::FileArea((**file_area).clone()))
+                }
+            }
+            Value::File(file) => {
+                if file.inner().area.is_local() {
+                    None
+                } else {
+                    Some(Self::File(file.inner().clone()))
+                }
+            }
             Value::Dir(dir) => Some(Self::Dir(dir.inner().clone())),
             Value::Internal => Some(Self::Internal),
             Value::InternalFunction(internal_function) => {
