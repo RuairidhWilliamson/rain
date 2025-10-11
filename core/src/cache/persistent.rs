@@ -256,10 +256,13 @@ impl PersistValue {
             )))),
             Self::Module { file, src } => {
                 let ast = rain_lang::ast::parser::parse_module(&src);
-                let module_id = rir
-                    .insert_module(Some(File::new_checked(config, file)?), src, ast)
-                    .unwrap();
-                Some(Value::Module(module_id))
+                match rir.insert_module(Some(File::new_checked(config, file)?), src, ast) {
+                    Ok(mid) => Some(Value::Module(mid)),
+                    Err(err) => {
+                        log::error!("error loading cached module: {err:?}");
+                        None
+                    }
+                }
             }
         }
     }
