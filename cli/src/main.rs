@@ -65,7 +65,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
         }
         RainCtlCommand::Check => run(config, "check", vec![], &cli.options, mode),
         RainCtlCommand::Build => run(config, "build", vec![], &cli.options, mode),
-        RainCtlCommand::Run { target, args } => run(
+        RainCtlCommand::Exec { target, args } => run(
             config,
             &target.unwrap_or_default(),
             args,
@@ -295,7 +295,8 @@ enum RainCtlCommand {
     /// Build!
     /// Equivalent to `rain run build`
     Build,
-    Run {
+    /// Execute a rain function
+    Exec {
         target: Option<String>,
         args: Vec<String>,
     },
