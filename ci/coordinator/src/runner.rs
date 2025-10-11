@@ -56,7 +56,7 @@ impl Runner {
         let mut persistent_cache = self.persistent_cache.plock();
         let cache_core = persistent_cache
             .take()
-            .map(|c| c.depersist(&self.config, &self.cache_stats))
+            .map(|c| c.depersist(&self.config, &self.cache_stats, &mut ir))
             .unwrap_or_default();
         let cache = Cache {
             core: Arc::new(Mutex::new(cache_core)),
@@ -66,7 +66,8 @@ impl Runner {
         runner.seal = self.seal;
         info!("Running");
         let res = runner.evaluate_and_call(main, &[]);
-        let new_persistent_cache = PersistCache::persist(&cache.core.plock(), &self.cache_stats);
+        let new_persistent_cache =
+            PersistCache::persist(&cache.core.plock(), &self.cache_stats, &ir);
         *persistent_cache = Some(new_persistent_cache);
         let prints = strip_ansi_escapes::strip_str(driver.prints.plock().join("\n"));
         match res {
@@ -94,11 +95,12 @@ impl Runner {
         let Some(pcache) = persistent_cache.take() else {
             return;
         };
-        let cache = pcache.depersist(&self.config, &self.cache_stats);
+        let mut ir = rain_lang::ir::Rir::new();
+        let cache = pcache.depersist(&self.config, &self.cache_stats, &mut ir);
         if let Err(err) = cache.prune_generated_areas(&self.config) {
             error!("prune error: {err:#}");
         }
-        *persistent_cache = Some(PersistCache::persist(&cache, &self.cache_stats));
+        *persistent_cache = Some(PersistCache::persist(&cache, &self.cache_stats, &ir));
     }
 }
 

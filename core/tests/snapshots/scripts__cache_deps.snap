@@ -1,0 +1,7 @@
+---
+source: core/tests/scripts.rs
+expression: "run(\"tests/scripts/cache_deps.rain\").unwrap()"
+---
+Boolean(
+    true,
+)

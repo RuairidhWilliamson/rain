@@ -116,7 +116,7 @@ impl Server {
     pub fn new(config: Config) -> Result<Self, Error> {
         let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
         let modified_time = exe_stat.modified()?;
-        let cache = rain_core::load_cache_or_default(&config);
+        let (cache, ir) = rain_core::load_cache_or_default(&config);
         log::info!("cache loaded {} entries", cache.len());
         Ok(Self {
             config,
@@ -124,7 +124,7 @@ impl Server {
             start_time: chrono::Utc::now(),
             cache,
             stats: Stats::default(),
-            ir: Mutex::new(Rir::new()),
+            ir: Mutex::new(ir),
         })
     }
 }
@@ -225,6 +225,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
                 let persistent_cache = PersistCache::persist(
                     &self.server.cache.core.plock(),
                     &self.server.cache.stats,
+                    &self.server.ir.plock(),
                 );
                 persistent_cache.save(&self.server.config.cache_json_path())?;
                 log::info!("cache stats {:#?}", self.server.cache.stats);

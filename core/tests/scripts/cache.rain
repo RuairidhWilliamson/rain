@@ -1,0 +1,5 @@
+let foo = internal._import(internal._create_file("let x = 5", "generated.rain"))
+
+fn main() {
+	foo
+}

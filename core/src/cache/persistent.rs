@@ -9,6 +9,7 @@ use rain_lang::{
         entry::{FSEntry, FSEntryTrait as _},
         file::File,
     },
+    ir::Rir,
     runner::{
         cache::{CacheEntry, CacheKey},
         dep::Dep,
@@ -72,17 +73,17 @@ impl PersistCache {
         Ok(())
     }
 
-    pub fn persist(cache: &super::CacheCore, stats: &super::CacheStats) -> Self {
+    pub fn persist(cache: &super::CacheCore, stats: &super::CacheStats, rir: &Rir) -> Self {
         let entries = cache
             .storage
             .iter()
             .filter_map(|(k, e)| {
-                let Some(k) = PersistCacheKey::persist(k) else {
+                let Some(k) = PersistCacheKey::persist(k, rir) else {
                     log::debug!("could not persist cache key {k:?}");
                     stats.persist_fails.inc();
                     return None;
                 };
-                let Some(e) = PersistCacheEntry::persist(e) else {
+                let Some(e) = PersistCacheEntry::persist(e, rir) else {
                     log::debug!("could not persist cache entry {e:?}");
                     stats.persist_fails.inc();
                     return None;
@@ -94,15 +95,20 @@ impl PersistCache {
         Self { entries }
     }
 
-    pub fn depersist(self, config: &Config, stats: &super::CacheStats) -> super::CacheCore {
+    pub fn depersist(
+        self,
+        config: &Config,
+        stats: &super::CacheStats,
+        rir: &mut Rir,
+    ) -> super::CacheCore {
         let mut lru = lru::LruCache::new(super::CACHE_SIZE);
         for (k, e) in self.entries {
-            let Some(k) = k.depersist(config) else {
+            let Some(k) = k.depersist(config, rir) else {
                 log::warn!("could not depersist cache key for {e:?}");
                 stats.depersist_fails.inc();
                 continue;
             };
-            let Some(e) = e.depersist(config) else {
+            let Some(e) = e.depersist(config, rir) else {
                 log::warn!("could not depersist cache entry");
                 stats.depersist_fails.inc();
                 continue;
@@ -130,7 +136,7 @@ pub struct PersistCacheEntry {
 }
 
 impl PersistCacheEntry {
-    fn persist(entry: &CacheEntry) -> Option<Self> {
+    fn persist(entry: &CacheEntry, rir: &Rir) -> Option<Self> {
         if entry.deps.iter().any(|d| !d.is_inter_run_stable()) {
             // Don't cache because a dep is inter run unstable
             return None;
@@ -140,12 +146,12 @@ impl PersistCacheEntry {
             expires: entry.expires,
             etag: entry.etag.clone(),
             deps: entry.deps.clone(),
-            value: PersistValue::persist(&entry.value)?,
+            value: PersistValue::persist(&entry.value, rir)?,
         })
     }
 
-    fn depersist(self, config: &Config) -> Option<CacheEntry> {
-        let value = self.value.depersist(config)?;
+    fn depersist(self, config: &Config, rir: &mut Rir) -> Option<CacheEntry> {
+        let value = self.value.depersist(config, rir)?;
         Some(CacheEntry {
             execution_time: self.execution_time,
             expires: self.expires,
@@ -169,17 +175,25 @@ pub enum PersistValue {
     InternalFunction(InternalFunction),
     List(Vec<PersistValue>),
     Record(IndexMap<String, PersistValue>),
+    Module { file: FSEntry, src: String },
 }
 
 impl PersistValue {
-    fn persist(value: &Value) -> Option<Self> {
+    fn persist(value: &Value, rir: &Rir) -> Option<Self> {
         match value {
             Value::Unit => Some(Self::Unit),
             Value::Boolean(b) => Some(Self::Boolean(*b)),
             Value::Integer(rain_integer) => Some(Self::Integer((**rain_integer).clone())),
             Value::String(s) => Some(Self::String((**s).clone())),
+            Value::Module(mid) => {
+                let module = rir.get_module(*mid);
+                Some(Self::Module {
+                    file: module.file.as_ref()?.inner().clone(),
+                    src: module.src.clone().into_owned(),
+                })
+            }
             // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
-            Value::Function(_) | Value::Module(_) | Value::EscapeFile(_) => None,
+            Value::Function(_) | Value::EscapeFile(_) => None,
             Value::FileArea(file_area) => Some(Self::FileArea((**file_area).clone())),
             Value::File(file) => Some(Self::File(file.inner().clone())),
             Value::Dir(dir) => Some(Self::Dir(dir.inner().clone())),
@@ -191,20 +205,20 @@ impl PersistValue {
                 rain_list
                     .0
                     .iter()
-                    .map(Self::persist)
+                    .map(|v| Self::persist(v, rir))
                     .collect::<Option<_>>()?,
             )),
             Value::Record(rain_record) => Some(Self::Record(
                 rain_record
                     .0
                     .iter()
-                    .map(|(k, v)| Some((k.clone(), Self::persist(v)?)))
+                    .map(|(k, v)| Some((k.clone(), Self::persist(v, rir)?)))
                     .collect::<Option<_>>()?,
             )),
         }
     }
 
-    fn depersist(self, config: &Config) -> Option<Value> {
+    fn depersist(self, config: &Config, rir: &mut Rir) -> Option<Value> {
         match self {
             Self::Unit => Some(Value::Unit),
             Self::Boolean(b) => Some(Value::Boolean(b)),
@@ -219,15 +233,22 @@ impl PersistValue {
             }
             Self::List(vec) => Some(Value::List(Arc::new(RainList(
                 vec.into_iter()
-                    .map(|v| Self::depersist(v, config))
+                    .map(|v| Self::depersist(v, config, rir))
                     .collect::<Option<Vec<Value>>>()?,
             )))),
             Self::Record(index_map) => Some(Value::Record(Arc::new(RainRecord(
                 index_map
                     .into_iter()
-                    .map(|(k, v)| Some((k, Self::depersist(v, config)?)))
+                    .map(|(k, v)| Some((k, Self::depersist(v, config, rir)?)))
                     .collect::<Option<IndexMap<String, Value>>>()?,
             )))),
+            Self::Module { file, src } => {
+                let ast = rain_lang::ast::parser::parse_module(&src);
+                let module_id = rir
+                    .insert_module(Some(File::new_checked(config, file)?), src, ast)
+                    .unwrap();
+                Some(Value::Module(module_id))
+            }
         }
     }
 }
@@ -244,7 +265,7 @@ pub enum PersistCacheKey {
 }
 
 impl PersistCacheKey {
-    fn persist(key: &CacheKey) -> Option<Self> {
+    fn persist(key: &CacheKey, rir: &Rir) -> Option<Self> {
         match key {
             // TODO: It is possible to persist declarations in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
             // TODO: It is possible to persist prelude in the cache if we key it by the rain binary version
@@ -253,20 +274,20 @@ impl PersistCacheKey {
                 func: *func,
                 args: args
                     .iter()
-                    .map(PersistValue::persist)
+                    .map(|v| PersistValue::persist(v, rir))
                     .collect::<Option<_>>()?,
             }),
             CacheKey::Download { url } => Some(Self::Download { url: url.clone() }),
         }
     }
 
-    fn depersist(self, config: &Config) -> Option<CacheKey> {
+    fn depersist(self, config: &Config, rir: &mut Rir) -> Option<CacheKey> {
         match self {
             Self::InternalFunction { func, args } => Some(CacheKey::InternalFunction {
                 func,
                 args: args
                     .into_iter()
-                    .map(|a| a.depersist(config))
+                    .map(|a| a.depersist(config, rir))
                     .collect::<Option<Vec<Value>>>()?,
             }),
             Self::Download { url } => Some(CacheKey::Download { url }),

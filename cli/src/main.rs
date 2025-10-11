@@ -264,13 +264,13 @@ struct GlobalOptions {
     #[arg(long, global = true, env = "RAIN_HOST")]
     host: Option<String>,
     /// Resolve returned file paths before printing them to stdout
-    #[arg(long)]
+    #[arg(long, global = true)]
     resolve: bool,
     /// Disable escape commands (not a security sandbox)
     #[arg(long, global = true, env = "RAIN_SEAL")]
     seal: bool,
     /// The reporting mode to use
-    #[arg(long, default_value = "short")]
+    #[arg(long, global = true, default_value = "short")]
     report: ReportMode,
 }
 

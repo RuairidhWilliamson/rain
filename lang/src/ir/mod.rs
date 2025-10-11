@@ -68,8 +68,8 @@ impl Rir {
 #[derive(Debug)]
 pub struct IrModule {
     pub id: ModuleId,
-    // Only None for the prelude module
-    file: Option<File>,
+    /// Only None for the prelude module
+    pub file: Option<File>,
     pub src: Cow<'static, str>,
     module: Option<ParsedIrModule>,
 }
