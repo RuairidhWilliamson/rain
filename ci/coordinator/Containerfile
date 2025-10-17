@@ -1,6 +1,6 @@
 FROM docker.io/rust:slim as base
 RUN rustup component add rustfmt clippy
-RUN apt-get -qqy update && apt-get -qqy install pkg-config libssl-dev curl xz-utils libasound2-dev
+RUN apt-get -qqy update && apt-get -qqy install pkg-config libssl-dev curl xz-utils libasound2-dev clang > /dev/null
 
 WORKDIR /usr/rain
 
@@ -10,13 +10,13 @@ FROM base as build
 # Actually build things
 COPY . .
 # Build the rain-ci server
-RUN cargo install --path ci/coordinator --locked
+RUN cargo install -q --path ci/coordinator --locked
 
 FROM base AS blender-install
-ARG BLENDER_VERSION=4.5.1
+ARG BLENDER_VERSION=4.5.3
 ARG BLENDER_SHORT_VERSION=4.5
 RUN curl -O https://mirrors.ocf.berkeley.edu/blender/release/Blender$BLENDER_SHORT_VERSION/blender-$BLENDER_VERSION-linux-x64.tar.xz
-RUN echo "085a7ed4ed80c3cb66783bad76f236f39897de5d33884abd133e0c6db94c0f14  blender-$BLENDER_VERSION-linux-x64.tar.xz" | sha256sum -c
+RUN echo "975c58fcb244273838534bba771e64ad87739216b0f9b39a888531a49a72d845  blender-$BLENDER_VERSION-linux-x64.tar.xz" | sha256sum -c
 RUN tar -xf blender-$BLENDER_VERSION-linux-x64.tar.xz -C /
 RUN mv /blender-$BLENDER_VERSION-linux-x64 /blender
 
