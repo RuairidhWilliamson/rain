@@ -81,6 +81,7 @@ pub enum InternalFunction {
     CopyFile,
     ListLength,
     EscapeHard,
+    ChrootRun,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -194,6 +195,7 @@ impl InternalFunction {
             Self::CopyFile => icx.copy_file(),
             Self::ListLength => icx.list_length(),
             Self::EscapeHard => icx.escape_hard(),
+            Self::ChrootRun => icx.chroot_run(),
         }
     }
 }

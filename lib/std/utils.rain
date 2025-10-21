@@ -42,6 +42,15 @@ fn download(url) {
 	internal._download(url, "download")
 }
 
+fn download_with_sha256(url, sha256) {
+	download_result = internal._download(url, "download")
+	actual_sha256 = internal._sha256(download_result.file)
+	if actual_sha256 != sha256 {
+		internal._throw("bad sha256 " + actual_sha256)
+	}
+	download_result.file
+}
+
 fn run_check(area, bin, args, env) {
 	run_result = run(area, bin, args, env)
 	if !run_result.success {
