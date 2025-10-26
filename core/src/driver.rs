@@ -546,14 +546,33 @@ impl DriverTrait for DriverImpl<'_> {
             .append_dir_all(".", dir_path)
             .map_err(|err| RunnerError::MakeshiftIO("create tar".into(), err))?;
         archive
-            .into_inner()
+            .finish()
             .map_err(|err| RunnerError::MakeshiftIO("create tar flush".into(), err))?;
         // Safety: We just created the file
         let file = unsafe { File::new(entry) };
         Ok(file)
     }
 
-    #[expect(clippy::unwrap_used)]
+    fn create_tar_gz(&self, dir: &Dir, name: &str) -> Result<File, RunnerError> {
+        let dir_path = self.resolve_fs_entry(dir.inner());
+        let area = self.create_empty_area()?;
+        let path = SealedFilePath::new(name)?;
+        let entry = FSEntry::new(area, path);
+        let output_path = self.resolve_fs_entry(&entry);
+        let f = std::fs::File::create(output_path).map_err(RunnerError::AreaIOError)?;
+        let raw_tar = flate2::write::GzEncoder::new(f, flate2::Compression::default());
+        let mut archive = tar::Builder::new(raw_tar);
+        archive
+            .append_dir_all(".", dir_path)
+            .map_err(|err| RunnerError::MakeshiftIO("create tar gz".into(), err))?;
+        archive
+            .finish()
+            .map_err(|err| RunnerError::MakeshiftIO("create tar gz flush".into(), err))?;
+        // Safety: We just created the file
+        let file = unsafe { File::new(entry) };
+        Ok(file)
+    }
+
     fn get_secret(&self, name: &str) -> Result<String, RunnerError> {
         // TODO: Ask before accessing
         match std::env::var(name) {
@@ -567,7 +586,12 @@ impl DriverTrait for DriverImpl<'_> {
             Ok(secrets_contents) => {
                 let toml: toml::Value = toml::from_str(&secrets_contents)
                     .map_err(|_err| RunnerError::Makeshift("parse secrets.toml".into()))?;
-                return Ok(toml.get(name).unwrap().as_str().unwrap().to_owned());
+                return Ok(toml
+                    .get(name)
+                    .ok_or_else(|| RunnerError::Makeshift("secret is not present".into()))?
+                    .as_str()
+                    .ok_or_else(|| RunnerError::Makeshift("secret is not a string".into()))?
+                    .to_owned());
             }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
             Err(err) => return Err(RunnerError::MakeshiftIO("open secrets.toml".into(), err)),

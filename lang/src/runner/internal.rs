@@ -69,6 +69,7 @@ pub enum InternalFunction {
     EscapeRun,
     Prelude,
     CreateTar,
+    CreateTarGz,
     RustEq,
     GetSecret,
     SetCacheNever,
@@ -141,6 +142,7 @@ impl InternalFunction {
             "_copy_file" => Some(Self::CopyFile),
             "_list_length" => Some(Self::ListLength),
             "_escape_hard" => Some(Self::EscapeHard),
+            "_create_tar_gz" => Some(Self::CreateTarGz),
             _ => None,
         }
     }
@@ -196,6 +198,7 @@ impl InternalFunction {
             Self::ListLength => icx.list_length(),
             Self::EscapeHard => icx.escape_hard(),
             Self::ChrootRun => icx.chroot_run(),
+            Self::CreateTarGz => icx.create_tar_gz(),
         }
     }
 }
@@ -1271,19 +1274,27 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     }
 
     fn create_tar(self) -> ResultValue {
-        match &self.arg_values[..] {
-            [(dir_nid, dir_value), (name_nid, name_value)] => {
-                let dir = self.expect_dir_or_area(*dir_nid, dir_value)?;
-                let name = expect_type!(self, String, (*name_nid, name_value));
-                Ok(Value::File(Arc::new(
-                    self.runner
-                        .driver
-                        .create_tar(&dir, name)
-                        .map_err(|err| self.cx.nid_err(self.nid, err))?,
-                )))
-            }
-            _ => self.incorrect_args(2..=2),
-        }
+        let ((dir_nid, dir_value), name) = two_args!(self);
+        let dir = self.expect_dir_or_area(dir_nid, dir_value)?;
+        let name = expect_type!(self, String, name);
+        Ok(Value::File(Arc::new(
+            self.runner
+                .driver
+                .create_tar(&dir, name)
+                .map_err(|err| self.cx.nid_err(self.nid, err))?,
+        )))
+    }
+
+    fn create_tar_gz(self) -> ResultValue {
+        let ((dir_nid, dir_value), name) = two_args!(self);
+        let dir = self.expect_dir_or_area(dir_nid, dir_value)?;
+        let name = expect_type!(self, String, name);
+        Ok(Value::File(Arc::new(
+            self.runner
+                .driver
+                .create_tar_gz(&dir, name)
+                .map_err(|err| self.cx.nid_err(self.nid, err))?,
+        )))
     }
 
     fn rust_eq(self) -> ResultValue {

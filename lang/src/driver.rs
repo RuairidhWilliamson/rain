@@ -60,6 +60,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn export_file(&self, src: &File, dst: &FSEntry) -> Result<(), RunnerError>;
     fn export_dir(&self, src: &Dir, dst: &FSEntry) -> Result<(), RunnerError>;
     fn create_tar(&self, dir: &Dir, name: &str) -> Result<File, RunnerError>;
+    fn create_tar_gz(&self, dir: &Dir, name: &str) -> Result<File, RunnerError>;
     fn get_secret(&self, name: &str) -> Result<String, RunnerError>;
     fn git_contents(&self, url: &str, commit: &str) -> Result<FileArea, RunnerError>;
     fn git_lfs_smudge(&self, area: &FileArea) -> Result<FileArea, RunnerError>;

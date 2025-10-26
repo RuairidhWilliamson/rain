@@ -218,17 +218,7 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 (args_nid, args_value),
                 (env_nid, env_value),
             ] => {
-                let dir = match area_value {
-                    Value::Dir(dir) => dir.as_ref().clone(),
-                    Value::FileArea(area) => Dir::root(area.as_ref().clone()),
-                    _ => Err(self.cx.nid_err(
-                        *area_nid,
-                        RunnerError::ExpectedType {
-                            actual: area_value.rain_type_id(),
-                            expected: &[RainTypeId::FileArea],
-                        },
-                    ))?,
-                };
+                let dir = self.expect_dir_or_area(*area_nid, area_value)?;
                 let bin = match file_value {
                     Value::File(file) => &self.runner.driver.resolve_fs_entry(file.inner()),
                     Value::EscapeFile(escaped_file) => escaped_file.0.as_path(),

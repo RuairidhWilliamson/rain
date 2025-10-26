@@ -7,3 +7,13 @@ fn alpine_linux() {
 	sha256 = "412454ed98025ad9cd910d13f3d448b184e81502baa83180e89f98d0f13674be"
 	internal._get_dir(internal._extract_tar_gz(std.utils.download_with_sha256(url, sha256)), "/")
 }
+
+fn bwrap_run() {
+	bwrap = internal._escape_bin("bwrap")
+	args = ["--ro-bind", alpine_linux(), "/", "ls", "-la", "/bin"]
+	env = {}
+	result = internal._run(std.utils.unit, bwrap, args, env)
+	internal._print(result.success)
+	internal._print(result.stdout)
+	internal._print(result.stderr)
+}
