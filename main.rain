@@ -17,8 +17,6 @@ let get_file = std.utils.get_file
 let get_area = std.utils.get_area
 let module_file = std.utils.module_file
 
-let rust_version = "stable"
-
 pub fn lint() {
 	check_empty_files()
 }
@@ -33,7 +31,22 @@ fn build() {
 }
 
 fn build_release(target_triple) {
-	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", false, "", "release", target_triple, [], {})
+	env = {
+		CARGO_TERM_COLOR = "always",
+		CARGO_TERM_QUIET = "true",
+	}
+	cargo = std.escape.bin("cargo")
+	args = [
+		"build",
+		"--package", "rain",
+		"--target", target_triple,
+		"--quiet",
+		"--release",
+		"--color", "always"
+		"--no-default-features",
+	]
+	std.escape.run(area, cargo, args, env)
+	get_file(area, "target/" + target_triple + "/release/rain" + std.utils.exe_suffix(target_triple))
 }
 
 fn build_c() {
