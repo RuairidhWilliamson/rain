@@ -229,7 +229,7 @@ impl<GH: crate::github::Client> Server<GH> {
                     output: Some(crate::github::model::CheckRunOutput {
                         title: String::from("rain run"),
                         summary: String::from("rain run complete"),
-                        text: output,
+                        text: output.replace(" ", "&nbsp;"),
                     }),
                     ..Default::default()
                 },

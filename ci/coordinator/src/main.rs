@@ -11,7 +11,7 @@ use std::{net::SocketAddr, path::PathBuf};
 use anyhow::{Context as _, Result};
 use ipnet::IpNet;
 use jsonwebtoken::EncodingKey;
-use log::{error, warn};
+use log::{error, info, warn};
 use runner::Runner;
 
 #[derive(Debug, serde::Deserialize)]
@@ -32,6 +32,8 @@ fn main() -> Result<()> {
         warn!(".env could not be loaded: {err:#}");
     }
     let config = envy::from_env::<Config>()?;
+    let version = env!("CARGO_PKG_VERSION");
+    info!("version = {version}");
 
     let key_raw = std::fs::read(&config.github_app_key).context("read github app key")?;
     let key = EncodingKey::from_rsa_pem(&key_raw).context("decode github app key")?;
