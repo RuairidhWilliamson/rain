@@ -26,14 +26,14 @@ struct Config {
 }
 
 fn main() -> Result<()> {
-    let version = env!("CARGO_PKG_VERSION");
-    info!("version = {version}");
     let dotenv_result = dotenvy::dotenv();
     env_logger::init();
     if let Err(err) = dotenv_result {
         warn!(".env could not be loaded: {err:#}");
     }
     let config = envy::from_env::<Config>()?;
+    let version = env!("CARGO_PKG_VERSION");
+    info!("version = {version}");
 
     let key_raw = std::fs::read(&config.github_app_key).context("read github app key")?;
     let key = EncodingKey::from_rsa_pem(&key_raw).context("decode github app key")?;
