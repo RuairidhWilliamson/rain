@@ -5,6 +5,7 @@ members = [
   "cli",
   "ruipc",
   "poison_panic",
+  "rain-lsp",
   "ci/coordinator",
 ]
 resolver = "3"
