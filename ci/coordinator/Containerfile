@@ -9,7 +9,7 @@ ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 FROM base as build
 # Actually build things
 COPY . .
-# Build the rain-ci server
+# Build the rain-ci-coordinator server
 RUN cargo install -q --path ci/coordinator --locked
 
 FROM base AS blender-install

@@ -1,0 +1,46 @@
+name: rain-ci
+
+services:
+  web:
+    build:
+      context: ../
+      dockerfile: ci/web/Containerfile
+    environment:
+      - RUST_LOG=info
+      - ADDR=0.0.0.0:3000
+      - GITHUB_OAUTH_FILE=/run/secrets/github_oauth
+      - ALLOWED_GITHUB_USER_ID=43679745
+      - ALLOWED_GITHUB_LOGIN=RuairidhWilliamson
+    secrets:
+      - github_oauth
+    ports:
+      - 3000:3000
+
+  coordinator:
+    build:
+      context: ../
+      dockerfile: ci/coordinator/Containerfile
+      tags:
+        - "rain-ci-coordinator:latest"
+    environment:
+      - RUST_LOG=info
+      - ADDR=127.0.0.1:3000
+
+  db:
+    image: docker.io/postgres:alpine
+    shm_size: 128mb
+    environment:
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - ./pg-data:/var/lib/postgresql/data
+
+secrets:
+  github_oauth:
+    file: ./secrets/github_oauth.json
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+
+volumes:
+  pgdata:

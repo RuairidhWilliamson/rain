@@ -1,0 +1,21 @@
+FROM docker.io/rust:alpine as base
+WORKDIR /usr/rain
+ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+RUN apk add gcc g++ git pkgconfig curl
+RUN cargo install cargo-chef --locked -q
+
+FROM base AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM base AS build
+COPY --from=planner /usr/rain/recipe.json recipe.json
+RUN cargo chef cook --release -p rain-ci-web --locked --target x86_64-unknown-linux-musl --recipe-path recipe.json
+COPY . .
+RUN cargo build -q --release -p rain-ci-web --locked --target x86_64-unknown-linux-musl
+
+FROM base AS rain
+WORKDIR /usr/rain
+COPY --from=build /usr/rain/target/x86_64-unknown-linux-musl/release/rain-ci-web /usr/local/cargo/bin/rain-ci-web
+ENV RUST_LOG=info
+ENTRYPOINT ["rain-ci-web"]
