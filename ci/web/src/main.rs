@@ -20,6 +20,10 @@ struct Config {
     github_oauth_file: PathBuf,
     allowed_github_user_id: i64,
     allowed_github_login: String,
+    db_host: String,
+    db_name: String,
+    db_user: String,
+    db_password_file: PathBuf,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -36,7 +40,14 @@ async fn main() {
         log::warn!(".env could not be loaded: {err:#}");
     }
     let config = envy::from_env::<Config>().unwrap();
-    let db = db::Db::default();
+    let db = db::Db::new(
+        config.db_host.clone(),
+        config.db_name.clone(),
+        config.db_user.clone(),
+        config.db_password_file.clone(),
+    )
+    .await
+    .unwrap();
     let addr = config.addr.clone();
     let github_config: GithubOauthConfig =
         serde_json::from_slice(&std::fs::read(&config.github_oauth_file).unwrap()).unwrap();
@@ -156,13 +167,12 @@ async fn authorized(
 ) -> Result<impl IntoResponse, AppError> {
     db.check_session_csrf(&session.id, query.state)
         .await
-        .map_err(|err| anyhow::format_err!("csrf check failed: {err}"))?;
+        .map_err(|err| anyhow::format_err!("csrf check failed: {err:#}"))?;
     let token = client.exchange_code(query.code).await?;
     let user = client.get_user_details(token.access_token()).await?;
-    log::info!("{user:#?}");
     db.auth_user_session(&session.id, User(user))
         .await
-        .map_err(|()| anyhow::format_err!("auth user session"))?;
+        .map_err(|err| anyhow::format_err!("auth user session: {err:#}"))?;
     Ok(Redirect::to("/"))
 }
 
@@ -224,7 +234,14 @@ where
         let store = db::Db::from_ref(state);
 
         let session: &session::Session = parts.extensions.get().unwrap();
-        let user = store.get_user(&session.id).await.ok_or(AuthRedirect)?;
+        let user = store
+            .get_user(&session.id)
+            .await
+            .map_err(|err| {
+                log::error!("get user: {err:#}");
+                AuthRedirect
+            })?
+            .ok_or(AuthRedirect)?;
 
         Ok(AuthUser { user })
     }
@@ -268,6 +285,10 @@ where
         let user = store
             .get_user(&session.id)
             .await
+            .map_err(|err| {
+                log::error!("get user: {err:#}");
+                StatusCode::UNAUTHORIZED
+            })?
             .ok_or(StatusCode::UNAUTHORIZED)?;
 
         if !user.is_admin(&config) {

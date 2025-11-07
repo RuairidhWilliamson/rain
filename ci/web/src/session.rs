@@ -5,10 +5,12 @@ use axum::{
     response::IntoResponse,
 };
 use axum_extra::{TypedHeader, headers};
+use postgres_types::{FromSql, ToSql};
 
 const SESSION_COOKIE_NAME: &str = "SESSION";
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, ToSql, FromSql)]
+#[postgres(transparent)]
 pub struct SessionId(pub uuid::Uuid);
 
 impl std::fmt::Display for SessionId {
@@ -35,12 +37,12 @@ pub async fn session_middleware(
         && let Ok(inner_session_id) = session_cookie.parse::<uuid::Uuid>()
     {
         session_id = SessionId(inner_session_id);
-        if let Some(new_session_id) = db.load_or_create_session(&session_id).await {
+        if let Some(new_session_id) = db.load_or_create_session(&session_id).await.unwrap() {
             session_id = new_session_id;
             id_changed = true;
         }
     } else {
-        session_id = db.create_session().await;
+        session_id = db.create_session().await.unwrap();
         id_changed = true;
     }
 

@@ -1,88 +1,125 @@
-use std::{collections::HashMap, sync::Arc};
+use std::path::PathBuf;
 
 use oauth2::CsrfToken;
-use tokio::sync::Mutex;
+use tokio_postgres::NoTls;
 
 use crate::session::SessionId;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Db {
-    inner: Arc<Mutex<DbInner>>,
-}
-
-#[derive(Default)]
-struct DbInner {
-    sessions: HashMap<SessionId, SessionState>,
+    pool: deadpool_postgres::Pool,
 }
 
 impl Db {
-    pub async fn create_session(&self) -> SessionId {
-        let session_id = SessionId(uuid::Uuid::new_v4());
-        let session = SessionState::default();
-        let mut guard = self.inner.lock().await;
-        guard.sessions.insert(session_id.clone(), session);
-        session_id
+    pub async fn new(
+        host: String,
+        name: String,
+        user: String,
+        password_file: PathBuf,
+    ) -> anyhow::Result<Self> {
+        let mut config = deadpool_postgres::Config::new();
+        config.dbname = Some(name);
+        config.host = Some(host);
+        config.user = Some(user);
+        config.password = Some(
+            std::fs::read_to_string(password_file)
+                .unwrap()
+                .lines()
+                .next()
+                .unwrap()
+                .into(),
+        );
+        config.manager = Some(deadpool_postgres::ManagerConfig {
+            recycling_method: deadpool_postgres::RecyclingMethod::Fast,
+        });
+        let pool = config
+            .create_pool(Some(deadpool_postgres::Runtime::Tokio1), NoTls)
+            .unwrap();
+        Ok(Self { pool })
     }
 
-    pub async fn load_or_create_session(&self, id: &SessionId) -> Option<SessionId> {
-        let mut guard = self.inner.lock().await;
-        if guard.sessions.contains_key(id) {
-            return None;
-        }
+    pub async fn create_session(&self) -> anyhow::Result<SessionId> {
         let session_id = SessionId(uuid::Uuid::new_v4());
-        let session = SessionState::default();
-        guard.sessions.insert(session_id.clone(), session);
-        Some(session_id)
+        self.pool
+            .get()
+            .await?
+            .execute("INSERT INTO sessions (id) VALUES ($1)", &[&session_id])
+            .await?;
+        Ok(session_id)
     }
 
-    pub async fn set_session_csrf(
+    pub async fn load_or_create_session(
         &self,
         id: &SessionId,
-        csrf: CsrfToken,
-    ) -> Result<(), &'static str> {
-        let mut guard = self.inner.lock().await;
-        let session = guard.sessions.get_mut(id).ok_or("session does not eist")?;
-        session.oauth_csrf = Some(csrf);
-        Ok(())
-    }
-
-    pub async fn check_session_csrf(
-        &self,
-        id: &SessionId,
-        csrf: CsrfToken,
-    ) -> Result<(), &'static str> {
-        let mut guard = self.inner.lock().await;
-        let session = guard.sessions.get_mut(id).ok_or("session does not eist")?;
-        if !constant_time_eq::constant_time_eq(
-            session
-                .oauth_csrf
-                .as_ref()
-                .ok_or("session does not have csrf")?
-                .secret()
-                .as_bytes(),
-            csrf.secret().as_bytes(),
-        ) {
-            return Err("session csrf does not match");
+    ) -> anyhow::Result<Option<SessionId>> {
+        let mut conn = self.pool.get().await?;
+        let tx = conn.transaction().await?;
+        if let Some(_) = tx
+            .query_opt("SELECT id FROM sessions WHERE id=$1", &[id])
+            .await?
+        {
+            return Ok(None);
         }
-        session.oauth_csrf.take();
+        let session_id = SessionId(uuid::Uuid::new_v4());
+        tx.execute("INSERT INTO sessions (id) VALUES ($1)", &[&session_id])
+            .await?;
+        tx.commit().await?;
+        Ok(Some(session_id))
+    }
+
+    pub async fn set_session_csrf(&self, id: &SessionId, csrf: CsrfToken) -> anyhow::Result<()> {
+        let conn = self.pool.get().await?;
+        conn.execute(
+            "UPDATE sessions SET csrf=$2 WHERE id=$1",
+            &[id, csrf.secret()],
+        )
+        .await?;
         Ok(())
     }
 
-    pub async fn auth_user_session(&self, id: &SessionId, user: super::User) -> Result<(), ()> {
-        let mut guard = self.inner.lock().await;
-        let session = guard.sessions.get_mut(id).ok_or(())?;
-        session.user = Some(user);
+    pub async fn check_session_csrf(&self, id: &SessionId, csrf: CsrfToken) -> anyhow::Result<()> {
+        let mut conn = self.pool.get().await?;
+        let tx = conn.transaction().await?;
+        let row = tx
+            .query_one("SELECT csrf FROM sessions WHERE id=$1", &[id])
+            .await?;
+        let expected: Option<String> = row.get("csrf");
+        let expected = expected.ok_or(anyhow::format_err!("no csrf"))?;
+        if !constant_time_eq::constant_time_eq(expected.as_bytes(), csrf.secret().as_bytes()) {
+            return Err(anyhow::format_err!("session csrf does not match"));
+        }
+        tx.execute("UPDATE sessions SET csrf=NULL WHERE id=$1", &[id])
+            .await?;
+        tx.commit().await?;
         Ok(())
     }
 
-    pub async fn get_user(&self, id: &SessionId) -> Option<super::User> {
-        let guard = self.inner.lock().await;
-        guard.sessions.get(id).and_then(|s| s.user.clone())
+    pub async fn auth_user_session(&self, id: &SessionId, user: super::User) -> anyhow::Result<()> {
+        let conn = self.pool.get().await?;
+        conn.execute(
+            "INSERT INTO users (id, login, name, avatar_url) VALUES ($1, $2, $3, $4)",
+            &[&user.0.id, &user.0.login, &user.0.name, &user.0.avatar_url],
+        )
+        .await?;
+        conn.execute(
+            "UPDATE sessions SET user_id=$1 WHERE id=$2",
+            &[&user.0.id, id],
+        )
+        .await?;
+        Ok(())
     }
-}
 
-#[derive(Clone, Default)]
-struct SessionState {
-    oauth_csrf: Option<CsrfToken>,
-    user: Option<super::User>,
+    pub async fn get_user(&self, id: &SessionId) -> anyhow::Result<Option<super::User>> {
+        let conn = self.pool.get().await?;
+        if let Some(user_row) = conn.query_opt("SELECT users.id, login, name, avatar_url FROM users INNER JOIN sessions ON users.id=sessions.user_id WHERE sessions.id=$1", &[id]).await? {
+            Ok(Some(super::User (crate::github::UserDetails {
+                 id: user_row.get("id"),
+                 login: user_row.get("login"),
+                 name: user_row.get("name"),
+                 avatar_url: user_row.get("avatar_url")
+             })))
+        } else {
+            Ok(None)
+        }
+    }
 }
