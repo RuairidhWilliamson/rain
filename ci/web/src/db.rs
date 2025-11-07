@@ -11,7 +11,7 @@ pub struct Db {
 }
 
 impl Db {
-    pub async fn new(
+    pub fn new(
         host: String,
         name: String,
         user: String,
@@ -21,20 +21,11 @@ impl Db {
         config.dbname = Some(name);
         config.host = Some(host);
         config.user = Some(user);
-        config.password = Some(
-            std::fs::read_to_string(password_file)
-                .unwrap()
-                .lines()
-                .next()
-                .unwrap()
-                .into(),
-        );
+        config.password = Some(std::fs::read_to_string(password_file)?.trim().into());
         config.manager = Some(deadpool_postgres::ManagerConfig {
             recycling_method: deadpool_postgres::RecyclingMethod::Fast,
         });
-        let pool = config
-            .create_pool(Some(deadpool_postgres::Runtime::Tokio1), NoTls)
-            .unwrap();
+        let pool = config.create_pool(Some(deadpool_postgres::Runtime::Tokio1), NoTls)?;
         Ok(Self { pool })
     }
 
@@ -54,9 +45,10 @@ impl Db {
     ) -> anyhow::Result<Option<SessionId>> {
         let mut conn = self.pool.get().await?;
         let tx = conn.transaction().await?;
-        if let Some(_) = tx
+        if tx
             .query_opt("SELECT id FROM sessions WHERE id=$1", &[id])
             .await?
+            .is_some()
         {
             return Ok(None);
         }
@@ -84,7 +76,7 @@ impl Db {
             .query_one("SELECT csrf FROM sessions WHERE id=$1", &[id])
             .await?;
         let expected: Option<String> = row.get("csrf");
-        let expected = expected.ok_or(anyhow::format_err!("no csrf"))?;
+        let expected = expected.ok_or_else(|| anyhow::format_err!("no csrf"))?;
         if !constant_time_eq::constant_time_eq(expected.as_bytes(), csrf.secret().as_bytes()) {
             return Err(anyhow::format_err!("session csrf does not match"));
         }

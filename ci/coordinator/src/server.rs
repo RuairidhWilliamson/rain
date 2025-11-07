@@ -25,7 +25,7 @@ pub struct Server<GH: crate::github::Client> {
     pub github_webhook_secret: String,
     pub runner: Runner,
     pub github_client: GH,
-    pub storage: crate::storage::Storage,
+    pub storage: Box<dyn crate::storage::StorageTrait>,
 }
 
 impl<GH: crate::github::Client> Server<GH> {
@@ -142,12 +142,14 @@ impl<GH: crate::github::Client> Server<GH> {
                 },
             )
             .context("create check run")?;
-        info!("created check run {check_run:#?}");
-        self.storage
-            .insert_run(&crate::storage::Run {
+        let run_id = self
+            .storage
+            .create_run(crate::storage::Run {
                 source: crate::storage::RunSource::Github,
             })
             .context("insert storage")?;
+
+        info!("created check run {run_id} {check_run:#?}");
 
         installation_client
             .update_check_run(
@@ -229,7 +231,7 @@ impl<GH: crate::github::Client> Server<GH> {
                     output: Some(crate::github::model::CheckRunOutput {
                         title: String::from("rain run"),
                         summary: String::from("rain run complete"),
-                        text: output.replace(" ", "&nbsp;"),
+                        text: output.replace(' ', "&nbsp;"),
                     }),
                     ..Default::default()
                 },

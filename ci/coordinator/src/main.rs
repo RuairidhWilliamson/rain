@@ -12,6 +12,7 @@ use anyhow::{Context as _, Result};
 use ipnet::IpNet;
 use jsonwebtoken::EncodingKey;
 use log::{error, info, warn};
+use postgres::NoTls;
 use runner::Runner;
 
 #[derive(Debug, serde::Deserialize)]
@@ -22,7 +23,10 @@ struct Config {
     github_webhook_secret: String,
     target_url: url::Url,
     seal: bool,
-    db_path: PathBuf,
+    db_host: String,
+    db_name: String,
+    db_user: String,
+    db_password_file: PathBuf,
 }
 
 fn main() -> Result<()> {
@@ -47,13 +51,18 @@ fn main() -> Result<()> {
     // let mut allowed_ipnets = Some(&ipnets);
     let allowed_ipnets: Option<&[IpNet]> = None;
     let listener = std::net::TcpListener::bind(config.addr)?;
-    let db = rocksdb::DB::open_default(&config.db_path).context("open db")?;
+    let db = postgres::Config::new()
+        .host(&config.db_host)
+        .dbname(&config.db_name)
+        .user(&config.db_user)
+        .password(std::fs::read_to_string(config.db_password_file)?)
+        .connect(NoTls)?;
     let server = server::Server {
         runner: Runner::new(config.seal),
         github_webhook_secret: config.github_webhook_secret,
         target_url: config.target_url,
         github_client,
-        storage: storage::Storage { db },
+        storage: Box::new(storage::inner::Storage::new(db)),
     };
     loop {
         let (stream, addr) = listener.accept()?;

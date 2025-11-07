@@ -85,15 +85,12 @@ impl crate::github::InstallationClient for TestGithubInstallationClient {
 
 #[test]
 fn github_check_run() {
-    let dir = tempfile::tempdir().unwrap();
     let server = Server {
         target_url: url::Url::parse("https://example.net").unwrap(),
         github_webhook_secret: String::new(),
         runner: Runner::new(true),
         github_client: TestGithubClient::default(),
-        storage: crate::storage::Storage {
-            db: rocksdb::DB::open_default(dir.path()).unwrap(),
-        },
+        storage: Box::new(crate::storage::test::Storage::default()),
     };
     let user = crate::github::model::User {
         id: 1,

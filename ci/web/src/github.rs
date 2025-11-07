@@ -1,6 +1,6 @@
 use std::env;
 
-use anyhow::Context as _;
+use anyhow::{Context as _, Result};
 use axum::http::header::{ACCEPT, USER_AGENT};
 use oauth2::{
     AccessToken, AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken,
@@ -27,7 +27,7 @@ pub struct UserDetails {
     pub avatar_url: String,
 }
 
-fn oauth_client(client_id: String, client_secret: ClientSecret) -> anyhow::Result<BasicClient> {
+fn oauth_client(client_id: String, client_secret: ClientSecret) -> Result<BasicClient> {
     let redirect_url = env::var("REDIRECT_URL")
         .unwrap_or_else(|_| "http://127.0.0.1:3000/auth/authorized".to_string());
 
@@ -57,7 +57,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(client_id: String, client_secret: ClientSecret) -> anyhow::Result<Self> {
+    pub fn new(client_id: String, client_secret: ClientSecret) -> Result<Self> {
         Ok(Self {
             oauth_client: oauth_client(client_id, client_secret)?,
         })
@@ -72,11 +72,10 @@ impl Client {
         (auth_url, csrf_token)
     }
 
-    pub async fn exchange_code(&self, code: AuthorizationCode) -> anyhow::Result<OAuthToken> {
+    pub async fn exchange_code(&self, code: AuthorizationCode) -> Result<OAuthToken> {
         let http_client = reqwest::Client::builder()
             .redirect(Policy::none())
-            .build()
-            .unwrap();
+            .build()?;
         let token = self
             .oauth_client
             .exchange_code(code)
@@ -85,8 +84,8 @@ impl Client {
         Ok(token)
     }
 
-    pub async fn get_user_details(&self, token: &AccessToken) -> anyhow::Result<UserDetails> {
-        let http_client = reqwest::Client::builder().build().unwrap();
+    pub async fn get_user_details(&self, token: &AccessToken) -> Result<UserDetails> {
+        let http_client = reqwest::Client::builder().build()?;
         let response = http_client
             .get("https://api.github.com/user")
             .bearer_auth(token.secret())
@@ -94,9 +93,8 @@ impl Client {
             .header("X-GitHub-Api-Version", "2022-11-28")
             .header(USER_AGENT, "RainCIWeb")
             .send()
-            .await
-            .unwrap();
-        let body = response.bytes().await.unwrap();
+            .await?;
+        let body = response.bytes().await?;
         Ok(serde_json::from_slice(&body)?)
     }
 }

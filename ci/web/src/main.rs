@@ -4,6 +4,7 @@ mod session;
 
 use std::{convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
 
+use anyhow::Result;
 use askama::Template;
 use axum::{
     Extension, Router,
@@ -12,7 +13,7 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     routing::get,
 };
-use oauth2::{AuthorizationCode, ClientSecret, CsrfToken, TokenResponse};
+use oauth2::{AuthorizationCode, ClientSecret, CsrfToken, TokenResponse as _};
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
@@ -33,30 +34,27 @@ struct GithubOauthConfig {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     let dotenv_result = dotenvy::dotenv();
     env_logger::init();
     if let Err(err) = dotenv_result {
         log::warn!(".env could not be loaded: {err:#}");
     }
-    let config = envy::from_env::<Config>().unwrap();
+    let config = envy::from_env::<Config>()?;
     let db = db::Db::new(
         config.db_host.clone(),
         config.db_name.clone(),
         config.db_user.clone(),
         config.db_password_file.clone(),
-    )
-    .await
-    .unwrap();
-    let addr = config.addr.clone();
+    )?;
+    let addr = config.addr;
     let github_config: GithubOauthConfig =
-        serde_json::from_slice(&std::fs::read(&config.github_oauth_file).unwrap()).unwrap();
+        serde_json::from_slice(&std::fs::read(&config.github_oauth_file)?)?;
     let state = AppState {
         github_client: github::Client::new(
             github_config.github_client_id,
             github_config.github_client_secret,
-        )
-        .unwrap(),
+        )?,
         db,
         config: Arc::new(config),
     };
@@ -72,12 +70,12 @@ async fn main() {
         ))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    log::info!("listening on {}", listener.local_addr().unwrap());
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    log::info!("listening on {}", listener.local_addr()?);
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
-        .await
-        .unwrap();
+        .await?;
+    Ok(())
 }
 
 #[derive(Template)]
@@ -104,16 +102,16 @@ struct Homepage<'a> {
     avatar_url: &'a str,
 }
 
-async fn homepage(auth: Option<AuthUser>) -> Html<String> {
+async fn homepage(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
     if let Some(auth) = auth {
         let homepage = Homepage {
             name: &auth.user.0.name,
             avatar_url: &auth.user.0.avatar_url,
         };
-        Html(homepage.render().unwrap())
+        Ok(Html(homepage.render()?))
     } else {
         let homepage = PublicHomepage;
-        Html(homepage.render().unwrap())
+        Ok(Html(homepage.render()?))
     }
 }
 
@@ -131,12 +129,12 @@ struct AdminPage<'a> {
     avatar_url: &'a str,
 }
 
-async fn adminpage(auth: AdminUser) -> Html<String> {
+async fn adminpage(auth: AdminUser) -> Result<Html<String>, AppError> {
     let admin_page = AdminPage {
         name: &auth.user.0.name,
         avatar_url: &auth.user.0.avatar_url,
     };
-    Html(admin_page.render().unwrap())
+    Ok(Html(admin_page.render()?))
 }
 
 async fn default_auth() -> impl IntoResponse {
@@ -149,7 +147,7 @@ async fn github_auth(
     Extension(session): Extension<session::Session>,
 ) -> Result<impl IntoResponse, AppError> {
     let (auth_url, csrf_token) = client.authorize_url();
-    db.set_session_csrf(&session.id, csrf_token).await.unwrap();
+    db.set_session_csrf(&session.id, csrf_token).await?;
     Ok(Redirect::to(auth_url.as_ref()))
 }
 
@@ -233,7 +231,9 @@ where
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let store = db::Db::from_ref(state);
 
-        let session: &session::Session = parts.extensions.get().unwrap();
+        let Some(session): Option<&session::Session> = parts.extensions.get() else {
+            unreachable!("get session extension");
+        };
         let user = store
             .get_user(&session.id)
             .await
@@ -243,7 +243,7 @@ where
             })?
             .ok_or(AuthRedirect)?;
 
-        Ok(AuthUser { user })
+        Ok(Self { user })
     }
 }
 
@@ -281,7 +281,9 @@ where
         let store = db::Db::from_ref(state);
         let config = Arc::<Config>::from_ref(state);
 
-        let session: &session::Session = parts.extensions.get().unwrap();
+        let Some(session): Option<&session::Session> = parts.extensions.get() else {
+            unreachable!("get session extension");
+        };
         let user = store
             .get_user(&session.id)
             .await
