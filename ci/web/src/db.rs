@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use anyhow::Result;
 use oauth2::CsrfToken;
 use tokio_postgres::NoTls;
 
@@ -11,12 +12,7 @@ pub struct Db {
 }
 
 impl Db {
-    pub fn new(
-        host: String,
-        name: String,
-        user: String,
-        password_file: PathBuf,
-    ) -> anyhow::Result<Self> {
+    pub fn new(host: String, name: String, user: String, password_file: PathBuf) -> Result<Self> {
         let mut config = deadpool_postgres::Config::new();
         config.dbname = Some(name);
         config.host = Some(host);
@@ -29,7 +25,7 @@ impl Db {
         Ok(Self { pool })
     }
 
-    pub async fn create_session(&self) -> anyhow::Result<SessionId> {
+    pub async fn create_session(&self) -> Result<SessionId> {
         let session_id = SessionId(uuid::Uuid::new_v4());
         self.pool
             .get()
@@ -39,10 +35,7 @@ impl Db {
         Ok(session_id)
     }
 
-    pub async fn load_or_create_session(
-        &self,
-        id: &SessionId,
-    ) -> anyhow::Result<Option<SessionId>> {
+    pub async fn load_or_create_session(&self, id: &SessionId) -> Result<Option<SessionId>> {
         let mut conn = self.pool.get().await?;
         let tx = conn.transaction().await?;
         if tx
@@ -59,7 +52,7 @@ impl Db {
         Ok(Some(session_id))
     }
 
-    pub async fn set_session_csrf(&self, id: &SessionId, csrf: CsrfToken) -> anyhow::Result<()> {
+    pub async fn set_session_csrf(&self, id: &SessionId, csrf: CsrfToken) -> Result<()> {
         let conn = self.pool.get().await?;
         conn.execute(
             "UPDATE sessions SET csrf=$2 WHERE id=$1",
@@ -69,7 +62,7 @@ impl Db {
         Ok(())
     }
 
-    pub async fn check_session_csrf(&self, id: &SessionId, csrf: CsrfToken) -> anyhow::Result<()> {
+    pub async fn check_session_csrf(&self, id: &SessionId, csrf: CsrfToken) -> Result<()> {
         let mut conn = self.pool.get().await?;
         let tx = conn.transaction().await?;
         let row = tx
@@ -86,10 +79,10 @@ impl Db {
         Ok(())
     }
 
-    pub async fn auth_user_session(&self, id: &SessionId, user: super::User) -> anyhow::Result<()> {
+    pub async fn auth_user_session(&self, id: &SessionId, user: super::User) -> Result<()> {
         let conn = self.pool.get().await?;
         conn.execute(
-            "INSERT INTO users (id, login, name, avatar_url) VALUES ($1, $2, $3, $4)",
+            "INSERT INTO users (id, login, name, avatar_url) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
             &[&user.0.id, &user.0.login, &user.0.name, &user.0.avatar_url],
         )
         .await?;
@@ -101,7 +94,7 @@ impl Db {
         Ok(())
     }
 
-    pub async fn get_user(&self, id: &SessionId) -> anyhow::Result<Option<super::User>> {
+    pub async fn get_user(&self, id: &SessionId) -> Result<Option<super::User>> {
         let conn = self.pool.get().await?;
         if let Some(user_row) = conn.query_opt("SELECT users.id, login, name, avatar_url FROM users INNER JOIN sessions ON users.id=sessions.user_id WHERE sessions.id=$1", &[id]).await? {
             Ok(Some(super::User (crate::github::UserDetails {
@@ -113,5 +106,24 @@ impl Db {
         } else {
             Ok(None)
         }
+    }
+
+    pub async fn get_runs(&self) -> Result<Vec<(rain_ci_common::RunId, rain_ci_common::Run)>> {
+        let conn = self.pool.get().await?;
+        let rows = conn
+            .query("SELECT id, source, create FROM runs LIMIT 100", &[])
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                (
+                    r.get("id"),
+                    rain_ci_common::Run {
+                        source: r.get("source"),
+                        create: r.get("create"),
+                    },
+                )
+            })
+            .collect())
     }
 }

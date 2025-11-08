@@ -7,6 +7,7 @@ use std::{
 
 use crate::{github::InstallationClient as _, runner::Runner};
 use anyhow::{Context as _, Result, anyhow};
+use chrono::NaiveDateTime;
 use httparse::Request;
 use log::{error, info};
 use rain_lang::afs::{dir::Dir, file::File};
@@ -144,8 +145,9 @@ impl<GH: crate::github::Client> Server<GH> {
             .context("create check run")?;
         let run_id = self
             .storage
-            .create_run(crate::storage::Run {
-                source: crate::storage::RunSource::Github,
+            .create_run(rain_ci_common::Run {
+                source: rain_ci_common::RunSource::Github,
+                create: chrono::Utc::now().naive_utc(),
             })
             .context("insert storage")?;
 

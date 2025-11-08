@@ -93,7 +93,10 @@ struct PublicHomepage;
     ext = "html",
     source = "
         <h1>Hello, {{name}}!</h1>
-        <img src={{avatar_url}}>
+        <div>
+            <img src={{avatar_url}} height=16>
+            <span>{{name}}</span>
+        </div>
         <a href='/admin'>Admin</a>
     "
 )]
@@ -120,19 +123,28 @@ async fn homepage(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
     ext = "html",
     source = "
         <h1>Hello, admin {{name}}!</h1>
-        <img src={{avatar_url}}>
-        
+        <div>
+            <img src={{avatar_url}} height=16>
+            <span>{{name}}</span>
+        </div>
+        <table>
+        {% for (run_id, run) in runs %}
+            <tr><td>{{ run_id }}</td><td>{{ run.source }}</td></tr>
+        {% endfor %}
+        </table>
     "
 )]
 struct AdminPage<'a> {
     name: &'a str,
     avatar_url: &'a str,
+    runs: &'a [(rain_ci_common::RunId, rain_ci_common::Run)],
 }
 
-async fn adminpage(auth: AdminUser) -> Result<Html<String>, AppError> {
+async fn adminpage(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
     let admin_page = AdminPage {
         name: &auth.user.0.name,
         avatar_url: &auth.user.0.avatar_url,
+        runs: &db.get_runs().await?,
     };
     Ok(Html(admin_page.render()?))
 }

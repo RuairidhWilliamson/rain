@@ -1,20 +1,9 @@
 use anyhow::Result;
-use postgres_types::{FromSql, ToSql};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSql, FromSql)]
-pub enum RunSource {
-    Github,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct Run {
-    pub source: RunSource,
-}
 
 pub trait StorageTrait: Send + Sync {
-    fn create_run(&self, run: Run) -> Result<uuid::Uuid>;
-    fn get_run(&self, id: &uuid::Uuid) -> Result<Option<Run>>;
+    fn create_run(&self, run: rain_ci_common::Run) -> Result<uuid::Uuid>;
+    #[expect(dead_code)]
+    fn get_run(&self, id: &uuid::Uuid) -> Result<Option<rain_ci_common::Run>>;
 }
 
 pub mod inner {
@@ -34,7 +23,7 @@ pub mod inner {
     }
 
     impl super::StorageTrait for Storage {
-        fn create_run(&self, run: super::Run) -> Result<uuid::Uuid> {
+        fn create_run(&self, run: rain_ci_common::Run) -> Result<uuid::Uuid> {
             let id = uuid::Uuid::new_v4();
             let mut conn = self.db.plock();
             conn.execute(
@@ -44,13 +33,14 @@ pub mod inner {
             Ok(id)
         }
 
-        fn get_run(&self, id: &uuid::Uuid) -> Result<Option<super::Run>> {
+        fn get_run(&self, id: &uuid::Uuid) -> Result<Option<rain_ci_common::Run>> {
             let mut conn = self.db.plock();
             let Some(row) = conn.query_opt("SELECT source FROM runs WHERE id=$1", &[&id])? else {
                 return Ok(None);
             };
-            Ok(Some(super::Run {
+            Ok(Some(rain_ci_common::Run {
                 source: row.get("source"),
+                create: chrono::Utc::now().naive_utc(),
             }))
         }
     }
@@ -65,18 +55,18 @@ pub mod test {
 
     #[derive(Default)]
     pub struct Storage {
-        db: Mutex<HashMap<uuid::Uuid, super::Run>>,
+        db: Mutex<HashMap<uuid::Uuid, rain_ci_common::Run>>,
     }
 
     impl super::StorageTrait for Storage {
-        fn create_run(&self, run: super::Run) -> Result<uuid::Uuid> {
+        fn create_run(&self, run: rain_ci_common::Run) -> Result<uuid::Uuid> {
             let id = uuid::Uuid::new_v4();
             let mut conn = self.db.plock();
             conn.insert(id, run);
             Ok(id)
         }
 
-        fn get_run(&self, id: &uuid::Uuid) -> Result<Option<super::Run>> {
+        fn get_run(&self, id: &uuid::Uuid) -> Result<Option<rain_ci_common::Run>> {
             let conn = self.db.plock();
             Ok(conn.get(id).cloned())
         }

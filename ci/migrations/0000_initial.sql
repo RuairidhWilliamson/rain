@@ -11,7 +11,12 @@ CREATE TABLE sessions (
     user_id BIGINT NULL REFERENCES users
 );
 
+CREATE TYPE "RunSource" AS ENUM (
+    'Github'
+);
+
 CREATE TABLE runs (
     id UUID PRIMARY KEY,
-    source TEXT NOT NULL,
+    source "RunSource" NOT NULL,
+    create TIMESTAMP NOT NULL
 );

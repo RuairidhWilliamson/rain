@@ -21,7 +21,8 @@ services:
     ports:
       - 3000:3000
     depends_on:
-      - db
+      migrator:
+        condition: service_completed_successfully
 
   coordinator:
     build:
@@ -31,7 +32,23 @@ services:
       - RUST_LOG=info
       - ADDR=127.0.0.1:3000
     depends_on:
-      - db
+      migrator:
+        condition: service_completed_successfully
+
+  migrator:
+    build:
+      context: ../
+      dockerfile: ci/migrator/Containerfile
+    environment:
+      - DB_HOST=db
+      - DB_NAME=rain
+      - DB_USER=rain
+      - DB_PASSWORD_FILE=/run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
     image: docker.io/postgres:alpine
@@ -42,8 +59,11 @@ services:
       - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
     secrets:
       - postgres_password
-    volumes:
-      - ./setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
 secrets:
   github_oauth:
