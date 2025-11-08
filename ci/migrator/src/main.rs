@@ -15,18 +15,20 @@ use rustc_stable_hash::{FromStableHash, SipHasher128Hash};
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
-    #[serde(flatten)]
-    db: rain_ci_common::DbConfig,
+    db_host: String,
+    db_name: String,
+    db_user: String,
+    db_password_file: PathBuf,
     migrations_dir: PathBuf,
 }
 
 fn main() -> Result<()> {
     let config = envy::from_env::<Config>()?;
     let mut db = postgres::Config::new()
-        .host(&config.db.host)
-        .dbname(&config.db.name)
-        .user(&config.db.user)
-        .password(std::fs::read_to_string(config.db.password_file)?)
+        .host(&config.db_host)
+        .dbname(&config.db_name)
+        .user(&config.db_user)
+        .password(std::fs::read_to_string(config.db_password_file)?)
         .connect(NoTls)?;
 
     let mut tx = db.transaction()?;

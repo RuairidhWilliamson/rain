@@ -1,15 +1,5 @@
-use std::path::PathBuf;
-
 use chrono::NaiveDateTime;
 use postgres_types::{FromSql, ToSql};
-
-#[derive(Debug, serde::Deserialize)]
-pub struct DbConfig {
-    pub host: String,
-    pub name: String,
-    pub user: String,
-    pub password_file: PathBuf,
-}
 
 #[derive(Debug, Clone, ToSql, FromSql)]
 #[postgres(transparent)]
