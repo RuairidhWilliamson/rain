@@ -24,7 +24,8 @@ struct Config {
     db_host: String,
     db_name: String,
     db_user: String,
-    db_password_file: PathBuf,
+    db_password: Option<String>,
+    db_password_file: Option<PathBuf>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -41,12 +42,13 @@ async fn main() -> Result<()> {
         log::warn!(".env could not be loaded: {err:#}");
     }
     let config = envy::from_env::<Config>()?;
-    let db = db::Db::new(
-        config.db_host.clone(),
-        config.db_name.clone(),
-        config.db_user.clone(),
-        config.db_password_file.clone(),
-    )?;
+    let db = db::Db::new(db::DbConfig {
+        host: config.db_host.clone(),
+        name: config.db_name.clone(),
+        user: config.db_user.clone(),
+        password: config.db_password.clone(),
+        password_file: config.db_password_file.clone(),
+    })?;
     let addr = config.addr;
     let github_config: GithubOauthConfig =
         serde_json::from_slice(&std::fs::read(&config.github_oauth_file)?)?;

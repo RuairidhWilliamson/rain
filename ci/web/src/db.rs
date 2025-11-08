@@ -1,10 +1,18 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use oauth2::CsrfToken;
 use tokio_postgres::NoTls;
 
 use crate::session::SessionId;
+
+pub struct DbConfig {
+    pub host: String,
+    pub name: String,
+    pub user: String,
+    pub password: Option<String>,
+    pub password_file: Option<PathBuf>,
+}
 
 #[derive(Clone)]
 pub struct Db {
@@ -12,12 +20,16 @@ pub struct Db {
 }
 
 impl Db {
-    pub fn new(host: String, name: String, user: String, password_file: PathBuf) -> Result<Self> {
+    pub fn new(cfg: DbConfig) -> Result<Self> {
+        let db_password = cfg
+            .password
+            .or_else(|| std::fs::read_to_string(cfg.password_file.as_ref()?).ok())
+            .context("set DB_PASSWORD or DB_PASSWORD_FILE")?;
         let mut config = deadpool_postgres::Config::new();
-        config.dbname = Some(name);
-        config.host = Some(host);
-        config.user = Some(user);
-        config.password = Some(std::fs::read_to_string(password_file)?.trim().into());
+        config.dbname = Some(cfg.name);
+        config.host = Some(cfg.host);
+        config.user = Some(cfg.user);
+        config.password = Some(db_password);
         config.manager = Some(deadpool_postgres::ManagerConfig {
             recycling_method: deadpool_postgres::RecyclingMethod::Fast,
         });
