@@ -111,7 +111,7 @@ impl Db {
     pub async fn get_runs(&self) -> Result<Vec<(rain_ci_common::RunId, rain_ci_common::Run)>> {
         let conn = self.pool.get().await?;
         let rows = conn
-            .query("SELECT id, source, create FROM runs LIMIT 100", &[])
+            .query("SELECT id, source, created_at FROM runs LIMIT 100", &[])
             .await?;
         Ok(rows
             .into_iter()
@@ -120,7 +120,7 @@ impl Db {
                     r.get("id"),
                     rain_ci_common::Run {
                         source: r.get("source"),
-                        create: r.get("create"),
+                        created_at: r.get("created_at"),
                     },
                 )
             })

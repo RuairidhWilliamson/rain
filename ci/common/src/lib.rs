@@ -14,7 +14,7 @@ impl std::fmt::Display for RunId {
 #[derive(Debug, Clone)]
 pub struct Run {
     pub source: RunSource,
-    pub create: NaiveDateTime,
+    pub created_at: NaiveDateTime,
 }
 
 #[derive(Debug, Clone, ToSql, FromSql)]

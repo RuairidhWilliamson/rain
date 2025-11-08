@@ -35,12 +35,14 @@ pub mod inner {
 
         fn get_run(&self, id: &uuid::Uuid) -> Result<Option<rain_ci_common::Run>> {
             let mut conn = self.db.plock();
-            let Some(row) = conn.query_opt("SELECT source FROM runs WHERE id=$1", &[&id])? else {
+            let Some(row) =
+                conn.query_opt("SELECT source, created_at FROM runs WHERE id=$1", &[&id])?
+            else {
                 return Ok(None);
             };
             Ok(Some(rain_ci_common::Run {
                 source: row.get("source"),
-                create: chrono::Utc::now().naive_utc(),
+                created_at: row.get("created_at"),
             }))
         }
     }

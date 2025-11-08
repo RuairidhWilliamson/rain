@@ -18,5 +18,5 @@ CREATE TYPE "RunSource" AS ENUM (
 CREATE TABLE runs (
     id UUID PRIMARY KEY,
     source "RunSource" NOT NULL,
-    create TIMESTAMP NOT NULL
+    created_at TIMESTAMP NOT NULL
 );
