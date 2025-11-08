@@ -18,17 +18,22 @@ struct Config {
     db_host: String,
     db_name: String,
     db_user: String,
-    db_password_file: PathBuf,
+    db_password: Option<String>,
+    db_password_file: Option<PathBuf>,
     migrations_dir: PathBuf,
 }
 
 fn main() -> Result<()> {
     let config = envy::from_env::<Config>()?;
+    let db_password = config
+        .db_password
+        .or_else(|| std::fs::read_to_string(config.db_password_file.as_ref()?).ok())
+        .context("set DB_PASSWORD or DB_PASSWORD_FILE")?;
     let mut db = postgres::Config::new()
         .host(&config.db_host)
         .dbname(&config.db_name)
         .user(&config.db_user)
-        .password(std::fs::read_to_string(config.db_password_file)?)
+        .password(db_password)
         .connect(NoTls)?;
 
     let mut tx = db.transaction()?;
