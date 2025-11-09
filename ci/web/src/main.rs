@@ -142,6 +142,13 @@ async fn homepage(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
                 <td>{{ run.repository.owner }}/{{ run.repository.name }}</td>
                 <td>{{ run.created_at }}</td>
                 <td>{{ run.state() }}</td>
+                <td>
+                    {% match run.finished %}
+                    {% when Some with (finished) %}
+                        {{ finished.status }}
+                    {% when None %}
+                    {% endmatch %}
+                </td>
             </tr>
         {% endfor %}
         </table>
