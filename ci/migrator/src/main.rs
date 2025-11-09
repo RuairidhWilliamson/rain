@@ -24,6 +24,7 @@ struct Config {
 }
 
 fn main() -> Result<()> {
+    let _ = dotenvy::dotenv();
     let config = envy::from_env::<Config>()?;
     let db_password = config
         .db_password
@@ -78,7 +79,16 @@ fn main() -> Result<()> {
                 name
             ));
         }
-        tx.batch_execute(&m.sql)?;
+        match tx.batch_execute(&m.sql) {
+            Ok(()) => {}
+            Err(err) => {
+                println!("Error performing migration {} with name {}", m.id, m.name);
+                println!("{:?}", err.as_db_error());
+                println!("{err:#}");
+                println!("{err:#?}");
+                return Err(anyhow!("performing migration failed"));
+            }
+        }
         tx.execute(
             "INSERT INTO migrations (id, name, hash) VALUES ($1, $2, $3)",
             &[&m.id, &m.name, &m.hash],

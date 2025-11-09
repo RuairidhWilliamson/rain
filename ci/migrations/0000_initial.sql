@@ -15,21 +15,24 @@ CREATE TYPE "RunSource" AS ENUM (
     'Github'
 );
 
-CREATE TYPE "RunState" AS ENUM (
-    'Queued',
-    'InProgress',
-    'Finished'
-);
-
 CREATE TYPE "RunStatus" AS ENUM (
     'Success',
-    'Failure',
+    'Failure'
+);
+
+CREATE TABLE finished_runs (
+    id BIGSERIAL PRIMARY KEY,
+    finished_at TIMESTAMP NOT NULL,
+    status "RunStatus" NOT NULL,
+    execution_time_millis BIGINT NOT NULL
 );
 
 CREATE TABLE runs (
-    id UUID PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     source "RunSource" NOT NULL,
     created_at TIMESTAMP NOT NULL,
-    state "RunState" NOT NULL,
-    status "RunStatus"
+    repo_owner TEXT NOT NULL,
+    repo_name TEXT NOT NULL,
+    dequeued_at TIMESTAMP,
+    finished BIGSERIAL REFERENCES finished_runs
 );

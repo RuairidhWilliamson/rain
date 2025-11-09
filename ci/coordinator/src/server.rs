@@ -7,6 +7,7 @@ use std::{
 
 use crate::{github::InstallationClient as _, runner::Runner};
 use anyhow::{Context as _, Result, anyhow};
+use chrono::Utc;
 use httparse::Request;
 use log::{error, info};
 use rain_lang::afs::{dir::Dir, file::File};
@@ -142,17 +143,26 @@ impl<GH: crate::github::Client> Server<GH> {
                 },
             )
             .context("create check run")?;
+        let start = chrono::Utc::now().naive_utc();
         let run_id = self
             .storage
             .create_run(rain_ci_common::Run {
                 source: rain_ci_common::RunSource::Github,
-                created_at: chrono::Utc::now().naive_utc(),
-                state: rain_ci_common::RunState::InProgress,
-                status: None,
+                created_at: start,
+                repository: rain_ci_common::Repository {
+                    owner: owner.clone(),
+                    name: repo.clone(),
+                },
+                dequeued_at: None,
+                finished: None,
             })
-            .context("insert storage")?;
+            .context("storage create run")?;
 
         info!("created check run {run_id} {check_run:#?}");
+
+        self.storage
+            .dequeued_run(&run_id)
+            .context("storage dequeue run")?;
 
         installation_client
             .update_check_run(
@@ -223,6 +233,19 @@ impl<GH: crate::github::Client> Server<GH> {
                 )
             }
         };
+
+        let finished_at = Utc::now().naive_utc();
+        let execution_time = finished_at - start;
+        self.storage
+            .finished_run(
+                &run_id,
+                rain_ci_common::FinishedRun {
+                    finished_at,
+                    status: rain_ci_common::RunStatus::Success,
+                    execution_time,
+                },
+            )
+            .context("storage dequeue run")?;
         installation_client
             .update_check_run(
                 owner,

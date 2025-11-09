@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
+use chrono::TimeDelta;
 use oauth2::CsrfToken;
 use tokio_postgres::NoTls;
 
@@ -123,7 +124,10 @@ impl Db {
     pub async fn get_runs(&self) -> Result<Vec<(rain_ci_common::RunId, rain_ci_common::Run)>> {
         let conn = self.pool.get().await?;
         let rows = conn
-            .query("SELECT id, source, created_at FROM runs LIMIT 100", &[])
+            .query(
+                "SELECT runs.id, source, created_at, dequeued_at, repo_owner, repo_name, finished_at, status, execution_time_millis FROM runs LEFT OUTER JOIN finished_runs ON finished=finished_runs.id LIMIT 100",
+                &[],
+            )
             .await?;
         Ok(rows
             .into_iter()
@@ -133,8 +137,20 @@ impl Db {
                     rain_ci_common::Run {
                         source: row.get("source"),
                         created_at: row.get("created_at"),
-                        state: row.get("state"),
-                        status: row.get("status"),
+                        dequeued_at: row.get("dequeued_at"),
+                        finished: row.get::<_, Option<_>>("finished_at").map(|finished_at| {
+                            rain_ci_common::FinishedRun {
+                                finished_at,
+                                status: row.get("status"),
+                                execution_time: TimeDelta::milliseconds(
+                                    row.get("execution_time_millis"),
+                                ),
+                            }
+                        }),
+                        repository: rain_ci_common::Repository {
+                            owner: row.get("repo_owner"),
+                            name: row.get("repo_name"),
+                        },
                     },
                 )
             })

@@ -2534,6 +2534,7 @@ name = "rain-ci-migrator"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "dotenvy",
  "envy",
  "postgres",
  "postgres-types",
@@ -2550,6 +2551,7 @@ dependencies = [
  "askama",
  "axum",
  "axum-extra",
+ "chrono",
  "constant_time_eq",
  "deadpool-postgres",
  "dotenvy",

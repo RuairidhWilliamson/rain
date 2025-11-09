@@ -1,9 +1,9 @@
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, TimeDelta};
 use postgres_types::{FromSql, ToSql};
 
 #[derive(Debug, Clone, ToSql, FromSql)]
 #[postgres(transparent)]
-pub struct RunId(uuid::Uuid);
+pub struct RunId(pub i64);
 
 impl std::fmt::Display for RunId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -12,11 +12,30 @@ impl std::fmt::Display for RunId {
 }
 
 #[derive(Debug, Clone)]
+pub struct Repository {
+    pub owner: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct Run {
+    pub repository: Repository,
     pub source: RunSource,
     pub created_at: NaiveDateTime,
-    pub state: RunState,
-    pub status: Option<RunStatus>,
+    pub dequeued_at: Option<NaiveDateTime>,
+    pub finished: Option<FinishedRun>,
+}
+
+impl Run {
+    pub fn state(&self) -> RunState {
+        if self.finished.is_some() {
+            RunState::Finished
+        } else if self.dequeued_at.is_some() {
+            RunState::InProgress
+        } else {
+            RunState::Queued
+        }
+    }
 }
 
 #[derive(Debug, Clone, ToSql, FromSql)]
@@ -32,21 +51,11 @@ impl std::fmt::Display for RunSource {
     }
 }
 
-#[derive(Debug, Clone, ToSql, FromSql)]
-pub enum RunState {
-    Queued,
-    InProgress,
-    Finished,
-}
-
-impl std::fmt::Display for RunState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::Queued => "Queued",
-            Self::InProgress => "Running",
-            Self::Finished => "Finished",
-        })
-    }
+#[derive(Debug, Clone)]
+pub struct FinishedRun {
+    pub finished_at: NaiveDateTime,
+    pub status: RunStatus,
+    pub execution_time: TimeDelta,
 }
 
 #[derive(Debug, Clone, ToSql, FromSql)]
@@ -62,4 +71,15 @@ impl std::fmt::Display for RunStatus {
             Self::Failure => "Failure",
         })
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum RunState {
+    Queued,
+    InProgress,
+    Finished,
+}
+
+pub fn time_delta_from_millis(millis: i64) -> TimeDelta {
+    TimeDelta::milliseconds(millis)
 }
