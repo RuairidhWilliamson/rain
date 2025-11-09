@@ -125,7 +125,7 @@ impl Db {
         let conn = self.pool.get().await?;
         let rows = conn
             .query(
-                "SELECT runs.id, source, created_at, dequeued_at, repo_owner, repo_name, finished_at, status, execution_time_millis FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run LIMIT 100",
+                "SELECT runs.id, source, created_at, dequeued_at, repo_owner, repo_name, finished_at, status, execution_time_millis FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run ORDER BY id DESC LIMIT 100",
                 &[],
             )
             .await?;
