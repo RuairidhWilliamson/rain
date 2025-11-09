@@ -7,16 +7,29 @@ CREATE TABLE users (
 
 CREATE TABLE sessions (
     id UUID PRIMARY KEY,
-    csrf TEXT NULl,
-    user_id BIGINT NULL REFERENCES users
+    csrf TEXT,
+    user_id BIGINT REFERENCES users
 );
 
 CREATE TYPE "RunSource" AS ENUM (
     'Github'
 );
 
+CREATE TYPE "RunState" AS ENUM (
+    'Queued',
+    'InProgress',
+    'Finished'
+);
+
+CREATE TYPE "RunStatus" AS ENUM (
+    'Success',
+    'Failure',
+);
+
 CREATE TABLE runs (
     id UUID PRIMARY KEY,
     source "RunSource" NOT NULL,
-    created_at TIMESTAMP NOT NULL
+    created_at TIMESTAMP NOT NULL,
+    state "RunState" NOT NULL,
+    status "RunStatus"
 );

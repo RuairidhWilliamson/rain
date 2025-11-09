@@ -15,6 +15,8 @@ impl std::fmt::Display for RunId {
 pub struct Run {
     pub source: RunSource,
     pub created_at: NaiveDateTime,
+    pub state: RunState,
+    pub status: Option<RunStatus>,
 }
 
 #[derive(Debug, Clone, ToSql, FromSql)]
@@ -27,5 +29,37 @@ impl std::fmt::Display for RunSource {
         match self {
             Self::Github => f.write_str("Github"),
         }
+    }
+}
+
+#[derive(Debug, Clone, ToSql, FromSql)]
+pub enum RunState {
+    Queued,
+    InProgress,
+    Finished,
+}
+
+impl std::fmt::Display for RunState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Queued => "Queued",
+            Self::InProgress => "Running",
+            Self::Finished => "Finished",
+        })
+    }
+}
+
+#[derive(Debug, Clone, ToSql, FromSql)]
+pub enum RunStatus {
+    Success,
+    Failure,
+}
+
+impl std::fmt::Display for RunStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Success => "Success",
+            Self::Failure => "Failure",
+        })
     }
 }

@@ -27,8 +27,8 @@ pub mod inner {
             let id = uuid::Uuid::new_v4();
             let mut conn = self.db.plock();
             conn.execute(
-                "INSERT INTO runs (id, source, created_at) VALUES ($1, $2, $3)",
-                &[&id, &run.source, &run.created_at],
+                "INSERT INTO runs (id, source, created_at, state) VALUES ($1, $2, $3, $4)",
+                &[&id, &run.source, &run.created_at, &run.state],
             )?;
             Ok(id)
         }
@@ -43,6 +43,8 @@ pub mod inner {
             Ok(Some(rain_ci_common::Run {
                 source: row.get("source"),
                 created_at: row.get("created_at"),
+                state: row.get("state"),
+                status: row.get("status"),
             }))
         }
     }

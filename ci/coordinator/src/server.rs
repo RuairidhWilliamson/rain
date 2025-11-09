@@ -147,6 +147,8 @@ impl<GH: crate::github::Client> Server<GH> {
             .create_run(rain_ci_common::Run {
                 source: rain_ci_common::RunSource::Github,
                 created_at: chrono::Utc::now().naive_utc(),
+                state: rain_ci_common::RunState::InProgress,
+                status: None,
             })
             .context("insert storage")?;
 

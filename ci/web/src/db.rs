@@ -127,12 +127,14 @@ impl Db {
             .await?;
         Ok(rows
             .into_iter()
-            .map(|r| {
+            .map(|row| {
                 (
-                    r.get("id"),
+                    row.get("id"),
                     rain_ci_common::Run {
-                        source: r.get("source"),
-                        created_at: r.get("created_at"),
+                        source: row.get("source"),
+                        created_at: row.get("created_at"),
+                        state: row.get("state"),
+                        status: row.get("status"),
                     },
                 )
             })
