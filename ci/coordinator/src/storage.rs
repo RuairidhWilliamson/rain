@@ -39,7 +39,7 @@ pub mod inner {
         fn dequeued_run(&self, id: &RunId) -> Result<()> {
             let mut conn = self.db.plock();
             conn.execute(
-                "UPDATE runs SET dequeued_at=$1 WHRE id=$2",
+                "UPDATE runs SET dequeued_at=$1 WHERE id=$2",
                 &[&Utc::now().naive_utc(), id],
             )?;
             Ok(())
