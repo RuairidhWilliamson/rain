@@ -136,7 +136,7 @@ async fn homepage(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
         </div>
         <table>
         {% for (run_id, run) in runs %}
-            <tr><td>{{ run_id }}</td><td>{{ run.source }}</td></tr>
+            <tr><td>{{ run_id }}</td><td>{{ run.source }}</td><td>{{ run.repository.owner }}/{{ run.repository.name }}</td><td>{{ run.created_at }}</td><td>{{ run.state() }}</td></tr>
         {% endfor %}
         </table>
     "

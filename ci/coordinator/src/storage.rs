@@ -47,13 +47,7 @@ pub mod inner {
 
         fn finished_run(&self, id: &RunId, finished: FinishedRun) -> Result<()> {
             let mut conn = self.db.plock();
-            let mut tx = conn.transaction()?;
-            let row = tx.query_one("INSERT INTO finished_runs (finished_at, status, execution_time_millis) VALUES ($1, $2, $3) RETURNING id", &[&finished.finished_at, &finished.status, &finished.execution_time.num_milliseconds()])?;
-            let finished_id: i64 = row.get("id");
-            tx.execute(
-                "UPDATE runs SET finished=$1 WHRE id=$2",
-                &[&finished_id, id],
-            )?;
+            conn.execute("INSERT INTO finished_runs (run, finished_at, status, execution_time_millis) VALUES ($1, $2, $3, $4) RETURNING id", &[id, &finished.finished_at, &finished.status, &finished.execution_time.num_milliseconds()])?;
             Ok(())
         }
     }

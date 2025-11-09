@@ -80,6 +80,8 @@ pub enum RunState {
     Finished,
 }
 
-pub fn time_delta_from_millis(millis: i64) -> TimeDelta {
-    TimeDelta::milliseconds(millis)
+impl std::fmt::Display for RunState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
 }
