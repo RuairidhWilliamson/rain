@@ -245,7 +245,7 @@ impl<GH: crate::github::Client> Server<GH> {
                     execution_time,
                 },
             )
-            .context("storage dequeue run")?;
+            .context("storage finished run")?;
         installation_client
             .update_check_run(
                 owner,

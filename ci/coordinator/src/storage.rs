@@ -47,7 +47,7 @@ pub mod inner {
 
         fn finished_run(&self, id: &RunId, finished: FinishedRun) -> Result<()> {
             let mut conn = self.db.plock();
-            conn.execute("INSERT INTO finished_runs (run, finished_at, status, execution_time_millis) VALUES ($1, $2, $3, $4) RETURNING id", &[id, &finished.finished_at, &finished.status, &finished.execution_time.num_milliseconds()])?;
+            conn.execute("INSERT INTO finished_runs (run, finished_at, status, execution_time_millis) VALUES ($1, $2, $3, $4)", &[id, &finished.finished_at, &finished.status, &finished.execution_time.num_milliseconds()])?;
             Ok(())
         }
     }
