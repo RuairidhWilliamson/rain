@@ -129,14 +129,20 @@ async fn homepage(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
 #[template(
     ext = "html",
     source = "
-        <h1>Hello, admin {{name}}!</h1>
+        <h1>Admin</h1>
         <div>
             <img src={{avatar_url}} height=16>
             <span>{{name}}</span>
         </div>
         <table>
         {% for (run_id, run) in runs %}
-            <tr><td>{{ run_id }}</td><td>{{ run.source }}</td><td>{{ run.repository.owner }}/{{ run.repository.name }}</td><td>{{ run.created_at }}</td><td>{{ run.state() }}</td></tr>
+            <tr>
+                <td>{{ run_id }}</td>
+                <td>{{ run.source }}</td>
+                <td>{{ run.repository.owner }}/{{ run.repository.name }}</td>
+                <td>{{ run.created_at }}</td>
+                <td>{{ run.state() }}</td>
+            </tr>
         {% endfor %}
         </table>
     "
