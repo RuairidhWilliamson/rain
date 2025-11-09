@@ -17,6 +17,7 @@ use oauth2::{AuthorizationCode, ClientSecret, CsrfToken, TokenResponse as _};
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
+    base_url: String,
     addr: SocketAddr,
     github_oauth_file: PathBuf,
     allowed_github_user_id: i64,
@@ -56,6 +57,7 @@ async fn main() -> Result<()> {
         github_client: github::Client::new(
             github_config.github_client_id,
             github_config.github_client_secret,
+            &config.base_url,
         )?,
         db,
         config: Arc::new(config),

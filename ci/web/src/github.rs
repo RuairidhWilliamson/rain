@@ -1,5 +1,3 @@
-use std::env;
-
 use anyhow::{Context as _, Result};
 use axum::http::header::{ACCEPT, USER_AGENT};
 use oauth2::{
@@ -27,28 +25,6 @@ pub struct UserDetails {
     pub avatar_url: String,
 }
 
-fn oauth_client(client_id: String, client_secret: ClientSecret) -> Result<BasicClient> {
-    let redirect_url = env::var("REDIRECT_URL")
-        .unwrap_or_else(|_| "http://127.0.0.1:3000/auth/authorized".to_string());
-
-    let auth_url = env::var("AUTH_URL").unwrap_or_else(|_| {
-        "https://github.com/login/oauth/authorize?response_type=code".to_string()
-    });
-
-    let token_url = env::var("TOKEN_URL")
-        .unwrap_or_else(|_| "https://github.com/login/oauth/access_token".to_string());
-
-    Ok(oauth2::basic::BasicClient::new(ClientId::new(client_id))
-        .set_client_secret(client_secret)
-        .set_auth_uri(
-            AuthUrl::new(auth_url).context("failed to create new authorization server URL")?,
-        )
-        .set_token_uri(TokenUrl::new(token_url).context("failed to create new token endpoint URL")?)
-        .set_redirect_uri(
-            RedirectUrl::new(redirect_url).context("failed to create new redirection URL")?,
-        ))
-}
-
 pub type OAuthToken = StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>;
 
 #[derive(Clone)]
@@ -57,10 +33,23 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(client_id: String, client_secret: ClientSecret) -> Result<Self> {
-        Ok(Self {
-            oauth_client: oauth_client(client_id, client_secret)?,
-        })
+    pub fn new(client_id: String, client_secret: ClientSecret, base_url: &str) -> Result<Self> {
+        let redirect_url = format!("{base_url}/auth/authorized");
+        let auth_url = "https://github.com/login/oauth/authorize?response_type=code".to_string();
+        let token_url = "https://github.com/login/oauth/access_token".to_string();
+        let oauth_client = oauth2::basic::BasicClient::new(ClientId::new(client_id))
+            .set_client_secret(client_secret)
+            .set_auth_uri(
+                AuthUrl::new(auth_url).context("failed to create new authorization server URL")?,
+            )
+            .set_token_uri(
+                TokenUrl::new(token_url).context("failed to create new token endpoint URL")?,
+            )
+            .set_redirect_uri(
+                RedirectUrl::new(redirect_url).context("failed to create new redirection URL")?,
+            );
+
+        Ok(Self { oauth_client })
     }
 
     pub fn authorize_url(&self) -> (Url, CsrfToken) {

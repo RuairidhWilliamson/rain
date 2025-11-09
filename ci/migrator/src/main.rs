@@ -104,9 +104,9 @@ fn get_migrations(dir: &Path) -> Result<Vec<Migration>> {
             .context("get file stem failed")?
             .to_str()
             .context("non-utf8 migration name")?;
-        let (id, name) = file_name
-            .split_once('_')
-            .context("invalid migration name {file_name:?}, must include underscore")?;
+        let (id, name) = file_name.split_once('_').context(anyhow!(
+            "invalid migration name {file_name:?}, must include underscore"
+        ))?;
         let id: i32 = id.parse()?;
         let name = name.to_owned();
         let sql = std::fs::read_to_string(path)?;
