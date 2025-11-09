@@ -26,7 +26,8 @@ struct Config {
     db_host: String,
     db_name: String,
     db_user: String,
-    db_password_file: PathBuf,
+    db_password_file: Option<PathBuf>,
+    db_password: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -51,11 +52,15 @@ fn main() -> Result<()> {
     // let mut allowed_ipnets = Some(&ipnets);
     let allowed_ipnets: Option<&[IpNet]> = None;
     let listener = std::net::TcpListener::bind(config.addr)?;
+    let db_password = config
+        .db_password
+        .or_else(|| std::fs::read_to_string(config.db_password_file.as_ref()?).ok())
+        .context("set DB_PASSWORD or DB_PASSWORD_FILE")?;
     let db = postgres::Config::new()
         .host(&config.db_host)
         .dbname(&config.db_name)
         .user(&config.db_user)
-        .password(std::fs::read_to_string(config.db_password_file)?)
+        .password(db_password)
         .connect(NoTls)?;
     let server = server::Server {
         runner: Runner::new(config.seal),
