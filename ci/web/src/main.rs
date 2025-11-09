@@ -13,6 +13,7 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     routing::get,
 };
+use log::info;
 use oauth2::{AuthorizationCode, ClientSecret, CsrfToken, TokenResponse as _};
 
 #[derive(Debug, serde::Deserialize)]
@@ -43,6 +44,8 @@ async fn main() -> Result<()> {
         log::warn!(".env could not be loaded: {err:#}");
     }
     let config = envy::from_env::<Config>()?;
+    let version = env!("CARGO_PKG_VERSION");
+    info!("version = {version}");
     let db = db::Db::new(db::DbConfig {
         host: config.db_host.clone(),
         name: config.db_name.clone(),

@@ -27,8 +27,8 @@ pub mod inner {
             let id = uuid::Uuid::new_v4();
             let mut conn = self.db.plock();
             conn.execute(
-                "INSERT INTO runs (id, source) VALUES ($1, $2)",
-                &[&id, &run.source],
+                "INSERT INTO runs (id, source, created_at) VALUES ($1, $2, $3)",
+                &[&id, &run.source, &run.created_at],
             )?;
             Ok(id)
         }
