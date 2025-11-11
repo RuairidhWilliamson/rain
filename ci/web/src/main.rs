@@ -149,6 +149,13 @@ async fn homepage(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
                     {% when None %}
                     {% endmatch %}
                 </td>
+                <td>
+                    {% match run.finished %}
+                    {% when Some with (finished) %}
+                        {{ finished.execution_time }}
+                    {% when None %}
+                    {% endmatch %}
+                </td>
             </tr>
         {% endfor %}
         </table>
