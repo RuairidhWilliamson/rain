@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>{% block title %}Rain CI{% endblock %}</title>
+  {% block head %}{% endblock %}
+</head>
+
+<body>
+  <div>
+    <img src={{user.0.avatar_url}} height=16>
+    <span>{{user.0.name}}</span>
+  </div>
+  <div id="content">
+    {% block content %}
+    <p>
+      There's nothing here 😞.
+    </p>
+    <p>
+      <a href="/">Home</a>
+    </p>
+    {% endblock %}
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Admin</h1>
+<table>
+  <tr>
+    <td>ID</td>
+    <td>{{ run_id }}</td>
+  </tr>
+  <tr>
+    <td>Source</td>
+    <td>{{ run.source }}</td>
+  </tr>
+  <tr>
+    <td>Repository</td>
+    <td>{{ run.repository.owner }}/{{ run.repository.name }}</td>
+  </tr>
+  <tr>
+    <td>Commit</td>
+    <td>{{ run.commit }}</td>
+  </tr>
+  <tr>
+    <td>Created At</td>
+    <td>{{ run.created_at }}</td>
+  </tr>
+  <tr>
+    <td>State</td>
+    <td>{{ run.state() }}</td>
+  </tr>
+  <tr>
+    <td>Status</td>
+    <td>
+      {% match run.finished %}
+      {% when Some with (finished) %}
+      {{ finished.status }}
+      {% when None %}
+      {% endmatch %}
+    </td>
+  </tr>
+  <tr>
+    <td>Execution Time</td>
+    <td>
+      {% match run.finished %}
+      {% when Some with (finished) %}
+      {{ finished.execution_time }}
+      {% when None %}
+      {% endmatch %}
+    </td>
+  </tr>
+</table>
+<div>
+  {% match run.finished %}
+  {% when Some with (finished) %}
+  {{ finished.output }}
+  {% when None %}
+  {% endmatch %}
+</div>
+{% endblock %}

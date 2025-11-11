@@ -1,7 +1,7 @@
 use chrono::{NaiveDateTime, TimeDelta};
 use postgres_types::{FromSql, ToSql};
 
-#[derive(Debug, Clone, ToSql, FromSql)]
+#[derive(Debug, Clone, ToSql, FromSql, serde::Serialize, serde::Deserialize)]
 #[postgres(transparent)]
 pub struct RunId(pub i64);
 
@@ -21,6 +21,7 @@ pub struct Repository {
 pub struct Run {
     pub repository: Repository,
     pub source: RunSource,
+    pub commit: String,
     pub created_at: NaiveDateTime,
     pub dequeued_at: Option<NaiveDateTime>,
     pub finished: Option<FinishedRun>,
@@ -56,6 +57,7 @@ pub struct FinishedRun {
     pub finished_at: NaiveDateTime,
     pub status: RunStatus,
     pub execution_time: TimeDelta,
+    pub output: String,
 }
 
 #[derive(Debug, Clone, ToSql, FromSql)]

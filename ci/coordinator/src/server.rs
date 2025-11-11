@@ -149,6 +149,7 @@ impl<GH: crate::github::Client> Server<GH> {
             .create_run(rain_ci_common::Run {
                 source: rain_ci_common::RunSource::Github,
                 created_at: start,
+                commit: head_sha.clone(),
                 repository: rain_ci_common::Repository {
                     owner: owner.clone(),
                     name: repo.clone(),
@@ -243,6 +244,7 @@ impl<GH: crate::github::Client> Server<GH> {
                     finished_at,
                     status: rain_ci_common::RunStatus::Success,
                     execution_time,
+                    output: output.clone(),
                 },
             )
             .context("storage finished run")?;

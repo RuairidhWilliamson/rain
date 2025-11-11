@@ -1,3 +1,4 @@
+mod auth;
 mod db;
 mod github;
 mod session;
@@ -7,14 +8,14 @@ use std::{convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
 use anyhow::Result;
 use askama::Template;
 use axum::{
-    Extension, Router,
-    extract::{FromRef, FromRequestParts, OptionalFromRequestParts, Query, State},
+    Router,
+    extract::{FromRef, FromRequestParts, OptionalFromRequestParts, Path, State},
     http::{StatusCode, request::Parts},
     response::{Html, IntoResponse, Redirect, Response},
     routing::get,
 };
 use log::info;
-use oauth2::{AuthorizationCode, ClientSecret, CsrfToken, TokenResponse as _};
+use oauth2::ClientSecret;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
@@ -67,10 +68,9 @@ async fn main() -> Result<()> {
     };
     let app = Router::new()
         .route("/", get(homepage))
+        .nest("/auth", auth::router())
         .route("/admin", get(adminpage))
-        .route("/auth/default", get(default_auth))
-        .route("/auth/github", get(github_auth))
-        .route("/auth/authorized", get(authorized))
+        .route("/run/{id}", get(runpage))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             session::session_middleware,
@@ -86,131 +86,58 @@ async fn main() -> Result<()> {
 }
 
 #[derive(Template)]
-#[template(
-    ext = "html",
-    source = "
-        <h1>Hello, World!</h1>
-        <a href='/auth/default'>Auth</a><span></span>
-    "
-)]
+#[template(path = "landingpage.html")]
 struct PublicHomepage;
 
 #[derive(Template)]
-#[template(
-    ext = "html",
-    source = "
-        <h1>Hello, {{name}}!</h1>
-        <div>
-            <img src={{avatar_url}} height=16>
-            <span>{{name}}</span>
-        </div>
-        <a href='/admin'>Admin</a>
-    "
-)]
-struct Homepage<'a> {
-    name: &'a str,
-    avatar_url: &'a str,
+#[template(path = "homepage.html")]
+struct Homepage {
+    user: User,
 }
 
 async fn homepage(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
     if let Some(auth) = auth {
-        let homepage = Homepage {
-            name: &auth.user.0.name,
-            avatar_url: &auth.user.0.avatar_url,
-        };
+        let homepage = Homepage { user: auth.user };
         Ok(Html(homepage.render()?))
     } else {
-        let homepage = PublicHomepage;
-        Ok(Html(homepage.render()?))
+        Ok(Html(PublicHomepage.render()?))
     }
 }
 
 #[derive(Template)]
-#[template(
-    ext = "html",
-    source = "
-        <h1>Admin</h1>
-        <div>
-            <img src={{avatar_url}} height=16>
-            <span>{{name}}</span>
-        </div>
-        <table>
-        {% for (run_id, run) in runs %}
-            <tr>
-                <td>{{ run_id }}</td>
-                <td>{{ run.source }}</td>
-                <td>{{ run.repository.owner }}/{{ run.repository.name }}</td>
-                <td>{{ run.created_at }}</td>
-                <td>{{ run.state() }}</td>
-                <td>
-                    {% match run.finished %}
-                    {% when Some with (finished) %}
-                        {{ finished.status }}
-                    {% when None %}
-                    {% endmatch %}
-                </td>
-                <td>
-                    {% match run.finished %}
-                    {% when Some with (finished) %}
-                        {{ finished.execution_time }}
-                    {% when None %}
-                    {% endmatch %}
-                </td>
-            </tr>
-        {% endfor %}
-        </table>
-    "
-)]
+#[template(path = "adminpage.html")]
 struct AdminPage<'a> {
-    name: &'a str,
-    avatar_url: &'a str,
+    user: User,
     runs: &'a [(rain_ci_common::RunId, rain_ci_common::Run)],
 }
 
 async fn adminpage(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
     let admin_page = AdminPage {
-        name: &auth.user.0.name,
-        avatar_url: &auth.user.0.avatar_url,
+        user: auth.user,
         runs: &db.get_runs().await?,
     };
     Ok(Html(admin_page.render()?))
 }
 
-async fn default_auth() -> impl IntoResponse {
-    Redirect::to("/auth/github")
+#[derive(Template)]
+#[template(path = "runpage.html")]
+struct RunPage {
+    user: User,
+    run_id: rain_ci_common::RunId,
+    run: rain_ci_common::Run,
 }
 
-async fn github_auth(
-    State(client): State<github::Client>,
+async fn runpage(
+    auth: AdminUser,
+    Path(id): Path<rain_ci_common::RunId>,
     State(db): State<db::Db>,
-    Extension(session): Extension<session::Session>,
-) -> Result<impl IntoResponse, AppError> {
-    let (auth_url, csrf_token) = client.authorize_url();
-    db.set_session_csrf(&session.id, csrf_token).await?;
-    Ok(Redirect::to(auth_url.as_ref()))
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct AuthRequest {
-    code: AuthorizationCode,
-    state: CsrfToken,
-}
-
-async fn authorized(
-    Query(query): Query<AuthRequest>,
-    State(client): State<github::Client>,
-    State(db): State<db::Db>,
-    Extension(session): Extension<session::Session>,
-) -> Result<impl IntoResponse, AppError> {
-    db.check_session_csrf(&session.id, query.state)
-        .await
-        .map_err(|err| anyhow::format_err!("csrf check failed: {err:#}"))?;
-    let token = client.exchange_code(query.code).await?;
-    let user = client.get_user_details(token.access_token()).await?;
-    db.auth_user_session(&session.id, User(user))
-        .await
-        .map_err(|err| anyhow::format_err!("auth user session: {err:#}"))?;
-    Ok(Redirect::to("/"))
+) -> Result<Html<String>, AppError> {
+    let run_page = RunPage {
+        user: auth.user,
+        run: db.get_run(&id).await?,
+        run_id: id,
+    };
+    Ok(Html(run_page.render()?))
 }
 
 #[derive(FromRef, Clone)]

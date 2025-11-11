@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
-use chrono::TimeDelta;
+use chrono::{Days, TimeDelta, Utc};
 use oauth2::CsrfToken;
+use rain_ci_common::RunId;
 use tokio_postgres::NoTls;
 
 use crate::session::SessionId;
@@ -43,7 +44,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .execute("INSERT INTO sessions (id) VALUES ($1)", &[&session_id])
+            .execute(
+                "INSERT INTO sessions (id, expires_at) VALUES ($1, $2)",
+                &[&session_id, &(Utc::now() + Days::new(1)).naive_utc()],
+            )
             .await?;
         Ok(session_id)
     }
@@ -52,15 +56,21 @@ impl Db {
         let mut conn = self.pool.get().await?;
         let tx = conn.transaction().await?;
         if tx
-            .query_opt("SELECT id FROM sessions WHERE id=$1", &[id])
+            .query_opt(
+                "SELECT id FROM sessions WHERE id=$1 AND expires_at > CURRENT_TIMESTAMP",
+                &[id],
+            )
             .await?
             .is_some()
         {
             return Ok(None);
         }
         let session_id = SessionId(uuid::Uuid::new_v4());
-        tx.execute("INSERT INTO sessions (id) VALUES ($1)", &[&session_id])
-            .await?;
+        tx.execute(
+            "INSERT INTO sessions (id, expires_at) VALUES ($1, $2)",
+            &[&session_id, &(Utc::now() + Days::new(1)).naive_utc()],
+        )
+        .await?;
         tx.commit().await?;
         Ok(Some(session_id))
     }
@@ -121,11 +131,39 @@ impl Db {
         }
     }
 
+    pub async fn get_run(&self, id: &RunId) -> Result<rain_ci_common::Run> {
+        let conn = self.pool.get().await?;
+        let row = conn
+            .query_one(
+                "SELECT runs.id, source, commit, created_at, dequeued_at, repo_owner, repo_name, finished_at, status, execution_time_millis, output FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run WHERE id=$1",
+                &[id],
+            )
+            .await?;
+        Ok(rain_ci_common::Run {
+            source: row.get("source"),
+            commit: row.get("commit"),
+            created_at: row.get("created_at"),
+            dequeued_at: row.get("dequeued_at"),
+            finished: row.get::<_, Option<_>>("finished_at").map(|finished_at| {
+                rain_ci_common::FinishedRun {
+                    finished_at,
+                    status: row.get("status"),
+                    execution_time: TimeDelta::milliseconds(row.get("execution_time_millis")),
+                    output: row.get("output"),
+                }
+            }),
+            repository: rain_ci_common::Repository {
+                owner: row.get("repo_owner"),
+                name: row.get("repo_name"),
+            },
+        })
+    }
+
     pub async fn get_runs(&self) -> Result<Vec<(rain_ci_common::RunId, rain_ci_common::Run)>> {
         let conn = self.pool.get().await?;
         let rows = conn
             .query(
-                "SELECT runs.id, source, created_at, dequeued_at, repo_owner, repo_name, finished_at, status, execution_time_millis FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run ORDER BY id DESC LIMIT 100",
+                "SELECT runs.id, source, commit, created_at, dequeued_at, repo_owner, repo_name, finished_at, status, execution_time_millis, output FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run ORDER BY id DESC LIMIT 100",
                 &[],
             )
             .await?;
@@ -136,6 +174,7 @@ impl Db {
                     row.get("id"),
                     rain_ci_common::Run {
                         source: row.get("source"),
+                        commit: row.get("commit"),
                         created_at: row.get("created_at"),
                         dequeued_at: row.get("dequeued_at"),
                         finished: row.get::<_, Option<_>>("finished_at").map(|finished_at| {
@@ -145,6 +184,7 @@ impl Db {
                                 execution_time: TimeDelta::milliseconds(
                                     row.get("execution_time_millis"),
                                 ),
+                                output: row.get("output"),
                             }
                         }),
                         repository: rain_ci_common::Repository {

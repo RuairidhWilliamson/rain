@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Admin</h1>
+<table>
+  {% for (run_id, run) in runs %}
+  <tr>
+    <td>{{ run_id }}</td>
+    <td>{{ run.source }}</td>
+    <td>{{ run.repository.owner }}/{{ run.repository.name }}</td>
+    <td>{{ run.commit }}</td>
+    <td>{{ run.created_at }}</td>
+    <td>{{ run.state() }}</td>
+    <td>
+      {% match run.finished %}
+      {% when Some with (finished) %}
+      {{ finished.status }}
+      {% when None %}
+      {% endmatch %}
+    </td>
+    <td>
+      {% match run.finished %}
+      {% when Some with (finished) %}
+      {{ finished.execution_time }}
+      {% when None %}
+      {% endmatch %}
+    </td>
+    <td><a href="/run/{{run_id}}">View</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}
