@@ -30,8 +30,8 @@ pub mod inner {
         fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId> {
             let mut conn = self.db.plock();
             let row = conn.query_one(
-                "INSERT INTO runs (source, created_at, repo_owner, repo_name) VALUES ($1, $2, $3, $4) RETURNING id",
-                &[&run.source, &run.created_at, &run.repository.owner, &run.repository.name],
+                "INSERT INTO runs (source, created_at, repo_owner, repo_name, commit) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+                &[&run.source, &run.created_at, &run.repository.owner, &run.repository.name, &run.commit],
             )?;
             Ok(RunId(row.get("id")))
         }
@@ -47,7 +47,10 @@ pub mod inner {
 
         fn finished_run(&self, id: &RunId, finished: FinishedRun) -> Result<()> {
             let mut conn = self.db.plock();
-            conn.execute("INSERT INTO finished_runs (run, finished_at, status, execution_time_millis) VALUES ($1, $2, $3, $4)", &[id, &finished.finished_at, &finished.status, &finished.execution_time.num_milliseconds()])?;
+            conn.execute(
+                "INSERT INTO finished_runs (run, finished_at, status, execution_time_millis, output) VALUES ($1, $2, $3, $4, $5)",
+                &[id, &finished.finished_at, &finished.status, &finished.execution_time.num_milliseconds(), &finished.output],
+            )?;
             Ok(())
         }
     }
