@@ -5,12 +5,11 @@ use axum::{
     response::IntoResponse,
 };
 use axum_extra::{TypedHeader, headers};
-use postgres_types::{FromSql, ToSql};
 
 const SESSION_COOKIE_NAME: &str = "SESSION";
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, ToSql, FromSql)]
-#[postgres(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct SessionId(pub uuid::Uuid);
 
 impl std::fmt::Display for SessionId {

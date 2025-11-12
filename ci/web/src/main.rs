@@ -53,7 +53,8 @@ async fn main() -> Result<()> {
         user: config.db_user.clone(),
         password: config.db_password.clone(),
         password_file: config.db_password_file.clone(),
-    })?;
+    })
+    .await?;
     let addr = config.addr;
     let github_config: GithubOauthConfig =
         serde_json::from_slice(&std::fs::read(&config.github_oauth_file)?)?;

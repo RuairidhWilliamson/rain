@@ -1,8 +1,9 @@
 use chrono::{NaiveDateTime, TimeDelta};
 use postgres_types::{FromSql, ToSql};
 
-#[derive(Debug, Clone, ToSql, FromSql, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, ToSql, FromSql, serde::Serialize, serde::Deserialize, sqlx::Type)]
 #[postgres(transparent)]
+#[sqlx(transparent)]
 pub struct RunId(pub i64);
 
 impl std::fmt::Display for RunId {
@@ -39,7 +40,7 @@ impl Run {
     }
 }
 
-#[derive(Debug, Clone, ToSql, FromSql)]
+#[derive(Debug, Clone, ToSql, FromSql, sqlx::Type)]
 pub enum RunSource {
     Github,
 }
@@ -60,7 +61,7 @@ pub struct FinishedRun {
     pub output: String,
 }
 
-#[derive(Debug, Clone, ToSql, FromSql)]
+#[derive(Debug, Clone, ToSql, FromSql, sqlx::Type)]
 pub enum RunStatus {
     Success,
     Failure,
