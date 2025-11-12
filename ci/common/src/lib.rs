@@ -18,6 +18,16 @@ pub struct Repository {
     pub name: String,
 }
 
+impl Repository {
+    pub fn repo_url(&self) -> String {
+        format!(
+            "https://github.com/{owner}/{name}",
+            owner = self.owner,
+            name = self.name,
+        )
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Run {
     pub repository: Repository,
@@ -37,6 +47,14 @@ impl Run {
         } else {
             RunState::Queued
         }
+    }
+
+    pub fn commit_url(&self) -> String {
+        format!(
+            "{repo_url}/commit/{commit}",
+            repo_url = self.repository.repo_url(),
+            commit = self.commit,
+        )
     }
 }
 

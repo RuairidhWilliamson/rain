@@ -2,13 +2,14 @@
 <html>
 
 <head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.min.css">
   <title>{% block title %}Rain CI{% endblock %}</title>
   {% block head %}{% endblock %}
 </head>
 
 <body>
   <div>
-    <img src={{user.0.avatar_url}} height=16>
+    <img src={{user.0.avatar_url}} width="16px" height="16px">
     <span>{{user.0.name}}</span>
   </div>
   <div id="content">
