@@ -115,7 +115,7 @@ struct AdminPage<'a> {
 async fn adminpage(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
     let admin_page = AdminPage {
         user: auth.user,
-        runs: &db.get_runs().await?,
+        runs: &db.list_runs().await?,
     };
     Ok(Html(admin_page.render()?))
 }
