@@ -210,18 +210,27 @@ impl<GH: crate::github::Client> Server<GH> {
             })
             .join()
         });
-        let (conclusion, output) = match result {
+        let (status, conclusion, output) = match result {
             Ok(Ok(RunComplete {
                 success: true,
                 output,
-            })) => (crate::github::model::CheckRunConclusion::Success, output),
+            })) => (
+                rain_ci_common::RunStatus::Success,
+                crate::github::model::CheckRunConclusion::Success,
+                output,
+            ),
             Ok(Ok(RunComplete {
                 success: false,
                 output,
-            })) => (crate::github::model::CheckRunConclusion::Failure, output),
+            })) => (
+                rain_ci_common::RunStatus::Failure,
+                crate::github::model::CheckRunConclusion::Failure,
+                output,
+            ),
             Ok(Err(err)) => {
                 log::error!("runner error: {err:?}");
                 (
+                    rain_ci_common::RunStatus::Failure,
                     crate::github::model::CheckRunConclusion::Failure,
                     String::default(),
                 )
@@ -229,6 +238,7 @@ impl<GH: crate::github::Client> Server<GH> {
             Err(err) => {
                 log::error!("runner panicked: {err:?}");
                 (
+                    rain_ci_common::RunStatus::Failure,
                     crate::github::model::CheckRunConclusion::Failure,
                     String::default(),
                 )
@@ -242,7 +252,7 @@ impl<GH: crate::github::Client> Server<GH> {
                 &run_id,
                 rain_ci_common::FinishedRun {
                     finished_at,
-                    status: rain_ci_common::RunStatus::Success,
+                    status,
                     execution_time,
                     output: output.clone(),
                 },
