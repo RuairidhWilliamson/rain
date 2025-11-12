@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    source as \"source: RunSource\",\n    commit,\n    created_at,\n    dequeued_at,\n    repo_owner,\n    repo_name,\n    finished_at,\n    status as \"status: RunStatus\",\n    execution_time_millis,\n    output\nFROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run WHERE id=$1;\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "source: RunSource",
+        "type_info": {
+          "Custom": {
+            "name": "\"RunSource\"",
+            "kind": {
+              "Enum": [
+                "Github"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "commit",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 3,
+        "name": "dequeued_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 4,
+        "name": "repo_owner",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "repo_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "finished_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 7,
+        "name": "status: RunStatus",
+        "type_info": {
+          "Custom": {
+            "name": "\"RunStatus\"",
+            "kind": {
+              "Enum": [
+                "Success",
+                "Failure"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "execution_time_millis",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "output",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bbeb433b3d6a9db31848a2176cdeb4692378cf7bb8c214217a96f9800006e165"
+}
