@@ -5,7 +5,7 @@ mod session;
 
 use std::{convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use askama::Template;
 use axum::{
     Router,
@@ -115,7 +115,7 @@ struct AdminPage<'a> {
 async fn adminpage(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
     let admin_page = AdminPage {
         user: auth.user,
-        runs: &db.list_runs().await?,
+        runs: &db.list_runs().await.context("list runs")?,
     };
     Ok(Html(admin_page.render()?))
 }

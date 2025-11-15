@@ -166,13 +166,13 @@ impl Db {
     pub async fn list_runs(&self) -> Result<Vec<(rain_ci_common::RunId, rain_ci_common::Run)>> {
         struct QueryRun {
             id: i64,
+            source: RunSource,
             repo_owner: String,
             repo_name: String,
-            source: RunSource,
             commit: String,
             created_at: NaiveDateTime,
-            status: Option<RunStatus>,
             dequeued_at: Option<NaiveDateTime>,
+            status: Option<RunStatus>,
             finished_at: Option<NaiveDateTime>,
             execution_time_millis: Option<i64>,
             output: Option<String>,
