@@ -203,7 +203,9 @@ impl<GH: crate::github::Client> Server<GH> {
                         Some((path, lfs_object))
                     })
                     .collect();
-                installation_client.smudge_git_lfs(owner, repo, lfs_entries)?;
+                installation_client
+                    .smudge_git_lfs(owner, repo, lfs_entries)
+                    .context("smudge git lfs")?;
                 let area = driver.create_area(&[root.inner()]).unwrap();
                 let run_complete = self.runner.run(&driver, area);
                 Ok(run_complete)
