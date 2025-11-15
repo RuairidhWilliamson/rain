@@ -8,7 +8,6 @@
     <th>Commit</th>
     <th>Created</th>
     <th>State</th>
-    <th>Status</th>
     <th>Time</th>
   </tr>
   {% for (run_id, run) in runs %}
@@ -16,12 +15,12 @@
     <td><a href={{ run.repository.repo_url() }}>{{ run.repository.owner }}/{{ run.repository.name }}</a></td>
     <td><a href={{ run.commit_url() }}>{{ run.commit }}</a></td>
     <td>{{ run.created_at }}</td>
-    <td>{{ run.state() }}</td>
     <td>
       {% match run.finished %}
       {% when Some with (finished) %}
       {{ finished.status }}
       {% when None %}
+      {{ run.state() }}
       {% endmatch %}
     </td>
     <td>

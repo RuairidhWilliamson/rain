@@ -9,7 +9,7 @@ use crate::{github::InstallationClient as _, runner::Runner};
 use anyhow::{Context as _, Result, anyhow};
 use chrono::Utc;
 use httparse::Request;
-use log::{error, info};
+use log::{error, info, trace};
 use rain_lang::afs::{dir::Dir, file::File};
 use rain_lang::afs::{entry::FSEntry, entry::FSEntryTrait as _, path::SealedFilePath};
 use rain_lang::driver::{DriverTrait as _, FSTrait as _};
@@ -32,7 +32,7 @@ pub struct Server<GH: crate::github::Client> {
 impl<GH: crate::github::Client> Server<GH> {
     pub fn handle_connection(&self, mut stream: TcpStream, addr: SocketAddr) -> Result<()> {
         stream.set_read_timeout(Some(Duration::from_secs(1)))?;
-        info!("connection {addr:?}");
+        trace!("connection {addr:?}");
         let mut buffer = [0u8; 1024];
         let len = stream.read(&mut buffer)?;
         let buffer = &buffer[..len];
