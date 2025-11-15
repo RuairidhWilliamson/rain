@@ -159,7 +159,7 @@ impl<GH: crate::github::Client> Server<GH> {
             })
             .context("storage create run")?;
 
-        info!("created check run {run_id} {check_run:#?}");
+        info!("created check run {run_id}");
 
         self.storage
             .dequeued_run(&run_id)
