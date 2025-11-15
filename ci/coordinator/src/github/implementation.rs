@@ -204,7 +204,7 @@ impl super::InstallationClient for InstallationClient {
             .git_lfs_api(owner, repo, request)
             .context("git lfs api")?;
         for (resp, (path, _)) in response.objects.into_iter().zip(entries.into_iter()) {
-            let mut f = std::fs::File::create(&path)?;
+            let mut f = std::fs::File::create(&path).context("create lfs file")?;
             let mut reader = self
                 .agent
                 .get(
