@@ -1,10 +1,15 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n    source as \"source: RunSource\",\n    commit,\n    created_at,\n    dequeued_at,\n    repo_owner,\n    repo_name,\n    finished_at,\n    status as \"status: RunStatus\",\n    execution_time_millis,\n    output\nFROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run WHERE id=$1;\n",
+  "query": "SELECT\n    runs.id,\n    source as \"source: RunSource\",\n    commit,\n    created_at,\n    dequeued_at,\n    repo_owner,\n    repo_name,\n    finished_at as \"finished_at?\",\n    status as \"status?: RunStatus\",\n    execution_time_millis as \"execution_time_millis?\",\n    output as \"output?\"\nFROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run ORDER BY id DESC LIMIT 100;\n\n",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
         "name": "source: RunSource",
         "type_info": {
           "Custom": {
@@ -18,38 +23,38 @@
         }
       },
       {
-        "ordinal": 1,
+        "ordinal": 2,
         "name": "commit",
         "type_info": "Text"
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "created_at",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "dequeued_at",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "repo_owner",
         "type_info": "Text"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "repo_name",
         "type_info": "Text"
       },
       {
-        "ordinal": 6,
-        "name": "finished_at",
+        "ordinal": 7,
+        "name": "finished_at?",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 7,
-        "name": "status: RunStatus",
+        "ordinal": 8,
+        "name": "status?: RunStatus",
         "type_info": {
           "Custom": {
             "name": "\"RunStatus\"",
@@ -63,22 +68,21 @@
         }
       },
       {
-        "ordinal": 8,
-        "name": "execution_time_millis",
+        "ordinal": 9,
+        "name": "execution_time_millis?",
         "type_info": "Int8"
       },
       {
-        "ordinal": 9,
-        "name": "output",
+        "ordinal": 10,
+        "name": "output?",
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Left": [
-        "Int8"
-      ]
+      "Left": []
     },
     "nullable": [
+      false,
       false,
       false,
       false,
@@ -91,5 +95,5 @@
       false
     ]
   },
-  "hash": "bbeb433b3d6a9db31848a2176cdeb4692378cf7bb8c214217a96f9800006e165"
+  "hash": "0329516c4f1f9ffd97a94137a1d01bd5c20127e6e310ffda8b3ffe5f8ea3b7a0"
 }
