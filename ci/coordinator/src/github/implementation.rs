@@ -194,6 +194,9 @@ impl super::InstallationClient for InstallationClient {
         repo: &str,
         entries: Vec<(std::path::PathBuf, git_lfs_rs::object::Object)>,
     ) -> Result<()> {
+        if entries.is_empty() {
+            return Ok(());
+        }
         let request = git_lfs_rs::api::Request {
             operation: git_lfs_rs::api::Operation::Download,
             transfers: vec![git_lfs_rs::api::Transfer::Basic],
