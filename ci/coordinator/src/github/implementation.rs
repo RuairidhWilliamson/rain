@@ -139,6 +139,7 @@ impl InstallationClient {
             )
             .header(CONTENT_TYPE, "application/vnd.git-lfs+json")
             .header(ACCEPT, "application/vnd.git-lfs+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
             .send_json(request)?;
         let response: git_lfs_rs::api::Response = response.into_body().read_json()?;
         Ok(response)
