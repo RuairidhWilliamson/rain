@@ -1,4 +1,4 @@
-use chrono::{NaiveDateTime, TimeDelta};
+use chrono::{DateTime, TimeDelta, Utc};
 use postgres_types::{FromSql, ToSql};
 
 #[derive(Debug, Clone, ToSql, FromSql, serde::Serialize, serde::Deserialize, sqlx::Type)]
@@ -33,8 +33,8 @@ pub struct Run {
     pub repository: Repository,
     pub source: RunSource,
     pub commit: String,
-    pub created_at: NaiveDateTime,
-    pub dequeued_at: Option<NaiveDateTime>,
+    pub created_at: DateTime<Utc>,
+    pub dequeued_at: Option<DateTime<Utc>>,
     pub finished: Option<FinishedRun>,
 }
 
@@ -73,7 +73,7 @@ impl std::fmt::Display for RunSource {
 
 #[derive(Debug, Clone)]
 pub struct FinishedRun {
-    pub finished_at: NaiveDateTime,
+    pub finished_at: DateTime<Utc>,
     pub status: RunStatus,
     pub execution_time: TimeDelta,
     pub output: String,

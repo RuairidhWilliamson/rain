@@ -146,16 +146,22 @@ impl Db {
         Ok(rain_ci_common::Run {
             source: row.source,
             commit: row.commit,
-            created_at: row.created_at,
-            dequeued_at: row.dequeued_at,
+            created_at: row.created_at.and_utc(),
+            dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
             finished: row
                 .finished_at
-                .map(|finished_at| rain_ci_common::FinishedRun {
-                    finished_at,
-                    status: row.status.unwrap(),
-                    execution_time: TimeDelta::milliseconds(row.execution_time_millis.unwrap()),
-                    output: row.output.unwrap(),
-                }),
+                .map(|finished_at| {
+                    Result::<_>::Ok(rain_ci_common::FinishedRun {
+                        finished_at: finished_at.and_utc(),
+                        status: row.status.context("status missing")?,
+                        execution_time: TimeDelta::milliseconds(
+                            row.execution_time_millis
+                                .context("execution_time_millis missing")?,
+                        ),
+                        output: row.output.context("output missing")?,
+                    })
+                })
+                .transpose()?,
             repository: rain_ci_common::Repository {
                 owner: row.repo_owner,
                 name: row.repo_name,
@@ -181,33 +187,36 @@ impl Db {
             .fetch_all(&self.pool)
             .await?;
 
-        Ok(rows
-            .into_iter()
+        rows.into_iter()
             .map(|row| {
-                (
+                Ok((
                     RunId(row.id),
                     rain_ci_common::Run {
                         source: row.source,
                         commit: row.commit,
-                        created_at: row.created_at,
-                        dequeued_at: row.dequeued_at,
+                        created_at: row.created_at.and_utc(),
+                        dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
                         finished: row
                             .finished_at
-                            .map(|finished_at| rain_ci_common::FinishedRun {
-                                finished_at,
-                                status: row.status.unwrap(),
-                                execution_time: TimeDelta::milliseconds(
-                                    row.execution_time_millis.unwrap(),
-                                ),
-                                output: row.output.unwrap(),
-                            }),
+                            .map(|finished_at| {
+                                Result::<_>::Ok(rain_ci_common::FinishedRun {
+                                    finished_at: finished_at.and_utc(),
+                                    status: row.status.context("status missing")?,
+                                    execution_time: TimeDelta::milliseconds(
+                                        row.execution_time_millis
+                                            .context("execution_time_millis missing")?,
+                                    ),
+                                    output: row.output.context("output missing")?,
+                                })
+                            })
+                            .transpose()?,
                         repository: rain_ci_common::Repository {
                             owner: row.repo_owner,
                             name: row.repo_name,
                         },
                     },
-                )
+                ))
             })
-            .collect())
+            .collect::<Result<_>>()
     }
 }

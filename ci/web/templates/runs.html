@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Admin</h1>
+<h1>Runs</h1>
 <table>
   <tr>
     <th>Repo</th>
@@ -12,9 +12,9 @@
   </tr>
   {% for (run_id, run) in runs %}
   <tr>
-    <td><a href={{ run.repository.repo_url() }}>{{ run.repository.owner }}/{{ run.repository.name }}</a></td>
-    <td><a href={{ run.commit_url() }}>{{ run.commit }}</a></td>
-    <td>{{ run.created_at }}</td>
+    <td><a href="{{ run.repository.repo_url() }}">{{ run.repository.owner }}/{{ run.repository.name }}</a></td>
+    <td><a href="{{ run.commit_url() }}"><abbr title="{{ run.commit }}">{{ run.commit | truncate(5) }}</abbr></a></td>
+    <td>{{ run.created_at | timestamp }}</td>
     <td>
       {% match run.finished %}
       {% when Some with (finished) %}
@@ -26,7 +26,7 @@
     <td>
       {% match run.finished %}
       {% when Some with (finished) %}
-      {{ finished.execution_time }}
+      {{ finished.execution_time | duration }}
       {% when None %}
       {% endmatch %}
     </td>

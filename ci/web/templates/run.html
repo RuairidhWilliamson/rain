@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<a href="/run">All Runs</a>
 <h1>Run {{ run_id }}</h1>
 <table>
   <tr>
@@ -21,7 +22,7 @@
   </tr>
   <tr>
     <td>Created At</td>
-    <td>{{ run.created_at }}</td>
+    <td>{{ run.created_at | timestamp }}</td>
   </tr>
   <tr>
     <td>State</td>
@@ -42,20 +43,20 @@
     <td>
       {% match run.finished %}
       {% when Some with (finished) %}
-      {{ finished.execution_time }}
+      {{ finished.execution_time | duration }}
       {% when None %}
       {% endmatch %}
     </td>
   </tr>
 </table>
+{% match run.finished %}
+{% when Some with (finished) %}
 <h3>Output</h3>
 <pre>
   <code>
-    {% match run.finished %}
-    {% when Some with (finished) %}
     {{ finished.output }}
-    {% when None %}
-    {% endmatch %}
   </code>
 </pre>
+{% when None %}
+{% endmatch %}
 {% endblock %}

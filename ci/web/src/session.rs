@@ -45,9 +45,7 @@ pub async fn session_middleware(
         changed = true;
     }
 
-    request.extensions_mut().insert(Session {
-        id: session_id.clone(),
-    });
+    request.extensions_mut().insert(Session { id: session_id });
 
     let mut response = next.run(request).await;
 

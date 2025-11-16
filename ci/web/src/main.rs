@@ -1,17 +1,17 @@
 mod auth;
 mod db;
 mod github;
+mod pages;
 mod session;
 
 use std::{convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
 
-use anyhow::{Context, Result};
-use askama::Template;
+use anyhow::Result;
 use axum::{
     Router,
-    extract::{FromRef, FromRequestParts, OptionalFromRequestParts, Path, State},
+    extract::{FromRef, FromRequestParts, OptionalFromRequestParts},
     http::{StatusCode, request::Parts},
-    response::{Html, IntoResponse, Redirect, Response},
+    response::{IntoResponse, Redirect, Response},
     routing::get,
 };
 use log::info;
@@ -68,10 +68,11 @@ async fn main() -> Result<()> {
         config: Arc::new(config),
     };
     let app = Router::new()
-        .route("/", get(homepage))
+        .route("/", get(pages::home))
         .nest("/auth", auth::router())
-        .route("/admin", get(adminpage))
-        .route("/run/{id}", get(runpage))
+        .route("/admin", get(pages::admin))
+        .route("/run", get(pages::runs))
+        .route("/run/{id}", get(pages::run))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             session::session_middleware,
@@ -84,61 +85,6 @@ async fn main() -> Result<()> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     Ok(())
-}
-
-#[derive(Template)]
-#[template(path = "landingpage.html")]
-struct PublicHomepage;
-
-#[derive(Template)]
-#[template(path = "homepage.html")]
-struct Homepage {
-    user: User,
-}
-
-async fn homepage(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
-    if let Some(auth) = auth {
-        let homepage = Homepage { user: auth.user };
-        Ok(Html(homepage.render()?))
-    } else {
-        Ok(Html(PublicHomepage.render()?))
-    }
-}
-
-#[derive(Template)]
-#[template(path = "adminpage.html")]
-struct AdminPage<'a> {
-    user: User,
-    runs: &'a [(rain_ci_common::RunId, rain_ci_common::Run)],
-}
-
-async fn adminpage(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
-    let admin_page = AdminPage {
-        user: auth.user,
-        runs: &db.list_runs().await.context("list runs")?,
-    };
-    Ok(Html(admin_page.render()?))
-}
-
-#[derive(Template)]
-#[template(path = "runpage.html")]
-struct RunPage {
-    user: User,
-    run_id: rain_ci_common::RunId,
-    run: rain_ci_common::Run,
-}
-
-async fn runpage(
-    auth: AdminUser,
-    Path(id): Path<rain_ci_common::RunId>,
-    State(db): State<db::Db>,
-) -> Result<Html<String>, AppError> {
-    let run_page = RunPage {
-        user: auth.user,
-        run: db.get_run(&id).await?,
-        run_id: id,
-    };
-    Ok(Html(run_page.render()?))
 }
 
 #[derive(FromRef, Clone)]

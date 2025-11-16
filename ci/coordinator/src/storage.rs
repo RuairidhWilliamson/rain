@@ -88,7 +88,7 @@ pub mod test {
         fn dequeued_run(&self, id: &RunId) -> Result<()> {
             let mut conn = self.db.plock();
             let run = conn.get_mut(&id.0).unwrap();
-            run.dequeued_at = Some(Utc::now().naive_utc());
+            run.dequeued_at = Some(Utc::now());
             Ok(())
         }
 

@@ -143,7 +143,7 @@ impl<GH: crate::github::Client> Server<GH> {
                 },
             )
             .context("create check run")?;
-        let start = chrono::Utc::now().naive_utc();
+        let start = chrono::Utc::now();
         let run_id = self
             .storage
             .create_run(rain_ci_common::Run {
@@ -247,7 +247,7 @@ impl<GH: crate::github::Client> Server<GH> {
             }
         };
 
-        let finished_at = Utc::now().naive_utc();
+        let finished_at = Utc::now();
         let execution_time = finished_at - start;
         self.storage
             .finished_run(

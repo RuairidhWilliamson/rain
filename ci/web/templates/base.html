@@ -2,8 +2,16 @@
 <html>
 
 <head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/temporal-polyfill/0.3.0/global.min.js"
+    integrity="sha512-4V50NWjNLKBH60KkunQBWbMwv4pA5NIstr1F2Ossnb691knDWKYaHpGvS1bEyIupZnUnToVz5UQSZM/HIlj/tQ=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.min.css">
   <title>{% block title %}Rain CI{% endblock %}</title>
+  <style>
+    table {
+      table-layout: auto;
+    }
+  </style>
   {% block head %}{% endblock %}
 </head>
 
@@ -12,7 +20,7 @@
     <img src={{user.0.avatar_url}} width="16px" height="16px">
     <span>{{user.0.name}}</span>
   </div>
-  <div id="content">
+  <main id="content">
     {% block content %}
     <p>
       There's nothing here 😞.
@@ -21,7 +29,17 @@
       <a href="/">Home</a>
     </p>
     {% endblock %}
-  </div>
+  </main>
+  <script>
+    document.querySelectorAll("time.timestamp").forEach(el => {
+      const datetime = new Date(el.getAttribute("datetime"));
+      el.textContent = datetime.toLocaleString(undefined, {dateStyle: "short", timeStyle: "short"});
+    });
+    document.querySelectorAll("time.duration").forEach(el => {
+      const duration = Temporal.Duration.from(el.getAttribute("datetime"));
+      el.textContent = duration.toLocaleString(undefined, {style: "narrow"});
+    });
+  </script>
 </body>
 
 </html>
