@@ -1,56 +1,47 @@
 use anyhow::Result;
 use rain_ci_common::{FinishedRun, RunId};
 
-pub trait StorageTrait: Send + Sync {
-    fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId>;
-    fn dequeued_run(&self, id: &RunId) -> Result<()>;
-    fn finished_run(&self, id: &RunId, finished: FinishedRun) -> Result<()>;
+pub trait StorageTrait: Send + Sync + 'static {
+    async fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId>;
+    async fn dequeued_run(&self, id: &RunId) -> Result<()>;
+    async fn finished_run(&self, id: &RunId, finished: FinishedRun) -> Result<()>;
 }
 
 pub mod inner {
-    use std::sync::Mutex;
-
     use anyhow::Result;
     use chrono::Utc;
-    use poison_panic::MutexExt as _;
     use rain_ci_common::{FinishedRun, RunId};
+    use sqlx::Row as _;
 
     pub struct Storage {
-        // TODO: Use connection pool instead of just one connection 🤦
-        db: Mutex<postgres::Client>,
+        pool: sqlx::PgPool,
     }
 
     impl Storage {
-        pub fn new(db: postgres::Client) -> Self {
-            Self { db: Mutex::new(db) }
+        pub fn new(pool: sqlx::PgPool) -> Self {
+            Self { pool }
         }
     }
 
     impl super::StorageTrait for Storage {
-        fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId> {
-            let mut conn = self.db.plock();
-            let row = conn.query_one(
-                "INSERT INTO runs (source, created_at, repo_owner, repo_name, commit) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-                &[&run.source, &run.created_at.naive_utc(), &run.repository.owner, &run.repository.name, &run.commit],
-            )?;
+        async fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId> {
+            let row = sqlx::query("INSERT INTO runs (source, created_at, repo_owner, repo_name, commit) VALUES ($1, $2, $3, $4, $5) RETURNING id").bind(run.source).bind(run.created_at.naive_utc()).bind(&run.repository.owner).bind(&run.repository.name).bind(&run.commit).fetch_one(&self.pool).await?;
             Ok(RunId(row.get("id")))
         }
 
-        fn dequeued_run(&self, id: &RunId) -> Result<()> {
-            let mut conn = self.db.plock();
-            conn.execute(
+        async fn dequeued_run(&self, id: &RunId) -> Result<()> {
+            sqlx::query!(
                 "UPDATE runs SET dequeued_at=$1 WHERE id=$2",
-                &[&Utc::now().naive_utc(), id],
-            )?;
+                &Utc::now().naive_utc(),
+                id.0,
+            )
+            .execute(&self.pool)
+            .await?;
             Ok(())
         }
 
-        fn finished_run(&self, id: &RunId, finished: FinishedRun) -> Result<()> {
-            let mut conn = self.db.plock();
-            conn.execute(
-                "INSERT INTO finished_runs (run, finished_at, status, execution_time_millis, output) VALUES ($1, $2, $3, $4, $5)",
-                &[id, &finished.finished_at.naive_utc(), &finished.status, &finished.execution_time.num_milliseconds(), &finished.output],
-            )?;
+        async fn finished_run(&self, id: &RunId, finished: FinishedRun) -> Result<()> {
+            sqlx::query("INSERT INTO finished_runs (run, finished_at, status, execution_time_millis, output) VALUES ($1, $2, $3, $4, $5)").bind(id).bind(finished.finished_at.naive_utc()).bind(&finished.status).bind(finished.execution_time.num_milliseconds()).bind(&finished.output).execute(&self.pool).await?;
             Ok(())
         }
     }
@@ -78,21 +69,25 @@ pub mod test {
     }
 
     impl super::StorageTrait for Storage {
-        fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId> {
+        async fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId> {
             let id = self.next_id.fetch_add(1, Ordering::Relaxed);
             let mut conn = self.db.plock();
             conn.insert(id, run);
             Ok(RunId(id))
         }
 
-        fn dequeued_run(&self, id: &RunId) -> Result<()> {
+        async fn dequeued_run(&self, id: &RunId) -> Result<()> {
             let mut conn = self.db.plock();
             let run = conn.get_mut(&id.0).unwrap();
             run.dequeued_at = Some(Utc::now());
             Ok(())
         }
 
-        fn finished_run(&self, id: &RunId, finished: rain_ci_common::FinishedRun) -> Result<()> {
+        async fn finished_run(
+            &self,
+            id: &RunId,
+            finished: rain_ci_common::FinishedRun,
+        ) -> Result<()> {
             let mut conn = self.db.plock();
             let run = conn.get_mut(&id.0).unwrap();
             run.finished = Some(finished);

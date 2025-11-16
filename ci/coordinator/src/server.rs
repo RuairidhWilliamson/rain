@@ -1,114 +1,87 @@
-use std::{
-    borrow::Cow,
-    io::{Read as _, Write as _},
-    net::{SocketAddr, TcpStream},
-    time::Duration,
-};
+use std::{convert::Infallible, sync::Arc};
 
-use crate::{github::InstallationClient as _, runner::Runner};
 use anyhow::{Context as _, Result, anyhow};
 use chrono::Utc;
-use httparse::Request;
-use log::{error, info, trace};
+use http::{Request, Response, request::Parts};
+use http_body_util::BodyExt as _;
+use hyper::body::Incoming;
+use log::{error, info};
 use rain_lang::afs::{dir::Dir, file::File};
 use rain_lang::afs::{entry::FSEntry, entry::FSEntryTrait as _, path::SealedFilePath};
 use rain_lang::driver::{DriverTrait as _, FSTrait as _};
 
 use crate::runner::RunComplete;
+use crate::{github::InstallationClient as _, runner::Runner};
 
-const OK_REPSONSE: &str = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
-const NOT_FOUND_RESPONSE: &str = "HTTP/1.1 404 NOT FOUND\r\nContent-Length: 0\r\n\r\n";
-const INTERNAL_ERR_RESPONSE: &str =
-    "HTTP/1.1 500 INTERNAL SERVER ERROR\r\nContent-Length: 0\r\n\r\n";
-
-pub struct Server<GH: crate::github::Client> {
+pub struct Server<GH: crate::github::Client, ST: crate::storage::StorageTrait> {
     pub target_url: url::Url,
     pub github_webhook_secret: String,
     pub runner: Runner,
     pub github_client: GH,
-    pub storage: Box<dyn crate::storage::StorageTrait>,
+    pub storage: ST,
 }
 
-impl<GH: crate::github::Client> Server<GH> {
-    pub fn handle_connection(&self, mut stream: TcpStream, addr: SocketAddr) -> Result<()> {
-        stream.set_read_timeout(Some(Duration::from_secs(1)))?;
-        trace!("connection {addr:?}");
-        let mut buffer = [0u8; 1024];
-        let len = stream.read(&mut buffer)?;
-        let buffer = &buffer[..len];
-        let mut headers = [httparse::EMPTY_HEADER; 64];
-        let mut request = Request::new(&mut headers);
-        let parsed = request.parse(buffer)?;
-        if parsed.is_partial() {
-            return Err(anyhow!("partial http request"));
-        }
-        match request.version {
-            Some(0 | 1) => {}
-            v => return Err(anyhow!("invalid http version: {v:?}")),
-        }
-        match self.handle_request(&request, &mut stream, &buffer[parsed.unwrap()..]) {
-            Ok(()) => {}
-            Err(err) => {
-                error!("handle request error: {err:#}");
-                stream.write_all(INTERNAL_ERR_RESPONSE.as_bytes())?;
+impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST> {
+    pub async fn handle_request(
+        self: Arc<Self>,
+        request: Request<Incoming>,
+    ) -> Result<Response<String>, Infallible> {
+        match request.uri().path() {
+            "/webhook/github" => {
+                match self.handle_github_event(request).await {
+                    Ok(()) => (),
+                    Err(err) => {
+                        error!("{err}");
+                    }
+                }
+                Ok(Response::builder()
+                    .status(http::status::StatusCode::OK)
+                    .body(String::default())
+                    .expect("build response"))
             }
+            _ => Ok(Response::builder()
+                .status(http::status::StatusCode::NOT_FOUND)
+                .body(String::default())
+                .expect("buid response")),
         }
-        Ok(())
     }
 
-    fn handle_request(
-        &self,
-        request: &Request,
-        stream: &mut TcpStream,
-        body_prefix: &[u8],
-    ) -> Result<()> {
-        match request.path {
-            Some("/webhook/github") => {
-                self.handle_github_event(request, stream, body_prefix)?;
-                stream.write_all(OK_REPSONSE.as_bytes())?;
-            }
-            _ => {
-                stream.write_all(NOT_FOUND_RESPONSE.as_bytes())?;
-            }
-        }
-        Ok(())
-    }
-
-    fn handle_github_event(
-        &self,
-        request: &Request,
-        stream: &mut TcpStream,
-        body_prefix: &[u8],
-    ) -> Result<()> {
-        let content_type = find_header(request, "Content-Type").context("missing content type")?;
-        if content_type != b"application/json" {
+    async fn handle_github_event(self: Arc<Self>, request: Request<Incoming>) -> Result<()> {
+        let headers = request.headers();
+        let content_type = headers
+            .get("Content-Type")
+            .context("missing content type")?;
+        if content_type.as_bytes() != b"application/json" {
             return Err(anyhow!("unexpected content type"));
         }
-        let user_agent = find_header(request, "User-Agent").context("missing user agent")?;
-        if !user_agent.starts_with(b"GitHub-Hookshot/") {
+        let user_agent = headers.get("User-Agent").context("missing user agent")?;
+        if !user_agent.as_bytes().starts_with(b"GitHub-Hookshot/") {
             return Err(anyhow!("unexpected user agent"));
         }
-        let raw_body = get_body(request, stream, body_prefix)?;
-        self.verify_webhook_signature(request, &raw_body)?;
+        let (parts, body) = request.into_parts();
+        let body = body.collect().await?.to_bytes();
+        self.verify_webhook_signature(&parts, &body[..])?;
 
-        let event_kind = std::str::from_utf8(
-            find_header(request, "x-github-event").context("missing github event kind")?,
-        )?;
+        let event_kind = parts
+            .headers
+            .get("x-github-event")
+            .context("missing github event kind")?
+            .to_str()?;
 
         if event_kind != "check_suite" {
             return Err(anyhow!("unexpected event kind: {event_kind:?}"));
         }
 
         let check_suite_event: crate::github::model::CheckSuiteEvent =
-            serde_json::from_slice(&raw_body)?;
+            serde_json::from_slice(&body[..])?;
 
-        self.handle_check_suite_event(&check_suite_event)
+        self.handle_check_suite_event(check_suite_event).await
     }
 
     #[expect(clippy::unwrap_used)]
-    pub fn handle_check_suite_event(
-        &self,
-        check_suite_event: &crate::github::model::CheckSuiteEvent,
+    pub async fn handle_check_suite_event(
+        self: Arc<Self>,
+        check_suite_event: crate::github::model::CheckSuiteEvent,
     ) -> std::result::Result<(), anyhow::Error> {
         if !matches!(
             check_suite_event.check_suite.status,
@@ -121,27 +94,29 @@ impl<GH: crate::github::Client> Server<GH> {
             return Ok(());
         }
 
-        let installation_client = self
-            .github_client
-            .auth_installation(check_suite_event.installation.id)?;
+        let installation_client = Arc::new(
+            self.github_client
+                .auth_installation(check_suite_event.installation.id)?,
+        );
         info!("received {check_suite_event:?}");
 
-        let owner = &check_suite_event.repository.owner.login;
-        let repo = &check_suite_event.repository.name;
-        let head_sha = &check_suite_event.check_suite.head_sha;
+        let owner = check_suite_event.repository.owner.login;
+        let repo = check_suite_event.repository.name;
+        let head_sha = check_suite_event.check_suite.head_sha;
 
         let check_run = installation_client
             .create_check_run(
-                owner,
-                repo,
+                &owner,
+                &repo,
                 crate::github::model::CreateCheckRun {
                     name: String::from("rainci"),
-                    head_sha: head_sha.into(),
+                    head_sha: head_sha.clone(),
                     status: crate::github::model::Status::Queued,
                     details_url: Some(self.target_url.to_string()),
                     output: None,
                 },
             )
+            .await
             .context("create check run")?;
         let start = chrono::Utc::now();
         let run_id = self
@@ -157,30 +132,37 @@ impl<GH: crate::github::Client> Server<GH> {
                 dequeued_at: None,
                 finished: None,
             })
+            .await
             .context("storage create run")?;
 
         info!("created check run {run_id}");
 
         self.storage
             .dequeued_run(&run_id)
+            .await
             .context("storage dequeue run")?;
 
         installation_client
             .update_check_run(
-                owner,
-                repo,
+                &owner,
+                &repo,
                 check_run.id,
                 crate::github::model::PatchCheckRun {
                     status: Some(crate::github::model::Status::InProgress),
                     ..Default::default()
                 },
             )
+            .await
             .context("update check run")?;
 
-        let result = std::thread::scope(|s| {
-            s.spawn::<_, Result<RunComplete>>(|| {
+        let handle = {
+            let owner = owner.clone();
+            let repo = repo.clone();
+            let server = Arc::clone(&self);
+            let installation_client = Arc::clone(&installation_client);
+            tokio::task::spawn_blocking(move || {
                 let download = installation_client
-                    .download_repo_tar(owner, repo, head_sha)
+                    .download_repo_tar(&owner, &repo, &head_sha)
                     .context("download repo")?;
                 let download_dir_name = format!("{owner}-{repo}-{head_sha}");
                 let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
@@ -204,14 +186,16 @@ impl<GH: crate::github::Client> Server<GH> {
                     })
                     .collect();
                 installation_client
-                    .smudge_git_lfs(owner, repo, lfs_entries)
+                    .smudge_git_lfs(&owner, &repo, lfs_entries)
                     .context("smudge git lfs")?;
                 let area = driver.create_area(&[root.inner()]).unwrap();
-                let run_complete = self.runner.run(&driver, area);
+                let run_complete = server.runner.run(&driver, area);
                 Ok(run_complete)
             })
-            .join()
-        });
+        };
+
+        let result: Result<Result<RunComplete>, _> = handle.await;
+
         let (status, conclusion, output) = match result {
             Ok(Ok(RunComplete {
                 success: true,
@@ -259,11 +243,12 @@ impl<GH: crate::github::Client> Server<GH> {
                     output: output.clone(),
                 },
             )
+            .await
             .context("storage finished run")?;
         installation_client
             .update_check_run(
-                owner,
-                repo,
+                &owner,
+                &repo,
                 check_run.id,
                 crate::github::model::PatchCheckRun {
                     status: Some(crate::github::model::Status::Completed),
@@ -276,6 +261,7 @@ impl<GH: crate::github::Client> Server<GH> {
                     ..Default::default()
                 },
             )
+            .await
             .context("update check run")?;
 
         self.runner.prune();
@@ -283,10 +269,12 @@ impl<GH: crate::github::Client> Server<GH> {
         Ok(())
     }
 
-    fn verify_webhook_signature(&self, request: &Request, body: &[u8]) -> Result<()> {
-        let raw_signature =
-            find_header(request, "x-hub-signature-256").context("signature not present")?;
-        let signature = std::str::from_utf8(raw_signature)?;
+    fn verify_webhook_signature(&self, request: &Parts, body: &[u8]) -> Result<()> {
+        let signature = request
+            .headers
+            .get("x-hub-signature-256")
+            .context("signature not present")?
+            .to_str()?;
         let (algo, sig_hex) = signature
             .split_once('=')
             .context("header does not contain =")?;
@@ -301,35 +289,4 @@ impl<GH: crate::github::Client> Server<GH> {
         ring::hmac::verify(&key, body, &sig).context("verify signature")?;
         Ok(())
     }
-}
-
-fn find_header<'buf>(request: &Request<'_, 'buf>, header_name: &str) -> Option<&'buf [u8]> {
-    request
-        .headers
-        .iter()
-        .find(|h| h.name.eq_ignore_ascii_case(header_name))
-        .map(|h| h.value)
-}
-
-fn get_body<'buf>(
-    request: &Request,
-    stream: &'buf mut TcpStream,
-    body_prefix: &'buf [u8],
-) -> Result<Cow<'buf, [u8]>> {
-    const MAXIMUM_BODY_LENGTH: usize = 102_400; // 100 KiB
-    let content_length: usize = std::str::from_utf8(
-        find_header(request, "Content-Length").context("missing content length")?,
-    )?
-    .parse()?;
-    if content_length > MAXIMUM_BODY_LENGTH {
-        return Err(anyhow!("content length exceeds max length"));
-    }
-    if content_length <= body_prefix.len() {
-        return Ok(Cow::Borrowed(&body_prefix[..content_length]));
-    }
-    let mut body = vec![0u8; content_length];
-    stream.read_exact(&mut body[body_prefix.len()..])?;
-    body[..body_prefix.len()].copy_from_slice(body_prefix);
-
-    Ok(Cow::Owned(body))
 }

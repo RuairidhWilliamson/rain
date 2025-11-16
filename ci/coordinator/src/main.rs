@@ -6,14 +6,18 @@ mod storage;
 #[cfg(test)]
 mod tests;
 
-use std::{net::SocketAddr, path::PathBuf};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
 use anyhow::{Context as _, Result};
+use http::Request;
+use hyper::{body::Incoming, service::service_fn};
+use hyper_util::rt::{TokioExecutor, TokioIo};
 use ipnet::IpNet;
 use jsonwebtoken::EncodingKey;
 use log::{error, info, warn};
-use postgres::NoTls;
 use runner::Runner;
+use secrecy::{ExposeSecret as _, SecretString};
+use tokio::task::JoinSet;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
@@ -27,10 +31,24 @@ struct Config {
     db_name: String,
     db_user: String,
     db_password_file: Option<PathBuf>,
-    db_password: Option<String>,
+    db_password: Option<SecretString>,
 }
 
-fn main() -> Result<()> {
+async fn load_password(config: &Config) -> Result<SecretString> {
+    if let Some(password) = &config.db_password {
+        return Ok(password.clone());
+    }
+    if let Some(password_file) = &config.db_password_file {
+        return Ok(tokio::fs::read_to_string(password_file)
+            .await
+            .context("cannot read DB_PASSWORD_FILE")?
+            .into());
+    }
+    Err(anyhow::anyhow!("set DB_PASSWORD or DB_PASSWORD_FILE"))
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
     let dotenv_result = dotenvy::dotenv();
     env_logger::init();
     if let Err(err) = dotenv_result {
@@ -51,26 +69,26 @@ fn main() -> Result<()> {
     // let ipnets = [IpNet::from(IpAddr::V4(Ipv4Addr::LOCALHOST))];
     // let mut allowed_ipnets = Some(&ipnets);
     let allowed_ipnets: Option<&[IpNet]> = None;
-    let listener = std::net::TcpListener::bind(config.addr)?;
-    let db_password = config
-        .db_password
-        .or_else(|| std::fs::read_to_string(config.db_password_file.as_ref()?).ok())
-        .context("set DB_PASSWORD or DB_PASSWORD_FILE")?;
-    let db = postgres::Config::new()
-        .host(&config.db_host)
-        .dbname(&config.db_name)
-        .user(&config.db_user)
-        .password(db_password)
-        .connect(NoTls)?;
-    let server = server::Server {
+    let listener = tokio::net::TcpListener::bind(config.addr).await?;
+    let db_password = load_password(&config).await?;
+    let pool = sqlx::postgres::PgPool::connect_with(
+        sqlx::postgres::PgConnectOptions::new()
+            .host(&config.db_host)
+            .username(&config.db_user)
+            .password(db_password.expose_secret())
+            .database(&config.db_name),
+    )
+    .await?;
+    let server = Arc::new(server::Server {
         runner: Runner::new(config.seal),
         github_webhook_secret: config.github_webhook_secret,
         target_url: config.target_url,
         github_client,
-        storage: Box::new(storage::inner::Storage::new(db)),
-    };
+        storage: storage::inner::Storage::new(pool),
+    });
+    let mut join_set = JoinSet::new();
     loop {
-        let (stream, addr) = listener.accept()?;
+        let (stream, addr) = listener.accept().await?;
         if let Some(allowed_ipnets) = allowed_ipnets {
             if !allowed_ipnets
                 .iter()
@@ -80,8 +98,21 @@ fn main() -> Result<()> {
                 continue;
             }
         }
-        if let Err(err) = server.handle_connection(stream, addr) {
-            error!("handle connection: {err:#}");
-        }
+        let server = Arc::clone(&server);
+        join_set.spawn(async move {
+            let result = hyper_util::server::conn::auto::Builder::new(TokioExecutor::new())
+                .serve_connection(
+                    TokioIo::new(stream),
+                    service_fn(|request: Request<Incoming>| {
+                        let server = Arc::clone(&server);
+                        async move { server::Server::handle_request(server, request).await }
+                    }),
+                )
+                .await;
+
+            if let Err(err) = result {
+                error!("serve connection: {err:#}");
+            }
+        });
     }
 }

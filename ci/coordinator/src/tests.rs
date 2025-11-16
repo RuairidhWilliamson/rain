@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context as _, Result};
-use test_log::test;
 
 use crate::{runner::Runner, server::Server};
 
@@ -26,7 +25,7 @@ struct TestGithubInstallationClient {
 }
 
 impl crate::github::InstallationClient for TestGithubInstallationClient {
-    fn create_check_run(
+    async fn create_check_run(
         &self,
         _owner: &str,
         _repo: &str,
@@ -44,7 +43,7 @@ impl crate::github::InstallationClient for TestGithubInstallationClient {
         Ok(run)
     }
 
-    fn update_check_run(
+    async fn update_check_run(
         &self,
         _owner: &str,
         _repo: &str,
@@ -83,23 +82,25 @@ impl crate::github::InstallationClient for TestGithubInstallationClient {
     }
 }
 
-#[test]
-fn github_check_run() {
-    let server = Server {
+#[tokio::test]
+#[test_log::test]
+async fn github_check_run() {
+    let server = Arc::new(Server {
         target_url: url::Url::parse("https://example.net").unwrap(),
         github_webhook_secret: String::new(),
         runner: Runner::new(true),
         github_client: TestGithubClient::default(),
-        storage: Box::new(crate::storage::test::Storage::default()),
-    };
+        storage: crate::storage::test::Storage::default(),
+    });
     let user = crate::github::model::User {
         id: 1,
         login: String::from("alice"),
         name: None,
         email: None,
     };
-    server
-        .handle_check_suite_event(&crate::github::model::CheckSuiteEvent {
+    Server::handle_check_suite_event(
+        server.clone(),
+        crate::github::model::CheckSuiteEvent {
             sender: user.clone(),
             repository: crate::github::model::Repository {
                 name: String::from("test"),
@@ -118,8 +119,10 @@ fn github_check_run() {
                 head_branch: None,
                 status: Some(crate::github::model::Status::Queued),
             },
-        })
-        .unwrap();
+        },
+    )
+    .await
+    .unwrap();
     let check_runs = server.github_client.check_runs.lock().unwrap();
     let check_run = check_runs.first().unwrap();
     assert_eq!(check_run.head_sha, "abcd");

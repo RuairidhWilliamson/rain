@@ -35,6 +35,7 @@ impl AppAuth {
 }
 
 pub struct AppClient {
+    client: reqwest::Client,
     auth: AppAuth,
     agent: ureq::Agent,
 }
@@ -43,7 +44,15 @@ impl AppClient {
     pub fn new(auth: AppAuth) -> Self {
         let config = Agent::config_builder().https_only(true).build();
         let agent = Agent::new_with_config(config);
-        Self { auth, agent }
+        let client = reqwest::ClientBuilder::new()
+            .https_only(true)
+            .build()
+            .expect("build client");
+        Self {
+            client,
+            auth,
+            agent,
+        }
     }
 
     fn auth<Any>(&self, req: RequestBuilder<Any>) -> Result<RequestBuilder<Any>> {
@@ -89,6 +98,7 @@ impl super::Client for AppClient {
             .body_mut()
             .read_json()?;
         Ok(InstallationClient {
+            client: self.client.clone(),
             agent: self.agent.clone(),
             token,
         })
@@ -96,6 +106,7 @@ impl super::Client for AppClient {
 }
 
 pub struct InstallationClient {
+    pub client: reqwest::Client,
     pub agent: ureq::Agent,
     pub token: super::model::InstallationAccessToken,
 }
@@ -110,16 +121,27 @@ impl InstallationClient {
         .header("X-GitHub-Api-Version", "2022-11-28")
     }
 
+    pub fn reqwest_auth(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        req.header(
+            http::header::AUTHORIZATION,
+            format!("Bearer {}", self.token.token),
+        )
+        .header(http::header::ACCEPT, "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2022-11-28")
+    }
+
     #[expect(dead_code)]
-    pub fn app_installation_repositories(&self) -> Result<Value> {
+    pub async fn app_installation_repositories(&self) -> Result<Value> {
         Ok(self
-            .auth(
-                self.agent
+            .reqwest_auth(
+                self.client
                     .get("https://api.github.com/installation/repositories"),
             )
-            .call()?
-            .body_mut()
-            .read_json()?)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?)
     }
 
     fn git_lfs_api(
@@ -147,22 +169,25 @@ impl InstallationClient {
 }
 
 impl super::InstallationClient for InstallationClient {
-    fn create_check_run(
+    async fn create_check_run(
         &self,
         owner: &str,
         repo: &str,
         check_run: super::model::CreateCheckRun,
     ) -> Result<super::model::CheckRun> {
         Ok(self
-            .auth(self.agent.post(format!(
+            .reqwest_auth(self.client.post(format!(
                 "https://api.github.com/repos/{owner}/{repo}/check-runs"
             )))
-            .send_json(check_run)?
-            .body_mut()
-            .read_json()?)
+            .json(&check_run)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?)
     }
 
-    fn update_check_run(
+    async fn update_check_run(
         &self,
         owner: &str,
         repo: &str,
@@ -170,12 +195,15 @@ impl super::InstallationClient for InstallationClient {
         check_run: super::model::PatchCheckRun,
     ) -> Result<super::model::CheckRun> {
         Ok(self
-            .auth(self.agent.patch(format!(
+            .reqwest_auth(self.client.patch(format!(
                 "https://api.github.com/repos/{owner}/{repo}/check-runs/{check_run_id}"
             )))
-            .send_json(check_run)?
-            .body_mut()
-            .read_json()?)
+            .json(&check_run)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?)
     }
 
     fn download_repo_tar(&self, owner: &str, repo: &str, git_ref: &str) -> Result<Vec<u8>> {
