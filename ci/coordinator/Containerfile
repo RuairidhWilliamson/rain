@@ -10,6 +10,7 @@ FROM base as build
 # Actually build things
 COPY . .
 # Build the rain-ci-coordinator server
+ENV SQLX_OFFLINE=true
 RUN cargo install -q --path ci/coordinator --locked
 
 FROM base AS blender-install
