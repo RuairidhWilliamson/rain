@@ -7,11 +7,8 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, anyhow};
-use postgres::{
-    NoTls,
-    types::{FromSql, ToSql},
-};
 use rustc_stable_hash::{FromStableHash, SipHasher128Hash};
+use sqlx::{Connection as _, Row as _};
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
@@ -23,36 +20,42 @@ struct Config {
     migrations_dir: PathBuf,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let _ = dotenvy::dotenv();
     let config = envy::from_env::<Config>()?;
     let db_password = config
         .db_password
         .or_else(|| std::fs::read_to_string(config.db_password_file.as_ref()?).ok())
         .context("set DB_PASSWORD or DB_PASSWORD_FILE")?;
-    let mut db = postgres::Config::new()
-        .host(&config.db_host)
-        .dbname(&config.db_name)
-        .user(&config.db_user)
-        .password(db_password)
-        .connect(NoTls)?;
+    let mut conn = sqlx::postgres::PgConnection::connect_with(
+        &sqlx::postgres::PgConnectOptions::new()
+            .host(&config.db_host)
+            .username(&config.db_user)
+            .password(&db_password)
+            .database(&config.db_name),
+    )
+    .await?;
 
-    let mut tx = db.transaction()?;
-    tx.execute(
+    let mut tx = conn.begin().await?;
+    sqlx::query(
         "CREATE TABLE IF NOT EXISTS migrations (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             hash BYTEA NOT NULL
         )",
-        &[],
-    )?;
+    )
+    .execute(&mut *tx)
+    .await?;
     let mut migrations_iter = get_migrations(&config.migrations_dir)?
         .into_iter()
         .peekable();
 
     while let Some(peek) = migrations_iter.peek() {
-        let Some(row) =
-            tx.query_opt("SELECT name, hash FROM migrations WHERE id=$1", &[&peek.id])?
+        let Some(row) = sqlx::query("SELECT name, hash FROM migrations WHERE id=$1")
+            .bind(peek.id)
+            .fetch_optional(&mut *tx)
+            .await?
         else {
             break;
         };
@@ -71,7 +74,11 @@ fn main() -> Result<()> {
     }
 
     for m in migrations_iter {
-        if let Some(row) = tx.query_opt("SELECT name FROM migrations WHERE id=$1", &[&m.id])? {
+        if let Some(row) = sqlx::query("SELECT name FROM migrations WHERE id=$1")
+            .bind(m.id)
+            .fetch_optional(&mut *tx)
+            .await?
+        {
             let name: &str = row.get("name");
             return Err(anyhow!(
                 "migration id {} already exists with name {}",
@@ -79,24 +86,25 @@ fn main() -> Result<()> {
                 name
             ));
         }
-        match tx.batch_execute(&m.sql) {
-            Ok(()) => {}
+
+        match sqlx::raw_sql(&m.sql).execute(&mut *tx).await {
+            Ok(_) => {}
             Err(err) => {
                 println!("Error performing migration {} with name {}", m.id, m.name);
-                println!("{:?}", err.as_db_error());
                 println!("{err:#}");
-                println!("{err:#?}");
                 return Err(anyhow!("performing migration failed"));
             }
         }
-        tx.execute(
-            "INSERT INTO migrations (id, name, hash) VALUES ($1, $2, $3)",
-            &[&m.id, &m.name, &m.hash],
-        )?;
+        sqlx::query("INSERT INTO migrations (id, name, hash) VALUES ($1, $2, $3)")
+            .bind(m.id)
+            .bind(&m.name)
+            .bind(m.hash)
+            .execute(&mut *tx)
+            .await?;
         println!("Migration {} {} performed", m.id, m.name);
     }
 
-    tx.commit()?;
+    tx.commit().await?;
     println!("All migrations checked/completed successfully");
     Ok(())
 }
@@ -141,8 +149,8 @@ pub struct Migration {
     pub hash: Hash128,
 }
 
-#[derive(Debug, PartialEq, Eq, FromSql, ToSql)]
-#[postgres(transparent)]
+#[derive(Debug, PartialEq, Eq, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct Hash128(Vec<u8>);
 
 impl FromStableHash for Hash128 {

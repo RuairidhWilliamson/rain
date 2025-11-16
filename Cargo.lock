@@ -2655,11 +2655,11 @@ dependencies = [
  "anyhow",
  "dotenvy",
  "envy",
- "postgres",
- "postgres-types",
  "rain-ci-common",
  "rustc-stable-hash",
  "serde",
+ "sqlx",
+ "tokio",
 ]
 
 [[package]]
