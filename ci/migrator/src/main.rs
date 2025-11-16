@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{Context as _, Result, anyhow};
 use rustc_stable_hash::{FromStableHash, SipHasher128Hash};
+use secrecy::{ExposeSecret as _, SecretString};
 use sqlx::{Connection as _, Row as _};
 
 #[derive(Debug, serde::Deserialize)]
@@ -15,24 +16,34 @@ struct Config {
     db_host: String,
     db_name: String,
     db_user: String,
-    db_password: Option<String>,
+    db_password: Option<SecretString>,
     db_password_file: Option<PathBuf>,
     migrations_dir: PathBuf,
+}
+
+async fn load_password(config: &Config) -> Result<SecretString> {
+    if let Some(password) = &config.db_password {
+        return Ok(password.clone());
+    }
+    if let Some(password_file) = &config.db_password_file {
+        return Ok(tokio::fs::read_to_string(password_file)
+            .await
+            .context("cannot read DB_PASSWORD_FILE")?
+            .into());
+    }
+    Err(anyhow!("set DB_PASSWORD or DB_PASSWORD_FILE"))
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let _ = dotenvy::dotenv();
     let config = envy::from_env::<Config>()?;
-    let db_password = config
-        .db_password
-        .or_else(|| std::fs::read_to_string(config.db_password_file.as_ref()?).ok())
-        .context("set DB_PASSWORD or DB_PASSWORD_FILE")?;
+    let db_password = load_password(&config).await?;
     let mut conn = sqlx::postgres::PgConnection::connect_with(
         &sqlx::postgres::PgConnectOptions::new()
             .host(&config.db_host)
             .username(&config.db_user)
-            .password(&db_password)
+            .password(db_password.expose_secret())
             .database(&config.db_name),
     )
     .await?;
@@ -47,7 +58,8 @@ async fn main() -> Result<()> {
     )
     .execute(&mut *tx)
     .await?;
-    let mut migrations_iter = get_migrations(&config.migrations_dir)?
+    let mut migrations_iter = get_migrations(&config.migrations_dir)
+        .await?
         .into_iter()
         .peekable();
 
@@ -109,10 +121,10 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn get_migrations(dir: &Path) -> Result<Vec<Migration>> {
+async fn get_migrations(dir: &Path) -> Result<Vec<Migration>> {
     let mut out = Vec::new();
-    for entry in std::fs::read_dir(dir)? {
-        let entry = entry?;
+    let mut files = tokio::fs::read_dir(dir).await?;
+    while let Some(entry) = files.next_entry().await? {
         let path = entry.path();
         if path.extension() != Some(OsStr::new("sql")) {
             continue;
@@ -127,7 +139,7 @@ fn get_migrations(dir: &Path) -> Result<Vec<Migration>> {
         ))?;
         let id: i32 = id.parse()?;
         let name = name.to_owned();
-        let sql = std::fs::read_to_string(path)?;
+        let sql = tokio::fs::read_to_string(path).await?;
         let mut hasher = rustc_stable_hash::StableSipHasher128::new();
         hasher.write(sql.as_bytes());
         let hash: Hash128 = hasher.finish();

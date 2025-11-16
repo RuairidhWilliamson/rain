@@ -12,6 +12,7 @@ dotenvy.workspace = true
 envy.workspace = true
 rain-ci-common.path = "../common"
 rustc-stable-hash = "0.1.2"
+secrecy.workspace = true
 serde.workspace = true
 sqlx.workspace = true
 tokio.workspace = true

@@ -19,6 +19,7 @@ envy.workspace = true
 log.workspace = true
 oauth2 = "5.0.0"
 rain-ci-common.path = "../common"
+secrecy.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 sqlx.workspace = true

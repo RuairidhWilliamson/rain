@@ -16,6 +16,7 @@ use axum::{
 };
 use log::info;
 use oauth2::ClientSecret;
+use secrecy::SecretString;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
@@ -27,7 +28,7 @@ struct Config {
     db_host: String,
     db_name: String,
     db_user: String,
-    db_password: Option<String>,
+    db_password: Option<SecretString>,
     db_password_file: Option<PathBuf>,
 }
 
@@ -57,7 +58,7 @@ async fn main() -> Result<()> {
     .await?;
     let addr = config.addr;
     let github_config: GithubOauthConfig =
-        serde_json::from_slice(&std::fs::read(&config.github_oauth_file)?)?;
+        serde_json::from_slice(&tokio::fs::read(&config.github_oauth_file).await?)?;
     let state = AppState {
         github_client: github::Client::new(
             github_config.github_client_id,

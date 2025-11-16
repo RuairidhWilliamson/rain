@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, anyhow};
 use chrono::{Days, NaiveDateTime, TimeDelta, Utc};
 use oauth2::CsrfToken;
 use rain_ci_common::{RunId, RunSource, RunStatus};
+use secrecy::{ExposeSecret as _, SecretString};
 
 use crate::session::SessionId;
 
@@ -11,8 +12,21 @@ pub struct DbConfig {
     pub host: String,
     pub name: String,
     pub user: String,
-    pub password: Option<String>,
+    pub password: Option<SecretString>,
     pub password_file: Option<PathBuf>,
+}
+
+async fn load_password(config: &DbConfig) -> Result<SecretString> {
+    if let Some(password) = &config.password {
+        return Ok(password.clone());
+    }
+    if let Some(password_file) = &config.password_file {
+        return Ok(tokio::fs::read_to_string(password_file)
+            .await
+            .context("cannot read DB_PASSWORD_FILE")?
+            .into());
+    }
+    Err(anyhow!("set DB_PASSWORD or DB_PASSWORD_FILE"))
 }
 
 #[derive(Clone)]
@@ -21,17 +35,14 @@ pub struct Db {
 }
 
 impl Db {
-    pub async fn new(cfg: DbConfig) -> Result<Self> {
-        let db_password = cfg
-            .password
-            .or_else(|| std::fs::read_to_string(cfg.password_file.as_ref()?).ok())
-            .context("set DB_PASSWORD or DB_PASSWORD_FILE")?;
+    pub async fn new(config: DbConfig) -> Result<Self> {
+        let db_password = load_password(&config).await?;
         let pool = sqlx::PgPool::connect_with(
             sqlx::postgres::PgConnectOptions::new()
-                .host(&cfg.host)
-                .username(&cfg.user)
-                .password(&db_password)
-                .database(&cfg.name),
+                .host(&config.host)
+                .username(&config.user)
+                .password(db_password.expose_secret())
+                .database(&config.name),
         )
         .await?;
         Ok(Self { pool })
