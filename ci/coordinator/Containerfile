@@ -5,12 +5,12 @@ RUN apt-get -qqy update && apt-get -qqy install pkg-config libssl-dev curl xz-ut
 WORKDIR /usr/rain
 
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+ENV SQLX_OFFLINE=true
 
 FROM base as build
 # Actually build things
 COPY . .
 # Build the rain-ci-coordinator server
-ENV SQLX_OFFLINE=true
 RUN cargo install -q --path ci/coordinator --locked
 
 FROM base AS blender-install
