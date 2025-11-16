@@ -19,6 +19,7 @@ struct Config {
     db_password: Option<SecretString>,
     db_password_file: Option<PathBuf>,
     migrations_dir: PathBuf,
+    dry_run: bool,
 }
 
 async fn load_password(config: &Config) -> Result<SecretString> {
@@ -116,8 +117,13 @@ async fn main() -> Result<()> {
         println!("Migration {} {} performed", m.id, m.name);
     }
 
-    tx.commit().await?;
-    println!("All migrations checked/completed successfully");
+    if config.dry_run {
+        tx.rollback().await?;
+        println!("All migrations checked/completed succesfully, dry run aborting transaction");
+    } else {
+        tx.commit().await?;
+        println!("All migrations checked/completed successfully");
+    }
     Ok(())
 }
 

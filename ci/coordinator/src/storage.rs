@@ -11,7 +11,6 @@ pub mod inner {
     use anyhow::Result;
     use chrono::Utc;
     use rain_ci_common::{FinishedRun, RunId};
-    use sqlx::Row as _;
 
     pub struct Storage {
         pool: sqlx::PgPool,
@@ -25,8 +24,9 @@ pub mod inner {
 
     impl super::StorageTrait for Storage {
         async fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId> {
-            let row = sqlx::query("INSERT INTO runs (source, created_at, repo_owner, repo_name, commit) VALUES ($1, $2, $3, $4, $5) RETURNING id").bind(run.source).bind(run.created_at.naive_utc()).bind(&run.repository.owner).bind(&run.repository.name).bind(&run.commit).fetch_one(&self.pool).await?;
-            Ok(RunId(row.get("id")))
+            let source: &str = run.source.into();
+            let row = sqlx::query!("INSERT INTO runs (source, created_at, repo_owner, repo_name, commit) VALUES ($1, $2, $3, $4, $5) RETURNING id", source, run.created_at.naive_utc(), &run.repository.owner, &run.repository.name, &run.commit).fetch_one(&self.pool).await?;
+            Ok(RunId(row.id))
         }
 
         async fn dequeued_run(&self, id: &RunId) -> Result<()> {
@@ -41,7 +41,8 @@ pub mod inner {
         }
 
         async fn finished_run(&self, id: &RunId, finished: FinishedRun) -> Result<()> {
-            sqlx::query("INSERT INTO finished_runs (run, finished_at, status, execution_time_millis, output) VALUES ($1, $2, $3, $4, $5)").bind(id).bind(finished.finished_at.naive_utc()).bind(&finished.status).bind(finished.execution_time.num_milliseconds()).bind(&finished.output).execute(&self.pool).await?;
+            let run_status: &str = finished.status.into();
+            sqlx::query!("INSERT INTO finished_runs (run, finished_at, status, execution_time_millis, output) VALUES ($1, $2, $3, $4, $5)", id.0, finished.finished_at.naive_utc(), run_status, finished.execution_time.num_milliseconds(), &finished.output).execute(&self.pool).await?;
             Ok(())
         }
     }

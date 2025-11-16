@@ -1,13 +1,13 @@
 SELECT
     runs.id,
-    source as "source: RunSource",
+    source,
     commit,
     created_at,
     dequeued_at,
     repo_owner,
     repo_name,
     finished_at as "finished_at?",
-    status as "status?: RunStatus",
+    status as "status?",
     execution_time_millis as "execution_time_millis?",
     output as "output?"
 FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run ORDER BY id DESC LIMIT 100;

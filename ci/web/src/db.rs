@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr as _};
 
 use anyhow::{Context as _, Result, anyhow};
 use chrono::{Days, NaiveDateTime, TimeDelta, Utc};
@@ -142,10 +142,10 @@ impl Db {
         struct QueryRun {
             repo_owner: String,
             repo_name: String,
-            source: RunSource,
+            source: String,
             commit: String,
             created_at: NaiveDateTime,
-            status: Option<RunStatus>,
+            status: Option<String>,
             dequeued_at: Option<NaiveDateTime>,
             finished_at: Option<NaiveDateTime>,
             execution_time_millis: Option<i64>,
@@ -155,7 +155,7 @@ impl Db {
             .fetch_one(&self.pool)
             .await?;
         Ok(rain_ci_common::Run {
-            source: row.source,
+            source: RunSource::from_str(&row.source).context("unknown run source")?,
             commit: row.commit,
             created_at: row.created_at.and_utc(),
             dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
@@ -164,7 +164,8 @@ impl Db {
                 .map(|finished_at| {
                     Result::<_>::Ok(rain_ci_common::FinishedRun {
                         finished_at: finished_at.and_utc(),
-                        status: row.status.context("status missing")?,
+                        status: RunStatus::from_str(&row.status.context("status missing")?)
+                            .context("unknown status")?,
                         execution_time: TimeDelta::milliseconds(
                             row.execution_time_millis
                                 .context("execution_time_millis missing")?,
@@ -183,13 +184,13 @@ impl Db {
     pub async fn list_runs(&self) -> Result<Vec<(rain_ci_common::RunId, rain_ci_common::Run)>> {
         struct QueryRun {
             id: i64,
-            source: RunSource,
+            source: String,
             repo_owner: String,
             repo_name: String,
             commit: String,
             created_at: NaiveDateTime,
             dequeued_at: Option<NaiveDateTime>,
-            status: Option<RunStatus>,
+            status: Option<String>,
             finished_at: Option<NaiveDateTime>,
             execution_time_millis: Option<i64>,
             output: Option<String>,
@@ -203,7 +204,7 @@ impl Db {
                 Ok((
                     RunId(row.id),
                     rain_ci_common::Run {
-                        source: row.source,
+                        source: RunSource::from_str(&row.source).context("unknown run source")?,
                         commit: row.commit,
                         created_at: row.created_at.and_utc(),
                         dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
@@ -212,7 +213,10 @@ impl Db {
                             .map(|finished_at| {
                                 Result::<_>::Ok(rain_ci_common::FinishedRun {
                                     finished_at: finished_at.and_utc(),
-                                    status: row.status.context("status missing")?,
+                                    status: RunStatus::from_str(
+                                        &row.status.context("status missing")?,
+                                    )
+                                    .context("unknown run status")?,
                                     execution_time: TimeDelta::milliseconds(
                                         row.execution_time_millis
                                             .context("execution_time_millis missing")?,

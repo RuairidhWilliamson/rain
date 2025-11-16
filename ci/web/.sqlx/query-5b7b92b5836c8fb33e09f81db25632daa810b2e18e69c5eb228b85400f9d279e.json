@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n    runs.id,\n    source as \"source: RunSource\",\n    commit,\n    created_at,\n    dequeued_at,\n    repo_owner,\n    repo_name,\n    finished_at as \"finished_at?\",\n    status as \"status?: RunStatus\",\n    execution_time_millis as \"execution_time_millis?\",\n    output as \"output?\"\nFROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run ORDER BY id DESC LIMIT 100;\n\n",
+  "query": "SELECT\n    runs.id,\n    source,\n    commit,\n    created_at,\n    dequeued_at,\n    repo_owner,\n    repo_name,\n    finished_at as \"finished_at?\",\n    status as \"status?\",\n    execution_time_millis as \"execution_time_millis?\",\n    output as \"output?\"\nFROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run ORDER BY id DESC LIMIT 100;\n\n",
   "describe": {
     "columns": [
       {
@@ -10,17 +10,8 @@
       },
       {
         "ordinal": 1,
-        "name": "source: RunSource",
-        "type_info": {
-          "Custom": {
-            "name": "\"RunSource\"",
-            "kind": {
-              "Enum": [
-                "Github"
-              ]
-            }
-          }
-        }
+        "name": "source",
+        "type_info": "Text"
       },
       {
         "ordinal": 2,
@@ -54,18 +45,8 @@
       },
       {
         "ordinal": 8,
-        "name": "status?: RunStatus",
-        "type_info": {
-          "Custom": {
-            "name": "\"RunStatus\"",
-            "kind": {
-              "Enum": [
-                "Success",
-                "Failure"
-              ]
-            }
-          }
-        }
+        "name": "status?",
+        "type_info": "Text"
       },
       {
         "ordinal": 9,
@@ -95,5 +76,5 @@
       false
     ]
   },
-  "hash": "0329516c4f1f9ffd97a94137a1d01bd5c20127e6e310ffda8b3ffe5f8ea3b7a0"
+  "hash": "5b7b92b5836c8fb33e09f81db25632daa810b2e18e69c5eb228b85400f9d279e"
 }
