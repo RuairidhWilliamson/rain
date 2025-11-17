@@ -23,7 +23,7 @@ use tokio::task::JoinSet;
 struct Config {
     addr: SocketAddr,
     github_app_id: github::model::AppId,
-    github_app_key: PathBuf,
+    github_app_key_file: PathBuf,
     github_webhook_secret: String,
     target_url: url::Url,
     seal: bool,
@@ -58,8 +58,13 @@ async fn main() -> Result<()> {
     let version = env!("CARGO_PKG_VERSION");
     info!("version = {version}");
 
-    let key_raw = std::fs::read(&config.github_app_key).context("read github app key")?;
-    let key = EncodingKey::from_rsa_pem(&key_raw).context("decode github app key")?;
+    let key_raw = secrecy::SecretSlice::from(
+        tokio::fs::read(&config.github_app_key_file)
+            .await
+            .context("read github app key")?,
+    );
+    let key =
+        EncodingKey::from_rsa_pem(key_raw.expose_secret()).context("decode github app key")?;
 
     let github_client = github::implementation::AppClient::new(github::implementation::AppAuth {
         app_id: config.github_app_id,

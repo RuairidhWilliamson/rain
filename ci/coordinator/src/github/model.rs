@@ -4,7 +4,7 @@ use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct AppId(u64);
+pub struct AppId(pub u64);
 
 impl Display for AppId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

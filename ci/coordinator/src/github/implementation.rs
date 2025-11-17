@@ -42,10 +42,14 @@ pub struct AppClient {
 
 impl AppClient {
     pub fn new(auth: AppAuth) -> Self {
-        let config = Agent::config_builder().https_only(true).build();
+        let config = Agent::config_builder()
+            .https_only(true)
+            .user_agent("rain-ci")
+            .build();
         let agent = Agent::new_with_config(config);
         let client = reqwest::ClientBuilder::new()
             .https_only(true)
+            .user_agent("rain-ci")
             .build()
             .expect("build client");
         Self {
@@ -65,23 +69,34 @@ impl AppClient {
             .header("X-GitHub-Api-Version", "2022-11-28"))
     }
 
-    #[expect(dead_code)]
-    pub fn meta(&self) -> Result<super::model::ApiOverview> {
-        Ok(self
-            .agent
-            .get("https://api.github.com/meta")
-            .call()?
-            .body_mut()
-            .read_json()?)
+    fn reqwest_auth(&self, req: reqwest::RequestBuilder) -> Result<reqwest::RequestBuilder> {
+        Ok(req
+            .bearer_auth(self.auth.generate_bearer_token()?)
+            .header(http::header::ACCEPT, "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28"))
     }
 
     #[expect(dead_code)]
-    pub fn app_installations(&self) -> Result<Vec<super::model::Installation>> {
+    pub async fn meta(&self) -> Result<super::model::ApiOverview> {
         Ok(self
-            .auth(self.agent.get("https://api.github.com/app/installations"))?
-            .call()?
-            .body_mut()
-            .read_json()?)
+            .client
+            .get("https://api.github.com/meta")
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?)
+    }
+
+    #[allow(dead_code)]
+    pub async fn app_installations(&self) -> Result<Vec<super::model::Installation>> {
+        Ok(self
+            .reqwest_auth(self.client.get("https://api.github.com/app/installations"))?
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?)
     }
 }
 
@@ -112,7 +127,7 @@ pub struct InstallationClient {
 }
 
 impl InstallationClient {
-    pub fn auth<Any>(&self, req: RequestBuilder<Any>) -> RequestBuilder<Any> {
+    pub fn ureq_auth<Any>(&self, req: RequestBuilder<Any>) -> RequestBuilder<Any> {
         req.header(
             http::header::AUTHORIZATION,
             format!("Bearer {}", self.token.token),
@@ -176,9 +191,16 @@ impl super::InstallationClient for InstallationClient {
         check_run: super::model::CreateCheckRun,
     ) -> Result<super::model::CheckRun> {
         Ok(self
-            .reqwest_auth(self.client.post(format!(
+            .client
+            .post(format!(
                 "https://api.github.com/repos/{owner}/{repo}/check-runs"
-            )))
+            ))
+            .header(
+                http::header::AUTHORIZATION,
+                format!("Bearer {}", self.token.token),
+            )
+            .header(http::header::ACCEPT, "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
             .json(&check_run)
             .send()
             .await?
@@ -208,7 +230,7 @@ impl super::InstallationClient for InstallationClient {
 
     fn download_repo_tar(&self, owner: &str, repo: &str, git_ref: &str) -> Result<Vec<u8>> {
         Ok(self
-            .auth(self.agent.get(format!(
+            .ureq_auth(self.agent.get(format!(
                 "https://api.github.com/repos/{owner}/{repo}/tarball/{git_ref}"
             )))
             .call()?
@@ -253,5 +275,43 @@ impl super::InstallationClient for InstallationClient {
             std::io::copy(&mut reader, &mut f)?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use jsonwebtoken::EncodingKey;
+
+    use crate::github::{Client as _, InstallationClient as _};
+
+    // Requires github creds
+    #[ignore]
+    #[tokio::test]
+    async fn create_check_run() {
+        dotenvy::dotenv().unwrap();
+        let id =
+            super::super::model::AppId(std::env::var("GITHUB_APP_ID").unwrap().parse().unwrap());
+        let key_file = std::env::var("GITHUB_APP_KEY_FILE").unwrap();
+        let key_raw = tokio::fs::read(key_file).await.unwrap();
+        let key = EncodingKey::from_rsa_pem(&key_raw).unwrap();
+        let client = super::AppClient::new(super::AppAuth { app_id: id, key });
+        let installations = client.app_installations().await.unwrap();
+        dbg!(&installations);
+        let installation = installations.first().unwrap();
+        let installation_client = client.auth_installation(installation.id).unwrap();
+        installation_client
+            .create_check_run(
+                "RuairidhWilliamson",
+                "rain",
+                crate::github::model::CreateCheckRun {
+                    name: String::from("test"),
+                    head_sha: String::from("518b1e599c940946200e92d1f3d84b05fbb3d840"),
+                    status: crate::github::model::Status::Queued,
+                    details_url: None,
+                    output: None,
+                },
+            )
+            .await
+            .unwrap();
     }
 }
