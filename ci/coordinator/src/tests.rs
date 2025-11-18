@@ -85,12 +85,14 @@ impl crate::github::InstallationClient for TestGithubInstallationClient {
 #[tokio::test]
 #[test_log::test]
 async fn github_check_run() {
+    let (tx, _) = tokio::sync::mpsc::channel(10);
     let server = Arc::new(Server {
         target_url: url::Url::parse("https://example.net").unwrap(),
         github_webhook_secret: String::new(),
         runner: Runner::new(true),
         github_client: TestGithubClient::default(),
         storage: crate::storage::test::Storage::default(),
+        tx,
     });
     let user = crate::github::model::User {
         id: 1,

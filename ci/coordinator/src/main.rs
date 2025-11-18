@@ -84,13 +84,34 @@ async fn main() -> Result<()> {
             .database(&config.db_name),
     )
     .await?;
+    let (tx, mut rx) = tokio::sync::mpsc::channel(10);
     let server = Arc::new(server::Server {
         runner: Runner::new(config.seal),
         github_webhook_secret: config.github_webhook_secret,
         target_url: config.target_url,
         github_client,
         storage: storage::inner::Storage::new(pool),
+        tx,
     });
+    {
+        let server = server.clone();
+        tokio::spawn(async move {
+            loop {
+                let Some(check_suite_event) = rx.recv().await else {
+                    error!("server recv channel closed");
+                    return;
+                };
+                if let Err(err) = server
+                    .clone()
+                    .handle_check_suite_event(check_suite_event)
+                    .await
+                {
+                    error!("handle check suite event: {err}");
+                };
+            }
+        })
+        .await?;
+    }
     let mut join_set = JoinSet::new();
     loop {
         let (stream, addr) = listener.accept().await?;

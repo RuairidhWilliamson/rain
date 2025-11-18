@@ -19,6 +19,7 @@ pub struct Server<GH: crate::github::Client, ST: crate::storage::StorageTrait> {
     pub runner: Runner,
     pub github_client: GH,
     pub storage: ST,
+    pub tx: tokio::sync::mpsc::Sender<crate::github::model::CheckSuiteEvent>,
 }
 
 impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST> {
@@ -75,7 +76,8 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
         let check_suite_event: crate::github::model::CheckSuiteEvent =
             serde_json::from_slice(&body[..])?;
 
-        self.handle_check_suite_event(check_suite_event).await
+        self.tx.send(check_suite_event).await?;
+        Ok(())
     }
 
     #[expect(clippy::unwrap_used)]
