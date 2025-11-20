@@ -109,9 +109,9 @@ async fn main() -> Result<()> {
                     error!("handle check suite event: {err}");
                 };
             }
-        })
-        .await?;
+        });
     }
+    info!("listening on {}", config.addr);
     let mut join_set = JoinSet::new();
     loop {
         let (stream, addr) = listener.accept().await?;
