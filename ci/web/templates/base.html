@@ -5,18 +5,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/temporal-polyfill/0.3.0/global.min.js"
     integrity="sha512-4V50NWjNLKBH60KkunQBWbMwv4pA5NIstr1F2Ossnb691knDWKYaHpGvS1bEyIupZnUnToVz5UQSZM/HIlj/tQ=="
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="/assets/script.js" defer></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.min.css">
+  <link rel="stylesheet" href="/assets/style.css">
   <title>{% block title %}Rain CI{% endblock %}</title>
-  <style>
-    table {
-      table-layout: auto;
-    }
-
-    nav.nav {
-      display: flex;
-      justify-content: space-between;
-    }
-  </style>
   {% block head %}{% endblock %}
 </head>
 
@@ -41,16 +33,6 @@
     </p>
     {% endblock %}
   </main>
-  <script>
-    document.querySelectorAll("time.timestamp").forEach(el => {
-      const datetime = new Date(el.getAttribute("datetime"));
-      el.textContent = datetime.toLocaleString(undefined, {dateStyle: "short", timeStyle: "short"});
-    });
-    document.querySelectorAll("time.duration").forEach(el => {
-      const duration = Temporal.Duration.from(el.getAttribute("datetime"));
-      el.textContent = duration.toLocaleString(undefined, {style: "narrow"});
-    });
-  </script>
 </body>
 
 </html>

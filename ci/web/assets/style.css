@@ -1,0 +1,8 @@
+table {
+  table-layout: auto;
+}
+
+nav.nav {
+  display: flex;
+  justify-content: space-between;
+}

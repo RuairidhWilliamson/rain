@@ -10,7 +10,7 @@ use anyhow::Result;
 use axum::{
     Router,
     extract::{FromRef, FromRequestParts, OptionalFromRequestParts},
-    http::{StatusCode, request::Parts},
+    http::{StatusCode, header, request::Parts},
     response::{IntoResponse, Redirect, Response},
     routing::get,
 };
@@ -73,6 +73,8 @@ async fn main() -> Result<()> {
         .nest("/auth", auth::router())
         .route("/run", get(pages::runs))
         .route("/run/{id}", get(pages::run))
+        .route("/assets/script.js", get(script_asset))
+        .route("/assets/style.css", get(style_asset))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             session::session_middleware,
@@ -85,6 +87,20 @@ async fn main() -> Result<()> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     Ok(())
+}
+
+async fn script_asset() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/javascript")],
+        include_str!("../assets/script.js"),
+    )
+}
+
+async fn style_asset() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/css")],
+        include_str!("../assets/style.css"),
+    )
 }
 
 #[derive(FromRef, Clone)]
