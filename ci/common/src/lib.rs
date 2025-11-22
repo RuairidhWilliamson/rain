@@ -62,9 +62,7 @@ pub enum RunSource {
 
 impl std::fmt::Display for RunSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Github => f.write_str("Github"),
-        }
+        f.write_str(self.into())
     }
 }
 
@@ -80,14 +78,12 @@ pub struct FinishedRun {
 pub enum RunStatus {
     Success,
     Failure,
+    SystemFailure,
 }
 
 impl std::fmt::Display for RunStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::Success => "Success",
-            Self::Failure => "Failure",
-        })
+        f.write_str(self.into())
     }
 }
 

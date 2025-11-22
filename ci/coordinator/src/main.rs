@@ -19,6 +19,8 @@ use runner::Runner;
 use secrecy::{ExposeSecret as _, SecretString};
 use tokio::task::JoinSet;
 
+use crate::storage::StorageTrait;
+
 #[derive(Debug, serde::Deserialize)]
 struct Config {
     addr: SocketAddr,
@@ -84,13 +86,31 @@ async fn main() -> Result<()> {
             .database(&config.db_name),
     )
     .await?;
+    let ids = sqlx::query!("SELECT id FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run WHERE dequeued_at IS NOT NULL AND run IS NULL")
+        .fetch_all(&pool)
+        .await?;
+    let storage = storage::inner::Storage::new(pool);
+    for row in ids {
+        storage
+            .finished_run(
+                &rain_ci_common::RunId(row.id),
+                rain_ci_common::FinishedRun {
+                    finished_at: chrono::Utc::now(),
+                    status: rain_ci_common::RunStatus::SystemFailure,
+                    execution_time: chrono::TimeDelta::zero(),
+                    output: String::from("run was cleaned up on coordinator startup"),
+                },
+            )
+            .await?;
+    }
+
     let (tx, mut rx) = tokio::sync::mpsc::channel(10);
     let server = Arc::new(server::Server {
         runner: Runner::new(config.seal),
         github_webhook_secret: config.github_webhook_secret,
         target_url: config.target_url,
         github_client,
-        storage: storage::inner::Storage::new(pool),
+        storage,
         tx,
     });
     {
