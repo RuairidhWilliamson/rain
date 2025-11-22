@@ -27,15 +27,6 @@ pub async fn home(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
     }
 }
 
-pub async fn admin(auth: AdminUser) -> Result<Html<String>, AppError> {
-    #[derive(Template)]
-    #[template(path = "admin.html")]
-    struct AdminPage {
-        user: User,
-    }
-    Ok(Html(AdminPage { user: auth.user }.render()?))
-}
-
 pub async fn runs(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
     #[derive(Template)]
     #[template(path = "runs.html")]

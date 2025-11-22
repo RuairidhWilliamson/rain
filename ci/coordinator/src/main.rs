@@ -11,7 +11,10 @@ use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use anyhow::{Context as _, Result};
 use http::Request;
 use hyper::{body::Incoming, service::service_fn};
-use hyper_util::rt::{TokioExecutor, TokioIo};
+use hyper_util::{
+    rt::{TokioExecutor, TokioIo},
+    server::conn::auto::Builder,
+};
 use ipnet::IpNet;
 use jsonwebtoken::EncodingKey;
 use log::{error, info, warn};
@@ -146,7 +149,7 @@ async fn main() -> Result<()> {
         }
         let server = Arc::clone(&server);
         join_set.spawn(async move {
-            let result = hyper_util::server::conn::auto::Builder::new(TokioExecutor::new())
+            let result = Builder::new(TokioExecutor::new())
                 .serve_connection(
                     TokioIo::new(stream),
                     service_fn(|request: Request<Incoming>| {

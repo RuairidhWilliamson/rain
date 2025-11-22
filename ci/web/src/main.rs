@@ -71,7 +71,6 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/", get(pages::home))
         .nest("/auth", auth::router())
-        .route("/admin", get(pages::admin))
         .route("/run", get(pages::runs))
         .route("/run/{id}", get(pages::run))
         .layer(axum::middleware::from_fn_with_state(
