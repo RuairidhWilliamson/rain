@@ -3,7 +3,7 @@ use std::{path::PathBuf, str::FromStr as _};
 use anyhow::{Context as _, Result, anyhow};
 use chrono::{Days, NaiveDateTime, TimeDelta, Utc};
 use oauth2::CsrfToken;
-use rain_ci_common::{RunId, RunSource, RunStatus};
+use rain_ci_common::{RepoHost, RunId, RunStatus};
 use secrecy::{ExposeSecret as _, SecretString};
 
 use crate::session::SessionId;
@@ -140,9 +140,9 @@ impl Db {
 
     pub async fn get_run(&self, id: &RunId) -> Result<rain_ci_common::Run> {
         struct QueryRun {
-            repo_owner: String,
-            repo_name: String,
-            source: String,
+            host: String,
+            owner: String,
+            name: String,
             commit: String,
             created_at: NaiveDateTime,
             status: Option<String>,
@@ -155,7 +155,6 @@ impl Db {
             .fetch_one(&self.pool)
             .await?;
         Ok(rain_ci_common::Run {
-            source: RunSource::from_str(&row.source).context("unknown run source")?,
             commit: row.commit,
             created_at: row.created_at.and_utc(),
             dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
@@ -175,8 +174,9 @@ impl Db {
                 })
                 .transpose()?,
             repository: rain_ci_common::Repository {
-                owner: row.repo_owner,
-                name: row.repo_name,
+                host: RepoHost::from_str(&row.host).context("unknown repo host")?,
+                owner: row.owner,
+                name: row.name,
             },
         })
     }
@@ -184,9 +184,9 @@ impl Db {
     pub async fn list_runs(&self) -> Result<Vec<(rain_ci_common::RunId, rain_ci_common::Run)>> {
         struct QueryRun {
             id: i64,
-            source: String,
-            repo_owner: String,
-            repo_name: String,
+            host: String,
+            owner: String,
+            name: String,
             commit: String,
             created_at: NaiveDateTime,
             dequeued_at: Option<NaiveDateTime>,
@@ -204,7 +204,6 @@ impl Db {
                 Ok((
                     RunId(row.id),
                     rain_ci_common::Run {
-                        source: RunSource::from_str(&row.source).context("unknown run source")?,
                         commit: row.commit,
                         created_at: row.created_at.and_utc(),
                         dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
@@ -226,8 +225,9 @@ impl Db {
                             })
                             .transpose()?,
                         repository: rain_ci_common::Repository {
-                            owner: row.repo_owner,
-                            name: row.repo_name,
+                            host: RepoHost::from_str(&row.host).context("unknown repo host")?,
+                            owner: row.owner,
+                            name: row.name,
                         },
                     },
                 ))

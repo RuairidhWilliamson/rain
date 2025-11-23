@@ -124,10 +124,10 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
         let run_id = self
             .storage
             .create_run(rain_ci_common::Run {
-                source: rain_ci_common::RunSource::Github,
                 created_at: start,
                 commit: head_sha.clone(),
                 repository: rain_ci_common::Repository {
+                    host: rain_ci_common::RepoHost::Github,
                     owner: owner.clone(),
                     name: repo.clone(),
                 },

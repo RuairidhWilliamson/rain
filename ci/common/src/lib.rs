@@ -11,24 +11,26 @@ impl std::fmt::Display for RunId {
 
 #[derive(Debug, Clone)]
 pub struct Repository {
+    pub host: RepoHost,
     pub owner: String,
     pub name: String,
 }
 
 impl Repository {
     pub fn repo_url(&self) -> String {
-        format!(
-            "https://github.com/{owner}/{name}",
-            owner = self.owner,
-            name = self.name,
-        )
+        match self.host {
+            RepoHost::Github => format!(
+                "https://github.com/{owner}/{name}",
+                owner = self.owner,
+                name = self.name,
+            ),
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Run {
     pub repository: Repository,
-    pub source: RunSource,
     pub commit: String,
     pub created_at: DateTime<Utc>,
     pub dequeued_at: Option<DateTime<Utc>>,
@@ -56,11 +58,11 @@ impl Run {
 }
 
 #[derive(Debug, Clone, strum::IntoStaticStr, strum::EnumString)]
-pub enum RunSource {
+pub enum RepoHost {
     Github,
 }
 
-impl std::fmt::Display for RunSource {
+impl std::fmt::Display for RepoHost {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.into())
     }

@@ -1,12 +1,15 @@
 SELECT
-    source,
+    repos.host,
+    repos.owner,
+    repos.name,
     commit,
     created_at,
     dequeued_at,
-    repo_owner,
-    repo_name,
     finished_at as "finished_at?",
     status as "status?",
     execution_time_millis as "execution_time_millis?",
     output as "output?"
-FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run WHERE id=$1;
+FROM runs
+INNER JOIN repos ON runs.repo=repos.id
+LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
+WHERE runs.id=$1;
