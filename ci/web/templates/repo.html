@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Repo {{ repo_id }}</h1>
+<table>
+  <tr>
+    <td>ID</td>
+    <td>{{ repo_id }}</td>
+  </tr>
+  <tr>
+    <td>Host</td>
+    <td>{{ repo.host }}</td>
+  </tr>
+  <tr>
+    <td>Owner</td>
+    <td>{{ repo.owner }}</td>
+  </tr>
+  <tr>
+    <td>Name</td>
+    <td>{{ repo.name }}</td>
+  </tr>
+  <tr>
+    <td>Url</td>
+    <td><a href={{ repo.repo_url() }}>{{ repo.owner }}/{{ repo.name }}</a></td>
+  </tr>
+</table>
+{% endblock %}

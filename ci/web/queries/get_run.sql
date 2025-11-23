@@ -1,4 +1,5 @@
 SELECT
+    runs.id,
     repos.host,
     repos.owner,
     repos.name,

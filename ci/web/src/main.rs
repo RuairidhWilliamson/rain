@@ -71,6 +71,8 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/", get(pages::home))
         .nest("/auth", auth::router())
+        .route("/repos", get(pages::repos))
+        .route("/repo/{id}", get(pages::repo))
         .route("/run", get(pages::runs))
         .route("/run/{id}", get(pages::run))
         .route("/assets/script.js", get(script_asset))

@@ -3,7 +3,7 @@ use std::{path::PathBuf, str::FromStr as _};
 use anyhow::{Context as _, Result, anyhow};
 use chrono::{Days, NaiveDateTime, TimeDelta, Utc};
 use oauth2::CsrfToken;
-use rain_ci_common::{RepoHost, RunId, RunStatus};
+use rain_ci_common::{RepoHost, Repository, RepositoryId, Run, RunId, RunStatus};
 use secrecy::{ExposeSecret as _, SecretString};
 
 use crate::session::SessionId;
@@ -138,23 +138,11 @@ impl Db {
         }
     }
 
-    pub async fn get_run(&self, id: &RunId) -> Result<rain_ci_common::Run> {
-        struct QueryRun {
-            host: String,
-            owner: String,
-            name: String,
-            commit: String,
-            created_at: NaiveDateTime,
-            status: Option<String>,
-            dequeued_at: Option<NaiveDateTime>,
-            finished_at: Option<NaiveDateTime>,
-            execution_time_millis: Option<i64>,
-            output: Option<String>,
-        }
+    pub async fn get_run(&self, id: &RunId) -> Result<Run> {
         let row = sqlx::query_file_as!(QueryRun, "queries/get_run.sql", id.0)
             .fetch_one(&self.pool)
             .await?;
-        Ok(rain_ci_common::Run {
+        Ok(Run {
             commit: row.commit,
             created_at: row.created_at.and_utc(),
             dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
@@ -173,7 +161,7 @@ impl Db {
                     })
                 })
                 .transpose()?,
-            repository: rain_ci_common::Repository {
+            repository: Repository {
                 host: RepoHost::from_str(&row.host).context("unknown repo host")?,
                 owner: row.owner,
                 name: row.name,
@@ -181,20 +169,7 @@ impl Db {
         })
     }
 
-    pub async fn list_runs(&self) -> Result<Vec<(rain_ci_common::RunId, rain_ci_common::Run)>> {
-        struct QueryRun {
-            id: i64,
-            host: String,
-            owner: String,
-            name: String,
-            commit: String,
-            created_at: NaiveDateTime,
-            dequeued_at: Option<NaiveDateTime>,
-            status: Option<String>,
-            finished_at: Option<NaiveDateTime>,
-            execution_time_millis: Option<i64>,
-            output: Option<String>,
-        }
+    pub async fn list_runs(&self) -> Result<Vec<(RunId, Run)>> {
         let rows = sqlx::query_file_as!(QueryRun, "queries/list_runs.sql")
             .fetch_all(&self.pool)
             .await?;
@@ -203,7 +178,7 @@ impl Db {
             .map(|row| {
                 Ok((
                     RunId(row.id),
-                    rain_ci_common::Run {
+                    Run {
                         commit: row.commit,
                         created_at: row.created_at.and_utc(),
                         dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
@@ -224,7 +199,7 @@ impl Db {
                                 })
                             })
                             .transpose()?,
-                        repository: rain_ci_common::Repository {
+                        repository: Repository {
                             host: RepoHost::from_str(&row.host).context("unknown repo host")?,
                             owner: row.owner,
                             name: row.name,
@@ -234,4 +209,56 @@ impl Db {
             })
             .collect::<Result<_>>()
     }
+
+    pub async fn list_repos(&self) -> Result<Vec<(RepositoryId, Repository)>> {
+        let rows = sqlx::query_file_as!(QueryRepo, "queries/list_repos.sql")
+            .fetch_all(&self.pool)
+            .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok((
+                    RepositoryId(row.id),
+                    Repository {
+                        host: RepoHost::from_str(&row.host).context("unknown repo host")?,
+                        owner: row.owner,
+                        name: row.name,
+                    },
+                ))
+            })
+            .collect::<Result<_>>()
+    }
+
+    pub async fn get_repo(&self, id: &RepositoryId) -> Result<Repository> {
+        let row = sqlx::query_file_as!(QueryRepo, "queries/get_repo.sql", id.0)
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(Repository {
+            host: RepoHost::from_str(&row.host).context("unknown repo host")?,
+            owner: row.owner,
+            name: row.name,
+        })
+    }
+}
+
+struct QueryRun {
+    id: i64,
+    host: String,
+    owner: String,
+    name: String,
+    commit: String,
+    created_at: NaiveDateTime,
+    dequeued_at: Option<NaiveDateTime>,
+    status: Option<String>,
+    finished_at: Option<NaiveDateTime>,
+    execution_time_millis: Option<i64>,
+    output: Option<String>,
+}
+
+struct QueryRepo {
+    id: i64,
+    host: String,
+    owner: String,
+    name: String,
 }

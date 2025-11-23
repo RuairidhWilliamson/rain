@@ -6,6 +6,7 @@ use axum::{
     extract::{Path, State},
     response::Html,
 };
+use rain_ci_common::{Repository, RepositoryId, Run, RunId};
 
 use crate::{AdminUser, AppError, AuthUser, User, db};
 
@@ -27,12 +28,50 @@ pub async fn home(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
     }
 }
 
+pub async fn repos(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
+    #[derive(Template)]
+    #[template(path = "repos.html")]
+    struct ReposPage {
+        user: User,
+        repos: Vec<(RepositoryId, Repository)>,
+    }
+    Ok(Html(
+        ReposPage {
+            user: auth.user,
+            repos: db.list_repos().await.context("list repos")?,
+        }
+        .render()?,
+    ))
+}
+
+pub async fn repo(
+    auth: AdminUser,
+    Path(id): Path<RepositoryId>,
+    State(db): State<db::Db>,
+) -> Result<Html<String>, AppError> {
+    #[derive(Template)]
+    #[template(path = "repo.html")]
+    struct RepoPage {
+        user: User,
+        repo_id: RepositoryId,
+        repo: Repository,
+    }
+    Ok(Html(
+        RepoPage {
+            user: auth.user,
+            repo: db.get_repo(&id).await.context("list repos")?,
+            repo_id: id,
+        }
+        .render()?,
+    ))
+}
+
 pub async fn runs(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
     #[derive(Template)]
     #[template(path = "runs.html")]
     struct RunsPage {
         user: User,
-        runs: Vec<(rain_ci_common::RunId, rain_ci_common::Run)>,
+        runs: Vec<(RunId, Run)>,
     }
     Ok(Html(
         RunsPage {
@@ -45,15 +84,15 @@ pub async fn runs(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<Stri
 
 pub async fn run(
     auth: AdminUser,
-    Path(id): Path<rain_ci_common::RunId>,
+    Path(id): Path<RunId>,
     State(db): State<db::Db>,
 ) -> Result<Html<String>, AppError> {
     #[derive(Template)]
     #[template(path = "run.html")]
     struct RunPage {
         user: User,
-        run_id: rain_ci_common::RunId,
-        run: rain_ci_common::Run,
+        run_id: RunId,
+        run: Run,
     }
     Ok(Html(
         RunPage {

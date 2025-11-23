@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Repos</h1>
+<table>
+  <tr>
+    <th>Host</th>
+    <th>Owner</th>
+    <th>Name</th>
+  </tr>
+  {% for (repo_id, repo) in repos %}
+  <tr>
+    <td>{{ repo.host }}</td>
+    <td>{{ repo.owner }}</td>
+    <td>{{ repo.name }}</td>
+    <td><a href="/repo/{{repo_id}}">View</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

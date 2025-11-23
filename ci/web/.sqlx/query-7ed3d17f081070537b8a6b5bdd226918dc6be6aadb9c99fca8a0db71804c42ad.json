@@ -1,55 +1,60 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n    repos.host,\n    repos.owner,\n    repos.name,\n    commit,\n    created_at,\n    dequeued_at,\n    finished_at as \"finished_at?\",\n    status as \"status?\",\n    execution_time_millis as \"execution_time_millis?\",\n    output as \"output?\"\nFROM runs\nINNER JOIN repos ON runs.repo=repos.id\nLEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run\nWHERE runs.id=$1;\n",
+  "query": "SELECT\n    runs.id,\n    repos.host,\n    repos.owner,\n    repos.name,\n    commit,\n    created_at,\n    dequeued_at,\n    finished_at as \"finished_at?\",\n    status as \"status?\",\n    execution_time_millis as \"execution_time_millis?\",\n    output as \"output?\"\nFROM runs\nINNER JOIN repos ON runs.repo=repos.id\nLEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run\nWHERE runs.id=$1;\n",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
         "name": "host",
         "type_info": "Text"
       },
       {
-        "ordinal": 1,
+        "ordinal": 2,
         "name": "owner",
         "type_info": "Text"
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "name",
         "type_info": "Text"
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "commit",
         "type_info": "Text"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "dequeued_at",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "finished_at?",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "status?",
         "type_info": "Text"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "execution_time_millis?",
         "type_info": "Int8"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "output?",
         "type_info": "Text"
       }
@@ -65,6 +70,7 @@
       false,
       false,
       false,
+      false,
       true,
       false,
       false,
@@ -72,5 +78,5 @@
       false
     ]
   },
-  "hash": "8503f5df43ecb27e89d77ac09f5e46bec16272ee267e17673681cb5615678527"
+  "hash": "7ed3d17f081070537b8a6b5bdd226918dc6be6aadb9c99fca8a0db71804c42ad"
 }
