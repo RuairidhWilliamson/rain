@@ -3,6 +3,7 @@ pub mod persistent;
 use std::{
     collections::HashSet,
     num::NonZeroUsize,
+    os::unix::fs::{MetadataExt, PermissionsExt},
     path::Path,
     sync::{
         Arc, Mutex,
@@ -143,10 +144,13 @@ impl CacheCore {
         out
     }
 
-    pub fn prune_generated_areas(&self, config: &crate::config::Config) -> std::io::Result<u64> {
+    pub fn prune_generated_areas(
+        &self,
+        config: &crate::config::Config,
+    ) -> std::io::Result<PruneStats> {
+        let mut stats = PruneStats { size: 0, errors: 0 };
         log::info!("Pruning");
         let connected = self.get_all_generated_areas();
-        let mut size = 0;
         for entry in std::fs::read_dir(&config.base_generated_dir)? {
             let entry = entry?;
             if !entry.file_type()?.is_dir() {
@@ -164,10 +168,18 @@ impl CacheCore {
                 continue;
             }
             log::info!("Pruning {area:?}");
-            size += remove_recursive(&entry.path())?;
+            match remove_recursive(&entry.path()) {
+                Ok(s) => {
+                    stats.size += s;
+                }
+                Err(err) => {
+                    log::error!("Failed to prune {area:?} because {err}");
+                    stats.errors += 1;
+                }
+            }
         }
         log::info!("Prune complete");
-        Ok(size)
+        Ok(stats)
     }
 }
 
@@ -210,15 +222,50 @@ fn remove_recursive(path: &Path) -> std::io::Result<u64> {
 
 fn remove_dir_all_recursive(path: &Path) -> std::io::Result<u64> {
     let mut size = 0;
-    for child in std::fs::read_dir(path)? {
+    let stat = std::fs::symlink_metadata(path)
+        .inspect_err(|err| log::error!("metadata {path:?} error: {err}"))?;
+    if stat.is_symlink() {
+        std::fs::remove_file(&path)?;
+        return Ok(0);
+    }
+    ensure_writable(path, stat)
+        .inspect_err(|err| log::error!("ensure writable {path:?} error: {err}"))?;
+    for child in
+        std::fs::read_dir(path).inspect_err(|err| log::error!("read dir {path:?} error: {err}"))?
+    {
         let child = child?;
-        if child.file_type()?.is_dir() {
-            size += remove_dir_all_recursive(&child.path())?;
+        let ftype = child.file_type()?;
+        let child_path = child.path();
+        if ftype.is_dir() && !ftype.is_symlink() {
+            size += remove_dir_all_recursive(&child_path)?;
         } else {
-            size += child.metadata()?.len();
-            std::fs::remove_file(child.path())?;
+            let metadata = child.metadata()?;
+            size += metadata.len();
+            std::fs::remove_file(&child_path)?;
         }
     }
     std::fs::remove_dir(path)?;
     Ok(size)
+}
+
+#[cfg(not(target_family = "unix"))]
+fn ensure_writable(_path: &Path, _stat: std::fs::Metadata) -> std::io::Result<()> {
+    Ok(())
+}
+
+#[cfg(target_family = "unix")]
+fn ensure_writable(path: &Path, stat: std::fs::Metadata) -> std::io::Result<()> {
+    assert!(!stat.is_symlink());
+    let mode = stat.mode();
+    if mode & 0o700 != 0o700 {
+        let mut perm = stat.permissions();
+        perm.set_mode(mode | 0o700);
+        std::fs::set_permissions(path, perm)?;
+    }
+    Ok(())
+}
+
+pub struct PruneStats {
+    pub size: u64,
+    pub errors: u32,
 }

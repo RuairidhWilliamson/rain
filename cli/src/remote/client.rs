@@ -26,6 +26,8 @@ pub enum ClientMode {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("channel closed")]
+    ChannelClosed,
     #[error("could not fetch current executable")]
     CurrentExe,
     #[error("detected server restart loop due to {0:?}")]
@@ -173,21 +175,25 @@ where
             };
             tx.send(req).unwrap();
             loop {
-                let msg = rx.recv().unwrap();
+                let msg = rx.recv();
                 match msg {
-                    ServerMessage::ServerPanic => todo!(),
-                    ServerMessage::RestartPls(_restart_reason) => todo!(),
-                    ServerMessage::Intermediate(im) => {
+                    Ok(ServerMessage::ServerPanic) => todo!(),
+                    Ok(ServerMessage::RestartPls(_restart_reason)) => todo!(),
+                    Ok(ServerMessage::Intermediate(im)) => {
                         let im: <Req as RequestTrait>::Intermediate =
                             ciborium::from_reader(std::io::Cursor::new(im))?;
                         handle(im);
                     }
-                    ServerMessage::Response(response) => {
+                    Ok(ServerMessage::Response(response)) => {
                         log::debug!("waiting for server to finish");
                         if let Err(err) = server_thread_handle.join() {
                             log::error!("server panicked waiting for finish {err:?}");
                         }
                         return Ok(ciborium::from_reader(std::io::Cursor::new(response))?);
+                    }
+                    Err(err) => {
+                        log::error!("channel closed: {err}");
+                        return Err(Error::ChannelClosed);
                     }
                 }
             }

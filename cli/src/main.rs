@@ -244,14 +244,17 @@ fn clean(config: &Config, mode: ClientMode) -> Result<(), ()> {
 }
 
 fn prune(config: &Config, mode: ClientMode) -> Result<(), ()> {
-    let Pruned(size) =
-        make_request_or_start(config, PruneRequest, |()| {}, mode).map_err(|err| {
+    let Pruned { size, errors } = make_request_or_start(config, PruneRequest, |()| {}, mode)
+        .map_err(|err| {
             eprintln!("{err}");
         })?;
     println!(
         "Pruned {:8}",
         humansize::format_size(size, humansize::BINARY)
     );
+    if errors > 0 {
+        println!("{errors} Errors");
+    }
     Ok(())
 }
 

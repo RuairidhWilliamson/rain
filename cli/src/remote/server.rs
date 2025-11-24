@@ -28,7 +28,7 @@ use rain_core::{
     },
 };
 
-use crate::remote::msg::{RequestWrapper, RestartReason};
+use crate::remote::msg::{RequestWrapper, RestartReason, prune::Pruned};
 
 use super::msg::{
     Request, RequestTrait, ServerMessage,
@@ -335,8 +335,14 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
 
     fn prune(&mut self, req: super::msg::prune::PruneRequest) -> Result<(), Error> {
         let guard = self.server.cache.core.plock();
-        let size = guard.prune_generated_areas(&self.server.config)?;
-        self.send_response(req, &super::msg::prune::Pruned(size))?;
+        let pruned = guard.prune_generated_areas(&self.server.config)?;
+        self.send_response(
+            req,
+            &Pruned {
+                size: pruned.size,
+                errors: pruned.errors,
+            },
+        )?;
         Ok(())
     }
 

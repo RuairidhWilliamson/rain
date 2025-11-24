@@ -212,5 +212,8 @@ pub mod prune {
     }
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
-    pub struct Pruned(pub u64);
+    pub struct Pruned {
+        pub size: u64,
+        pub errors: u32,
+    }
 }
