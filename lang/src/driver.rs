@@ -21,6 +21,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError>;
     fn extract_tar_gz(&self, file: &File) -> Result<FileArea, RunnerError>;
     fn extract_tar_xz(&self, file: &File) -> Result<FileArea, RunnerError>;
+    fn extract_tar(&self, file: &File) -> Result<FileArea, RunnerError>;
     fn run(
         &self,
         area: Option<&FileArea>,

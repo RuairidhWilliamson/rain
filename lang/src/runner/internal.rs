@@ -42,6 +42,7 @@ pub enum InternalFunction {
     ExtractZip,
     ExtractTarGz,
     ExtractTarXz,
+    ExtractTar,
     Run,
     EscapeBin,
     Unit,
@@ -103,6 +104,7 @@ impl InternalFunction {
             "_extract_zip" => Some(Self::ExtractZip),
             "_extract_tar_gz" => Some(Self::ExtractTarGz),
             "_extract_tar_xz" => Some(Self::ExtractTarXz),
+            "_extract_tar" => Some(Self::ExtractTar),
             "_run" => Some(Self::Run),
             "_escape_bin" => Some(Self::EscapeBin),
             "_unit" => Some(Self::Unit),
@@ -158,6 +160,7 @@ impl InternalFunction {
             Self::ExtractZip => icx.extract_zip(),
             Self::ExtractTarGz => icx.extract_tar_gz(),
             Self::ExtractTarXz => icx.extract_tar_xz(),
+            Self::ExtractTar => icx.extract_tar(),
             Self::Run => icx.run(),
             Self::EscapeBin => icx.escape_bin(),
             Self::Unit => icx.unit(),
@@ -555,6 +558,18 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 .runner
                 .driver
                 .extract_tar_xz(f)
+                .map_err(|err| self.cx.nid_err(self.nid, err))?;
+            Ok(Value::FileArea(Arc::new(area)))
+        })
+    }
+
+    fn extract_tar(self) -> ResultValue {
+        let f = expect_type!(self, File, single_arg!(self));
+        self.cache(|| {
+            let area = self
+                .runner
+                .driver
+                .extract_tar(f)
                 .map_err(|err| self.cx.nid_err(self.nid, err))?;
             Ok(Value::FileArea(Arc::new(area)))
         })

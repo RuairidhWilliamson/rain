@@ -8,7 +8,7 @@ let unit = utils.unit
 fn bin(name) {
 	result = internal._escape_bin(name)
 	if result == unit {
-		_throw(name + " could not be found, you need to install it and make sure it is added to PATH")
+		_throw(name + " could not be found, you need to install it and make sure it is added to $PATH")
 	}
 	result
 }

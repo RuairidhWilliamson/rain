@@ -1,6 +1,8 @@
 let area = internal._get_area(internal._module_file())
 let main = internal._import(internal._get_file(area, "main.rain"))
 let std = main.std
+let print = std.utils.print
+let get_file = std.utils.get_file
 
 fn alpine_linux() {
 	url = "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/alpine-minirootfs-3.22.2-x86_64.tar.gz"
@@ -8,12 +10,55 @@ fn alpine_linux() {
 	internal._get_dir(internal._extract_tar_gz(std.utils.download_with_sha256(url, sha256)), "/")
 }
 
-fn bwrap_run() {
-	bwrap = internal._escape_bin("bwrap")
-	args = ["--ro-bind", alpine_linux(), "/", "ls", "-la", "/bin"]
-	env = {}
+fn bwrap_run_ro(image, command, args, env) {
+	bwrap = std.escape.bin("bwrap")
+	args = ["--ro-bind", image, "/", command] + args
 	result = internal._run(std.utils.unit, bwrap, args, env)
-	internal._print(result.success)
-	internal._print(result.stdout)
-	internal._print(result.stderr)
+	print(result.success)
+	print(result.stdout)
+	print(result.stderr)
+}
+
+fn bwrap_run(image, command, args, env) {
+	bwrap = std.escape.bin("bwrap")
+	overlay_working = internal._create_area([])
+	overlay_rw = internal._create_area([])
+	args = [
+		// "--symlink", "usr/lib", "/lib",
+		// "--symlink", "usr/lib64", "/lib64",
+		// "--symlink", "usr/bin", "/bin",
+		// "--symlink", "usr/bin", "/sbin",
+		// "--ro-bind", "/usr/lib", "/usr/lib",
+		// "--ro-bind", "/usr/lib64", "/usr/lib64",
+		// "--ro-bind", "/usr/bin", "/usr/bin",
+		// "--ro-bind", "/etc/resolv.conf", "/etc/resolv.conf",
+		// "--ro-bind", "/usr/share/ca-certificates", "/usr/share/ca-certificates",
+		// "--ro-bind", "/etc/ssl", "/etc/ssl",
+		// "--ro-bind", "/etc/ca-certificates", "/etc/ca-certificates",
+		// "--dev-bind", "/dev/dri", "/dev/dri",
+		"--dev", "/dev",
+		"--proc", "/proc",
+		"--tmpfs", "/tmp",
+		"--hostname", "RESTRICTED",
+		"--unshare-all",
+		"--share-net",
+		"--overlay-src", image, "--overlay", overlay_rw, overlay_working, "/",
+		"--die-with-parent",
+		command,
+	] + args
+	result = internal._run(std.utils.unit, bwrap, args, env)
+	print(result.success)
+	print(result.stdout)
+	print(result.stderr)
+	print(overlay_rw)
+}
+
+fn download_image(image) {
+	out = internal._create_area([])
+	result = std.utils.escape_run(out, std.escape.bin("podman"), ["image", "save", "-o", "image.tar", image], {})
+	internal._extract_tar(get_file(out, "image.tar"))
+}
+
+fn test() {
+	bwrap_run(download_image("docker.io/alpine"), "apk", ["add", "gcc"], {PATH = "/bin:/sbin"})
 }

@@ -240,6 +240,19 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(area)
     }
 
+    fn extract_tar(&self, file: &File) -> Result<FileArea, RunnerError> {
+        let resolved_path = self.resolve_fs_entry(file.inner());
+        let area = self.create_empty_area()?;
+        let output_dir = Dir::root(area.clone());
+        let output_dir_path = self.resolve_fs_entry(output_dir.inner());
+        let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
+        let mut archive = tar::Archive::new(f);
+        archive
+            .unpack(output_dir_path)
+            .map_err(|err| RunnerError::ExtractError(Box::new(err)))?;
+        Ok(area)
+    }
+
     fn run(
         &self,
         overlay_area: Option<&FileArea>,
