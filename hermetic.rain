@@ -19,30 +19,24 @@ fn bwrap_run_ro(image, command, args, env) {
 	print(result.stderr)
 }
 
-fn bwrap_run(image, command, args, env) {
+fn anonymous(layer) {
+	["--overlay-src", layer]
+}
+
+fn bwrap_run(image_layers, command, args, env) {
 	bwrap = std.escape.bin("bwrap")
 	overlay_working = internal._create_area([])
 	overlay_rw = internal._create_area([])
-	args = [
-		// "--symlink", "usr/lib", "/lib",
-		// "--symlink", "usr/lib64", "/lib64",
-		// "--symlink", "usr/bin", "/bin",
-		// "--symlink", "usr/bin", "/sbin",
-		// "--ro-bind", "/usr/lib", "/usr/lib",
-		// "--ro-bind", "/usr/lib64", "/usr/lib64",
-		// "--ro-bind", "/usr/bin", "/usr/bin",
-		// "--ro-bind", "/etc/resolv.conf", "/etc/resolv.conf",
-		// "--ro-bind", "/usr/share/ca-certificates", "/usr/share/ca-certificates",
-		// "--ro-bind", "/etc/ssl", "/etc/ssl",
-		// "--ro-bind", "/etc/ca-certificates", "/etc/ca-certificates",
-		// "--dev-bind", "/dev/dri", "/dev/dri",
+	
+	args = internal._flatten(internal._foreach(image_layers, anonymous)) + [
+		// "--hostname", "RESTRICTED",
+		// "--unshare-all",
+		// "--share-net",
+		"--overlay", overlay_rw, overlay_working, "/",
 		"--dev", "/dev",
 		"--proc", "/proc",
 		"--tmpfs", "/tmp",
-		"--hostname", "RESTRICTED",
-		"--unshare-all",
-		"--share-net",
-		"--overlay-src", image, "--overlay", overlay_rw, overlay_working, "/",
+		"--ro-bind", "/etc/resolv.conf", "/etc/resolv.conf",
 		"--die-with-parent",
 		command,
 	] + args
@@ -56,9 +50,13 @@ fn bwrap_run(image, command, args, env) {
 fn download_image(image) {
 	out = internal._create_area([])
 	result = std.utils.escape_run(out, std.escape.bin("podman"), ["image", "save", "-o", "image.tar", image], {})
-	internal._extract_tar(get_file(out, "image.tar"))
+	print(out)
+	layers = internal._extract_tar(get_file(out, "image.tar"))
+	[internal._extract_tar(get_file(layers, "256f393e029fa2063d8c93720da36a74a032bed3355a2bc3e313ad12f8bde9d1.tar"))]
 }
 
 fn test() {
-	bwrap_run(download_image("docker.io/alpine"), "apk", ["add", "gcc"], {PATH = "/bin:/sbin"})
+	image = download_image("docker.io/alpine")
+	env = {PATH = "/bin:/sbin"}
+	bwrap_run(image, "apk", ["add", "--no-cache", "gcc"], env)
 }

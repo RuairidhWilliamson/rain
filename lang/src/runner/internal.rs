@@ -84,6 +84,7 @@ pub enum InternalFunction {
     ListLength,
     EscapeHard,
     ChrootRun,
+    Flatten,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -145,6 +146,7 @@ impl InternalFunction {
             "_list_length" => Some(Self::ListLength),
             "_escape_hard" => Some(Self::EscapeHard),
             "_create_tar_gz" => Some(Self::CreateTarGz),
+            "_flatten" => Some(Self::Flatten),
             _ => None,
         }
     }
@@ -202,6 +204,7 @@ impl InternalFunction {
             Self::EscapeHard => icx.escape_hard(),
             Self::ChrootRun => icx.chroot_run(),
             Self::CreateTarGz => icx.create_tar_gz(),
+            Self::Flatten => icx.flatten(),
         }
     }
 }
@@ -1459,5 +1462,17 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 )
             })?,
         )))
+    }
+
+    fn flatten(self) -> ResultValue {
+        let list = expect_type!(self, List, single_arg!(self));
+        let mut flattened = Vec::new();
+        for value in &list.0 {
+            let inner_list = expect_type!(self, List, (self.nid, value));
+            for v in &inner_list.0 {
+                flattened.push(v.clone());
+            }
+        }
+        Ok(Value::List(Arc::new(RainList(flattened))))
     }
 }
