@@ -2761,6 +2761,7 @@ dependencies = [
  "quickcheck_macros",
  "regex",
  "serde",
+ "serde_json",
  "target-lexicon",
  "termcolor",
  "thiserror 2.0.17",

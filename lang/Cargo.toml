@@ -15,6 +15,7 @@ indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
 regex = "1.11.1"
+serde_json.workspace = true
 serde.workspace = true
 target-lexicon = "0.13.2"
 termcolor.workspace = true

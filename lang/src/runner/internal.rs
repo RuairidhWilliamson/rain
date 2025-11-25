@@ -53,6 +53,7 @@ pub enum InternalFunction {
     Sha512,
     BytesToString,
     ParseToml,
+    ParseJSON,
     CreateArea,
     ReadFile,
     CreateFile,
@@ -147,6 +148,7 @@ impl InternalFunction {
             "_escape_hard" => Some(Self::EscapeHard),
             "_create_tar_gz" => Some(Self::CreateTarGz),
             "_flatten" => Some(Self::Flatten),
+            "_parse_json" => Some(Self::ParseJSON),
             _ => None,
         }
     }
@@ -205,6 +207,7 @@ impl InternalFunction {
             Self::ChrootRun => icx.chroot_run(),
             Self::CreateTarGz => icx.create_tar_gz(),
             Self::Flatten => icx.flatten(),
+            Self::ParseJSON => icx.parse_json(),
         }
     }
 }
@@ -683,6 +686,45 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                 )
             })?;
             Ok(toml_to_rain(parsed))
+        })
+    }
+
+    fn parse_json(self) -> ResultValue {
+        fn json_to_rain(v: serde_json::Value) -> Value {
+            match v {
+                serde_json::Value::Null => Value::Unit,
+                serde_json::Value::String(s) => Value::String(Arc::new(s)),
+                serde_json::Value::Number(n) => {
+                    if let Some(float) = n.as_f64() {
+                        Value::String(Arc::new(float.to_string()))
+                    } else {
+                        Value::Integer(Arc::new(RainInteger(
+                            n.as_i64()
+                                .map(|x| BigInt::from(x))
+                                .or_else(|| n.as_u64().map(|x| BigInt::from(x)))
+                                .or_else(|| n.as_i128().map(|x| BigInt::from(x)))
+                                .or_else(|| n.as_u128().map(|x| BigInt::from(x)))
+                                .unwrap(),
+                        )))
+                    }
+                }
+                serde_json::Value::Bool(b) => Value::Boolean(b),
+                serde_json::Value::Array(vec) => Value::List(Arc::new(RainList(
+                    vec.into_iter().map(json_to_rain).collect(),
+                ))),
+                serde_json::Value::Object(map) => Value::Record(Arc::new(RainRecord(
+                    map.into_iter().map(|(k, v)| (k, json_to_rain(v))).collect(),
+                ))),
+            }
+        }
+
+        let contents = expect_type!(self, String, single_arg!(self));
+        self.cache(|| {
+            let parsed: serde_json::Value = serde_json::de::from_str(contents).map_err(|err| {
+                self.cx
+                    .nid_err(self.nid, RunnerError::Makeshift(err.to_string().into()))
+            })?;
+            Ok(json_to_rain(parsed))
         })
     }
 

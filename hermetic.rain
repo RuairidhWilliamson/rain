@@ -49,14 +49,17 @@ fn bwrap_run(image_layers, command, args, env) {
 
 fn download_image(image) {
 	out = internal._create_area([])
+	// TODO: Download image from OCI registry
 	result = std.utils.escape_run(out, std.escape.bin("podman"), ["image", "save", "-o", "image.tar", image], {})
-	print(out)
-	layers = internal._extract_tar(get_file(out, "image.tar"))
-	[internal._extract_tar(get_file(layers, "256f393e029fa2063d8c93720da36a74a032bed3355a2bc3e313ad12f8bde9d1.tar"))]
+	image = internal._extract_tar(get_file(out, "image.tar"))
+	manifest = internal._parse_json(internal._read_file(get_file(image, "manifest.json")))
+	print(manifest)
+	[internal._extract_tar(get_file(image, "256f393e029fa2063d8c93720da36a74a032bed3355a2bc3e313ad12f8bde9d1.tar"))]
 }
 
 fn test() {
-	image = download_image("docker.io/alpine")
+	// image = download_image("docker.io/alpine")
+	image = [alpine_linux()]
 	env = {PATH = "/bin:/sbin"}
 	bwrap_run(image, "apk", ["add", "--no-cache", "gcc"], env)
 }
