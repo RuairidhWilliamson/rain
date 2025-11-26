@@ -1,82 +1,41 @@
+mod json_rpc;
+
 use std::{
-    borrow::Cow,
     io::{BufRead as _, Read, Stdin, Stdout, Write},
     process::ExitCode,
 };
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct Request<T> {
-    id: serde_json::Value,
-    jsonrpc: Cow<'static, str>,
-    method: String,
-    params: Option<T>,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct Notification<T> {
-    method: String,
-    params: Option<T>,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct Response<T> {
-    id: serde_json::Value,
-    jsonrpc: Cow<'static, str>,
-    result: Option<T>,
-    error: Option<ResponseError>,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct ResponseError {
-    code: i64,
-    message: String,
-    data: Option<serde_json::Value>,
-}
 
 fn main() -> ExitCode {
     let mut comms = Comms {
         stdin: std::io::stdin(),
         stdout: std::io::stdout(),
     };
-    let initialize = comms.receive_message::<Request<lsp_types::InitializeParams>>();
-    comms.send_message(&Response::<lsp_types::InitializeResult> {
-        id: initialize.id,
-        jsonrpc: "2.0".into(),
-        result: Some(lsp_types::InitializeResult {
-            capabilities: lsp_types::ServerCapabilities {
-                // hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
-                ..Default::default()
-            },
-            server_info: None,
-        }),
-        error: None,
-    });
-    comms.send_message(&Notification::<()> {
-        method: String::from("initialized"),
-        params: None,
-    });
+    let initialize = comms.receive_message::<json_rpc::Request<lsp_types::InitializeParams>>();
+    comms.send_message(&initialize.ok_response(lsp_types::InitializeResult {
+        capabilities: lsp_types::ServerCapabilities {
+            ..Default::default()
+        },
+        server_info: None,
+    }));
+    comms.send_message(&json_rpc::Notification::new("initialized", ()));
 
     loop {
-        let message = comms.receive_message::<serde_json::Value>();
-        let method = message.get("method").unwrap().as_str().unwrap();
-        match method {
+        let message = comms.receive_message::<json_rpc::Request<serde_json::Value>>();
+        match message.method.as_str() {
             "initialized" => {}
             "shutdown" => {
-                let shutdown: Request<()> = serde_json::from_value(message).unwrap();
-                comms.send_message(&Response {
-                    id: shutdown.id,
-                    jsonrpc: "2.0".into(),
-                    result: Some(serde_json::Value::Null),
-                    error: None,
-                });
-                comms.send_message(&Notification::<()> {
-                    method: String::from("exit"),
-                    params: None,
-                });
+                comms.send_message(&message.ok_response(()));
             }
             "exit" => return ExitCode::SUCCESS,
             _ => {
-                dbg!(message);
+                dbg!(&message);
+                if !message.id.is_null() {
+                    comms.send_message(&message.error_response(json_rpc::ResponseError {
+                        code: json_rpc::METHOD_NOT_FOUND,
+                        message: String::from("unknown method"),
+                        data: None,
+                    }));
+                }
             }
         }
     }
@@ -88,10 +47,11 @@ struct Comms {
 }
 
 impl Comms {
-    fn send_message<T: serde::Serialize>(&mut self, msg: &T) {
+    fn send_message<M: json_rpc::Message>(&mut self, msg: &M) {
         let out = serde_json::to_string(msg).unwrap();
         eprintln!("{out}");
         write!(self.stdout, "Content-Length: {}\r\n\r\n{out}", out.len()).unwrap();
+        self.stdout.flush().unwrap();
     }
 
     fn receive_header(&mut self) -> Header {
@@ -120,7 +80,7 @@ impl Comms {
         h
     }
 
-    fn receive_message<T: for<'de> serde::Deserialize<'de>>(&mut self) -> T {
+    fn receive_message<M: json_rpc::Message>(&mut self) -> M {
         let header = self.receive_header();
         let mut buf = vec![0u8; header.content_length];
         self.stdin.read_exact(&mut buf).unwrap();
