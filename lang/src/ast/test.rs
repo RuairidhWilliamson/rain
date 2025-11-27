@@ -95,3 +95,21 @@ fn pub_let() {
         "
     ));
 }
+
+#[test]
+fn let_type_spec() {
+    insta::assert_snapshot!(parse_display_script(
+        "
+        let a: B = 5
+        "
+    ));
+}
+
+#[test]
+fn fn_type_spec_args() {
+    insta::assert_snapshot!(parse_display_script(
+        "
+        fn foo(a: A, b: B) {}
+        "
+    ));
+}

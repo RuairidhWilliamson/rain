@@ -1,5 +1,8 @@
 use crate::{
-    ast::error::{ParseError, ParseResult},
+    ast::{
+        TypeSpec,
+        error::{ParseError, ParseResult},
+    },
     local_span::ErrorLocalSpan,
     tokens::{Token, TokenLocalSpan, peek::PeekTokenStream},
 };
@@ -86,12 +89,26 @@ impl<'src> ModuleParser<'src> {
             (None, token)
         };
         let name = self.stream.expect_parse_next(&[Token::Ident])?;
-        let equals_token = self.stream.expect_parse_next(&[Token::Assign])?;
+        let token = self
+            .stream
+            .expect_parse_next(&[Token::Colon, Token::Assign])?;
+        let (type_spec, equals_token) = if token.token == Token::Colon {
+            (
+                Some(TypeSpec {
+                    colon_token: token,
+                    type_expr: self.parse_expr()?,
+                }),
+                self.stream.expect_parse_next(&[Token::Assign])?,
+            )
+        } else {
+            (None, token)
+        };
         let expr = self.parse_expr()?;
         Ok(self.push(LetDeclare {
             pub_token,
             let_token,
             name,
+            type_spec,
             equals_token,
             expr,
         }))
@@ -115,10 +132,31 @@ impl<'src> ModuleParser<'src> {
                 _ => unreachable!("parse fn declare rparen"),
             }
             self.stream.parse_next()?;
-            args.push(FnDeclareArg { name: t });
-            let t = self.stream.expect_peek(&[Token::RParen, Token::Comma])?;
+            let name = t;
+            let mut t = self
+                .stream
+                .expect_peek(&[Token::RParen, Token::Comma, Token::Colon])?;
+            if t.token == Token::Colon {
+                self.stream.parse_next()?;
+                let expr = self.parse_expr()?;
+                args.push(FnDeclareArg {
+                    name,
+                    type_spec: Some(TypeSpec {
+                        colon_token: t,
+                        type_expr: expr,
+                    }),
+                });
+                t = self.stream.expect_peek(&[Token::RParen, Token::Comma])?;
+            } else {
+                args.push(FnDeclareArg {
+                    name,
+                    type_spec: None,
+                });
+            }
             match t.token {
-                Token::RParen => break,
+                Token::RParen => {
+                    break;
+                }
                 Token::Comma => {
                     self.stream.parse_next()?;
                 }

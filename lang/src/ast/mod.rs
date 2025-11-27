@@ -160,6 +160,7 @@ pub struct LetDeclare {
     pub pub_token: Option<TokenLocalSpan>,
     pub let_token: TokenLocalSpan,
     pub name: TokenLocalSpan,
+    pub type_spec: Option<TypeSpec>,
     pub equals_token: TokenLocalSpan,
     pub expr: NodeId,
 }
@@ -187,8 +188,18 @@ impl AstNode for LetDeclare {
         } else {
             b.child_str("private");
         }
-        b.child_contents(self.name.span).child(self.expr).finish()
+        b.child_contents(self.name.span);
+        if let Some(t) = &self.type_spec {
+            b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
+        }
+        b.child(self.expr).finish()
     }
+}
+
+#[derive(Debug)]
+pub struct TypeSpec {
+    pub colon_token: TokenLocalSpan,
+    pub type_expr: NodeId,
 }
 
 #[derive(Debug)]
@@ -225,13 +236,25 @@ impl AstNode for FnDeclare {
         } else {
             b.child_str("private");
         }
-        b.child_contents(self.name.span).child(self.block).finish()
+        b.child_contents(self.name.span);
+        b.child_fn(|f| {
+            let mut b = f.node("Args");
+            for arg in &self.args {
+                b.child_contents(arg.name.span);
+                if let Some(t) = &arg.type_spec {
+                    b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
+                }
+            }
+            b.finish()
+        });
+        b.child(self.block).finish()
     }
 }
 
 #[derive(Debug)]
 pub struct FnDeclareArg {
     pub name: TokenLocalSpan,
+    pub type_spec: Option<TypeSpec>,
 }
 
 #[derive(Debug)]

@@ -6,6 +6,8 @@ ModuleRoot(
  FnDeclare(
   private
   main
+  Args(
+  )
   Block(
    FnCall(
     Ident(

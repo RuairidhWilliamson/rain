@@ -1,0 +1,18 @@
+---
+source: lang/src/ast/test.rs
+expression: "parse_display_script(\"\n        let a: B = 5\n        \")"
+---
+ModuleRoot(
+ LetDeclare(
+  private
+  a
+  TypeSpec(
+   Ident(
+    B
+   )
+  )
+  IntegerLiteral(
+   5
+  )
+ )
+)
