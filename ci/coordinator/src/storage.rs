@@ -13,7 +13,7 @@ pub mod inner {
     use rain_ci_common::{FinishedRun, RunId};
 
     pub struct Storage {
-        pool: sqlx::PgPool,
+        pub pool: sqlx::PgPool,
     }
 
     impl Storage {

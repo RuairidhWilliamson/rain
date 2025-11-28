@@ -700,11 +700,11 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
                     } else {
                         Value::Integer(Arc::new(RainInteger(
                             n.as_i64()
-                                .map(|x| BigInt::from(x))
-                                .or_else(|| n.as_u64().map(|x| BigInt::from(x)))
-                                .or_else(|| n.as_i128().map(|x| BigInt::from(x)))
-                                .or_else(|| n.as_u128().map(|x| BigInt::from(x)))
-                                .unwrap(),
+                                .map(BigInt::from)
+                                .or_else(|| n.as_u64().map(BigInt::from))
+                                .or_else(|| n.as_i128().map(BigInt::from))
+                                .or_else(|| n.as_u128().map(BigInt::from))
+                                .expect("number not integer"),
                         )))
                     }
                 }

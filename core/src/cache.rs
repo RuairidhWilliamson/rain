@@ -3,7 +3,6 @@ pub mod persistent;
 use std::{
     collections::HashSet,
     num::NonZeroUsize,
-    os::unix::fs::{MetadataExt, PermissionsExt},
     path::Path,
     sync::{
         Arc, Mutex,
@@ -225,10 +224,10 @@ fn remove_dir_all_recursive(path: &Path) -> std::io::Result<u64> {
     let stat = std::fs::symlink_metadata(path)
         .inspect_err(|err| log::error!("metadata {path:?} error: {err}"))?;
     if stat.is_symlink() {
-        std::fs::remove_file(&path)?;
+        std::fs::remove_file(path)?;
         return Ok(0);
     }
-    ensure_writable(path, stat)
+    ensure_writable(path, &stat)
         .inspect_err(|err| log::error!("ensure writable {path:?} error: {err}"))?;
     for child in
         std::fs::read_dir(path).inspect_err(|err| log::error!("read dir {path:?} error: {err}"))?
@@ -249,12 +248,14 @@ fn remove_dir_all_recursive(path: &Path) -> std::io::Result<u64> {
 }
 
 #[cfg(not(target_family = "unix"))]
-fn ensure_writable(_path: &Path, _stat: std::fs::Metadata) -> std::io::Result<()> {
+fn ensure_writable(_path: &Path, _stat: &std::fs::Metadata) -> std::io::Result<()> {
     Ok(())
 }
 
 #[cfg(target_family = "unix")]
-fn ensure_writable(path: &Path, stat: std::fs::Metadata) -> std::io::Result<()> {
+fn ensure_writable(path: &Path, stat: &std::fs::Metadata) -> std::io::Result<()> {
+    use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
+
     assert!(!stat.is_symlink());
     let mode = stat.mode();
     if mode & 0o700 != 0o700 {

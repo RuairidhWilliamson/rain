@@ -1,7 +1,14 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::dbg_macro,
+    clippy::print_stderr,
+    clippy::print_stdout
+)]
+
 mod json_rpc;
 
 use std::{
-    io::{BufRead as _, Read, Stdin, Stdout, Write},
+    io::{BufRead as _, Read as _, Stdin, Stdout, Write as _},
     process::ExitCode,
 };
 

@@ -2,10 +2,14 @@ use std::borrow::Cow;
 
 use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 
+#[expect(dead_code)]
 pub const PARSE_ERROR: i64 = -32700;
+#[expect(dead_code)]
 pub const INVALID_REQUEST: i64 = -32600;
 pub const METHOD_NOT_FOUND: i64 = -32601;
+#[expect(dead_code)]
 pub const INVALID_PARAMS: i64 = -32602;
+#[expect(dead_code)]
 pub const INTERNAL_ERROR: i64 = -32603;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -22,7 +26,7 @@ impl<'de> Deserialize<'de> for JSONRPCVersion {
         let Inner(ver) = Inner::deserialize(deserializer)?;
 
         match ver.as_ref() {
-            "2.0" => Ok(JSONRPCVersion),
+            "2.0" => Ok(Self),
             _ => Err(serde::de::Error::custom(
                 "expected JSON-RPC version \"2.0\"",
             )),

@@ -88,7 +88,7 @@ impl AppClient {
             .await?)
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub async fn app_installations(&self) -> Result<Vec<super::model::Installation>> {
         Ok(self
             .reqwest_auth(self.client.get("https://api.github.com/app/installations"))?

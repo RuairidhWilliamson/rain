@@ -22,7 +22,7 @@ use runner::Runner;
 use secrecy::{ExposeSecret as _, SecretString};
 use tokio::task::JoinSet;
 
-use crate::storage::StorageTrait;
+use crate::storage::StorageTrait as _;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
@@ -89,23 +89,8 @@ async fn main() -> Result<()> {
             .database(&config.db_name),
     )
     .await?;
-    let ids = sqlx::query!("SELECT id FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run WHERE dequeued_at IS NOT NULL AND run IS NULL")
-        .fetch_all(&pool)
-        .await?;
     let storage = storage::inner::Storage::new(pool);
-    for row in ids {
-        storage
-            .finished_run(
-                &rain_ci_common::RunId(row.id),
-                rain_ci_common::FinishedRun {
-                    finished_at: chrono::Utc::now(),
-                    status: rain_ci_common::RunStatus::SystemFailure,
-                    execution_time: chrono::TimeDelta::zero(),
-                    output: String::from("run was cleaned up on coordinator startup"),
-                },
-            )
-            .await?;
-    }
+    cleanup_old_runs(&storage).await?;
 
     let (tx, mut rx) = tokio::sync::mpsc::channel(10);
     let server = Arc::new(server::Server {
@@ -117,20 +102,19 @@ async fn main() -> Result<()> {
         tx,
     });
     {
-        let server = server.clone();
+        let server = Arc::clone(&server);
         tokio::spawn(async move {
             loop {
                 let Some(check_suite_event) = rx.recv().await else {
                     error!("server recv channel closed");
                     return;
                 };
-                if let Err(err) = server
-                    .clone()
+                if let Err(err) = Arc::clone(&server)
                     .handle_check_suite_event(check_suite_event)
                     .await
                 {
                     error!("handle check suite event: {err}");
-                };
+                }
             }
         });
     }
@@ -164,4 +148,24 @@ async fn main() -> Result<()> {
             }
         });
     }
+}
+
+async fn cleanup_old_runs(storage: &storage::inner::Storage) -> Result<()> {
+    let ids = sqlx::query!("SELECT id FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run WHERE dequeued_at IS NOT NULL AND run IS NULL")
+        .fetch_all(&storage.pool)
+        .await?;
+    for row in ids {
+        storage
+            .finished_run(
+                &rain_ci_common::RunId(row.id),
+                rain_ci_common::FinishedRun {
+                    finished_at: chrono::Utc::now(),
+                    status: rain_ci_common::RunStatus::SystemFailure,
+                    execution_time: chrono::TimeDelta::zero(),
+                    output: String::from("run was cleaned up on coordinator startup"),
+                },
+            )
+            .await?;
+    }
+    Ok(())
 }
