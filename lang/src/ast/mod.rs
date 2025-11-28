@@ -86,6 +86,7 @@ pub enum Node {
     ModuleRoot(ModuleRoot),
     LetDeclare(LetDeclare),
     FnDeclare(FnDeclare),
+    AnonymousFnDeclare(AnonymousFnDeclare),
     Block(Block),
     IfCondition(IfCondition),
     FnCall(FnCall),
@@ -122,6 +123,7 @@ impl Node {
             Self::InternalLiteral(inner) => inner,
             Self::Record(inner) => inner,
             Self::List(inner) => inner,
+            Self::AnonymousFnDeclare(inner) => inner,
         }
     }
 
@@ -200,6 +202,42 @@ impl AstNode for LetDeclare {
 pub struct TypeSpec {
     pub colon_token: TokenLocalSpan,
     pub type_expr: NodeId,
+}
+
+#[derive(Debug)]
+pub struct AnonymousFnDeclare {
+    pub fn_token: TokenLocalSpan,
+    pub lparen_token: TokenLocalSpan,
+    pub args: Vec<FnDeclareArg>,
+    pub rparen_token: TokenLocalSpan,
+    pub block: NodeId,
+}
+
+impl From<AnonymousFnDeclare> for Node {
+    fn from(inner: AnonymousFnDeclare) -> Self {
+        Self::AnonymousFnDeclare(inner)
+    }
+}
+
+impl AstNode for AnonymousFnDeclare {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        self.fn_token.span + list.span(self.block)
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        let mut b = f.node("AnonymousFnDeclare");
+        b.child_fn(|f| {
+            let mut b = f.node("Args");
+            for arg in &self.args {
+                b.child_contents(arg.name.span);
+                if let Some(t) = &arg.type_spec {
+                    b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
+                }
+            }
+            b.finish()
+        });
+        b.child(self.block).finish()
+    }
 }
 
 #[derive(Debug)]

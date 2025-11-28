@@ -1,0 +1,33 @@
+---
+source: lang/src/ast/parser.rs
+expression: "parse_display_expr(\"fn (a: A, b: B) { 5 }(a, b)\")"
+---
+FnCall(
+ AnonymousFnDeclare(
+  Args(
+   a
+   TypeSpec(
+    Ident(
+     A
+    )
+   )
+   b
+   TypeSpec(
+    Ident(
+     B
+    )
+   )
+  )
+  Block(
+   IntegerLiteral(
+    5
+   )
+  )
+ )
+ Ident(
+  a
+ )
+ Ident(
+  b
+ )
+)

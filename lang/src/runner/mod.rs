@@ -202,6 +202,7 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
             }
             Node::LetDeclare(_) => unreachable!("can't evaluate let declare"),
             Node::FnDeclare(_) => unreachable!("can't evaluate fn declare"),
+            Node::AnonymousFnDeclare(_) => todo!("implmement anonymous fn declare"),
             Node::Block(block) => {
                 for nid in &block.statements {
                     let v = self.evaluate_node(cx, *nid)?;

@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        TypeSpec,
+        FnDeclare, TypeSpec,
         error::{ParseError, ParseResult},
     },
     local_span::ErrorLocalSpan,
@@ -8,10 +8,10 @@ use crate::{
 };
 
 use super::{
-    AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, FalseLiteral, FnCall,
-    FnDeclare, FnDeclareArg, Ident, IfCondition, IntegerLiteral, InternalLiteral, LetDeclare, List,
-    ListElement, Module, ModuleRoot, Node, NodeId, NodeList, Not, Record, RecordField,
-    StringLiteral, TrueLiteral,
+    AlternateCondition, AnonymousFnDeclare, Assignment, BinaryOp, BinaryOperatorKind, Block,
+    FalseLiteral, FnCall, FnDeclareArg, Ident, IfCondition, IntegerLiteral, InternalLiteral,
+    LetDeclare, List, ListElement, Module, ModuleRoot, Node, NodeId, NodeList, Not, Record,
+    RecordField, StringLiteral, TrueLiteral,
 };
 
 pub fn parse_module(source: &str) -> ParseResult<Module> {
@@ -177,6 +177,60 @@ impl<'src> ModuleParser<'src> {
         }))
     }
 
+    fn parse_anonymous_fn_declare(&mut self, fn_token: TokenLocalSpan) -> ParseResult<NodeId> {
+        let lparen_token = self.stream.expect_parse_next(&[Token::LParen])?;
+        let mut args = Vec::new();
+        loop {
+            let t = self.stream.expect_peek(&[Token::RParen, Token::Ident])?;
+            match t.token {
+                Token::RParen => break,
+                Token::Ident => {}
+                _ => unreachable!("parse fn declare rparen"),
+            }
+            self.stream.parse_next()?;
+            let name = t;
+            let mut t = self
+                .stream
+                .expect_peek(&[Token::RParen, Token::Comma, Token::Colon])?;
+            if t.token == Token::Colon {
+                self.stream.parse_next()?;
+                let expr = self.parse_expr()?;
+                args.push(FnDeclareArg {
+                    name,
+                    type_spec: Some(TypeSpec {
+                        colon_token: t,
+                        type_expr: expr,
+                    }),
+                });
+                t = self.stream.expect_peek(&[Token::RParen, Token::Comma])?;
+            } else {
+                args.push(FnDeclareArg {
+                    name,
+                    type_spec: None,
+                });
+            }
+            match t.token {
+                Token::RParen => {
+                    break;
+                }
+                Token::Comma => {
+                    self.stream.parse_next()?;
+                }
+                _ => unreachable!("parse fn declare rparen"),
+            }
+        }
+
+        let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?;
+        let block = self.parse_block()?;
+        Ok(self.push(AnonymousFnDeclare {
+            fn_token,
+            lparen_token,
+            args,
+            rparen_token,
+            block,
+        }))
+    }
+
     fn parse_block(&mut self) -> ParseResult<NodeId> {
         let lbrace_token = self.stream.expect_parse_next(&[Token::LBrace])?;
         let mut statements = Vec::new();
@@ -257,6 +311,7 @@ impl<'src> ModuleParser<'src> {
                 .with_error(ParseError::ExpectedExpression));
         };
         let expr = match t.token {
+            Token::Fn => self.parse_anonymous_fn_declare(t)?,
             Token::Ident => self.push(Ident(t)),
             Token::Number => self.push(IntegerLiteral(t)),
             Token::DoubleQuoteLiteral(_) => self.push(StringLiteral(t)),
@@ -775,5 +830,15 @@ mod test {
     #[test]
     fn greater_than_eq() {
         insta::assert_snapshot!(parse_display_expr("a >= b"));
+    }
+
+    #[test]
+    fn closure() {
+        insta::assert_snapshot!(parse_display_expr("fn () {}"))
+    }
+
+    #[test]
+    fn closure_args() {
+        insta::assert_snapshot!(parse_display_expr("fn (a: A, b: B) { 5 }(a, b)"))
     }
 }
