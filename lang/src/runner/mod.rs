@@ -27,6 +27,7 @@ use crate::{
     ir::{DeclarationId, Rir},
     local_span::LocalSpan,
     runner::{
+        cache::CacheTrait,
         cx::{Cx, StacktraceEntry},
         value::Closure,
     },
@@ -37,17 +38,16 @@ const MAX_CALL_DEPTH: usize = 250;
 type ResultValue = Result<Value>;
 type Result<T, E = ErrorTrace<Throwing>> = core::result::Result<T, E>;
 
-pub struct Runner<'a, D> {
+pub struct Runner<'a, Driver, Cache> {
     pub ir: &'a mut Rir,
-    // TODO: Maybe make this generic instead of dynamic dispatch
-    pub cache: &'a dyn cache::CacheTrait,
-    pub driver: &'a D,
+    pub cache: &'a Cache,
+    pub driver: &'a Driver,
     pub offline: bool,
     pub seal: bool,
 }
 
-impl<'a, D: DriverTrait> Runner<'a, D> {
-    pub fn new(rir: &'a mut Rir, cache: &'a dyn cache::CacheTrait, driver: &'a D) -> Self {
+impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
+    pub fn new(rir: &'a mut Rir, cache: &'a Cache, driver: &'a Driver) -> Self {
         Self {
             ir: rir,
             cache,

@@ -20,7 +20,7 @@ use crate::{
     },
     ast::{Declaration, FnCall, Node, NodeId},
     driver::{DriverTrait, FSEntryQueryResult},
-    runner::cx::StacktraceEntry,
+    runner::{cache::CacheTrait, cx::StacktraceEntry},
 };
 
 use super::{
@@ -154,7 +154,10 @@ impl InternalFunction {
         }
     }
 
-    pub fn call_internal_function<D: DriverTrait>(self, icx: InternalCx<D>) -> ResultValue {
+    pub fn call_internal_function<Driver: DriverTrait, Cache: CacheTrait>(
+        self,
+        icx: InternalCx<Driver, Cache>,
+    ) -> ResultValue {
         match self {
             Self::Print => icx.print(),
             Self::Debug => icx.debug(),
@@ -284,16 +287,16 @@ fn enter_call(driver: &dyn DriverTrait, s: String) -> Call<'_> {
 }
 
 // TODO: Cleanup all those lifetimes :o
-pub struct InternalCx<'a, 'b, 'c, 'd, 'e, D> {
+pub struct InternalCx<'a, 'b, 'c, 'd, 'e, Driver, Cache> {
     pub func: InternalFunction,
-    pub runner: &'a mut super::Runner<'e, D>,
+    pub runner: &'a mut super::Runner<'e, Driver, Cache>,
     pub cx: &'c mut Cx<'b>,
     pub nid: NodeId,
     pub fn_call: &'d FnCall,
     pub arg_values: Vec<(NodeId, Value)>,
 }
 
-impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
+impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driver, Cache> {
     fn no_args(&self) -> Result<()> {
         if self.arg_values.is_empty() {
             Ok(())

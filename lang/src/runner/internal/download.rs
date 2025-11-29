@@ -4,6 +4,7 @@ use chrono::Utc;
 use indexmap::IndexMap;
 
 use crate::driver::{DownloadStatus, DriverTrait};
+use crate::runner::cache::CacheTrait;
 use crate::runner::{
     ResultValue,
     cache::{CacheEntry, CacheKey},
@@ -13,7 +14,7 @@ use crate::runner::{
 
 use super::{InternalCx, enter_call};
 
-impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
+impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driver, Cache> {
     pub fn download(self) -> ResultValue {
         match &self.arg_values[..] {
             [(url_nid, url_value), (name_nid, name_value)] => {

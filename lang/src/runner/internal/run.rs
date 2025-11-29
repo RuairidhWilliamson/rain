@@ -8,7 +8,7 @@ use crate::{
     afs::{dir::Dir, entry::FSEntryTrait as _},
     ast::NodeId,
     driver::{DriverTrait, RunOptions},
-    runner::dep::Dep,
+    runner::{cache::CacheTrait, dep::Dep},
 };
 
 use crate::runner::{
@@ -19,7 +19,7 @@ use crate::runner::{
 
 use super::{InternalCx, enter_call};
 
-impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
+impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driver, Cache> {
     pub fn run(self) -> ResultValue {
         match &self.arg_values[..] {
             [
