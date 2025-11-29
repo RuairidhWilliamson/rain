@@ -129,7 +129,6 @@ fn double_quote_literal() {
         Token::DoubleQuoteLiteral(Some(crate::tokens::StringLiteralPrefix::Format))
     );
     assert_tokens!("\"he\\\"i\"", Token::DoubleQuoteLiteral(None));
-    // FIXME: This is incorrect, we should map \n to a newline
     assert_tokens!("\"he\\ni\"", Token::DoubleQuoteLiteral(None));
     assert_tokens!("\"he\\\\ni\"", Token::DoubleQuoteLiteral(None));
 }

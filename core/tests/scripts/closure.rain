@@ -1,4 +1,4 @@
-fn main() {
+let main = fn() {
     a = "hi"
     cb = fn(x) {[a, x]}
     internal._flatten(internal._foreach(["joe", "susan"], cb))

@@ -61,13 +61,13 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         let m = Arc::clone(self.ir.get_module(id.module_id()));
         let mut initial_cx = Cx::new(&m, 0, HashMap::new(), Vec::new());
         let v = self.evaluate_declaration(&mut initial_cx, id)?;
-        let Value::Function(f) = v else {
-            return Ok(v);
-        };
-        let m = &Arc::clone(self.ir.get_module(f.module_id()));
-        let declaration = m.get_declaration(f.local_id());
-        match declaration {
-            Declaration::FnDeclare(fn_declare) => {
+        match v {
+            Value::Function(f) => {
+                let m = Arc::clone(self.ir.get_module(f.module_id()));
+                let declaration = m.get_declaration(f.local_id());
+                let Declaration::FnDeclare(fn_declare) = declaration else {
+                    unreachable!()
+                };
                 if fn_declare.args.len() != args.len() {
                     return Err(fn_declare
                         .rparen_token
@@ -93,10 +93,43 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         )
                     })
                     .collect();
-                let mut cx = Cx::new(m, 0, args, vec![]);
+                let mut cx = Cx::new(&m, 0, args, vec![]);
                 self.evaluate_node(&mut cx, fn_declare.block)
             }
-            Declaration::LetDeclare(_) => unreachable!(),
+            Value::Closure(closure) => {
+                let m = Arc::clone(self.ir.get_module(closure.module));
+                let Node::Closure(closure_declare) = m.get(closure.node) else {
+                    unreachable!()
+                };
+                if closure_declare.args.len() != args.len() {
+                    return Err(closure_declare
+                        .rparen_token
+                        .span
+                        .with_module(m.id)
+                        .with_error(
+                            RunnerError::IncorrectArgs {
+                                required: closure_declare.args.len()..=closure_declare.args.len(),
+                                actual: args.len(),
+                            }
+                            .into(),
+                        )
+                        .with_trace(Vec::new()));
+                }
+                let args = closure_declare
+                    .args
+                    .iter()
+                    .zip(args)
+                    .map(|(a, v)| {
+                        (
+                            a.name.span.contents(&m.src),
+                            Value::String(Arc::new(v.clone())),
+                        )
+                    })
+                    .collect();
+                let mut cx = Cx::new(&m, 0, args, vec![]);
+                self.evaluate_node(&mut cx, closure_declare.block)
+            }
+            _ => Ok(v),
         }
     }
 
