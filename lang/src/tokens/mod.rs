@@ -54,7 +54,7 @@ pub enum Token {
     LessEq,
     GreaterEq,
 
-    // Keywords that maybe used in the future
+    // Keywords that may be used in the future
     Reserved,
     // Keywords
     Fn,
