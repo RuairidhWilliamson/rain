@@ -14,87 +14,131 @@ use std::{
 };
 
 use lsp_types::{DidOpenTextDocumentParams, Hover, HoverParams, HoverProviderCapability};
-use rain_lang::local_span::LocalSpan;
+use rain_lang::{ast::Module, local_span::LocalSpan};
+
+use crate::json_rpc::{Notification, Request};
 
 fn main() -> ExitCode {
-    let mut comms = Comms {
-        stdin: std::io::stdin(),
-        stdout: std::io::stdout(),
-    };
-    let initialize = comms.receive_message::<json_rpc::Request<lsp_types::InitializeParams>>();
-    comms.send_message(&initialize.ok_response(lsp_types::InitializeResult {
-        capabilities: lsp_types::ServerCapabilities {
-            hover_provider: Some(HoverProviderCapability::Simple(true)),
-            ..Default::default()
+    let server = Server {
+        comms: Comms {
+            stdin: std::io::stdin(),
+            stdout: std::io::stdout(),
         },
-        server_info: None,
-    }));
-    comms.send_message(&json_rpc::Notification::<()>::new("initialized", None));
+        text_documents: HashMap::new(),
+    };
+    server.run()
+}
 
-    let mut text_documents = HashMap::new();
+struct Server {
+    comms: Comms,
+    text_documents: HashMap<String, TextDocument>,
+}
 
-    loop {
-        let message = comms.receive_message::<json_rpc::Request<serde_json::Value>>();
-        match message.method.as_ref() {
-            "initialized" => {}
-            "shutdown" => {
-                comms.send_message(&message.ok_response(()));
-            }
-            "textDocument/didOpen" => {
-                let message = message
-                    .cast_params::<DidOpenTextDocumentParams>()
-                    .unwrap()
-                    .assert_notification();
-                let params = message.params.unwrap();
-                text_documents.insert(params.text_document.uri, params.text_document.text);
-            }
-            "textDocument/hover" => {
-                let message = message.cast_params::<HoverParams>().unwrap();
-                let params = message.params.clone().unwrap();
-                let src = text_documents
-                    .get(&params.text_document_position_params.text_document.uri)
-                    .unwrap();
-                let span = LocalSpan::byte_from_line_colz(
-                    src,
-                    params.text_document_position_params.position.line as usize,
-                    params.text_document_position_params.position.character as usize,
-                )
-                .unwrap();
-                let module = rain_lang::ast::parser::parse_module(src).unwrap();
-                let node = module.find_node_by_span(span).unwrap();
-                let display = module.display_node(src, node);
-                let node_span = module.span(node);
-                let (start_line, start_col) = node_span.start_line_colz(src);
-                let (end_line, end_col) = node_span.end_line_colz(src);
+struct TextDocument {
+    src: String,
+    module: Module,
+}
 
-                comms.send_message(&message.ok_response(Hover {
-                    contents: lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(
-                        display,
-                    )),
-                    range: Some(lsp_types::Range {
-                        start: lsp_types::Position {
-                            line: start_line as u32,
-                            character: start_col as u32,
-                        },
-                        end: lsp_types::Position {
-                            line: end_line as u32,
-                            character: end_col as u32,
-                        },
-                    }),
-                }));
-            }
-            "exit" => return ExitCode::SUCCESS,
-            _ => {
-                dbg!(&message);
-                if !message.id.is_null() {
-                    comms.send_message(&message.error_response(json_rpc::ResponseError {
-                        code: json_rpc::METHOD_NOT_FOUND,
-                        message: String::from("unknown method"),
-                        data: None,
-                    }));
+impl Server {
+    fn run(mut self) -> ExitCode {
+        let initialize = self
+            .comms
+            .receive_message::<json_rpc::Request<lsp_types::InitializeParams>>();
+        self.comms
+            .send_message(&initialize.ok_response(lsp_types::InitializeResult {
+                capabilities: lsp_types::ServerCapabilities {
+                    hover_provider: Some(HoverProviderCapability::Simple(true)),
+                    ..Default::default()
+                },
+                server_info: None,
+            }));
+        self.comms
+            .send_message(&json_rpc::Notification::<()>::new("initialized", None));
+
+        loop {
+            let message = self
+                .comms
+                .receive_message::<json_rpc::Request<serde_json::Value>>();
+            match message.method.as_ref() {
+                "initialized" => {}
+                "shutdown" => {
+                    self.comms.send_message(&message.ok_response(()));
+                }
+                "textDocument/didOpen" => {
+                    let message = message
+                        .cast_params::<DidOpenTextDocumentParams>()
+                        .unwrap()
+                        .assert_notification();
+                    self.handle_did_open(message);
+                }
+                "textDocument/hover" => {
+                    let message = message.cast_params::<HoverParams>().unwrap();
+                    self.handle_hover(message);
+                }
+                "exit" => return ExitCode::SUCCESS,
+                _ => {
+                    dbg!(&message);
+                    if !message.id.is_null() {
+                        self.comms
+                            .send_message(&message.error_response(json_rpc::ResponseError {
+                                code: json_rpc::METHOD_NOT_FOUND,
+                                message: String::from("unknown method"),
+                                data: None,
+                            }));
+                    }
                 }
             }
         }
+    }
+
+    fn handle_did_open(&mut self, message: Notification<DidOpenTextDocumentParams>) {
+        let params = message.params.unwrap();
+        let src = params.text_document.text;
+        let module = rain_lang::ast::parser::parse_module(&src).unwrap();
+        self.text_documents.insert(
+            params.text_document.uri.to_string(),
+            TextDocument { src, module },
+        );
+    }
+
+    fn handle_hover(&mut self, message: Request<HoverParams>) {
+        let params = message.params.clone().unwrap();
+        let entry = self
+            .text_documents
+            .get(
+                &params
+                    .text_document_position_params
+                    .text_document
+                    .uri
+                    .to_string(),
+            )
+            .unwrap();
+        let src = &entry.src;
+        let span = LocalSpan::byte_from_line_colz(
+            src,
+            params.text_document_position_params.position.line as usize,
+            params.text_document_position_params.position.character as usize,
+        )
+        .unwrap();
+        let node = entry.module.find_node_by_span(span).unwrap();
+        let display = entry.module.display_node(src, node);
+        let node_span = entry.module.span(node);
+        let (start_line, start_col) = node_span.start_line_colz(src);
+        let (end_line, end_col) = node_span.end_line_colz(src);
+
+        self.comms.send_message(&message.ok_response(Hover {
+            contents: lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(display)),
+            range: Some(lsp_types::Range {
+                start: lsp_types::Position {
+                    line: start_line as u32,
+                    character: start_col as u32,
+                },
+                end: lsp_types::Position {
+                    line: end_line as u32,
+                    character: end_col as u32,
+                },
+            }),
+        }));
     }
 }
 
@@ -106,7 +150,6 @@ struct Comms {
 impl Comms {
     fn send_message<M: json_rpc::Message>(&mut self, msg: &M) {
         let out = serde_json::to_string(msg).unwrap();
-        eprintln!("{out}");
         write!(self.stdout, "Content-Length: {}\r\n\r\n{out}", out.len()).unwrap();
         self.stdout.flush().unwrap();
     }

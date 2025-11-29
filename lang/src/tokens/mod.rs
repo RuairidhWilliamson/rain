@@ -70,6 +70,7 @@ pub enum Token {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StringLiteralPrefix {
     Format,
+    Raw,
 }
 
 impl StringLiteralPrefix {

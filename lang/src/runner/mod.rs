@@ -4,13 +4,18 @@ pub mod error;
 pub mod internal;
 pub mod value;
 
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{
+    collections::HashMap,
+    sync::{Arc, LazyLock},
+    time::Instant,
+};
 
 use cache::CacheEntry;
 use dep::Dep;
 use error::{ErrorTrace, RunnerError, Throwing};
 use indexmap::IndexMap;
 use internal::InternalFunction;
+use regex::Regex;
 use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
 
 use crate::{
@@ -229,19 +234,15 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                     let contents = lit.content_span().contents(&cx.module.src);
                     todo!("format strings not implemented: {contents}")
                 }
+                Some(crate::tokens::StringLiteralPrefix::Raw) => {
+                    let contents = lit.content_span().contents(&cx.module.src);
+                    Ok(Value::String(Arc::new(contents.to_string())))
+                }
                 None => {
                     let contents = lit.content_span().contents(&cx.module.src);
-                    // TODO: Improve escaping
-                    let re = regex::Regex::new("\\\\.").expect("compile regex");
-                    let contents = re.replace_all(contents, |c: &regex::Captures<'_>| -> &str {
-                        match c[0].chars().last().expect("last char") {
-                            '"' => "\"",
-                            'n' => "\n",
-                            't' => "\t",
-                            c => todo!("escaping not implemented for {c}"),
-                        }
-                    });
-                    Ok(Value::String(Arc::new(contents.to_string())))
+                    Ok(Value::String(Arc::new(EscapeReplacer::replace_all(
+                        contents,
+                    ))))
                 }
             },
             Node::IntegerLiteral(tls) => Ok(Value::Integer(Arc::new(RainInteger(
@@ -576,5 +577,35 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 None => Ok(Value::Unit),
             }
         }
+    }
+}
+
+struct EscapeReplacer;
+
+impl EscapeReplacer {
+    fn regex() -> &'static regex::Regex {
+        static REGEX: LazyLock<regex::Regex> =
+            LazyLock::new(|| Regex::new("\\\\.").expect("compile regex"));
+        &REGEX
+    }
+
+    fn replace_all(contents: &str) -> String {
+        Self::regex().replace_all(contents, Self).into_owned()
+    }
+}
+
+impl regex::Replacer for EscapeReplacer {
+    fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
+        let s = &caps[0];
+        let replaced = match s.chars().last().expect("last char") {
+            '"' => "\"",
+            'n' => "\n",
+            't' => "\t",
+            'r' => "\r",
+            '\\' => "\\",
+            '0' => "\0",
+            _ => s,
+        };
+        dst.push_str(replaced);
     }
 }

@@ -55,3 +55,8 @@ fn create_area() {
 fn cache_deps() {
     insta::assert_debug_snapshot!(run("tests/scripts/cache_deps.rain").unwrap());
 }
+
+#[test]
+fn strings() {
+    insta::assert_debug_snapshot!(run("tests/scripts/strings.rain").unwrap());
+}
