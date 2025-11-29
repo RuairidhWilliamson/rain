@@ -6,7 +6,7 @@ use crate::{
     driver::FSEntryQueryResult,
     error::{ResolvedError, ResolvedSpan},
     ir::Rir,
-    runner::StacktraceEntry,
+    runner::cx::StacktraceEntry,
     span::ErrorSpan,
 };
 

@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod cx;
 pub mod dep;
 pub mod error;
 pub mod internal;
@@ -11,7 +12,6 @@ use std::{
 };
 
 use cache::CacheEntry;
-use dep::Dep;
 use error::{ErrorTrace, RunnerError, Throwing};
 use indexmap::IndexMap;
 use internal::InternalFunction;
@@ -19,74 +19,20 @@ use regex::Regex;
 use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
 
 use crate::{
-    afs::area::FileArea,
     ast::{
         AlternateCondition, BinaryOp, BinaryOperatorKind, Declaration, FnCall, IfCondition, Node,
         NodeId, Not,
     },
     driver::DriverTrait,
-    ir::{DeclarationId, IrModule, ModuleId, Rir},
+    ir::{DeclarationId, Rir},
     local_span::LocalSpan,
+    runner::cx::{Cx, StacktraceEntry},
 };
 
 const MAX_CALL_DEPTH: usize = 250;
 
 type ResultValue = Result<Value>;
 type Result<T, E = ErrorTrace<Throwing>> = core::result::Result<T, E>;
-
-pub struct Cx<'a> {
-    module: &'a Arc<IrModule>,
-    call_depth: usize,
-    locals: HashMap<&'a str, Value>,
-    args: HashMap<&'a str, Value>,
-    deps: Vec<dep::Dep>,
-    previous_line: Option<Value>,
-    stacktrace: Vec<StacktraceEntry>,
-}
-
-#[derive(Debug, Clone)]
-pub struct StacktraceEntry {
-    m: ModuleId,
-    n: NodeId,
-    d: DeclarationId,
-}
-
-impl<'a> Cx<'a> {
-    fn new(
-        module: &'a Arc<IrModule>,
-        call_depth: usize,
-        args: HashMap<&'a str, Value>,
-        stacktrace: Vec<StacktraceEntry>,
-    ) -> Self {
-        Self {
-            module,
-            call_depth,
-            args,
-            locals: HashMap::new(),
-            deps: Vec::new(),
-            previous_line: None,
-            stacktrace,
-        }
-    }
-
-    fn err(&self, s: impl Into<LocalSpan>, err: RunnerError) -> ErrorTrace<Throwing> {
-        s.into()
-            .with_module(self.module.id)
-            .with_error(err.into())
-            .with_trace(self.stacktrace.clone())
-    }
-
-    fn nid_err(&self, nid: impl Into<NodeId>, err: RunnerError) -> ErrorTrace<Throwing> {
-        self.err(self.module.span(nid.into()), err)
-    }
-
-    fn add_dep_file_area(&mut self, area: &FileArea) {
-        match area {
-            FileArea::Local(_) => self.deps.push(Dep::LocalArea),
-            FileArea::Generated(_) => (),
-        }
-    }
-}
 
 pub struct Runner<'a, D> {
     pub ir: &'a mut Rir,

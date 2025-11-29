@@ -2,7 +2,7 @@ use crate::{
     error::{ResolvedError, ResolvedSpan},
     ir::{ModuleId, Rir},
     local_span::LocalSpan,
-    runner::{StacktraceEntry, error::ErrorTrace},
+    runner::{cx::StacktraceEntry, error::ErrorTrace},
 };
 
 #[derive(Debug)]

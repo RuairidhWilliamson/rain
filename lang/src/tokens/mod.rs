@@ -1,9 +1,9 @@
-use crate::local_span::LocalSpan;
-
 pub mod peek;
 pub mod stream;
 #[cfg(test)]
 mod test;
+
+use crate::local_span::LocalSpan;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Token {

@@ -4,3 +4,4 @@ tarpaulin-report.html
 secrets.toml
 /tree-sitter-rain/src/parser.c
 secrets/
+.zed

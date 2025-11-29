@@ -53,7 +53,6 @@ pub struct Request<T> {
 }
 
 impl Request<serde_json::Value> {
-    #[must_use]
     pub fn cast_params<U: DeserializeOwned>(self) -> serde_json::Result<Request<U>> {
         let Self {
             id,

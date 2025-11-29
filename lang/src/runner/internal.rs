@@ -20,12 +20,13 @@ use crate::{
     },
     ast::{Declaration, FnCall, NodeId},
     driver::{DriverTrait, FSEntryQueryResult},
-    runner::StacktraceEntry,
+    runner::cx::StacktraceEntry,
 };
 
 use super::{
-    Cx, Result, ResultValue,
+    Result, ResultValue,
     cache::{CacheEntry, CacheKey},
+    cx::Cx,
     dep::Dep,
     error::{RunnerError, Throwing},
     value::{RainInteger, RainList, RainRecord, RainTypeId, Value},

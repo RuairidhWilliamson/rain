@@ -130,12 +130,12 @@ impl Server {
             contents: lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(display)),
             range: Some(lsp_types::Range {
                 start: lsp_types::Position {
-                    line: start_line as u32,
-                    character: start_col as u32,
+                    line: start_line.try_into().unwrap(),
+                    character: start_col.try_into().unwrap(),
                 },
                 end: lsp_types::Position {
-                    line: end_line as u32,
-                    character: end_col as u32,
+                    line: end_line.try_into().unwrap(),
+                    character: end_col.try_into().unwrap(),
                 },
             }),
         }));
@@ -161,9 +161,7 @@ impl Comms {
             self.stdin.lock().read_until(b'\r', &mut buf).unwrap();
             let mut newline_buf = [0u8; 1];
             self.stdin.read_exact(&mut newline_buf[..]).unwrap();
-            if newline_buf[0] != b'\n' {
-                panic!("missing newline");
-            }
+            assert_eq!(newline_buf[0], b'\n', "missing newline");
             let s = std::str::from_utf8(&buf[..buf.len() - 1]).unwrap();
             if s.is_empty() {
                 break;
