@@ -17,13 +17,13 @@ trait AstNode {
 
 #[derive(Debug)]
 pub struct Module {
-    pub root: NodeId,
+    pub root: ModuleRoot,
     nodes: NodeList,
 }
 
 impl Module {
     pub fn display(&self, src: &str) -> String {
-        self.nodes.display(src, self.root)
+        self.nodes.display(src, &self.root)
     }
 
     pub fn get(&self, id: NodeId) -> &Node {
@@ -44,7 +44,7 @@ impl Module {
     }
 
     pub fn display_node(&self, src: &str, id: NodeId) -> String {
-        self.nodes.display(src, id)
+        self.nodes.display(src, self.nodes.get(id).ast_node())
     }
 }
 
@@ -58,11 +58,10 @@ impl NodeList {
         Self { nodes: Vec::new() }
     }
 
-    fn display(&self, src: &str, id: NodeId) -> String {
-        let node = self.get(id);
+    fn display(&self, src: &str, target: &dyn AstNode) -> String {
         let mut buf = String::new();
         let mut f = display::AstFormatter::new(src, &mut buf, self);
-        node.ast_display(&mut f).expect("display write");
+        target.ast_display(&mut f).expect("display write");
         buf
     }
 
@@ -95,10 +94,22 @@ impl From<&Self> for NodeId {
 }
 
 #[derive(Debug)]
-pub enum Node {
-    ModuleRoot(ModuleRoot),
+pub enum Declaration {
     LetDeclare(LetDeclare),
     FnDeclare(FnDeclare),
+}
+
+impl Declaration {
+    fn ast_node(&self) -> &dyn AstNode {
+        match self {
+            Self::FnDeclare(inner) => inner,
+            Self::LetDeclare(inner) => inner,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Node {
     AnonymousFnDeclare(AnonymousFnDeclare),
     Block(Block),
     IfCondition(IfCondition),
@@ -119,9 +130,6 @@ pub enum Node {
 impl Node {
     fn ast_node(&self) -> &dyn AstNode {
         match self {
-            Self::ModuleRoot(inner) => inner,
-            Self::LetDeclare(inner) => inner,
-            Self::FnDeclare(inner) => inner,
             Self::Block(inner) => inner,
             Self::IfCondition(inner) => inner,
             Self::FnCall(inner) => inner,
@@ -151,22 +159,18 @@ impl Node {
 
 #[derive(Debug)]
 pub struct ModuleRoot {
-    pub declarations: Vec<NodeId>,
-}
-
-impl From<ModuleRoot> for Node {
-    fn from(inner: ModuleRoot) -> Self {
-        Self::ModuleRoot(inner)
-    }
+    pub declarations: Vec<Declaration>,
 }
 
 impl AstNode for ModuleRoot {
     fn span(&self, list: &NodeList) -> LocalSpan {
-        LocalSpan::span_iter(self.declarations.iter().map(|&nid| list.span(nid)))
+        LocalSpan::span_iter(self.declarations.iter().map(|d| d.ast_node().span(list)))
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        f.node("ModuleRoot").children(&self.declarations).finish()
+        f.node("ModuleRoot")
+            .children_ast(self.declarations.iter().map(Declaration::ast_node))
+            .finish()
     }
 }
 
@@ -178,12 +182,6 @@ pub struct LetDeclare {
     pub type_spec: Option<TypeSpec>,
     pub equals_token: TokenLocalSpan,
     pub expr: NodeId,
-}
-
-impl From<LetDeclare> for Node {
-    fn from(inner: LetDeclare) -> Self {
-        Self::LetDeclare(inner)
-    }
 }
 
 impl AstNode for LetDeclare {
@@ -262,12 +260,6 @@ pub struct FnDeclare {
     pub args: Vec<FnDeclareArg>,
     pub rparen_token: TokenLocalSpan,
     pub block: NodeId,
-}
-
-impl From<FnDeclare> for Node {
-    fn from(inner: FnDeclare) -> Self {
-        Self::FnDeclare(inner)
-    }
 }
 
 impl AstNode for FnDeclare {

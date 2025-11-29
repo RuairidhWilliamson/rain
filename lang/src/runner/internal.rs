@@ -18,7 +18,7 @@ use crate::{
         file::File,
         path::SealedFilePath,
     },
-    ast::{FnCall, Node, NodeId},
+    ast::{Declaration, FnCall, NodeId},
     driver::{DriverTrait, FSEntryQueryResult},
     runner::StacktraceEntry,
 };
@@ -1222,9 +1222,8 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
             }
             let start = Instant::now();
             let m = &Arc::clone(self.runner.ir.get_module(func.module_id()));
-            let nid = m.get_declaration(func.local_id());
-            let node = m.get(nid);
-            let Node::FnDeclare(fn_declare) = node else {
+            let declaration = m.get_declaration(func.local_id());
+            let Declaration::FnDeclare(fn_declare) = declaration else {
                 unreachable!();
             };
             let function_name = fn_declare.name.span.contents(&m.src);

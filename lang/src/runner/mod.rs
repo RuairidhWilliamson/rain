@@ -21,7 +21,8 @@ use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
 use crate::{
     afs::area::FileArea,
     ast::{
-        AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId, Not,
+        AlternateCondition, BinaryOp, BinaryOperatorKind, Declaration, FnCall, IfCondition, Node,
+        NodeId, Not,
     },
     driver::DriverTrait,
     ir::{DeclarationId, IrModule, ModuleId, Rir},
@@ -114,10 +115,9 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
             return Ok(v);
         };
         let m = &Arc::clone(self.ir.get_module(f.module_id()));
-        let nid = m.get_declaration(f.local_id());
-        let node = m.get(nid);
-        match node {
-            Node::FnDeclare(fn_declare) => {
+        let declaration = m.get_declaration(f.local_id());
+        match declaration {
+            Declaration::FnDeclare(fn_declare) => {
                 if fn_declare.args.len() != args.len() {
                     return Err(fn_declare
                         .rparen_token
@@ -143,34 +143,19 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                         )
                     })
                     .collect();
-                let mut cx = Cx::new(
-                    m,
-                    0,
-                    args,
-                    vec![StacktraceEntry {
-                        m: m.id,
-                        n: nid,
-                        d: id,
-                    }],
-                );
+                let mut cx = Cx::new(m, 0, args, vec![]);
                 self.evaluate_node(&mut cx, fn_declare.block)
             }
-            _ => unreachable!(),
+            Declaration::LetDeclare(_) => unreachable!(),
         }
     }
 
     pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> ResultValue {
         let m = &Arc::clone(self.ir.get_module(id.module_id()));
-        let nid = m.get_declaration(id.local_id());
-        let node = m.get(nid);
-        match node {
-            Node::LetDeclare(let_declare) => {
-                let mut stacktrace = cx.stacktrace.clone();
-                stacktrace.push(StacktraceEntry {
-                    m: id.module_id(),
-                    n: nid,
-                    d: id,
-                });
+        let declaration = m.get_declaration(id.local_id());
+        match declaration {
+            Declaration::LetDeclare(let_declare) => {
+                let stacktrace = cx.stacktrace.clone();
                 let mut callee_cx = Cx::new(m, cx.call_depth + 1, HashMap::new(), stacktrace);
                 let start = Instant::now();
                 let key = cache::CacheKey::Declaration {
@@ -195,18 +180,12 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 cx.deps.append(&mut callee_cx.deps);
                 Ok(result)
             }
-            Node::FnDeclare(_) => Ok(Value::Function(id)),
-            _ => unreachable!(),
+            Declaration::FnDeclare(_) => Ok(Value::Function(id)),
         }
     }
 
     fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> ResultValue {
         match cx.module.get(nid) {
-            Node::ModuleRoot(_) => {
-                panic!("can't evaluate module root")
-            }
-            Node::LetDeclare(_) => unreachable!("can't evaluate let declare"),
-            Node::FnDeclare(_) => unreachable!("can't evaluate fn declare"),
             Node::AnonymousFnDeclare(_) => todo!("implmement anonymous fn declare"),
             Node::Block(block) => {
                 for nid in &block.statements {
@@ -336,9 +315,8 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
                 }
                 let start = Instant::now();
                 let m = &Arc::clone(self.ir.get_module(f.module_id()));
-                let func_nid = m.get_declaration(f.local_id());
-                let node = m.get(func_nid);
-                let Node::FnDeclare(fn_declare) = node else {
+                let declaration = m.get_declaration(f.local_id());
+                let Declaration::FnDeclare(fn_declare) = declaration else {
                     unreachable!();
                 };
                 let function_name = fn_declare.name.span.contents(&m.src);

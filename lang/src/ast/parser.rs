@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        FnDeclare, TypeSpec,
+        Declaration, FnDeclare, TypeSpec,
         error::{ParseError, ParseResult},
     },
     local_span::ErrorLocalSpan,
@@ -16,8 +16,7 @@ use super::{
 
 pub fn parse_module(source: &str) -> ParseResult<Module> {
     let mut parser = ModuleParser::new(source);
-    let module_root = parser.parse_module_root()?;
-    let root = parser.push(Node::ModuleRoot(module_root));
+    let root = parser.parse_module_root()?;
     let nodes = parser.complete()?;
     Ok(Module { root, nodes })
 }
@@ -81,7 +80,7 @@ impl<'src> ModuleParser<'src> {
         Ok(ModuleRoot { declarations })
     }
 
-    fn parse_let_declare(&mut self) -> ParseResult<NodeId> {
+    fn parse_let_declare(&mut self) -> ParseResult<Declaration> {
         let token = self.stream.expect_parse_next(&[Token::Pub, Token::Let])?;
         let (pub_token, let_token) = if token.token == Token::Pub {
             (Some(token), self.stream.expect_parse_next(&[Token::Let])?)
@@ -104,7 +103,7 @@ impl<'src> ModuleParser<'src> {
             (None, token)
         };
         let expr = self.parse_expr()?;
-        Ok(self.push(LetDeclare {
+        Ok(Declaration::LetDeclare(LetDeclare {
             pub_token,
             let_token,
             name,
@@ -114,7 +113,7 @@ impl<'src> ModuleParser<'src> {
         }))
     }
 
-    fn parse_fn_declare(&mut self) -> ParseResult<NodeId> {
+    fn parse_fn_declare(&mut self) -> ParseResult<Declaration> {
         let token = self.stream.expect_parse_next(&[Token::Pub, Token::Fn])?;
         let (pub_token, fn_token) = if token.token == Token::Pub {
             (Some(token), self.stream.expect_parse_next(&[Token::Fn])?)
@@ -166,7 +165,7 @@ impl<'src> ModuleParser<'src> {
 
         let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?;
         let block = self.parse_block()?;
-        Ok(self.push(FnDeclare {
+        Ok(Declaration::FnDeclare(FnDeclare {
             pub_token,
             fn_token,
             name,
@@ -585,7 +584,7 @@ mod test {
                 panic!("parse error");
             }
         };
-        nodes.display(src, id)
+        nodes.display(src, nodes.get(id).ast_node())
     }
 
     #[test]

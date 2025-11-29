@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     afs::file::File,
-    ast::{Module, ModuleRoot, Node, NodeId, error::ParseError},
+    ast::{Declaration, Module, ModuleRoot, Node, NodeId, error::ParseError},
     local_span::{ErrorLocalSpan, LocalSpan},
     runner::error::RunnerError,
     span::ErrorSpan,
@@ -97,18 +97,18 @@ impl IrModule {
         self.inner().0.span(id)
     }
 
-    pub fn get_declaration(&self, id: LocalDeclarationId) -> NodeId {
-        let Some(id) = self.inner().module_root().declarations.get(id.0) else {
+    pub fn get_declaration(&self, id: LocalDeclarationId) -> &Declaration {
+        let Some(d) = self.inner().module_root().declarations.get(id.0) else {
             unreachable!()
         };
-        *id
+        d
     }
 
     pub fn get_declaration_name_span(&self, id: LocalDeclarationId) -> LocalSpan {
-        match self.get(self.get_declaration(id)) {
-            Node::LetDeclare(let_declare) => let_declare.name.span,
-            Node::FnDeclare(fn_declare) => fn_declare.name.span,
-            _ => unreachable!(),
+        match self.inner().module_root().declarations.get(id.0) {
+            Some(Declaration::LetDeclare(let_declare)) => let_declare.name.span,
+            Some(Declaration::FnDeclare(fn_declare)) => fn_declare.name.span,
+            None => unreachable!(),
         }
     }
 
@@ -117,28 +117,29 @@ impl IrModule {
             .declarations()
             .enumerate()
             .find(|(_, node)| match node {
-                Node::LetDeclare(let_declare) => let_declare.name.span.contents(&self.src) == name,
-                Node::FnDeclare(fn_declare) => fn_declare.name.span.contents(&self.src) == name,
-                _ => unreachable!(),
+                Declaration::LetDeclare(let_declare) => {
+                    let_declare.name.span.contents(&self.src) == name
+                }
+                Declaration::FnDeclare(fn_declare) => {
+                    fn_declare.name.span.contents(&self.src) == name
+                }
             })
             .map(|(id, _)| LocalDeclarationId(id))
     }
 
     pub fn list_fn_declaration_names(&self) -> impl Iterator<Item = &str> {
         self.inner().declarations().filter_map(|node| match node {
-            Node::FnDeclare(fn_declare) => Some(fn_declare.name.span.contents(&self.src)),
-            Node::LetDeclare(_) => None,
-            _ => unreachable!(),
+            Declaration::FnDeclare(fn_declare) => Some(fn_declare.name.span.contents(&self.src)),
+            Declaration::LetDeclare(_) => None,
         })
     }
 
     pub fn list_pub_fn_declaration_names(&self) -> impl Iterator<Item = &str> {
-        self.inner().declarations().filter_map(|node| match node {
-            Node::FnDeclare(fn_declare) if fn_declare.pub_token.is_some() => {
+        self.inner().declarations().filter_map(|d| match d {
+            Declaration::FnDeclare(fn_declare) if fn_declare.pub_token.is_some() => {
                 Some(fn_declare.name.span.contents(&self.src))
             }
-            Node::LetDeclare(_) | Node::FnDeclare(_) => None,
-            _ => unreachable!(),
+            Declaration::LetDeclare(_) | Declaration::FnDeclare(_) => None,
         })
     }
 }
@@ -148,17 +149,11 @@ struct ParsedIrModule(Module);
 
 impl ParsedIrModule {
     fn module_root(&self) -> &ModuleRoot {
-        let Node::ModuleRoot(module_root) = self.0.get(self.0.root) else {
-            unreachable!()
-        };
-        module_root
+        &self.0.root
     }
 
-    fn declarations(&self) -> impl Iterator<Item = &Node> {
-        self.module_root()
-            .declarations
-            .iter()
-            .map(|nid| self.0.get(*nid))
+    fn declarations(&self) -> impl Iterator<Item = &Declaration> {
+        self.module_root().declarations.iter()
     }
 }
 

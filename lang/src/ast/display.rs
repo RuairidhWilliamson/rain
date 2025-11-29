@@ -1,6 +1,6 @@
 use std::fmt::{Result, Write};
 
-use crate::local_span::LocalSpan;
+use crate::{ast::AstNode, local_span::LocalSpan};
 
 use super::{NodeId, NodeList};
 
@@ -80,6 +80,16 @@ impl<'a> NodeBuilder<'_, 'a> {
         for c in children.into_iter().copied() {
             let child = self.fmt.nodes.get(c);
             self.child_fn(|f| child.ast_display(f));
+        }
+        self
+    }
+
+    pub fn children_ast<'ast>(
+        &mut self,
+        children: impl IntoIterator<Item = &'ast dyn AstNode>,
+    ) -> &mut Self {
+        for c in children {
+            self.child_fn(|f| c.ast_display(f));
         }
         self
     }
