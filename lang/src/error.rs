@@ -28,7 +28,7 @@ impl ResolvedError<'_> {
             declaration_span,
         } in &trace[..trace.len() - 1]
         {
-            let (line, col) = call_span.line_col(src);
+            let (line, col) = call_span.start_line_colo(src);
             let filename = file
                 .as_ref()
                 .map(|f| format!("{f}"))
@@ -44,7 +44,7 @@ impl ResolvedError<'_> {
             call_span,
             declaration_span: _,
         } = &trace[trace.len() - 1];
-        let (line, col) = call_span.line_col(src);
+        let (line, col) = call_span.start_line_colo(src);
         let [before, contents, after] = call_span.surrounding_lines(src, 2);
         let before = before.replace('\n', "\n| ");
         let contents = contents.replace('\n', "\\n");

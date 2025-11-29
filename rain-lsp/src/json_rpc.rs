@@ -48,11 +48,45 @@ pub struct Request<T> {
     #[serde(default)]
     pub id: serde_json::Value,
     jsonrpc: JSONRPCVersion,
-    pub method: String,
+    pub method: Cow<'static, str>,
     pub params: Option<T>,
 }
 
+impl Request<serde_json::Value> {
+    #[must_use]
+    pub fn cast_params<U: DeserializeOwned>(self) -> serde_json::Result<Request<U>> {
+        let Self {
+            id,
+            jsonrpc,
+            method,
+            params,
+        } = self;
+        Ok(Request {
+            id,
+            jsonrpc,
+            method,
+            params: params.map(|v| serde_json::from_value::<U>(v)).transpose()?,
+        })
+    }
+}
+
 impl<T> Request<T> {
+    pub fn assert_notification(self) -> Notification<T> {
+        let Self {
+            id,
+            jsonrpc,
+            method,
+            params,
+        } = self;
+        assert!(id.is_null());
+        Notification {
+            method,
+            jsonrpc,
+            params,
+        }
+    }
+
+    #[must_use]
     pub fn ok_response<U>(self, resp: U) -> Response<U> {
         Response {
             id: self.id,
@@ -61,6 +95,7 @@ impl<T> Request<T> {
         }
     }
 
+    #[must_use]
     pub fn error_response(self, error: ResponseError) -> Response<()> {
         Response {
             id: self.id,
@@ -74,11 +109,11 @@ impl<T> Request<T> {
 pub struct Notification<T> {
     pub method: Cow<'static, str>,
     jsonrpc: JSONRPCVersion,
-    pub params: T,
+    pub params: Option<T>,
 }
 
 impl<T> Notification<T> {
-    pub fn new(method: impl Into<Cow<'static, str>>, params: T) -> Self {
+    pub fn new(method: impl Into<Cow<'static, str>>, params: Option<T>) -> Self {
         Self {
             method: method.into(),
             jsonrpc: JSONRPCVersion,

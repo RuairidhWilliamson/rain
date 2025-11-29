@@ -33,6 +33,19 @@ impl Module {
     pub fn span(&self, id: NodeId) -> LocalSpan {
         self.nodes.get(id).span(&self.nodes)
     }
+
+    pub fn find_node_by_span(&self, search_span: LocalSpan) -> Option<NodeId> {
+        (0..self.nodes.nodes.len())
+            .map(NodeId)
+            .map(|id| (id, self.nodes.span(id)))
+            .filter(|(_id, span)| span.contains(&search_span))
+            .min_by_key(|(_id, span)| span.len())
+            .map(|(id, _span)| id)
+    }
+
+    pub fn display_node(&self, src: &str, id: NodeId) -> String {
+        self.nodes.display(src, id)
+    }
 }
 
 #[derive(Debug)]

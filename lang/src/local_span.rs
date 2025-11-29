@@ -21,6 +21,17 @@ impl LocalSpan {
         }
     }
 
+    /// Create a span from the zero based line column
+    pub fn byte_from_line_colz(src: &str, mut line: usize, col: usize) -> Option<Self> {
+        let mut iter = src.char_indices();
+        while line > 0 {
+            if iter.next()?.1 == '\n' {
+                line -= 1;
+            }
+        }
+        Some(Self::byte(iter.next()?.0 + col))
+    }
+
     pub fn new(start: usize, end: usize) -> Self {
         Self { start, end }
     }
@@ -81,11 +92,11 @@ impl LocalSpan {
         format!("{a}{b}")
     }
 
-    fn line(&self, src: &str) -> usize {
+    fn start_line(&self, src: &str) -> usize {
         src[..self.start].chars().filter(|&c| c == '\n').count()
     }
 
-    fn col(&self, src: &str) -> usize {
+    fn start_col(&self, src: &str) -> usize {
         src[..self.start]
             .chars()
             .rev()
@@ -93,10 +104,35 @@ impl LocalSpan {
             .count()
     }
 
+    fn end_line(&self, src: &str) -> usize {
+        src[..self.end].chars().filter(|&c| c == '\n').count()
+    }
+
+    fn end_col(&self, src: &str) -> usize {
+        src[..self.end]
+            .chars()
+            .rev()
+            .take_while(|&c| c != '\n')
+            .count()
+    }
+
+    /// Get the 0 based line and column
+    pub fn start_line_colz(&self, src: &str) -> (usize, usize) {
+        let line = self.start_line(src);
+        let col = self.start_col(src);
+        (line, col)
+    }
+
     /// Get the 1 based line and column
-    pub fn line_col(&self, src: &str) -> (usize, usize) {
-        let line = self.line(src) + 1;
-        let col = self.col(src) + 1;
+    pub fn start_line_colo(&self, src: &str) -> (usize, usize) {
+        let (line, col) = self.start_line_colz(src);
+        (line + 1, col + 1)
+    }
+
+    /// Get the 0 based line and column
+    pub fn end_line_colz(&self, src: &str) -> (usize, usize) {
+        let line = self.end_line(src);
+        let col = self.end_col(src);
         (line, col)
     }
 
@@ -106,6 +142,10 @@ impl LocalSpan {
 
     pub fn len(&self) -> usize {
         self.end - self.start
+    }
+
+    pub fn contains(&self, other: &Self) -> bool {
+        self.start <= other.start && self.end >= other.end
     }
 
     pub fn span_iter(iter: impl Iterator<Item = Self>) -> Self {
