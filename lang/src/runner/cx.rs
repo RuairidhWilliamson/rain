@@ -1,5 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
+use indexmap::IndexMap;
+
 use crate::{
     afs::area::FileArea,
     ast::NodeId,
@@ -17,6 +19,7 @@ pub struct Cx<'a> {
     pub module: &'a Arc<IrModule>,
     pub call_depth: usize,
     pub locals: HashMap<&'a str, Value>,
+    pub captures: Vec<Arc<IndexMap<String, Value>>>,
     pub args: HashMap<&'a str, Value>,
     pub deps: Vec<Dep>,
     pub previous_line: Option<Value>,
@@ -41,6 +44,7 @@ impl<'a> Cx<'a> {
             module,
             call_depth,
             args,
+            captures: Vec::new(),
             locals: HashMap::new(),
             deps: Vec::new(),
             previous_line: None,

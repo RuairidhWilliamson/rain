@@ -84,7 +84,7 @@ impl NodeList {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(usize);
 
 impl From<&Self> for NodeId {
@@ -110,7 +110,7 @@ impl Declaration {
 
 #[derive(Debug)]
 pub enum Node {
-    AnonymousFnDeclare(AnonymousFnDeclare),
+    Closure(Closure),
     Block(Block),
     IfCondition(IfCondition),
     FnCall(FnCall),
@@ -144,7 +144,7 @@ impl Node {
             Self::InternalLiteral(inner) => inner,
             Self::Record(inner) => inner,
             Self::List(inner) => inner,
-            Self::AnonymousFnDeclare(inner) => inner,
+            Self::Closure(inner) => inner,
         }
     }
 
@@ -216,7 +216,7 @@ pub struct TypeSpec {
 }
 
 #[derive(Debug)]
-pub struct AnonymousFnDeclare {
+pub struct Closure {
     pub fn_token: TokenLocalSpan,
     pub lparen_token: TokenLocalSpan,
     pub args: Vec<FnDeclareArg>,
@@ -224,13 +224,13 @@ pub struct AnonymousFnDeclare {
     pub block: NodeId,
 }
 
-impl From<AnonymousFnDeclare> for Node {
-    fn from(inner: AnonymousFnDeclare) -> Self {
-        Self::AnonymousFnDeclare(inner)
+impl From<Closure> for Node {
+    fn from(inner: Closure) -> Self {
+        Self::Closure(inner)
     }
 }
 
-impl AstNode for AnonymousFnDeclare {
+impl AstNode for Closure {
     fn span(&self, list: &NodeList) -> LocalSpan {
         self.fn_token.span + list.span(self.block)
     }

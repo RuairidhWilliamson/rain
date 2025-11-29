@@ -18,7 +18,7 @@ use crate::{
         file::File,
         path::SealedFilePath,
     },
-    ast::{Declaration, FnCall, NodeId},
+    ast::{Declaration, FnCall, Node, NodeId},
     driver::{DriverTrait, FSEntryQueryResult},
     runner::cx::StacktraceEntry,
 };
@@ -1203,72 +1203,124 @@ impl<D: DriverTrait> InternalCx<'_, '_, '_, '_, '_, D> {
     fn foreach(self) -> ResultValue {
         let (list, (func_nid, func_value)) = two_args!(self);
         let list = expect_type!(self, List, list);
-        let func = expect_type!(self, Function, (func_nid, func_value));
-        let mut out = Vec::with_capacity(list.0.len());
-        for item in list.0.clone() {
-            if self.cx.call_depth >= super::MAX_CALL_DEPTH {
-                return Err(self
-                    .cx
-                    .err(self.fn_call.lparen_token, RunnerError::MaxCallDepth));
-            }
-            let arg_values: Vec<Value> = vec![item];
-            let key = super::cache::CacheKey::Declaration {
-                declaration: *func,
-                args: arg_values.clone(),
-            };
+        match func_value {
+            Value::Function(func) => {
+                let mut out = Vec::with_capacity(list.0.len());
+                for item in list.0.clone() {
+                    if self.cx.call_depth >= super::MAX_CALL_DEPTH {
+                        return Err(self
+                            .cx
+                            .err(self.fn_call.lparen_token, RunnerError::MaxCallDepth));
+                    }
+                    let arg_values: Vec<Value> = vec![item];
+                    let key = super::cache::CacheKey::Declaration {
+                        declaration: *func,
+                        args: arg_values.clone(),
+                    };
 
-            if let Some(cache_entry) = self.runner.cache.get(&key) {
-                self.cx.deps.extend(cache_entry.deps);
-                return Ok(cache_entry.value);
+                    if let Some(cache_entry) = self.runner.cache.get(&key) {
+                        self.cx.deps.extend(cache_entry.deps);
+                        return Ok(cache_entry.value);
+                    }
+                    let start = Instant::now();
+                    let m = &Arc::clone(self.runner.ir.get_module(func.module_id()));
+                    let declaration = m.get_declaration(func.local_id());
+                    let Declaration::FnDeclare(closure_declare) = declaration else {
+                        unreachable!();
+                    };
+                    let function_name = closure_declare.name.span.contents(&m.src);
+                    self.runner.driver.enter_call(function_name);
+                    if closure_declare.args.len() != 1 {
+                        return Err(self.cx.err(
+                            self.fn_call.rparen_token,
+                            RunnerError::IncorrectArgs {
+                                required: closure_declare.args.len()..=closure_declare.args.len(),
+                                actual: 1,
+                            },
+                        ));
+                    }
+                    let args = closure_declare
+                        .args
+                        .iter()
+                        .zip(arg_values)
+                        .map(|(a, v)| (a.name.span.contents(&m.src), v))
+                        .collect();
+                    let mut stacktrace = self.cx.stacktrace.clone();
+                    stacktrace.push(StacktraceEntry {
+                        m: self.cx.module.id,
+                        n: func_nid,
+                        d: *func,
+                    });
+                    let mut callee_cx = Cx::new(m, self.cx.call_depth + 1, args, stacktrace);
+                    let result = self
+                        .runner
+                        .evaluate_node(&mut callee_cx, closure_declare.block)?;
+                    self.runner.driver.exit_call(function_name);
+                    self.runner.cache.put(
+                        key,
+                        CacheEntry {
+                            execution_time: start.elapsed(),
+                            expires: None,
+                            etag: None,
+                            deps: callee_cx.deps.clone(),
+                            value: result.clone(),
+                        },
+                    );
+                    self.cx.deps.extend(callee_cx.deps);
+                    out.push(result);
+                }
+                Ok(Value::List(Arc::new(RainList(out))))
             }
-            let start = Instant::now();
-            let m = &Arc::clone(self.runner.ir.get_module(func.module_id()));
-            let declaration = m.get_declaration(func.local_id());
-            let Declaration::FnDeclare(fn_declare) = declaration else {
-                unreachable!();
-            };
-            let function_name = fn_declare.name.span.contents(&m.src);
-            self.runner.driver.enter_call(function_name);
-            if fn_declare.args.len() != 1 {
-                return Err(self.cx.err(
-                    self.fn_call.rparen_token,
-                    RunnerError::IncorrectArgs {
-                        required: fn_declare.args.len()..=fn_declare.args.len(),
-                        actual: 1,
+            Value::Closure(closure) => {
+                let mut out = Vec::with_capacity(list.0.len());
+                for item in list.0.clone() {
+                    if self.cx.call_depth >= super::MAX_CALL_DEPTH {
+                        return Err(self
+                            .cx
+                            .err(self.fn_call.lparen_token, RunnerError::MaxCallDepth));
+                    }
+                    let arg_values: Vec<Value> = vec![item];
+                    let m = &Arc::clone(self.runner.ir.get_module(closure.module));
+                    let Node::Closure(closure_declare) = m.get(closure.node) else {
+                        unreachable!()
+                    };
+                    if closure_declare.args.len() != 1 {
+                        return Err(self.cx.err(
+                            self.fn_call.rparen_token,
+                            RunnerError::IncorrectArgs {
+                                required: closure_declare.args.len()..=closure_declare.args.len(),
+                                actual: 1,
+                            },
+                        ));
+                    }
+                    let args = closure_declare
+                        .args
+                        .iter()
+                        .zip(arg_values)
+                        .map(|(a, v)| (a.name.span.contents(&m.src), v))
+                        .collect();
+                    let stacktrace = self.cx.stacktrace.clone();
+                    let mut callee_cx = Cx::new(m, self.cx.call_depth + 1, args, stacktrace);
+                    callee_cx.captures = self.cx.captures.clone();
+                    callee_cx.captures.push(closure.captures.clone());
+                    let result = self
+                        .runner
+                        .evaluate_node(&mut callee_cx, closure_declare.block)?;
+                    self.cx.deps.extend(callee_cx.deps);
+                    out.push(result);
+                }
+                Ok(Value::List(Arc::new(RainList(out))))
+            }
+            _ => {
+                return Err(self.cx.nid_err(
+                    func_nid,
+                    RunnerError::ExpectedType {
+                        actual: func_value.rain_type_id(),
+                        expected: &[RainTypeId::Function, RainTypeId::Closure],
                     },
                 ));
             }
-            let args = fn_declare
-                .args
-                .iter()
-                .zip(arg_values)
-                .map(|(a, v)| (a.name.span.contents(&m.src), v))
-                .collect();
-            let mut stacktrace = self.cx.stacktrace.clone();
-            stacktrace.push(StacktraceEntry {
-                m: self.cx.module.id,
-                n: func_nid,
-                d: *func,
-            });
-            let mut callee_cx = Cx::new(m, self.cx.call_depth + 1, args, stacktrace);
-            let result = self
-                .runner
-                .evaluate_node(&mut callee_cx, fn_declare.block)?;
-            self.runner.driver.exit_call(function_name);
-            self.runner.cache.put(
-                key,
-                CacheEntry {
-                    execution_time: start.elapsed(),
-                    expires: None,
-                    etag: None,
-                    deps: callee_cx.deps.clone(),
-                    value: result.clone(),
-                },
-            );
-            self.cx.deps.extend(callee_cx.deps);
-            out.push(result);
         }
-        Ok(Value::List(Arc::new(RainList(out))))
     }
 
     fn stringify(self) -> ResultValue {

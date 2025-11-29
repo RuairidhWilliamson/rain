@@ -60,3 +60,8 @@ fn cache_deps() {
 fn strings() {
     insta::assert_debug_snapshot!(run("tests/scripts/strings.rain").unwrap());
 }
+
+#[test]
+fn closure() {
+    insta::assert_debug_snapshot!(run("tests/scripts/closure.rain").unwrap());
+}

@@ -193,7 +193,7 @@ impl PersistValue {
                 })
             }
             // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
-            Value::Function(_) | Value::EscapeFile(_) => None,
+            Value::Function(_) | Value::EscapeFile(_) | Value::Closure(_) => None,
             Value::FileArea(file_area) => {
                 if file_area.is_local() {
                     None

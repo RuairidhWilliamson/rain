@@ -1,0 +1,22 @@
+---
+source: core/tests/scripts.rs
+expression: "run(\"tests/scripts/closure.rain\").unwrap()"
+---
+List(
+    RainList(
+        [
+            String(
+                "hi",
+            ),
+            String(
+                "joe",
+            ),
+            String(
+                "hi",
+            ),
+            String(
+                "susan",
+            ),
+        ],
+    ),
+)

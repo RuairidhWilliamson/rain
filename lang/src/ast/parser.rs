@@ -8,10 +8,10 @@ use crate::{
 };
 
 use super::{
-    AlternateCondition, AnonymousFnDeclare, Assignment, BinaryOp, BinaryOperatorKind, Block,
-    FalseLiteral, FnCall, FnDeclareArg, Ident, IfCondition, IntegerLiteral, InternalLiteral,
-    LetDeclare, List, ListElement, Module, ModuleRoot, Node, NodeId, NodeList, Not, Record,
-    RecordField, StringLiteral, TrueLiteral,
+    AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure, FalseLiteral,
+    FnCall, FnDeclareArg, Ident, IfCondition, IntegerLiteral, InternalLiteral, LetDeclare, List,
+    ListElement, Module, ModuleRoot, Node, NodeId, NodeList, Not, Record, RecordField,
+    StringLiteral, TrueLiteral,
 };
 
 pub fn parse_module(source: &str) -> ParseResult<Module> {
@@ -221,7 +221,7 @@ impl<'src> ModuleParser<'src> {
 
         let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?;
         let block = self.parse_block()?;
-        Ok(self.push(AnonymousFnDeclare {
+        Ok(self.push(Closure {
             fn_token,
             lparen_token,
             args,

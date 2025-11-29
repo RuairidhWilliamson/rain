@@ -26,7 +26,10 @@ use crate::{
     driver::DriverTrait,
     ir::{DeclarationId, Rir},
     local_span::LocalSpan,
-    runner::cx::{Cx, StacktraceEntry},
+    runner::{
+        cx::{Cx, StacktraceEntry},
+        value::Closure,
+    },
 };
 
 const MAX_CALL_DEPTH: usize = 250;
@@ -36,6 +39,7 @@ type Result<T, E = ErrorTrace<Throwing>> = core::result::Result<T, E>;
 
 pub struct Runner<'a, D> {
     pub ir: &'a mut Rir,
+    // TODO: Maybe make this generic instead of dynamic dispatch
     pub cache: &'a dyn cache::CacheTrait,
     pub driver: &'a D,
     pub offline: bool,
@@ -54,8 +58,8 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
     }
 
     pub fn evaluate_and_call(&mut self, id: DeclarationId, args: &[String]) -> ResultValue {
-        let m = &Arc::clone(self.ir.get_module(id.module_id()));
-        let mut initial_cx = Cx::new(m, 0, HashMap::new(), Vec::new());
+        let m = Arc::clone(self.ir.get_module(id.module_id()));
+        let mut initial_cx = Cx::new(&m, 0, HashMap::new(), Vec::new());
         let v = self.evaluate_declaration(&mut initial_cx, id)?;
         let Value::Function(f) = v else {
             return Ok(v);
@@ -132,7 +136,18 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
 
     fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> ResultValue {
         match cx.module.get(nid) {
-            Node::AnonymousFnDeclare(_) => todo!("implmement anonymous fn declare"),
+            Node::Closure(_) => {
+                let captures: IndexMap<String, Value> = cx
+                    .locals
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.clone()))
+                    .collect();
+                Ok(Value::Closure(Closure {
+                    captures: Arc::new(captures),
+                    module: cx.module.id,
+                    node: nid,
+                }))
+            }
             Node::Block(block) => {
                 for nid in &block.statements {
                     let v = self.evaluate_node(cx, *nid)?;
@@ -222,10 +237,13 @@ impl<'a, D: DriverTrait> Runner<'a, D> {
         if let Some(v) = cx.args.get(ident) {
             return Ok(Some(v.clone()));
         }
-        let Some(declaration_id) = self.ir.resolve_global_declaration(cx.module.id, ident) else {
-            return Ok(None);
+        if let Some(v) = cx.captures.iter().rev().find_map(|cap| cap.get(ident)) {
+            return Ok(Some(v.clone()));
+        }
+        if let Some(declaration_id) = self.ir.resolve_global_declaration(cx.module.id, ident) {
+            return Ok(Some(self.evaluate_declaration(cx, declaration_id)?));
         };
-        Ok(Some(self.evaluate_declaration(cx, declaration_id)?))
+        Ok(None)
     }
 
     fn evaluate_fn_call(&mut self, cx: &mut Cx, nid: NodeId, fn_call: &FnCall) -> ResultValue {

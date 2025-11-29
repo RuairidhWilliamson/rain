@@ -10,6 +10,7 @@ use crate::{
     afs::{
         absolute::AbsolutePathBuf, area::FileArea, dir::Dir, entry::FSEntryTrait as _, file::File,
     },
+    ast::NodeId,
     ir::{DeclarationId, ModuleId},
 };
 
@@ -31,6 +32,7 @@ pub enum Value {
     InternalFunction(InternalFunction),
     List(Arc<RainList>),
     Record(Arc<RainRecord>),
+    Closure(Closure),
 }
 
 impl Display for Value {
@@ -50,6 +52,7 @@ impl Display for Value {
             Self::InternalFunction(internal_function) => Display::fmt(internal_function, f),
             Self::List(rain_list) => Display::fmt(rain_list, f),
             Self::Record(rain_record) => Display::fmt(rain_record, f),
+            Self::Closure(closure) => Display::fmt(closure, f),
         }
     }
 }
@@ -70,6 +73,7 @@ pub enum RainTypeId {
     InternalFunction,
     List,
     Record,
+    Closure,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -159,6 +163,7 @@ impl Value {
             Self::InternalFunction(_) => RainTypeId::InternalFunction,
             Self::List(_) => RainTypeId::List,
             Self::Record(_) => RainTypeId::Record,
+            Self::Closure(_) => RainTypeId::Closure,
         }
     }
 
@@ -172,12 +177,37 @@ impl Value {
             | Self::Module(_)
             | Self::EscapeFile(_)
             | Self::Internal
-            | Self::InternalFunction(_) => Vec::new(),
+            | Self::InternalFunction(_)
+            | Self::Closure(_) => Vec::new(),
             Self::File(f) => vec![f.area()],
             Self::Dir(d) => vec![d.area()],
             Self::FileArea(file_area) => vec![file_area],
             Self::List(list) => list.0.iter().flat_map(|v| v.find_areas()).collect(),
             Self::Record(record) => record.0.iter().flat_map(|(_, v)| v.find_areas()).collect(),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Closure {
+    pub captures: Arc<IndexMap<String, Value>>,
+    pub module: ModuleId,
+    pub node: NodeId,
+}
+
+impl std::fmt::Display for Closure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("Closure<{}, {:?}>", self.module, self.node))
+    }
+}
+
+impl std::hash::Hash for Closure {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for (k, v) in self.captures.iter() {
+            k.hash(state);
+            v.hash(state);
+        }
+        self.module.hash(state);
+        self.node.hash(state);
     }
 }
