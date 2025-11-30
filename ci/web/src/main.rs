@@ -8,15 +8,17 @@ use std::{convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
 
 use anyhow::Result;
 use axum::{
-    Router,
-    extract::{FromRef, FromRequestParts, OptionalFromRequestParts},
+    Form, Router,
+    extract::{FromRef, FromRequestParts, OptionalFromRequestParts, Path, State},
     http::{StatusCode, header, request::Parts},
     response::{IntoResponse, Redirect, Response},
-    routing::get,
+    routing::{get, post},
 };
 use log::info;
 use oauth2::ClientSecret;
+use rain_ci_common::RepositoryId;
 use secrecy::SecretString;
+use serde::Deserialize;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
@@ -73,6 +75,7 @@ async fn main() -> Result<()> {
         .nest("/auth", auth::router())
         .route("/repos", get(pages::repos))
         .route("/repo/{id}", get(pages::repo))
+        .route("/repo/{id}/run", post(repo_create_run))
         .route("/run", get(pages::runs))
         .route("/run/{id}", get(pages::run))
         .route("/assets/script.js", get(script_asset))
@@ -89,6 +92,22 @@ async fn main() -> Result<()> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     Ok(())
+}
+
+#[derive(Deserialize)]
+struct RepoCreateRun {
+    commit: String,
+}
+
+async fn repo_create_run(
+    _auth: AdminUser,
+    Path(repo_id): Path<RepositoryId>,
+    State(db): State<db::Db>,
+    Form(data): Form<RepoCreateRun>,
+) -> Result<impl IntoResponse, AppError> {
+    // TODO: Resolve the commit before creating it
+    let run_id = db.create_run(&repo_id, &data.commit).await?;
+    Ok(Redirect::to(&format!("/run/{run_id}")))
 }
 
 async fn script_asset() -> impl IntoResponse {

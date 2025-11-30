@@ -240,6 +240,21 @@ impl Db {
             name: row.name,
         })
     }
+
+    pub async fn create_run(&self, repo_id: &RepositoryId, commit: &str) -> Result<RunId> {
+        // Check repo exists
+        self.get_repo(repo_id).await?;
+        let row = sqlx::query!(
+            "INSERT INTO runs (created_at, repo, commit) VALUES ($1, $2, $3) RETURNING id",
+            Utc::now().naive_utc(),
+            repo_id.0,
+            commit,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        let run_id = RunId(row.id);
+        Ok(run_id)
+    }
 }
 
 struct QueryRun {
