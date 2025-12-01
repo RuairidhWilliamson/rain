@@ -18,8 +18,10 @@ use hyper_util::{
 use ipnet::IpNet;
 use jsonwebtoken::EncodingKey;
 use log::{error, info, warn};
+use rain_ci_common::RunId;
 use runner::Runner;
 use secrecy::{ExposeSecret as _, SecretString};
+use sqlx::postgres::PgListener;
 use tokio::task::JoinSet;
 
 use crate::storage::StorageTrait as _;
@@ -89,10 +91,30 @@ async fn main() -> Result<()> {
             .database(&config.db_name),
     )
     .await?;
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel(10);
+    {
+        let pool = pool.clone();
+        let tx = tx.clone();
+        tokio::spawn(async move {
+            let mut listener = PgListener::connect_with(&pool).await.unwrap();
+            listener.listen("request_run").await.unwrap();
+            loop {
+                let notif = listener.recv().await.unwrap();
+                assert_eq!(notif.channel(), "request_run");
+                let run_id: i64 = notif.payload().parse().unwrap();
+                tx.send(RunRequest {
+                    run_id: RunId(run_id),
+                })
+                .await
+                .unwrap();
+            }
+        });
+    }
+
     let storage = storage::inner::Storage::new(pool);
     cleanup_old_runs(&storage).await?;
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel(10);
     let server = Arc::new(server::Server {
         runner: Runner::new(config.seal),
         github_webhook_secret: config.github_webhook_secret,
@@ -110,7 +132,7 @@ async fn main() -> Result<()> {
                     return;
                 };
                 if let Err(err) = Arc::clone(&server)
-                    .handle_check_suite_event(check_suite_event)
+                    .handle_run_request(check_suite_event)
                     .await
                 {
                     error!("handle check suite event: {err}");
@@ -168,4 +190,8 @@ async fn cleanup_old_runs(storage: &storage::inner::Storage) -> Result<()> {
             .await?;
     }
     Ok(())
+}
+
+struct RunRequest {
+    run_id: RunId,
 }

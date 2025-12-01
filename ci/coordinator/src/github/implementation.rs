@@ -37,6 +37,7 @@ impl AppAuth {
 pub struct AppClient {
     client: reqwest::Client,
     auth: AppAuth,
+    // FIXME: Remove agent and just use reqwest
     agent: ureq::Agent,
 }
 
@@ -59,16 +60,6 @@ impl AppClient {
         }
     }
 
-    fn auth<Any>(&self, req: RequestBuilder<Any>) -> Result<RequestBuilder<Any>> {
-        Ok(req
-            .header(
-                http::header::AUTHORIZATION,
-                format!("Bearer {}", self.auth.generate_bearer_token()?),
-            )
-            .header(http::header::ACCEPT, "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28"))
-    }
-
     fn reqwest_auth(&self, req: reqwest::RequestBuilder) -> Result<reqwest::RequestBuilder> {
         Ok(req
             .bearer_auth(self.auth.generate_bearer_token()?)
@@ -87,9 +78,30 @@ impl AppClient {
             .json()
             .await?)
     }
+}
 
-    #[cfg_attr(not(test), expect(dead_code))]
-    pub async fn app_installations(&self) -> Result<Vec<super::model::Installation>> {
+impl super::Client for AppClient {
+    async fn auth_installation(
+        &self,
+        installation_id: super::model::InstallationId,
+    ) -> Result<impl super::InstallationClient> {
+        let token = self
+            .reqwest_auth(self.client.post(format!(
+                "https://api.github.com/app/installations/{installation_id}/access_tokens"
+            )))?
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        Ok(InstallationClient {
+            client: self.client.clone(),
+            agent: self.agent.clone(),
+            token,
+        })
+    }
+
+    async fn app_installations(&self) -> Result<Vec<super::model::Installation>> {
         Ok(self
             .reqwest_auth(self.client.get("https://api.github.com/app/installations"))?
             .send()
@@ -100,28 +112,9 @@ impl AppClient {
     }
 }
 
-impl super::Client for AppClient {
-    fn auth_installation(
-        &self,
-        installation_id: super::model::InstallationId,
-    ) -> Result<impl super::InstallationClient> {
-        let token = self
-            .auth(self.agent.post(format!(
-                "https://api.github.com/app/installations/{installation_id}/access_tokens"
-            )))?
-            .send_empty()?
-            .body_mut()
-            .read_json()?;
-        Ok(InstallationClient {
-            client: self.client.clone(),
-            agent: self.agent.clone(),
-            token,
-        })
-    }
-}
-
 pub struct InstallationClient {
     pub client: reqwest::Client,
+    // FIXME: Remove agent and just use reqwest
     pub agent: ureq::Agent,
     pub token: super::model::InstallationAccessToken,
 }
@@ -298,7 +291,7 @@ mod tests {
         let installations = client.app_installations().await.unwrap();
         dbg!(&installations);
         let installation = installations.first().unwrap();
-        let installation_client = client.auth_installation(installation.id).unwrap();
+        let installation_client = client.auth_installation(installation.id).await.unwrap();
         installation_client
             .create_check_run(
                 "RuairidhWilliamson",

@@ -253,6 +253,9 @@ impl Db {
         .fetch_one(&self.pool)
         .await?;
         let run_id = RunId(row.id);
+        sqlx::query!("SELECT pg_notify('request_run', $1)", run_id.0.to_string())
+            .execute(&self.pool)
+            .await?;
         Ok(run_id)
     }
 }

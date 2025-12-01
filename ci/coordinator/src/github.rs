@@ -7,10 +7,11 @@ use anyhow::Result;
 use git_lfs_rs::object::Object;
 
 pub trait Client: Send + Sync + 'static {
-    fn auth_installation(
+    async fn auth_installation(
         &self,
         installation_id: model::InstallationId,
     ) -> Result<impl InstallationClient>;
+    async fn app_installations(&self) -> Result<Vec<model::Installation>>;
 }
 
 pub trait InstallationClient: Send + Sync + 'static {

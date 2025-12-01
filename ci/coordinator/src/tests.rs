@@ -1,8 +1,13 @@
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context as _, Result};
+use chrono::Utc;
+use rain_ci_common::{Run, RunId};
 
-use crate::{runner::Runner, server::Server};
+use crate::{
+    RunRequest, github::model::InstallationId, runner::Runner, server::Server,
+    storage::StorageTrait,
+};
 
 #[derive(Default)]
 struct TestGithubClient {
@@ -10,13 +15,19 @@ struct TestGithubClient {
 }
 
 impl crate::github::Client for TestGithubClient {
-    fn auth_installation(
+    async fn auth_installation(
         &self,
         _installation_id: crate::github::model::InstallationId,
     ) -> Result<impl crate::github::InstallationClient> {
         Ok(TestGithubInstallationClient {
             check_runs: Arc::clone(&self.check_runs),
         })
+    }
+
+    async fn app_installations(&self) -> Result<Vec<crate::github::model::Installation>> {
+        Ok(vec![crate::github::model::Installation {
+            id: InstallationId(0),
+        }])
     }
 }
 
@@ -94,37 +105,25 @@ async fn github_check_run() {
         storage: crate::storage::test::Storage::default(),
         tx,
     });
-    let user = crate::github::model::User {
-        id: 1,
-        login: String::from("alice"),
-        name: None,
-        email: None,
-    };
-    Server::handle_check_suite_event(
-        server.clone(),
-        crate::github::model::CheckSuiteEvent {
-            sender: user.clone(),
-            repository: crate::github::model::Repository {
-                name: String::from("test"),
-                owner: user,
-                default_branch: String::from("main"),
+    server
+        .storage
+        .create_run(Run {
+            repository: rain_ci_common::Repository {
+                host: rain_ci_common::RepoHost::Github,
+
+                owner: String::from("bar"),
+                name: String::from("baz"),
             },
-            installation: crate::github::model::SimpleInstallation {
-                id: crate::github::model::InstallationId(0),
-                node_id: String::from("unknown"),
-            },
-            action: crate::github::model::Action::Requested,
-            check_suite: crate::github::model::CheckSuite {
-                id: 0,
-                created_at: String::default(),
-                head_sha: String::from("abcd"),
-                head_branch: None,
-                status: Some(crate::github::model::Status::Queued),
-            },
-        },
-    )
-    .await
-    .unwrap();
+            commit: String::from("abcd"),
+            created_at: Utc::now(),
+            dequeued_at: None,
+            finished: None,
+        })
+        .await
+        .unwrap();
+    Server::handle_run_request(server.clone(), RunRequest { run_id: RunId(0) })
+        .await
+        .unwrap();
     let check_runs = server.github_client.check_runs.lock().unwrap();
     let check_run = check_runs.first().unwrap();
     assert_eq!(check_run.head_sha, "abcd");

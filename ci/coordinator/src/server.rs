@@ -10,6 +10,7 @@ use rain_lang::afs::{dir::Dir, file::File};
 use rain_lang::afs::{entry::FSEntry, entry::FSEntryTrait as _, path::SealedFilePath};
 use rain_lang::driver::{DriverTrait as _, FSTrait as _};
 
+use crate::RunRequest;
 use crate::runner::RunComplete;
 use crate::{github::InstallationClient as _, runner::Runner};
 
@@ -19,7 +20,7 @@ pub struct Server<GH: crate::github::Client, ST: crate::storage::StorageTrait> {
     pub runner: Runner,
     pub github_client: GH,
     pub storage: ST,
-    pub tx: tokio::sync::mpsc::Sender<crate::github::model::CheckSuiteEvent>,
+    pub tx: tokio::sync::mpsc::Sender<RunRequest>,
 }
 
 impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST> {
@@ -76,15 +77,6 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
         let check_suite_event: crate::github::model::CheckSuiteEvent =
             serde_json::from_slice(&body[..])?;
 
-        self.tx.send(check_suite_event).await?;
-        Ok(())
-    }
-
-    #[expect(clippy::unwrap_used)]
-    pub async fn handle_check_suite_event(
-        self: Arc<Self>,
-        check_suite_event: crate::github::model::CheckSuiteEvent,
-    ) -> std::result::Result<(), anyhow::Error> {
         if !matches!(
             check_suite_event.check_suite.status,
             Some(crate::github::model::Status::Queued)
@@ -96,30 +88,12 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
             return Ok(());
         }
 
-        let installation_client = Arc::new(
-            self.github_client
-                .auth_installation(check_suite_event.installation.id)?,
-        );
         info!("received {check_suite_event:?}");
 
         let owner = check_suite_event.repository.owner.login;
         let repo = check_suite_event.repository.name;
         let head_sha = check_suite_event.check_suite.head_sha;
 
-        let check_run = installation_client
-            .create_check_run(
-                &owner,
-                &repo,
-                crate::github::model::CreateCheckRun {
-                    name: String::from("rainci"),
-                    head_sha: head_sha.clone(),
-                    status: crate::github::model::Status::Queued,
-                    details_url: Some(self.target_url.to_string()),
-                    output: None,
-                },
-            )
-            .await
-            .context("create check run")?;
         let start = chrono::Utc::now();
         let run_id = self
             .storage
@@ -137,7 +111,45 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
             .await
             .context("storage create run")?;
 
-        info!("created check run {run_id}");
+        self.tx.send(RunRequest { run_id }).await?;
+        Ok(())
+    }
+
+    #[expect(clippy::unwrap_used)]
+    pub async fn handle_run_request(
+        self: Arc<Self>,
+        run_request: RunRequest,
+    ) -> std::result::Result<(), anyhow::Error> {
+        let installations = self.github_client.app_installations().await?;
+        // FIXME: Getting the first installation is a bad assumption
+        let installation = installations.first().unwrap();
+        let installation_client = Arc::new(
+            self.github_client
+                .auth_installation(installation.id)
+                .await?,
+        );
+        let run_id = run_request.run_id;
+        let start = chrono::Utc::now();
+        let run = self.storage.get_run(&run_id).await?;
+
+        let owner = run.repository.owner;
+        let repo = run.repository.name;
+        let head_sha = run.commit.clone();
+
+        let check_run = installation_client
+            .create_check_run(
+                &owner,
+                &repo,
+                crate::github::model::CreateCheckRun {
+                    name: String::from("rainci"),
+                    head_sha: head_sha.clone(),
+                    status: crate::github::model::Status::Queued,
+                    details_url: Some(self.target_url.to_string()),
+                    output: None,
+                },
+            )
+            .await
+            .context("create check run")?;
 
         self.storage
             .dequeued_run(&run_id)
