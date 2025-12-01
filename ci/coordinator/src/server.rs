@@ -150,6 +150,7 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
             )
             .await
             .context("create check run")?;
+        let head_sha = check_run.head_sha;
 
         self.storage
             .dequeued_run(&run_id)
