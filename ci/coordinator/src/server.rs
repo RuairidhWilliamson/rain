@@ -178,7 +178,6 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
                 let download = installation_client
                     .download_repo_tar(&owner, &repo, &head_sha)
                     .context("download repo")?;
-                let download_dir_name = format!("{owner}-{repo}-{head_sha}");
                 let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
                 let download_area = driver.create_area(&[]).unwrap();
                 let download_entry =
@@ -186,6 +185,11 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
                 std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
                 let download = File::new_checked(&driver, download_entry).unwrap();
                 let area = driver.extract_tar_gz(&download).unwrap();
+                let mut ls =
+                    std::fs::read_dir(driver.resolve_fs_entry(Dir::root(area.clone()).inner()))
+                        .unwrap();
+                let entry = ls.next().unwrap().unwrap();
+                let download_dir_name = entry.file_name().into_string().unwrap();
                 let download_dir_entry =
                     FSEntry::new(area, SealedFilePath::new(&download_dir_name).unwrap());
                 let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
