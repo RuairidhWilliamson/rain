@@ -6,7 +6,7 @@ mod session;
 
 use std::{convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use axum::{
     Form, Router,
     extract::{FromRef, FromRequestParts, OptionalFromRequestParts, Path, State},
@@ -14,10 +14,14 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
 };
+use jsonwebtoken::EncodingKey;
 use log::info;
 use oauth2::ClientSecret;
-use rain_ci_common::RepositoryId;
-use secrecy::SecretString;
+use rain_ci_common::{
+    RepoHost, RepositoryId,
+    github::{Client, InstallationClient as _},
+};
+use secrecy::{ExposeSecret as _, SecretString};
 use serde::Deserialize;
 
 #[derive(Debug, serde::Deserialize)]
@@ -32,6 +36,8 @@ struct Config {
     db_user: String,
     db_password: Option<SecretString>,
     db_password_file: Option<PathBuf>,
+    github_app_id: rain_ci_common::github::model::AppId,
+    github_app_key_file: PathBuf,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -58,15 +64,30 @@ async fn main() -> Result<()> {
         password_file: config.db_password_file.clone(),
     })
     .await?;
+    let key_raw = secrecy::SecretSlice::from(
+        tokio::fs::read(&config.github_app_key_file)
+            .await
+            .context("read github app key")?,
+    );
+    let key =
+        EncodingKey::from_rsa_pem(key_raw.expose_secret()).context("decode github app key")?;
+
+    let github_client = Arc::new(rain_ci_common::github::implementation::AppClient::new(
+        rain_ci_common::github::implementation::AppAuth {
+            app_id: config.github_app_id,
+            key,
+        },
+    ));
     let addr = config.addr;
-    let github_config: GithubOauthConfig =
+    let github_oauth_config: GithubOauthConfig =
         serde_json::from_slice(&tokio::fs::read(&config.github_oauth_file).await?)?;
     let state = AppState {
-        github_client: github::Client::new(
-            github_config.github_client_id,
-            github_config.github_client_secret,
+        github_oauth_client: github::Client::new(
+            github_oauth_config.github_client_id,
+            github_oauth_config.github_client_secret,
             &config.base_url,
         )?,
+        github_client: github_client,
         db,
         config: Arc::new(config),
     };
@@ -103,10 +124,19 @@ async fn repo_create_run(
     _auth: AdminUser,
     Path(repo_id): Path<RepositoryId>,
     State(db): State<db::Db>,
+    State(github_app): State<Arc<rain_ci_common::github::implementation::AppClient>>,
     Form(data): Form<RepoCreateRun>,
 ) -> Result<impl IntoResponse, AppError> {
-    // TODO: Resolve the commit before creating it
-    let run_id = db.create_run(&repo_id, &data.commit).await?;
+    let installations = github_app.app_installations().await?;
+    // FIXME: Using the first installation is stupid
+    let installation = installations.first().unwrap();
+    let installation_client = github_app.auth_installation(installation.id).await?;
+    let db_repo = db.get_repo(&repo_id).await?;
+    assert_eq!(db_repo.host, RepoHost::Github);
+    let commit = installation_client
+        .get_commit(&db_repo.owner, &db_repo.name, &data.commit)
+        .await?;
+    let run_id = db.create_run(&repo_id, &commit.sha).await?;
     Ok(Redirect::to(&format!("/run/{run_id}")))
 }
 
@@ -126,7 +156,8 @@ async fn style_asset() -> impl IntoResponse {
 
 #[derive(FromRef, Clone)]
 struct AppState {
-    github_client: github::Client,
+    github_oauth_client: github::Client,
+    github_client: Arc<rain_ci_common::github::implementation::AppClient>,
     db: db::Db,
     config: Arc<Config>,
 }

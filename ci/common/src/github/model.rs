@@ -152,3 +152,8 @@ pub struct InstallationAccessToken {
 pub struct Installation {
     pub id: InstallationId,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Commit {
+    pub sha: String,
+}

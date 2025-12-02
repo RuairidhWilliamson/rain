@@ -6,15 +6,16 @@ use http::{Request, Response, request::Parts};
 use http_body_util::BodyExt as _;
 use hyper::body::Incoming;
 use log::{error, info};
+use rain_ci_common::github::InstallationClient as _;
 use rain_lang::afs::{dir::Dir, file::File};
 use rain_lang::afs::{entry::FSEntry, entry::FSEntryTrait as _, path::SealedFilePath};
 use rain_lang::driver::{DriverTrait as _, FSTrait as _};
 
 use crate::RunRequest;
 use crate::runner::RunComplete;
-use crate::{github::InstallationClient as _, runner::Runner};
+use crate::runner::Runner;
 
-pub struct Server<GH: crate::github::Client, ST: crate::storage::StorageTrait> {
+pub struct Server<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> {
     pub target_url: url::Url,
     pub github_webhook_secret: String,
     pub runner: Runner,
@@ -23,7 +24,7 @@ pub struct Server<GH: crate::github::Client, ST: crate::storage::StorageTrait> {
     pub tx: tokio::sync::mpsc::Sender<RunRequest>,
 }
 
-impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST> {
+impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST> {
     pub async fn handle_request(
         self: Arc<Self>,
         request: Request<Incoming>,
@@ -74,12 +75,12 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
             return Err(anyhow!("unexpected event kind: {event_kind:?}"));
         }
 
-        let check_suite_event: crate::github::model::CheckSuiteEvent =
+        let check_suite_event: rain_ci_common::github::model::CheckSuiteEvent =
             serde_json::from_slice(&body[..])?;
 
         if !matches!(
             check_suite_event.check_suite.status,
-            Some(crate::github::model::Status::Queued)
+            Some(rain_ci_common::github::model::Status::Queued)
         ) {
             info!(
                 "skipping check suite event {:?}",
@@ -140,17 +141,16 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
             .create_check_run(
                 &owner,
                 &repo,
-                crate::github::model::CreateCheckRun {
+                rain_ci_common::github::model::CreateCheckRun {
                     name: String::from("rainci"),
                     head_sha: head_sha.clone(),
-                    status: crate::github::model::Status::Queued,
+                    status: rain_ci_common::github::model::Status::Queued,
                     details_url: Some(self.target_url.to_string()),
                     output: None,
                 },
             )
             .await
             .context("create check run")?;
-        let head_sha = check_run.head_sha;
 
         self.storage
             .dequeued_run(&run_id)
@@ -162,23 +162,25 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
                 &owner,
                 &repo,
                 check_run.id,
-                crate::github::model::PatchCheckRun {
-                    status: Some(crate::github::model::Status::InProgress),
+                rain_ci_common::github::model::PatchCheckRun {
+                    status: Some(rain_ci_common::github::model::Status::InProgress),
                     ..Default::default()
                 },
             )
             .await
             .context("update check run")?;
 
+        log::info!("Preparing run");
         let handle = {
             let owner = owner.clone();
             let repo = repo.clone();
             let server = Arc::clone(&self);
             let installation_client = Arc::clone(&installation_client);
-            tokio::task::spawn_blocking(move || {
-                let download = installation_client
-                    .download_repo_tar(&owner, &repo, &head_sha)
-                    .context("download repo")?;
+            let download = installation_client
+                .download_repo_tar(&owner, &repo, &head_sha)
+                .await
+                .context("download repo")?;
+            let (root, lfs_entries) = tokio::task::spawn_blocking(move || {
                 let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
                 let download_area = driver.create_area(&[]).unwrap();
                 let download_entry =
@@ -204,9 +206,17 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
                         Some((path, lfs_object))
                     })
                     .collect();
-                installation_client
-                    .smudge_git_lfs(&owner, &repo, lfs_entries)
-                    .context("smudge git lfs")?;
+                (root, lfs_entries)
+            })
+            .await?;
+            installation_client
+                .smudge_git_lfs(&owner, &repo, lfs_entries)
+                .await
+                .context("smudge git lfs")?;
+
+            log::info!("Prepare run complete");
+            tokio::task::spawn_blocking(move || {
+                let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
                 let area = driver.create_area(&[root.inner()]).unwrap();
                 let run_complete = server.runner.run(&driver, area);
                 Ok(run_complete)
@@ -221,7 +231,7 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
                 output,
             })) => (
                 rain_ci_common::RunStatus::Success,
-                crate::github::model::CheckRunConclusion::Success,
+                rain_ci_common::github::model::CheckRunConclusion::Success,
                 output,
             ),
             Ok(Ok(RunComplete {
@@ -229,14 +239,14 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
                 output,
             })) => (
                 rain_ci_common::RunStatus::Failure,
-                crate::github::model::CheckRunConclusion::Failure,
+                rain_ci_common::github::model::CheckRunConclusion::Failure,
                 output,
             ),
             Ok(Err(err)) => {
                 log::error!("runner error: {err:?}");
                 (
                     rain_ci_common::RunStatus::Failure,
-                    crate::github::model::CheckRunConclusion::Failure,
+                    rain_ci_common::github::model::CheckRunConclusion::Failure,
                     String::default(),
                 )
             }
@@ -244,7 +254,7 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
                 log::error!("runner panicked: {err:?}");
                 (
                     rain_ci_common::RunStatus::Failure,
-                    crate::github::model::CheckRunConclusion::Failure,
+                    rain_ci_common::github::model::CheckRunConclusion::Failure,
                     String::default(),
                 )
             }
@@ -269,10 +279,10 @@ impl<GH: crate::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST>
                 &owner,
                 &repo,
                 check_run.id,
-                crate::github::model::PatchCheckRun {
-                    status: Some(crate::github::model::Status::Completed),
+                rain_ci_common::github::model::PatchCheckRun {
+                    status: Some(rain_ci_common::github::model::Status::Completed),
                     conclusion: Some(conclusion),
-                    output: Some(crate::github::model::CheckRunOutput {
+                    output: Some(rain_ci_common::github::model::CheckRunOutput {
                         title: String::from("rain run"),
                         summary: String::from("rain run complete"),
                         text: output.replace(' ', "&nbsp;"),

@@ -26,7 +26,7 @@ use sha2::Digest as _;
 
 use crate::config::Config;
 
-pub type PrintHandler<'a> = Box<dyn Fn(&str) + 'a>;
+pub type PrintHandler<'a> = Box<dyn Fn(&str) + 'a + Send>;
 
 pub struct DriverImpl<'a> {
     pub config: Config,

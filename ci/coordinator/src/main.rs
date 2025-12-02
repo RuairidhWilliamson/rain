@@ -1,4 +1,3 @@
-mod github;
 mod runner;
 mod server;
 
@@ -29,7 +28,7 @@ use crate::storage::StorageTrait as _;
 #[derive(Debug, serde::Deserialize)]
 struct Config {
     addr: SocketAddr,
-    github_app_id: github::model::AppId,
+    github_app_id: rain_ci_common::github::model::AppId,
     github_app_key_file: PathBuf,
     github_webhook_secret: String,
     target_url: url::Url,
@@ -73,10 +72,12 @@ async fn main() -> Result<()> {
     let key =
         EncodingKey::from_rsa_pem(key_raw.expose_secret()).context("decode github app key")?;
 
-    let github_client = github::implementation::AppClient::new(github::implementation::AppAuth {
-        app_id: config.github_app_id,
-        key,
-    });
+    let github_client = rain_ci_common::github::implementation::AppClient::new(
+        rain_ci_common::github::implementation::AppAuth {
+            app_id: config.github_app_id,
+            key,
+        },
+    );
 
     // let ipnets = [IpNet::from(IpAddr::V4(Ipv4Addr::LOCALHOST))];
     // let mut allowed_ipnets = Some(&ipnets);

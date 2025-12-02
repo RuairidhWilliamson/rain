@@ -1,49 +1,63 @@
-use std::sync::{Arc, Mutex};
-
 use anyhow::{Context as _, Result};
 use chrono::Utc;
-use rain_ci_common::{Run, RunId};
+use rain_ci_common::{Run, RunId, github::model::InstallationId};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
-use crate::{
-    RunRequest, github::model::InstallationId, runner::Runner, server::Server,
-    storage::StorageTrait,
-};
+use crate::{RunRequest, runner::Runner, server::Server, storage::StorageTrait};
 
 #[derive(Default)]
 struct TestGithubClient {
-    check_runs: Arc<Mutex<Vec<crate::github::model::CheckRun>>>,
+    check_runs: Arc<Mutex<Vec<rain_ci_common::github::model::CheckRun>>>,
 }
 
-impl crate::github::Client for TestGithubClient {
+impl rain_ci_common::github::Client for TestGithubClient {
     async fn auth_installation(
         &self,
-        _installation_id: crate::github::model::InstallationId,
-    ) -> Result<impl crate::github::InstallationClient> {
+        _installation_id: rain_ci_common::github::model::InstallationId,
+    ) -> Result<impl rain_ci_common::github::InstallationClient> {
         Ok(TestGithubInstallationClient {
             check_runs: Arc::clone(&self.check_runs),
         })
     }
 
-    async fn app_installations(&self) -> Result<Vec<crate::github::model::Installation>> {
-        Ok(vec![crate::github::model::Installation {
+    async fn app_installations(&self) -> Result<Vec<rain_ci_common::github::model::Installation>> {
+        Ok(vec![rain_ci_common::github::model::Installation {
             id: InstallationId(0),
         }])
     }
 }
 
 struct TestGithubInstallationClient {
-    check_runs: Arc<Mutex<Vec<crate::github::model::CheckRun>>>,
+    check_runs: Arc<Mutex<Vec<rain_ci_common::github::model::CheckRun>>>,
 }
 
-impl crate::github::InstallationClient for TestGithubInstallationClient {
+impl rain_ci_common::github::InstallationClient for TestGithubInstallationClient {
+    async fn get_commit(
+        &self,
+        _owner: &str,
+        _repo: &str,
+        _ref: &str,
+    ) -> Result<rain_ci_common::github::model::Commit> {
+        unimplemented!()
+    }
+
+    async fn get_repo(
+        &self,
+        _owner: &str,
+        _repo: &str,
+    ) -> Result<rain_ci_common::github::model::Repository> {
+        unimplemented!()
+    }
+
     async fn create_check_run(
         &self,
         _owner: &str,
         _repo: &str,
-        check_run: crate::github::model::CreateCheckRun,
-    ) -> Result<crate::github::model::CheckRun> {
-        let mut check_runs = self.check_runs.lock().unwrap();
-        let run = crate::github::model::CheckRun {
+        check_run: rain_ci_common::github::model::CreateCheckRun,
+    ) -> Result<rain_ci_common::github::model::CheckRun> {
+        let mut check_runs = self.check_runs.lock().await;
+        let run = rain_ci_common::github::model::CheckRun {
             id: check_runs.len() as u64,
             name: check_run.name,
             head_sha: check_run.head_sha,
@@ -59,13 +73,13 @@ impl crate::github::InstallationClient for TestGithubInstallationClient {
         _owner: &str,
         _repo: &str,
         check_run_id: u64,
-        patch: crate::github::model::PatchCheckRun,
-    ) -> Result<crate::github::model::CheckRun> {
-        let mut check_runs = self.check_runs.lock().unwrap();
+        patch: rain_ci_common::github::model::PatchCheckRun,
+    ) -> Result<rain_ci_common::github::model::CheckRun> {
+        let mut check_runs = self.check_runs.lock().await;
         let check_run = check_runs
             .get_mut(usize::try_from(check_run_id).unwrap())
             .context("check run does not exist")?;
-        let new_check_run = crate::github::model::CheckRun {
+        let new_check_run = rain_ci_common::github::model::CheckRun {
             id: check_run_id,
             name: patch.name.unwrap_or_else(|| check_run.name.clone()),
             head_sha: check_run.head_sha.clone(),
@@ -76,14 +90,14 @@ impl crate::github::InstallationClient for TestGithubInstallationClient {
         Ok(new_check_run)
     }
 
-    fn download_repo_tar(&self, owner: &str, repo: &str, git_ref: &str) -> Result<Vec<u8>> {
+    async fn download_repo_tar(&self, owner: &str, repo: &str, git_ref: &str) -> Result<Vec<u8>> {
         assert_eq!(owner, "alice");
         assert_eq!(repo, "test");
         assert_eq!(git_ref, "abcd");
         Ok(include_bytes!("../test.tar.gz").to_vec())
     }
 
-    fn smudge_git_lfs(
+    async fn smudge_git_lfs(
         &self,
         _owner: &str,
         _repo: &str,
@@ -124,8 +138,11 @@ async fn github_check_run() {
     Server::handle_run_request(server.clone(), RunRequest { run_id: RunId(0) })
         .await
         .unwrap();
-    let check_runs = server.github_client.check_runs.lock().unwrap();
+    let check_runs = server.github_client.check_runs.lock().await;
     let check_run = check_runs.first().unwrap();
     assert_eq!(check_run.head_sha, "abcd");
-    assert_eq!(check_run.status, crate::github::model::Status::Completed);
+    assert_eq!(
+        check_run.status,
+        rain_ci_common::github::model::Status::Completed
+    );
 }

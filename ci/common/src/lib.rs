@@ -1,3 +1,5 @@
+pub mod github;
+
 use chrono::{DateTime, TimeDelta, Utc};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -66,7 +68,7 @@ impl Run {
     }
 }
 
-#[derive(Debug, Clone, strum::IntoStaticStr, strum::EnumString)]
+#[derive(Debug, Clone, strum::IntoStaticStr, strum::EnumString, PartialEq, Eq)]
 pub enum RepoHost {
     Github,
 }

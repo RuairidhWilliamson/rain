@@ -1,11 +1,10 @@
 use std::time::SystemTime;
 
 use anyhow::{Context as _, Result};
-use http::header::{ACCEPT, CONTENT_TYPE};
+use http::header::CONTENT_TYPE;
 use jsonwebtoken::EncodingKey;
 use serde::Serialize;
 use serde_json::Value;
-use ureq::{Agent, RequestBuilder};
 
 pub struct AppAuth {
     pub app_id: super::model::AppId,
@@ -37,37 +36,25 @@ impl AppAuth {
 pub struct AppClient {
     client: reqwest::Client,
     auth: AppAuth,
-    // FIXME: Remove agent and just use reqwest
-    agent: ureq::Agent,
 }
 
 impl AppClient {
     pub fn new(auth: AppAuth) -> Self {
-        let config = Agent::config_builder()
-            .https_only(true)
-            .user_agent("rain-ci")
-            .build();
-        let agent = Agent::new_with_config(config);
         let client = reqwest::ClientBuilder::new()
             .https_only(true)
             .user_agent("rain-ci")
             .build()
             .expect("build client");
-        Self {
-            client,
-            auth,
-            agent,
-        }
+        Self { client, auth }
     }
 
-    fn reqwest_auth(&self, req: reqwest::RequestBuilder) -> Result<reqwest::RequestBuilder> {
+    fn auth(&self, req: reqwest::RequestBuilder) -> Result<reqwest::RequestBuilder> {
         Ok(req
             .bearer_auth(self.auth.generate_bearer_token()?)
             .header(http::header::ACCEPT, "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28"))
     }
 
-    #[expect(dead_code)]
     pub async fn meta(&self) -> Result<super::model::ApiOverview> {
         Ok(self
             .client
@@ -86,7 +73,7 @@ impl super::Client for AppClient {
         installation_id: super::model::InstallationId,
     ) -> Result<impl super::InstallationClient> {
         let token = self
-            .reqwest_auth(self.client.post(format!(
+            .auth(self.client.post(format!(
                 "https://api.github.com/app/installations/{installation_id}/access_tokens"
             )))?
             .send()
@@ -96,14 +83,13 @@ impl super::Client for AppClient {
             .await?;
         Ok(InstallationClient {
             client: self.client.clone(),
-            agent: self.agent.clone(),
             token,
         })
     }
 
     async fn app_installations(&self) -> Result<Vec<super::model::Installation>> {
         Ok(self
-            .reqwest_auth(self.client.get("https://api.github.com/app/installations"))?
+            .auth(self.client.get("https://api.github.com/app/installations"))?
             .send()
             .await?
             .error_for_status()?
@@ -114,13 +100,11 @@ impl super::Client for AppClient {
 
 pub struct InstallationClient {
     pub client: reqwest::Client,
-    // FIXME: Remove agent and just use reqwest
-    pub agent: ureq::Agent,
     pub token: super::model::InstallationAccessToken,
 }
 
 impl InstallationClient {
-    pub fn ureq_auth<Any>(&self, req: RequestBuilder<Any>) -> RequestBuilder<Any> {
+    pub fn auth(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
         req.header(
             http::header::AUTHORIZATION,
             format!("Bearer {}", self.token.token),
@@ -129,19 +113,9 @@ impl InstallationClient {
         .header("X-GitHub-Api-Version", "2022-11-28")
     }
 
-    pub fn reqwest_auth(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        req.header(
-            http::header::AUTHORIZATION,
-            format!("Bearer {}", self.token.token),
-        )
-        .header(http::header::ACCEPT, "application/vnd.github+json")
-        .header("X-GitHub-Api-Version", "2022-11-28")
-    }
-
-    #[expect(dead_code)]
     pub async fn app_installation_repositories(&self) -> Result<Value> {
         Ok(self
-            .reqwest_auth(
+            .auth(
                 self.client
                     .get("https://api.github.com/installation/repositories"),
             )
@@ -152,31 +126,57 @@ impl InstallationClient {
             .await?)
     }
 
-    fn git_lfs_api(
+    async fn git_lfs_api(
         &self,
         owner: &str,
         repo: &str,
         request: git_lfs_rs::api::Request,
     ) -> Result<git_lfs_rs::api::Response> {
         let response = self
-            .agent
-            .post(format!(
+            .auth(self.client.post(format!(
                 "https://github.com/{owner}/{repo}.git/info/lfs/objects/batch"
-            ))
-            .header(
-                http::header::AUTHORIZATION,
-                format!("Bearer {}", self.token.token),
-            )
+            )))
             .header(CONTENT_TYPE, "application/vnd.git-lfs+json")
-            .header(ACCEPT, "application/vnd.git-lfs+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
-            .send_json(request)?;
-        let response: git_lfs_rs::api::Response = response.into_body().read_json()?;
+            .json(&request)
+            .send()
+            .await?
+            .error_for_status()?;
+        let response: git_lfs_rs::api::Response = response.json().await?;
         Ok(response)
     }
 }
 
 impl super::InstallationClient for InstallationClient {
+    async fn get_repo(&self, owner: &str, repo: &str) -> Result<super::model::Repository> {
+        Ok(self
+            .auth(
+                self.client
+                    .get(format!("https://api.github.com/repos/{owner}/{repo}")),
+            )
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?)
+    }
+
+    async fn get_commit(
+        &self,
+        owner: &str,
+        repo: &str,
+        r#ref: &str,
+    ) -> Result<super::model::Commit> {
+        Ok(self
+            .auth(self.client.get(format!(
+                "https://api.github.com/repos/{owner}/{repo}/commits/{ref}"
+            )))
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?)
+    }
+
     async fn create_check_run(
         &self,
         owner: &str,
@@ -210,7 +210,7 @@ impl super::InstallationClient for InstallationClient {
         check_run: super::model::PatchCheckRun,
     ) -> Result<super::model::CheckRun> {
         Ok(self
-            .reqwest_auth(self.client.patch(format!(
+            .auth(self.client.patch(format!(
                 "https://api.github.com/repos/{owner}/{repo}/check-runs/{check_run_id}"
             )))
             .json(&check_run)
@@ -221,17 +221,20 @@ impl super::InstallationClient for InstallationClient {
             .await?)
     }
 
-    fn download_repo_tar(&self, owner: &str, repo: &str, git_ref: &str) -> Result<Vec<u8>> {
+    async fn download_repo_tar(&self, owner: &str, repo: &str, git_ref: &str) -> Result<Vec<u8>> {
         Ok(self
-            .ureq_auth(self.agent.get(format!(
+            .auth(self.client.get(format!(
                 "https://api.github.com/repos/{owner}/{repo}/tarball/{git_ref}"
             )))
-            .call()?
-            .body_mut()
-            .read_to_vec()?)
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes()
+            .await?
+            .to_vec())
     }
 
-    fn smudge_git_lfs(
+    async fn smudge_git_lfs(
         &self,
         owner: &str,
         repo: &str,
@@ -249,11 +252,14 @@ impl super::InstallationClient for InstallationClient {
         };
         let response = self
             .git_lfs_api(owner, repo, request)
+            .await
             .context("git lfs api")?;
         for (resp, (path, _)) in response.objects.into_iter().zip(entries.into_iter()) {
-            let mut f = std::fs::File::create(&path).context("create lfs file")?;
-            let mut reader = self
-                .agent
+            let mut f = tokio::fs::File::create(&path)
+                .await
+                .context("create lfs file")?;
+            let body = self
+                .client
                 .get(
                     &resp
                         .actions
@@ -261,11 +267,14 @@ impl super::InstallationClient for InstallationClient {
                         .context("no download action")?
                         .href,
                 )
-                .call()
+                .send()
+                .await
                 .context("download lfs object")?
-                .into_body()
-                .into_reader();
-            std::io::copy(&mut reader, &mut f)?;
+                .error_for_status()?
+                .bytes()
+                .await?;
+            let mut reader = &body[..];
+            tokio::io::copy(&mut reader, &mut f).await?;
         }
         Ok(())
     }
