@@ -3,7 +3,6 @@ RUN rustup component add rustfmt clippy
 RUN apt-get -qqy update && apt-get -qqy install pkg-config libssl-dev curl xz-utils libasound2-dev clang > /dev/null
 
 WORKDIR /usr/rain
-
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 ENV SQLX_OFFLINE=true
 
