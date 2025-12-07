@@ -286,8 +286,7 @@ mod tests {
 
     use crate::github::{Client as _, InstallationClient as _};
 
-    // Requires github creds
-    #[ignore]
+    #[ignore = "requires github creds"]
     #[tokio::test]
     async fn create_check_run() {
         dotenvy::dotenv().unwrap();

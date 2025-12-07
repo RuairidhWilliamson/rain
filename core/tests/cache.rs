@@ -1,11 +1,13 @@
+#![cfg(test)]
+
 use std::{
     fs::{self},
-    io::{Seek, Write},
+    io::{Seek as _, Write as _},
     path::Path,
     sync::Arc,
 };
 
-use poison_panic::MutexExt;
+use poison_panic::MutexExt as _;
 use rain_core::cache::persistent::PersistCache;
 use rain_lang::{
     afs::entry::FSEntryTrait as _,

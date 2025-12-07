@@ -3,9 +3,13 @@ use rain_ci_common::{FinishedRun, Run, RunId};
 
 pub trait StorageTrait: Send + Sync + 'static {
     async fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId>;
-    async fn dequeued_run(&self, id: &RunId) -> Result<()>;
-    async fn finished_run(&self, id: &RunId, finished: FinishedRun) -> Result<()>;
-    async fn get_run(&self, id: &RunId) -> Result<Run>;
+    fn dequeued_run(&self, id: &RunId) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn finished_run(
+        &self,
+        id: &RunId,
+        finished: FinishedRun,
+    ) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn get_run(&self, id: &RunId) -> impl std::future::Future<Output = Result<Run>> + Send;
 }
 
 pub mod inner {

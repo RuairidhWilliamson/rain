@@ -173,7 +173,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 let captures: IndexMap<String, Value> = cx
                     .locals
                     .iter()
-                    .map(|(k, v)| (k.to_string(), v.clone()))
+                    .map(|(k, v)| ((*k).to_string(), v.clone()))
                     .collect();
                 Ok(Value::Closure(Closure {
                     captures: Arc::new(captures),
@@ -275,7 +275,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         }
         if let Some(declaration_id) = self.ir.resolve_global_declaration(cx.module.id, ident) {
             return Ok(Some(self.evaluate_declaration(cx, declaration_id)?));
-        };
+        }
         Ok(None)
     }
 
@@ -337,7 +337,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 stacktrace.push(StacktraceEntry {
                     m: cx.module.id,
                     n: nid,
-                    d: *f,
+                    d: Some(*f),
                 });
                 let mut callee_cx = Cx::new(m, cx.call_depth + 1, args, stacktrace);
                 log::trace!("begin function call {:?} {:?}", m.id, function_name);

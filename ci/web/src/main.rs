@@ -19,7 +19,7 @@ use log::info;
 use oauth2::ClientSecret;
 use rain_ci_common::{
     RepoHost, RepositoryId,
-    github::{Client, InstallationClient as _},
+    github::{Client as _, InstallationClient as _},
 };
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::Deserialize;
@@ -87,7 +87,7 @@ async fn main() -> Result<()> {
             github_oauth_config.github_client_secret,
             &config.base_url,
         )?,
-        github_client: github_client,
+        github_client,
         db,
         config: Arc::new(config),
     };
@@ -129,7 +129,7 @@ async fn repo_create_run(
 ) -> Result<impl IntoResponse, AppError> {
     let installations = github_app.app_installations().await?;
     // FIXME: Using the first installation is stupid
-    let installation = installations.first().unwrap();
+    let installation = installations.first().context("first installation")?;
     let installation_client = github_app.auth_installation(installation.id).await?;
     let db_repo = db.get_repo(&repo_id).await?;
     assert_eq!(db_repo.host, RepoHost::Github);

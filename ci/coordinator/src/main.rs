@@ -21,7 +21,7 @@ use rain_ci_common::RunId;
 use runner::Runner;
 use secrecy::{ExposeSecret as _, SecretString};
 use sqlx::postgres::PgListener;
-use tokio::task::JoinSet;
+use tokio::{sync::mpsc::Sender, task::JoinSet};
 
 use crate::storage::StorageTrait as _;
 
@@ -93,25 +93,8 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel(10);
-    {
-        let pool = pool.clone();
-        let tx = tx.clone();
-        tokio::spawn(async move {
-            let mut listener = PgListener::connect_with(&pool).await.unwrap();
-            listener.listen("request_run").await.unwrap();
-            loop {
-                let notif = listener.recv().await.unwrap();
-                assert_eq!(notif.channel(), "request_run");
-                let run_id: i64 = notif.payload().parse().unwrap();
-                tx.send(RunRequest {
-                    run_id: RunId(run_id),
-                })
-                .await
-                .unwrap();
-            }
-        });
-    }
+    let (tx, rx) = tokio::sync::mpsc::channel(10);
+    start_pg_notify_worker(&pool, &tx);
 
     let storage = storage::inner::Storage::new(pool);
     cleanup_old_runs(&storage).await?;
@@ -124,23 +107,7 @@ async fn main() -> Result<()> {
         storage,
         tx,
     });
-    {
-        let server = Arc::clone(&server);
-        tokio::spawn(async move {
-            loop {
-                let Some(check_suite_event) = rx.recv().await else {
-                    error!("server recv channel closed");
-                    return;
-                };
-                if let Err(err) = Arc::clone(&server)
-                    .handle_run_request(check_suite_event)
-                    .await
-                {
-                    error!("handle check suite event: {err}");
-                }
-            }
-        });
-    }
+    server.start_server_run_request_worker(rx);
     info!("listening on {}", config.addr);
     let mut join_set = JoinSet::new();
     loop {
@@ -195,4 +162,24 @@ async fn cleanup_old_runs(storage: &storage::inner::Storage) -> Result<()> {
 
 struct RunRequest {
     run_id: RunId,
+}
+
+#[expect(clippy::unwrap_used)]
+fn start_pg_notify_worker(pool: &sqlx::PgPool, tx: &Sender<RunRequest>) {
+    let pool = pool.clone();
+    let tx = tx.clone();
+    tokio::spawn(async move {
+        let mut listener = PgListener::connect_with(&pool).await.unwrap();
+        listener.listen("request_run").await.unwrap();
+        loop {
+            let notif = listener.recv().await.unwrap();
+            assert_eq!(notif.channel(), "request_run");
+            let run_id: i64 = notif.payload().parse().unwrap();
+            tx.send(RunRequest {
+                run_id: RunId(run_id),
+            })
+            .await
+            .unwrap();
+        }
+    });
 }

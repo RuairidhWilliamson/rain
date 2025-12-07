@@ -4,7 +4,7 @@ use rain_ci_common::{Run, RunId, github::model::InstallationId};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::{RunRequest, runner::Runner, server::Server, storage::StorageTrait};
+use crate::{RunRequest, runner::Runner, server::Server, storage::StorageTrait as _};
 
 #[derive(Default)]
 struct TestGithubClient {
@@ -124,9 +124,8 @@ async fn github_check_run() {
         .create_run(Run {
             repository: rain_ci_common::Repository {
                 host: rain_ci_common::RepoHost::Github,
-
-                owner: String::from("bar"),
-                name: String::from("baz"),
+                owner: String::from("alice"),
+                name: String::from("test"),
             },
             commit: String::from("abcd"),
             created_at: Utc::now(),
@@ -135,7 +134,7 @@ async fn github_check_run() {
         })
         .await
         .unwrap();
-    Server::handle_run_request(server.clone(), RunRequest { run_id: RunId(0) })
+    Server::handle_run_request(Arc::clone(&server), RunRequest { run_id: RunId(0) })
         .await
         .unwrap();
     let check_runs = server.github_client.check_runs.lock().await;

@@ -6,10 +6,14 @@ use http::{Request, Response, request::Parts};
 use http_body_util::BodyExt as _;
 use hyper::body::Incoming;
 use log::{error, info};
+use rain_ci_common::RunStatus;
 use rain_ci_common::github::InstallationClient as _;
+use rain_ci_common::github::model::CheckRunConclusion;
 use rain_lang::afs::{dir::Dir, file::File};
 use rain_lang::afs::{entry::FSEntry, entry::FSEntryTrait as _, path::SealedFilePath};
 use rain_lang::driver::{DriverTrait as _, FSTrait as _};
+use tokio::sync::mpsc::Receiver;
+use tokio::task::JoinHandle;
 
 use crate::RunRequest;
 use crate::runner::RunComplete;
@@ -25,6 +29,24 @@ pub struct Server<GH: rain_ci_common::github::Client, ST: crate::storage::Storag
 }
 
 impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST> {
+    pub fn start_server_run_request_worker(self: &Arc<Self>, mut rx: Receiver<RunRequest>) {
+        let server = Arc::clone(self);
+        tokio::spawn(async move {
+            loop {
+                let Some(check_suite_event) = rx.recv().await else {
+                    error!("server recv channel closed");
+                    return;
+                };
+                if let Err(err) = Arc::clone(&server)
+                    .handle_run_request(check_suite_event)
+                    .await
+                {
+                    error!("handle check suite event: {err}");
+                }
+            }
+        });
+    }
+
     pub async fn handle_request(
         self: Arc<Self>,
         request: Request<Incoming>,
@@ -120,7 +142,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
     pub async fn handle_run_request(
         self: Arc<Self>,
         run_request: RunRequest,
-    ) -> std::result::Result<(), anyhow::Error> {
+    ) -> Result<(), anyhow::Error> {
         let installations = self.github_client.app_installations().await?;
         // FIXME: Getting the first installation is a bad assumption
         let installation = installations.first().unwrap();
@@ -175,53 +197,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
             .download_and_run(&installation_client, &owner, &repo, head_sha)
             .await;
 
-        let (status, conclusion, output) = match result_handle {
-            Ok(handle) => {
-                let result: Result<Result<RunComplete>, _> = handle.await;
-                match result {
-                    Ok(Ok(RunComplete {
-                        success: true,
-                        output,
-                    })) => (
-                        rain_ci_common::RunStatus::Success,
-                        rain_ci_common::github::model::CheckRunConclusion::Success,
-                        output,
-                    ),
-                    Ok(Ok(RunComplete {
-                        success: false,
-                        output,
-                    })) => (
-                        rain_ci_common::RunStatus::Failure,
-                        rain_ci_common::github::model::CheckRunConclusion::Failure,
-                        output,
-                    ),
-                    Ok(Err(err)) => {
-                        log::error!("runner error: {err:?}");
-                        (
-                            rain_ci_common::RunStatus::Failure,
-                            rain_ci_common::github::model::CheckRunConclusion::Failure,
-                            String::default(),
-                        )
-                    }
-                    Err(err) => {
-                        log::error!("runner panicked: {err:?}");
-                        (
-                            rain_ci_common::RunStatus::Failure,
-                            rain_ci_common::github::model::CheckRunConclusion::Failure,
-                            String::default(),
-                        )
-                    }
-                }
-            }
-            Err(err) => {
-                log::error!("runner download error: {err:?}");
-                (
-                    rain_ci_common::RunStatus::Failure,
-                    rain_ci_common::github::model::CheckRunConclusion::Failure,
-                    String::default(),
-                )
-            }
-        };
+        let (status, conclusion, output) = resolve_error(result_handle).await;
 
         let finished_at = Utc::now();
         let execution_time = finished_at - start;
@@ -264,21 +240,17 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
     async fn download_and_run(
         self: &Arc<Self>,
         installation_client: &Arc<impl rain_ci_common::github::InstallationClient>,
-        owner: &String,
-        repo: &String,
+        owner: &str,
+        repo: &str,
         head_sha: String,
-    ) -> Result<
-        tokio::task::JoinHandle<std::result::Result<RunComplete, anyhow::Error>>,
-        anyhow::Error,
-    > {
-        let owner = owner.clone();
-        let repo = repo.clone();
-        let server = Arc::clone(&self);
+    ) -> Result<JoinHandle<Result<RunComplete, anyhow::Error>>, anyhow::Error> {
+        let server = Arc::clone(self);
         let installation_client = Arc::clone(installation_client);
         let download = installation_client
-            .download_repo_tar(&owner, &repo, &head_sha)
+            .download_repo_tar(owner, repo, &head_sha)
             .await
             .context("download repo")?;
+        #[expect(clippy::unwrap_used)]
         let (root, lfs_entries) = tokio::task::spawn_blocking(move || {
             let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
             let download_area = driver.create_area(&[]).unwrap();
@@ -309,10 +281,11 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         })
         .await?;
         installation_client
-            .smudge_git_lfs(&owner, &repo, lfs_entries)
+            .smudge_git_lfs(owner, repo, lfs_entries)
             .await
             .context("smudge git lfs")?;
         log::info!("Prepare run complete");
+        #[expect(clippy::unwrap_used)]
         Ok(tokio::task::spawn_blocking(move || {
             let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
             let area = driver.create_area(&[root.inner()]).unwrap();
@@ -340,5 +313,49 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         );
         ring::hmac::verify(&key, body, &sig).context("verify signature")?;
         Ok(())
+    }
+}
+
+async fn resolve_error(
+    result_handle: Result<JoinHandle<Result<RunComplete>>>,
+) -> (RunStatus, CheckRunConclusion, String) {
+    match result_handle {
+        Ok(handle) => {
+            let result: Result<Result<RunComplete>, _> = handle.await;
+            match result {
+                Ok(Ok(RunComplete {
+                    success: true,
+                    output,
+                })) => (RunStatus::Success, CheckRunConclusion::Success, output),
+                Ok(Ok(RunComplete {
+                    success: false,
+                    output,
+                })) => (RunStatus::Failure, CheckRunConclusion::Failure, output),
+                Ok(Err(err)) => {
+                    log::error!("runner error: {err:?}");
+                    (
+                        RunStatus::Failure,
+                        CheckRunConclusion::Failure,
+                        String::default(),
+                    )
+                }
+                Err(err) => {
+                    log::error!("runner panicked: {err:?}");
+                    (
+                        RunStatus::Failure,
+                        CheckRunConclusion::Failure,
+                        String::default(),
+                    )
+                }
+            }
+        }
+        Err(err) => {
+            log::error!("runner download error: {err:?}");
+            (
+                RunStatus::Failure,
+                CheckRunConclusion::Failure,
+                String::default(),
+            )
+        }
     }
 }

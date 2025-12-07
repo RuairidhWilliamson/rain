@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use crate::{
     afs::area::FileArea,
     ast::NodeId,
-    ir::{DeclarationId, IrModule, ModuleId},
+    ir::{DeclarationId, IrModule, ModuleId, Rir},
     local_span::LocalSpan,
     runner::{
         error::{ErrorTrace, RunnerError, Throwing},
@@ -26,14 +26,8 @@ pub struct Cx<'a> {
     pub stacktrace: Vec<StacktraceEntry>,
 }
 
-#[derive(Debug, Clone)]
-pub struct StacktraceEntry {
-    pub m: ModuleId,
-    pub n: NodeId,
-    pub d: DeclarationId,
-}
-
 impl<'a> Cx<'a> {
+    #[must_use]
     pub fn new(
         module: &'a Arc<IrModule>,
         call_depth: usize,
@@ -68,5 +62,49 @@ impl<'a> Cx<'a> {
             FileArea::Local(_) => self.deps.push(Dep::LocalArea),
             FileArea::Generated(_) => (),
         }
+    }
+
+    #[must_use]
+    pub fn callee(
+        &self,
+        module: &'a Arc<IrModule>,
+        args: HashMap<&'a str, Value>,
+        ste: StacktraceEntry,
+    ) -> Self {
+        let mut st = self.stacktrace.clone();
+        st.push(ste);
+        Cx::new(module, self.call_depth + 1, args, st)
+    }
+
+    #[must_use]
+    pub fn callee_closure(
+        &self,
+        module: &'a Arc<IrModule>,
+        args: HashMap<&'a str, Value>,
+        captures: &Arc<IndexMap<String, Value>>,
+        ste: StacktraceEntry,
+    ) -> Self {
+        let mut st = self.stacktrace.clone();
+        st.push(ste);
+        let mut callee = Cx::new(module, self.call_depth + 1, args, st);
+        callee.captures.clone_from(&self.captures);
+        callee.captures.push(Arc::clone(captures));
+        callee
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StacktraceEntry {
+    pub m: ModuleId,
+    pub n: NodeId,
+    pub d: Option<DeclarationId>,
+}
+
+impl StacktraceEntry {
+    pub fn declaration_local_span(&self, ir: &Rir) -> Option<LocalSpan> {
+        Some(
+            ir.get_module(self.d?.module_id())
+                .get_declaration_name_span(self.d?.local_id()),
+        )
     }
 }

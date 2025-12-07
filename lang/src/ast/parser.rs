@@ -833,11 +833,11 @@ mod test {
 
     #[test]
     fn closure() {
-        insta::assert_snapshot!(parse_display_expr("fn () {}"))
+        insta::assert_snapshot!(parse_display_expr("fn () {}"));
     }
 
     #[test]
     fn closure_args() {
-        insta::assert_snapshot!(parse_display_expr("fn (a: A, b: B) { 5 }(a, b)"))
+        insta::assert_snapshot!(parse_display_expr("fn (a: A, b: B) { 5 }(a, b)"));
     }
 }
