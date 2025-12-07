@@ -18,9 +18,22 @@
     <td>
       {% match run.finished %}
       {% when Some with (finished) %}
-      {{ finished.status }}
+      {% match finished.status %}
+      {% when rain_ci_common::RunStatus::Success %}
+      <span class="state-icon state-success" title="{{ finished.status }}"></span>
+      {% when rain_ci_common::RunStatus::Failure %}
+      <span class="state-icon state-failure" title="{{ finished.status }}"></span>
+      {% when rain_ci_common::RunStatus::SystemFailure %}
+      <span class="state-icon state-system-failure" title="{{ finished.status }}"></span>
+      {% endmatch %}
       {% when None %}
-      {{ run.state() }}
+      {% match run.state() %}
+      {% when rain_ci_common::RunState::Queued %}
+      <span class="state-icon state-queued" title="{{ run.state() }}"></span>
+      {% when rain_ci_common::RunState::InProgress %}
+      <span class="state-icon state-in-progress" title="{{ run.state() }}"></span>
+      {% when rain_ci_common::RunState::Finished %}
+      {% endmatch %}
       {% endmatch %}
     </td>
     <td>

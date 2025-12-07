@@ -6,3 +6,31 @@ nav.nav {
   display: flex;
   justify-content: space-between;
 }
+
+.state-icon {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background-color: #1e1e1e;
+}
+
+.state-icon.state-success {
+  background-color: #1ede1e;
+}
+
+.state-icon.state-failure {
+  background-color: #de1e1e;
+}
+
+.state-icon.state-system-failure {
+  background-color: #de5e1e;
+}
+
+.state-icon.state-queued {
+  background-color: #de9e1e;
+}
+
+.state-icon.state-in-progress {
+  background-color: #1e7ede;
+}
