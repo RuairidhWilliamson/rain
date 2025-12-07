@@ -171,87 +171,50 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
             .context("update check run")?;
 
         log::info!("Preparing run");
-        let handle = {
-            let owner = owner.clone();
-            let repo = repo.clone();
-            let server = Arc::clone(&self);
-            let installation_client = Arc::clone(&installation_client);
-            let download = installation_client
-                .download_repo_tar(&owner, &repo, &head_sha)
-                .await
-                .context("download repo")?;
-            let (root, lfs_entries) = tokio::task::spawn_blocking(move || {
-                let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
-                let download_area = driver.create_area(&[]).unwrap();
-                let download_entry =
-                    FSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
-                std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
-                let download = File::new_checked(&driver, download_entry).unwrap();
-                let area = driver.extract_tar_gz(&download).unwrap();
-                let mut ls =
-                    std::fs::read_dir(driver.resolve_fs_entry(Dir::root(area.clone()).inner()))
-                        .unwrap();
-                let entry = ls.next().unwrap().unwrap();
-                let download_dir_name = entry.file_name().into_string().unwrap();
-                let download_dir_entry =
-                    FSEntry::new(area, SealedFilePath::new(&download_dir_name).unwrap());
-                let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
-                let lfs_entries: Vec<_> = driver
-                    .glob(&root, "**/*")
-                    .unwrap()
-                    .into_iter()
-                    .filter_map(|entry| {
-                        let path = driver.resolve_fs_entry(entry.inner());
-                        let lfs_object = git_lfs_rs::object::Object::from_path(&path).ok()?;
-                        Some((path, lfs_object))
-                    })
-                    .collect();
-                (root, lfs_entries)
-            })
-            .await?;
-            installation_client
-                .smudge_git_lfs(&owner, &repo, lfs_entries)
-                .await
-                .context("smudge git lfs")?;
+        let result_handle = self
+            .download_and_run(&installation_client, &owner, &repo, head_sha)
+            .await;
 
-            log::info!("Prepare run complete");
-            tokio::task::spawn_blocking(move || {
-                let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
-                let area = driver.create_area(&[root.inner()]).unwrap();
-                let run_complete = server.runner.run(&driver, area);
-                Ok(run_complete)
-            })
-        };
-
-        let result: Result<Result<RunComplete>, _> = handle.await;
-
-        let (status, conclusion, output) = match result {
-            Ok(Ok(RunComplete {
-                success: true,
-                output,
-            })) => (
-                rain_ci_common::RunStatus::Success,
-                rain_ci_common::github::model::CheckRunConclusion::Success,
-                output,
-            ),
-            Ok(Ok(RunComplete {
-                success: false,
-                output,
-            })) => (
-                rain_ci_common::RunStatus::Failure,
-                rain_ci_common::github::model::CheckRunConclusion::Failure,
-                output,
-            ),
-            Ok(Err(err)) => {
-                log::error!("runner error: {err:?}");
-                (
-                    rain_ci_common::RunStatus::Failure,
-                    rain_ci_common::github::model::CheckRunConclusion::Failure,
-                    String::default(),
-                )
+        let (status, conclusion, output) = match result_handle {
+            Ok(handle) => {
+                let result: Result<Result<RunComplete>, _> = handle.await;
+                match result {
+                    Ok(Ok(RunComplete {
+                        success: true,
+                        output,
+                    })) => (
+                        rain_ci_common::RunStatus::Success,
+                        rain_ci_common::github::model::CheckRunConclusion::Success,
+                        output,
+                    ),
+                    Ok(Ok(RunComplete {
+                        success: false,
+                        output,
+                    })) => (
+                        rain_ci_common::RunStatus::Failure,
+                        rain_ci_common::github::model::CheckRunConclusion::Failure,
+                        output,
+                    ),
+                    Ok(Err(err)) => {
+                        log::error!("runner error: {err:?}");
+                        (
+                            rain_ci_common::RunStatus::Failure,
+                            rain_ci_common::github::model::CheckRunConclusion::Failure,
+                            String::default(),
+                        )
+                    }
+                    Err(err) => {
+                        log::error!("runner panicked: {err:?}");
+                        (
+                            rain_ci_common::RunStatus::Failure,
+                            rain_ci_common::github::model::CheckRunConclusion::Failure,
+                            String::default(),
+                        )
+                    }
+                }
             }
             Err(err) => {
-                log::error!("runner panicked: {err:?}");
+                log::error!("runner download error: {err:?}");
                 (
                     rain_ci_common::RunStatus::Failure,
                     rain_ci_common::github::model::CheckRunConclusion::Failure,
@@ -296,6 +259,66 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         self.runner.prune();
 
         Ok(())
+    }
+
+    async fn download_and_run(
+        self: &Arc<Self>,
+        installation_client: &Arc<impl rain_ci_common::github::InstallationClient>,
+        owner: &String,
+        repo: &String,
+        head_sha: String,
+    ) -> Result<
+        tokio::task::JoinHandle<std::result::Result<RunComplete, anyhow::Error>>,
+        anyhow::Error,
+    > {
+        let owner = owner.clone();
+        let repo = repo.clone();
+        let server = Arc::clone(&self);
+        let installation_client = Arc::clone(installation_client);
+        let download = installation_client
+            .download_repo_tar(&owner, &repo, &head_sha)
+            .await
+            .context("download repo")?;
+        let (root, lfs_entries) = tokio::task::spawn_blocking(move || {
+            let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
+            let download_area = driver.create_area(&[]).unwrap();
+            let download_entry =
+                FSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
+            std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
+            let download = File::new_checked(&driver, download_entry).unwrap();
+            let area = driver.extract_tar_gz(&download).unwrap();
+            let mut ls =
+                std::fs::read_dir(driver.resolve_fs_entry(Dir::root(area.clone()).inner()))
+                    .unwrap();
+            let entry = ls.next().unwrap().unwrap();
+            let download_dir_name = entry.file_name().into_string().unwrap();
+            let download_dir_entry =
+                FSEntry::new(area, SealedFilePath::new(&download_dir_name).unwrap());
+            let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
+            let lfs_entries: Vec<_> = driver
+                .glob(&root, "**/*")
+                .unwrap()
+                .into_iter()
+                .filter_map(|entry| {
+                    let path = driver.resolve_fs_entry(entry.inner());
+                    let lfs_object = git_lfs_rs::object::Object::from_path(&path).ok()?;
+                    Some((path, lfs_object))
+                })
+                .collect();
+            (root, lfs_entries)
+        })
+        .await?;
+        installation_client
+            .smudge_git_lfs(&owner, &repo, lfs_entries)
+            .await
+            .context("smudge git lfs")?;
+        log::info!("Prepare run complete");
+        Ok(tokio::task::spawn_blocking(move || {
+            let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
+            let area = driver.create_area(&[root.inner()]).unwrap();
+            let run_complete = server.runner.run(&driver, area);
+            Ok(run_complete)
+        }))
     }
 
     fn verify_webhook_signature(&self, request: &Parts, body: &[u8]) -> Result<()> {
