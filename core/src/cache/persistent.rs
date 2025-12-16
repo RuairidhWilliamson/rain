@@ -173,8 +173,8 @@ pub enum PersistValue {
     Dir(FSEntry),
     Internal,
     InternalFunction(InternalFunction),
-    List(Vec<PersistValue>),
-    Record(IndexMap<String, PersistValue>),
+    List(Vec<Self>),
+    Record(IndexMap<String, Self>),
     Module { file: FSEntry, src: String },
 }
 

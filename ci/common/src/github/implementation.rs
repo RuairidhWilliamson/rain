@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use anyhow::{Context as _, Result};
-use http::header::CONTENT_TYPE;
+use http::header::{ACCEPT, CONTENT_TYPE};
 use jsonwebtoken::EncodingKey;
 use serde::Serialize;
 use serde_json::Value;
@@ -51,7 +51,7 @@ impl AppClient {
     fn auth(&self, req: reqwest::RequestBuilder) -> Result<reqwest::RequestBuilder> {
         Ok(req
             .bearer_auth(self.auth.generate_bearer_token()?)
-            .header(http::header::ACCEPT, "application/vnd.github+json")
+            .header(ACCEPT, "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28"))
     }
 
@@ -109,7 +109,7 @@ impl InstallationClient {
             http::header::AUTHORIZATION,
             format!("Bearer {}", self.token.token),
         )
-        .header(http::header::ACCEPT, "application/vnd.github+json")
+        .header(ACCEPT, "application/vnd.github+json")
         .header("X-GitHub-Api-Version", "2022-11-28")
     }
 
@@ -133,10 +133,16 @@ impl InstallationClient {
         request: git_lfs_rs::api::Request,
     ) -> Result<git_lfs_rs::api::Response> {
         let response = self
-            .auth(self.client.post(format!(
+            .client
+            .post(format!(
                 "https://github.com/{owner}/{repo}.git/info/lfs/objects/batch"
-            )))
+            ))
+            .header(
+                http::header::AUTHORIZATION,
+                format!("Bearer {}", self.token.token),
+            )
             .header(CONTENT_TYPE, "application/vnd.git-lfs+json")
+            .header(ACCEPT, "application/vnd.git-lfs+json")
             .json(&request)
             .send()
             .await?
@@ -192,7 +198,7 @@ impl super::InstallationClient for InstallationClient {
                 http::header::AUTHORIZATION,
                 format!("Bearer {}", self.token.token),
             )
-            .header(http::header::ACCEPT, "application/vnd.github+json")
+            .header(ACCEPT, "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
             .json(&check_run)
             .send()
