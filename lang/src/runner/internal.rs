@@ -87,6 +87,7 @@ pub enum InternalFunction {
     EscapeHard,
     ChrootRun,
     Flatten,
+    GetType,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -150,6 +151,7 @@ impl InternalFunction {
             "_create_tar_gz" => Some(Self::CreateTarGz),
             "_flatten" => Some(Self::Flatten),
             "_parse_json" => Some(Self::ParseJSON),
+            "_get_type" => Some(Self::GetType),
             _ => None,
         }
     }
@@ -212,6 +214,7 @@ impl InternalFunction {
             Self::CreateTarGz => icx.create_tar_gz(),
             Self::Flatten => icx.flatten(),
             Self::ParseJSON => icx.parse_json(),
+            Self::GetType => icx.get_type(),
         }
     }
 }
@@ -1572,5 +1575,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driv
             }
         }
         Ok(Value::List(Arc::new(RainList(flattened))))
+    }
+
+    fn get_type(self) -> ResultValue {
+        let (_arg_nid, arg_value) = single_arg!(self);
+        Ok(Value::Type(arg_value.rain_type_id()))
     }
 }

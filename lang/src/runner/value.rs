@@ -33,6 +33,7 @@ pub enum Value {
     List(Arc<RainList>),
     Record(Arc<RainRecord>),
     Closure(Closure),
+    Type(RainTypeId),
 }
 
 impl Display for Value {
@@ -53,11 +54,12 @@ impl Display for Value {
             Self::List(rain_list) => Display::fmt(rain_list, f),
             Self::Record(rain_record) => Display::fmt(rain_record, f),
             Self::Closure(closure) => Display::fmt(closure, f),
+            Self::Type(typ) => Display::fmt(typ, f),
         }
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum RainTypeId {
     Unit,
     Boolean,
@@ -74,6 +76,30 @@ pub enum RainTypeId {
     List,
     Record,
     Closure,
+    Type,
+}
+
+impl std::fmt::Display for RainTypeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Unit => "Unit",
+            Self::Boolean => "Boolean",
+            Self::Integer => "Integer",
+            Self::String => "String",
+            Self::Function => "Function",
+            Self::Module => "Module",
+            Self::FileArea => "FileArea",
+            Self::File => "File",
+            Self::EscapeFile => "EscapeFile",
+            Self::Dir => "Dir",
+            Self::Internal => "Internal",
+            Self::InternalFunction => "InternalFunction",
+            Self::List => "List",
+            Self::Record => "Record",
+            Self::Closure => "Closure",
+            Self::Type => "Type",
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -164,6 +190,7 @@ impl Value {
             Self::List(_) => RainTypeId::List,
             Self::Record(_) => RainTypeId::Record,
             Self::Closure(_) => RainTypeId::Closure,
+            Self::Type(_) => RainTypeId::Type,
         }
     }
 
@@ -178,7 +205,8 @@ impl Value {
             | Self::EscapeFile(_)
             | Self::Internal
             | Self::InternalFunction(_)
-            | Self::Closure(_) => Vec::new(),
+            | Self::Closure(_)
+            | Self::Type(_) => Vec::new(),
             Self::File(f) => vec![f.area()],
             Self::Dir(d) => vec![d.area()],
             Self::FileArea(file_area) => vec![file_area],

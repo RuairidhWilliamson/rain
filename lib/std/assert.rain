@@ -2,12 +2,18 @@ let area = internal._get_area(internal._module_file())
 
 fn is_true(b) {
 	if !b {
-		internal._throw("assertion failed: not true")
+		internal._throw("assertion failed: true check")
 	}
 }
 
 fn equal(a, b) {
 	if a != b {
-		internal._throw("assertion failed: not equal")
+		internal._throw("assertion failed: equal check")
+	}
+}
+
+fn not_equal(a, b) {
+	if a == b {
+		internal._throw("assertion failed: not equal check")
 	}
 }

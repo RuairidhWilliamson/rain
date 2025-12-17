@@ -1,5 +1,6 @@
 let area = internal._get_area(internal._module_file())
 let build = internal._get_dir(area, "build")
+
 let cc = internal._import(internal._get_file(build, "cc.rain"))
 let go = internal._import(internal._get_file(build, "go.rain"))
 let rust = internal._import(internal._get_file(build, "rust.rain"))

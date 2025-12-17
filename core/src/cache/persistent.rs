@@ -14,7 +14,7 @@ use rain_lang::{
         cache::{CacheEntry, CacheKey},
         dep::Dep,
         internal::InternalFunction,
-        value::{RainInteger, RainList, RainRecord, Value},
+        value::{RainInteger, RainList, RainRecord, RainTypeId, Value},
     },
 };
 
@@ -176,6 +176,7 @@ pub enum PersistValue {
     List(Vec<Self>),
     Record(IndexMap<String, Self>),
     Module { file: FSEntry, src: String },
+    Type(RainTypeId),
 }
 
 impl PersistValue {
@@ -192,8 +193,6 @@ impl PersistValue {
                     src: module.src.clone().into_owned(),
                 })
             }
-            // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
-            Value::Function(_) | Value::EscapeFile(_) | Value::Closure(_) => None,
             Value::FileArea(file_area) => {
                 if file_area.is_local() {
                     None
@@ -227,6 +226,9 @@ impl PersistValue {
                     .map(|(k, v)| Some((k.clone(), Self::persist(v, rir)?)))
                     .collect::<Option<_>>()?,
             )),
+            Value::Type(typ) => Some(Self::Type(*typ)),
+            // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
+            Value::Function(_) | Value::EscapeFile(_) | Value::Closure(_) => None,
         }
     }
 
@@ -264,6 +266,7 @@ impl PersistValue {
                     }
                 }
             }
+            Self::Type(typ) => Some(Value::Type(typ)),
         }
     }
 }

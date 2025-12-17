@@ -120,7 +120,15 @@ impl Server {
             params.text_document_position_params.position.character as usize,
         )
         .unwrap();
-        let node = entry.module.find_node_by_span(span).unwrap();
+        let Some(node) = entry.module.find_node_by_span(span) else {
+            self.comms
+                .send_message(&message.error_response(json_rpc::ResponseError {
+                    code: 400,
+                    message: String::from("no node for this span"),
+                    data: None,
+                }));
+            return;
+        };
         let display = entry.module.display_node(src, node);
         let node_span = entry.module.span(node);
         let (start_line, start_col) = node_span.start_line_colz(src);

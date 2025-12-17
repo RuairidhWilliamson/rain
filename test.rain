@@ -11,6 +11,7 @@ fn test_caching() {
 	test_rustc_cache()
 	test_create_file_cache()
 	test_import_cache()
+	test_type_check()
 }
 
 fn test_prelude_cache() {
@@ -53,6 +54,12 @@ fn clone_repo() {
 	// std.utils.run_check(repo, std.escape.bin("git"), ["lfs", "pull"], {
 	// 	SSH_AUTH_SOCK = internal._env_var("SSH_AUTH_SOCK"),
 	// })
+}
+
+fn test_type_check() {
+	a = "abcd"
+	std.assert.not_equal(internal._get_type(a), std.types.Integer)
+	std.assert.equal(internal._get_type(a), std.types.String)
 }
 
 fn bar() {

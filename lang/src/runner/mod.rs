@@ -464,6 +464,12 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             {
                 Ok(Value::Boolean(true))
             }
+            (Value::Type(left), BinaryOperatorKind::Equals, Value::Type(right)) => {
+                Ok(Value::Boolean(left == right))
+            }
+            (Value::Type(left), BinaryOperatorKind::NotEquals, Value::Type(right)) => {
+                Ok(Value::Boolean(left != right))
+            }
             _ => Err(cx.err(
                 op.op_span,
                 RunnerError::Makeshift("binary op invalid for given types".into()),
