@@ -291,16 +291,44 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         v: &Value,
         fn_call: &FnCall,
     ) -> ResultValue {
+        if cx.call_depth >= MAX_CALL_DEPTH {
+            return Err(cx.err(fn_call.lparen_token, RunnerError::MaxCallDepth));
+        }
+        let arg_values: Vec<(NodeId, Value)> = fn_call
+            .args
+            .iter()
+            .map(|a| Ok((*a, self.evaluate_node(cx, *a)?)))
+            .collect::<Result<_, _>>()?;
+        let call_span = fn_call.lparen_token.span + fn_call.rparen_token.span;
+        self.call_function(cx, nid, v, call_span, arg_values)
+    }
+
+    #[expect(clippy::too_many_lines)]
+    fn call_function(
+        &mut self,
+        cx: &mut Cx,
+        nid: NodeId,
+        v: &Value,
+        call_span: LocalSpan,
+        arg_values: Vec<(NodeId, Value)>,
+    ) -> ResultValue {
         match &v {
             Value::Function(f) => {
-                if cx.call_depth >= MAX_CALL_DEPTH {
-                    return Err(cx.err(fn_call.lparen_token, RunnerError::MaxCallDepth));
+                let m = &Arc::clone(self.ir.get_module(f.module_id()));
+                let declaration = m.get_declaration(f.local_id());
+                let Declaration::FnDeclare(fn_declare) = declaration else {
+                    unreachable!();
+                };
+                if fn_declare.args.len() != arg_values.len() {
+                    return Err(cx.err(
+                        call_span,
+                        RunnerError::IncorrectArgs {
+                            required: fn_declare.args.len()..=fn_declare.args.len(),
+                            actual: arg_values.len(),
+                        },
+                    ));
                 }
-                let arg_values: Vec<Value> = fn_call
-                    .args
-                    .iter()
-                    .map(|a| self.evaluate_node(cx, *a))
-                    .collect::<Result<_, _>>()?;
+                let arg_values: Vec<_> = arg_values.into_iter().map(|(_, v)| v).collect();
                 let key = cache::CacheKey::Declaration {
                     declaration: *f,
                     args: arg_values.clone(),
@@ -311,35 +339,23 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     return Ok(cache_entry.value);
                 }
                 let start = Instant::now();
-                let m = &Arc::clone(self.ir.get_module(f.module_id()));
-                let declaration = m.get_declaration(f.local_id());
-                let Declaration::FnDeclare(fn_declare) = declaration else {
-                    unreachable!();
-                };
                 let function_name = fn_declare.name.span.contents(&m.src);
                 self.driver.enter_call(function_name);
-                if fn_declare.args.len() != fn_call.args.len() {
-                    return Err(cx.err(
-                        fn_call.rparen_token,
-                        RunnerError::IncorrectArgs {
-                            required: fn_declare.args.len()..=fn_declare.args.len(),
-                            actual: fn_call.args.len(),
-                        },
-                    ));
-                }
                 let args = fn_declare
                     .args
                     .iter()
                     .zip(arg_values)
                     .map(|(a, v)| (a.name.span.contents(&m.src), v))
                     .collect();
-                let mut stacktrace = cx.stacktrace.clone();
-                stacktrace.push(StacktraceEntry {
-                    m: cx.module.id,
-                    n: nid,
-                    d: Some(*f),
-                });
-                let mut callee_cx = Cx::new(m, cx.call_depth + 1, args, stacktrace);
+                let mut callee_cx = cx.callee(
+                    m,
+                    args,
+                    StacktraceEntry {
+                        m: cx.module.id,
+                        n: nid,
+                        d: Some(*f),
+                    },
+                );
                 log::trace!("begin function call {:?} {:?}", m.id, function_name);
                 let result = self.evaluate_node(&mut callee_cx, fn_declare.block)?;
                 log::trace!(
@@ -362,15 +378,42 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 cx.deps.append(&mut callee_cx.deps);
                 Ok(result)
             }
-            Value::Closure(_) => {
-                todo!("implement closure calling")
-            }
-            Value::InternalFunction(f) => {
-                let arg_values: Vec<(NodeId, Value)> = fn_call
+            Value::Closure(closure) => {
+                let arg_values: Vec<_> = arg_values.into_iter().map(|(_, v)| v).collect();
+                let m = &Arc::clone(self.ir.get_module(closure.module));
+                let Node::Closure(closure_declare) = m.get(closure.node) else {
+                    unreachable!()
+                };
+                if closure_declare.args.len() != arg_values.len() {
+                    return Err(cx.err(
+                        call_span,
+                        RunnerError::IncorrectArgs {
+                            required: closure_declare.args.len()..=closure_declare.args.len(),
+                            actual: arg_values.len(),
+                        },
+                    ));
+                }
+                let args = closure_declare
                     .args
                     .iter()
-                    .map(|&a| Ok((a, self.evaluate_node(cx, a)?)))
-                    .collect::<Result<_, _>>()?;
+                    .zip(arg_values)
+                    .map(|(a, v)| (a.name.span.contents(&m.src), v))
+                    .collect();
+                let mut callee_cx = cx.callee_closure(
+                    m,
+                    args,
+                    &closure.captures,
+                    StacktraceEntry {
+                        m: cx.module.id,
+                        n: nid,
+                        d: None,
+                    },
+                );
+                let result = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
+                cx.deps.append(&mut callee_cx.deps);
+                Ok(result)
+            }
+            Value::InternalFunction(f) => {
                 self.driver.enter_internal_call(f);
                 log::trace!("internal function call {f:?} {arg_values:?}");
                 let v = f.call_internal_function(internal::InternalCx {
@@ -378,14 +421,14 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     runner: self,
                     cx,
                     nid,
-                    fn_call,
                     arg_values,
+                    call_span,
                 })?;
                 self.driver.exit_internal_call(f);
                 Ok(v)
             }
             _ => Err(cx.err(
-                fn_call.lparen_token,
+                call_span,
                 RunnerError::ExpectedType {
                     actual: v.rain_type_id(),
                     expected: &[

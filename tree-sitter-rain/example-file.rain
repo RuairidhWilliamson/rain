@@ -13,6 +13,6 @@ let foo = fn() {
 	c = [1, 2, 3]
 }
 
-let bar = fn(x: std.types.String) {
-	std.utils.print(x)
+let bar = fn(x1: std.types.String) {
+	std.utils.print(x1)
 }

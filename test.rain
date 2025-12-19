@@ -6,7 +6,7 @@ let print = std.utils.print
 
 // Run tests to make sure intra-process caching is working
 
-fn test_caching() {
+let test_caching = fn() {
 	test_prelude_cache()
 	test_rustc_cache()
 	test_create_file_cache()
@@ -14,24 +14,24 @@ fn test_caching() {
 	test_type_check()
 }
 
-fn test_prelude_cache() {
+let test_prelude_cache = fn() {
 	std1 = internal._prelude().stdlib("0.1.4")
 	std2 = internal._prelude().stdlib("0.1.4")
 	std.assert.is_true(internal._rust_eq(std1, std2))
 }
 
-fn rustc_helloworld() {
+let rustc_helloworld = fn() {
 	src = std.utils.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
 	std.build.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple, "2024", [])
 }
 
-fn test_rustc_cache() {
+let test_rustc_cache = fn() {
 	bin1 = rustc_helloworld()
 	bin2 = rustc_helloworld()
 	std.assert.is_true(internal._rust_eq(bin1, bin2))
 }
 
-fn test_create_file_cache() {
+let test_create_file_cache = fn() {
 	contents = "hello world"
 	name = "helloworld.txt"
 	file1 = std.utils.create_file(contents, name)
@@ -39,14 +39,14 @@ fn test_create_file_cache() {
 	std.assert.is_true(internal._rust_eq(file1, file2))
 }
 
-fn test_import_cache() {
+let test_import_cache = fn() {
 	rain_src = std.utils.create_file("let foo = 5", "foo.rain")
 	main1 = internal._import(rain_src)
 	main2 = internal._import(rain_src)
 	std.assert.is_true(internal._rust_eq(main1, main2))
 }
 
-fn clone_repo() {
+let clone_repo = fn() {
 	url = "git@github.com:RuairidhWilliamson/parcel.git"
 	commit = "b3bedffc06998ff0cf98f4e95a8407c800894cea"
 	repo = internal._git_contents(url, commit)
@@ -56,16 +56,16 @@ fn clone_repo() {
 	// })
 }
 
-fn test_type_check() {
+let test_type_check = fn() {
 	a = "abcd"
 	std.assert.not_equal(internal._get_type(a), std.types.Integer)
 	std.assert.equal(internal._get_type(a), std.types.String)
 }
 
-fn bar() {
+let bar = fn() {
 	foo()
 }
 
-fn foo() {
+let foo = fn() {
 	internal._throw("hi")
 }
