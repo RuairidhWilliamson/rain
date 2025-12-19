@@ -34,8 +34,11 @@
 "{" @punctuation.bracket
 "}" @punctuation.bracket
 
-(fn_declare (identifier) @function)
+(fn_declare_arg (identifier) @variable.parameter)
+(fn_declare_expr) @function
 (fn_call (expr) @function)
+(type_constraint) @type
 
-(identifier) @variable
+(block) @variable
+; (identifier) @variable
 (line_comment) @comment.line

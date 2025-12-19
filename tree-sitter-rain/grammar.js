@@ -7,19 +7,18 @@ module.exports = grammar({
   rules: {
     source_file: ($) => repeat($.declaration),
 
-    declaration: ($) => choice($.let_declare, $.fn_declare, $.line_comment),
+    declaration: ($) => choice($.let_declare, $.line_comment),
 
     let_declare: ($) => seq(optional("pub"), "let", $.identifier, "=", $.expr),
-    fn_declare: ($) =>
-      seq(optional("pub"), "fn", $.identifier, $.fn_declare_args, $.block),
+    fn_declare_expr: ($) => seq("fn", $.fn_declare_args, $.block),
     fn_declare_args: ($) =>
       seq(
         "(",
-        optional(seq($.identifier, repeat(seq(",", $.identifier)))),
+        optional(seq($.fn_declare_arg, repeat(seq(",", $.fn_declare_arg)))),
         ")",
       ),
-
-    fn_expr: ($) => seq("fn", $.fn_declare_args, $.block),
+    fn_declare_arg: ($) => seq($.identifier, optional(":"), $.type_constraint),
+    type_constraint: ($) => $.expr,
 
     block: ($) => seq("{", repeat($.statement), "}"),
 
@@ -40,7 +39,7 @@ module.exports = grammar({
         $.string,
         $.number,
         $.bool,
-        $.fn_expr,
+        $.fn_declare_expr,
         $.identifier,
         seq("(", $.expr, ")"),
       ),
@@ -70,7 +69,7 @@ module.exports = grammar({
         optional(seq($.record_element, repeat(seq(",", $.record_element)))),
         "}",
       ),
-    record_element: ($) => seq($.identifier, ":", $.expr),
+    record_element: ($) => seq($.identifier, "=", $.expr),
     fn_call: ($) => prec(9, seq($.expr, $.arg_list)),
     arg_list: ($) =>
       seq("(", optional(seq($.expr, repeat(seq(",", $.expr)))), ")"),

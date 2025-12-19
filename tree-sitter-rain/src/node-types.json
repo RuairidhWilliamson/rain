@@ -86,10 +86,6 @@
       "required": true,
       "types": [
         {
-          "type": "fn_declare",
-          "named": true
-        },
-        {
           "type": "let_declare",
           "named": true
         },
@@ -125,7 +121,7 @@
           "named": true
         },
         {
-          "type": "fn_expr",
+          "type": "fn_declare_expr",
           "named": true
         },
         {
@@ -187,7 +183,7 @@
     }
   },
   {
-    "type": "fn_declare",
+    "type": "fn_declare_arg",
     "named": true,
     "fields": {},
     "children": {
@@ -195,15 +191,11 @@
       "required": true,
       "types": [
         {
-          "type": "block",
-          "named": true
-        },
-        {
-          "type": "fn_declare_args",
-          "named": true
-        },
-        {
           "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "type_constraint",
           "named": true
         }
       ]
@@ -218,14 +210,14 @@
       "required": false,
       "types": [
         {
-          "type": "identifier",
+          "type": "fn_declare_arg",
           "named": true
         }
       ]
     }
   },
   {
-    "type": "fn_expr",
+    "type": "fn_declare_expr",
     "named": true,
     "fields": {},
     "children": {
@@ -383,6 +375,21 @@
         },
         {
           "type": "line_comment",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "type_constraint",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "expr",
           "named": true
         }
       ]

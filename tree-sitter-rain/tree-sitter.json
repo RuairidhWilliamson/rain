@@ -19,10 +19,7 @@
       {
         "name": "Ruairidh Williamson"
       }
-    ],
-    "links": {
-      "repository": "https://github.com/tree-sitter/tree-sitter-rain"
-    }
+    ]
   },
   "bindings": {
     "c": false,

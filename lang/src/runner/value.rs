@@ -65,6 +65,7 @@ pub enum RainTypeId {
     Boolean,
     Integer,
     String,
+    // TODO: Remove function type
     Function,
     Module,
     FileArea,

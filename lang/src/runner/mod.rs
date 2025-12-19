@@ -362,6 +362,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 cx.deps.append(&mut callee_cx.deps);
                 Ok(result)
             }
+            Value::Closure(_) => {
+                todo!("implement closure calling")
+            }
             Value::InternalFunction(f) => {
                 let arg_values: Vec<(NodeId, Value)> = fn_call
                     .args
@@ -385,7 +388,11 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 fn_call.lparen_token,
                 RunnerError::ExpectedType {
                     actual: v.rain_type_id(),
-                    expected: &[RainTypeId::Function],
+                    expected: &[
+                        RainTypeId::Function,
+                        RainTypeId::InternalFunction,
+                        RainTypeId::Closure,
+                    ],
                 },
             )),
         }

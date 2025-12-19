@@ -18,10 +18,6 @@
         },
         {
           "type": "SYMBOL",
-          "name": "fn_declare"
-        },
-        {
-          "type": "SYMBOL",
           "name": "line_comment"
         }
       ]
@@ -59,28 +55,12 @@
         }
       ]
     },
-    "fn_declare": {
+    "fn_declare_expr": {
       "type": "SEQ",
       "members": [
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "pub"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
           "type": "STRING",
           "value": "fn"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "identifier"
         },
         {
           "type": "SYMBOL",
@@ -107,7 +87,7 @@
               "members": [
                 {
                   "type": "SYMBOL",
-                  "name": "identifier"
+                  "name": "fn_declare_arg"
                 },
                 {
                   "type": "REPEAT",
@@ -120,7 +100,7 @@
                       },
                       {
                         "type": "SYMBOL",
-                        "name": "identifier"
+                        "name": "fn_declare_arg"
                       }
                     ]
                   }
@@ -138,22 +118,34 @@
         }
       ]
     },
-    "fn_expr": {
+    "fn_declare_arg": {
       "type": "SEQ",
       "members": [
         {
-          "type": "STRING",
-          "value": "fn"
+          "type": "SYMBOL",
+          "name": "identifier"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "STRING",
+              "value": ":"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
-          "name": "fn_declare_args"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "block"
+          "name": "type_constraint"
         }
       ]
+    },
+    "type_constraint": {
+      "type": "SYMBOL",
+      "name": "expr"
     },
     "block": {
       "type": "SEQ",
@@ -258,7 +250,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "fn_expr"
+          "name": "fn_declare_expr"
         },
         {
           "type": "SYMBOL",
@@ -559,7 +551,7 @@
         },
         {
           "type": "STRING",
-          "value": ":"
+          "value": "="
         },
         {
           "type": "SYMBOL",
