@@ -49,12 +49,12 @@ export default grammar({
 
     binary_expr: ($) =>
       choice(
-        prec.left(50, seq($.expr, choice("*", "/"), $.expr)),
-        prec.left(40, seq($.expr, choice("+", "-"), $.expr)),
+        prec.left(50, seq($.expr, choice("*", "/", "%", "&", "^"), $.expr)),
+        prec.left(40, seq($.expr, choice("+", "-", "|"), $.expr)),
         prec.left(35, seq($.expr, choice(">", "<", ">=", "<="), $.expr)),
         prec.left(30, seq($.expr, choice("==", "!="), $.expr)),
         prec.left(20, seq($.expr, "&&", $.expr)),
-        prec.left(20, seq($.expr, "||", $.expr)),
+        prec.left(10, seq($.expr, "||", $.expr)),
       ),
 
     namespace: ($) => seq($.expr, ".", $.identifier),
