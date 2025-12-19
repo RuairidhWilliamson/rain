@@ -3,7 +3,7 @@ let this_file = internal._module_file()
 
 let my_number = 4
 
-fn main() {
+let main = fn() {
 	print("Hello world")
 	print("This file is", this_file)
 }

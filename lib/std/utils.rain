@@ -38,11 +38,11 @@ let create_tar = internal._create_tar
 let _import = internal._import
 let _throw = internal._throw
 
-fn download(url) {
+let download = fn(url) {
 	internal._download(url, "download")
 }
 
-fn download_with_sha256(url, sha256) {
+let download_with_sha256 = fn(url, sha256) {
 	download_result = internal._download(url, "download")
 	actual_sha256 = internal._sha256(download_result.file)
 	if actual_sha256 != sha256 {
@@ -51,7 +51,7 @@ fn download_with_sha256(url, sha256) {
 	download_result.file
 }
 
-fn run_check(area, bin, args, env) {
+let run_check = fn(area, bin, args, env) {
 	run_result = run(area, bin, args, env)
 	if !run_result.success {
 		print("Stdout:", run_result.stdout)
@@ -63,7 +63,7 @@ fn run_check(area, bin, args, env) {
 
 let newline = "\n"
 
-fn exe_suffix(target_triple) {
+let exe_suffix = fn(target_triple) {
 	if is_windows(target_triple) {
 		".exe"
 	} else {
@@ -71,7 +71,7 @@ fn exe_suffix(target_triple) {
 	}
 }
 
-fn shared_library_prefix(target_triple) {
+let shared_library_prefix = fn(target_triple) {
 	if is_windows(target_triple) {
 		""
 	} else if is_linux(target_triple) {
@@ -81,7 +81,7 @@ fn shared_library_prefix(target_triple) {
 	}
 }
 
-fn shared_library_suffix(target_triple) {
+let shared_library_suffix = fn(target_triple) {
 	if is_windows(target_triple) {
 		".dll"
 	} else if is_linux(target_triple) {
@@ -91,25 +91,25 @@ fn shared_library_suffix(target_triple) {
 	}
 }
 
-fn is_linux(target_triple) {
+let is_linux = fn(target_triple) {
 	string_contains(target_triple, "-linux-")
 }
 
-fn is_windows(target_triple) {
+let is_windows = fn(target_triple) {
 	string_contains(target_triple, "-windows-")
 }
 
-fn is_amd64(target_triple) {
+let is_amd64 = fn(target_triple) {
 	string_contains(target_triple, "x86_64")
 }
 
-fn rename_file(file, new_name) {
+let rename_file = fn(file, new_name) {
 	cp = escape_bin("cp")
 	result = run_check(unit, cp, [file, new_name], {})
 	get_file(result.area, new_name)
 }
 
-fn path_var_separator(target_triple) {
+let path_var_separator = fn(target_triple) {
 	if is_windows(target_triple) {
 		";"
 	} else {

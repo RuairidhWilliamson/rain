@@ -10,13 +10,13 @@ let _throw = std.utils._throw
 
 let zig = std.build.zig.dist.download("0.14.1", "x86_64", "linux")
 
-fn zig_linker() {
+let zig_linker = fn() {
 	linker_script = std.utils.create_file("#!/bin/sh\n" + std.utils.stringify(zig) + " cc \"$@\"", "zig_linker.sh")
 	std.utils.run_check(unit, std.escape.bin("chmod"), ["a+x", linker_script], {})
 	linker_script
 }
 
-fn compile(channel, src, outname, target, edition, extra_args) {
+let compile = fn(channel, src, outname, target, edition, extra_args) {
 	// Implicitly requires cc for linking
 	// cc = escape_bin("cc")
 

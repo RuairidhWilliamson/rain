@@ -1,7 +1,7 @@
 let area = internal._get_area(internal._module_file())
 let utils = internal._import(internal._get_file(area, "utils.rain"))
 
-fn no_empty(file) {
+let no_empty = fn(file) {
 	metadata = utils.file_metadata(file)
 	if metadata.size == 0 {
 		utils.print(file)
@@ -9,7 +9,7 @@ fn no_empty(file) {
 	}
 }
 
-fn no_emptish(file) {
+let no_emptish = fn(file) {
 	metadata = utils.file_metadata(file)
 	if metadata.size == 0 {
 		utils.print(file)

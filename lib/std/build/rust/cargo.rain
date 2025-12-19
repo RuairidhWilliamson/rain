@@ -13,7 +13,7 @@ let print = utils.print
 let host_triple = utils.host_info().triple
 let path_var_sep = utils.path_var_separator(utils.host_info().triple)
 
-fn prepare_cargo(channel) {
+let prepare_cargo = fn(channel) {
 	// Implicitly requires cc for linking
 	cc = escape_bin("cc")
 
@@ -35,7 +35,7 @@ fn prepare_cargo(channel) {
 	{env = env, cargo_bin = cargo_bin}
 }
 
-fn build(channel, area, package, default_features, features, profile, target, extra_args, env) {
+let build = fn(channel, area, package, default_features, features, profile, target, extra_args, env) {
 	prep = prepare_cargo(channel)
 	args = [
 		"build",
@@ -62,7 +62,7 @@ fn build(channel, area, package, default_features, features, profile, target, ex
 	get_file(run_result.area, "target/" + target + "/" + profile_dir + "/" + package + utils.exe_suffix(target))
 }
 
-fn test(channel, area, package, default_features, features, profile) {
+let test = fn(channel, area, package, default_features, features, profile) {
 	prep = prepare_cargo(channel)
 	args = [
 		"test",
@@ -84,7 +84,7 @@ fn test(channel, area, package, default_features, features, profile) {
 	}
 }
 
-fn clippy(channel, area) {
+let clippy = fn(channel, area) {
 	// Download components
 	// Implicitly requires cc for linking
 	cc = escape_bin("cc")
@@ -105,7 +105,7 @@ fn clippy(channel, area) {
 	}
 }
 
-fn check_fmt(channel, area) {
+let check_fmt = fn(channel, area) {
 	// Download components
 	prep = prepare_cargo(channel)
 	rustfmt = rust_dist.get_rustfmt(channel, host_triple)

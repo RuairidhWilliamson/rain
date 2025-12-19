@@ -1,8 +1,8 @@
-fn main() {
+let main = fn() {
 	fib(50)
 }
 
-fn fib(n) {
+let fib = fn(n) {
 	if n == 0 {
 		0
 	} else if n == 1 {

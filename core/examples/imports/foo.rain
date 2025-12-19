@@ -1,4 +1,4 @@
-fn _import(path) {
+let _import = fn(path) {
 	internal._import(internal._get_file(path))
 }
 

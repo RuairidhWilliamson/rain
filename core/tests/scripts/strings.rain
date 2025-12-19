@@ -1,4 +1,4 @@
-fn main() {
+let main = fn() {
     a = "\r\n\"\\\t\0"
     b = internal._bytes_to_string([13, 10, 34, 92, 9, 0])
     a == b

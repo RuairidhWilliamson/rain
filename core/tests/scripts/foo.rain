@@ -1,4 +1,4 @@
-fn foo() {
+let foo = fn() {
 	6 + bar
 }
 

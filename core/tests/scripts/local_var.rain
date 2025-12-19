@@ -1,4 +1,4 @@
-fn main() {
+let main = fn() {
 	a = 4
 	a
 }

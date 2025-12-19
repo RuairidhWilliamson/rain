@@ -1,4 +1,4 @@
-fn main() {}
+let main = fn() {}
 
-fn foo() { }
-fn foo() { }
+let foo = fn() { }
+let foo = fn() { }

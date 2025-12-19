@@ -1,8 +1,8 @@
-fn main() {
+let main = fn() {
 	create_area_from_files()
 }
 
-fn create_area_from_files() {
+let create_area_from_files = fn() {
 	f = internal._create_file("hi", "hello.txt")
 	g = internal._create_file("bye", "goodbye.txt")
 	area = internal._create_area([f, g])

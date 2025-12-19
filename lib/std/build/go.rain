@@ -10,7 +10,7 @@ let _throw = utils._throw
 let go = escape_bin("go")
 
 // This is experimental
-fn build(package, outname) {
+let build = fn(package, outname) {
 	result = run(unit, go, "-o", outname, package)
 	if !result.success {
 		_throw(result)

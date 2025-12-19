@@ -5,7 +5,7 @@ let test_mod = internal._import(internal._get_file(area, "test.rain"))
 let examples = internal._import(internal._get_file(area, "examples/_.rain"))
 let hermetic = internal._import(internal._get_file("hermetic.rain"))
 
-fn load_stdlib() {
+let load_stdlib = fn() {
 	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])
 	std = internal._import(internal._get_file(stdlib_area, "std.rain"))
 	std
@@ -17,20 +17,20 @@ let get_file = std.utils.get_file
 let get_area = std.utils.get_area
 let module_file = std.utils.module_file
 
-pub fn lint() {
+pub let lint = fn() {
 	check_empty_files()
 }
 
-pub fn check() {
+pub let check = fn() {
 	lint()
 	test()
 }
 
-fn build() {
+let build = fn() {
 	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", true, "", "dev", std.utils.host_info().triple, [], {})
 }
 
-fn build_release(target_triple) {
+let build_release = fn(target_triple) {
 	env = {
 		CARGO_TERM_COLOR = "always",
 		CARGO_TERM_QUIET = "true",
@@ -42,33 +42,33 @@ fn build_release(target_triple) {
 		"--target", target_triple,
 		"--quiet",
 		"--release",
-		"--color", "always"
+		"--color", "always",
 		"--no-default-features",
 	]
 	std.escape.run(area, cargo, args, env)
 	get_file(area, "target/" + target_triple + "/release/rain" + std.utils.exe_suffix(target_triple))
 }
 
-fn build_c() {
+let build_c = fn() {
 	std.build.cc.gcc.compile(get_file("core/examples/run/foo.c"), "foo")
 }
 
-fn run() {
+let run = fn() {
 	binary = build_c()
 	std.utils.run(std.utils.unit, binary, [], {})
 }
 
-fn helloworld() {
+let helloworld = fn() {
 	src = std.utils.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
 	bin = std.build.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple, "2024")
 	print(std.utils.run(std.utils.unit, bin, [], {}).stdout)
 }
 
-fn check_empty_files() {
+let check_empty_files = fn() {
 	std.utils.foreach(std.utils.glob(area), std.build.lints.no_emptish)
 }
 
-fn everything() {
+let everything = fn() {
 	check()
 	build()
 	run()
@@ -76,7 +76,7 @@ fn everything() {
 	print_some_stuff()
 }
 
-fn test_zig() {
+let test_zig = fn() {
 	src = std.utils.create_file("const std = @import(\"std\"); pub fn main() !void {std.debug.print(\"hello world\", .{});}", "helloworld.zig")
 	zig_bin = std.build.zig.dist.download("0.15.1", "x86_64", "linux")
 	run_result = std.utils.run(std.utils.unit, zig_bin, ["build-exe", src], {ZIG_GLOBAL_CACHE_DIR = "."})
@@ -93,19 +93,19 @@ fn test_zig() {
 	print(run_result.stderr)
 }
 
-fn publish(version) {
+let publish = fn(version) {
 	publish_module.publish(version)
 }
 
-fn install_cli() {
+let install_cli = fn() {
 	cargo = std.escape.bin("cargo")
 	std.escape.run(area, cargo, ["install", "--path", "cli", "--locked", "-q"], {})
 }
 
-fn test() {
+let test = fn() {
 	test_mod.test_caching()
 }
 
-fn ci() {
+let ci = fn() {
 	check()
 }

@@ -513,13 +513,16 @@ impl<'src> ModuleParser<'src> {
             }
             let value = self.parse_expr()?;
             self.stream.skip_if_newline()?;
-            let mut comma = None;
-            if let Some(tls) = self.stream.peek()? {
-                if tls.token == Token::Comma {
-                    comma = Some(self.stream.expect_parse_next(&[Token::Comma])?.span);
-                }
+            let Some(tls) = self.stream.peek()? else {
+                break;
+            };
+            if tls.token == Token::Comma {
+                let comma = Some(self.stream.expect_parse_next(&[Token::Comma])?.span);
+                elements.push(ListElement { value, comma });
+            } else {
+                elements.push(ListElement { value, comma: None });
+                break;
             }
-            elements.push(ListElement { value, comma });
         }
         let rbracket = self.stream.expect_parse_next(&[Token::RSqBracket])?.span;
         Ok(self.push(List {

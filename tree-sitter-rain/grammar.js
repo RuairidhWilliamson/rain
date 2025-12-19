@@ -5,9 +5,9 @@ export default grammar({
   name: "rain",
 
   rules: {
-    source_file: ($) => repeat($.declaration),
+    source_file: ($) => repeat(choice($.line_comment, $.declaration)),
 
-    declaration: ($) => choice($.let_declare, $.line_comment),
+    declaration: ($) => $.let_declare,
 
     let_declare: ($) => seq(optional("pub"), "let", $.identifier, "=", $.expr),
     fn_declare_expr: ($) => seq("fn", $.fn_declare_args, $.block),
@@ -17,7 +17,8 @@ export default grammar({
         optional(seq($.fn_declare_arg, repeat(seq(",", $.fn_declare_arg)))),
         ")",
       ),
-    fn_declare_arg: ($) => seq($.identifier, optional(":"), $.type_constraint),
+    fn_declare_arg: ($) =>
+      seq($.identifier, optional(seq(":", $.type_constraint))),
     type_constraint: ($) => $.expr,
 
     block: ($) => seq("{", repeat($.statement), "}"),
@@ -46,7 +47,6 @@ export default grammar({
 
     unary_expr: ($) => prec(60, choice(seq("!", $.expr))),
 
-    // TODO: Precedence should be different for different operators
     binary_expr: ($) =>
       choice(
         prec.left(50, seq($.expr, choice("*", "/"), $.expr)),
@@ -68,11 +68,22 @@ export default grammar({
         optional(seq("else", $.block)),
       ),
     list_literal: ($) =>
-      seq("[", optional(seq($.expr, repeat(seq(",", $.expr)))), "]"),
+      seq(
+        "[",
+        seq(
+          repeat(choice($.line_comment, seq($.expr, ","))),
+          optional(seq($.expr, repeat($.line_comment))),
+        ),
+        "]",
+      ),
+    _list_literal_inner: ($) => choice($.line_comment, $.expr),
     record_literal: ($) =>
       seq(
         "{",
-        optional(seq($.record_element, repeat(seq(",", $.record_element)))),
+        seq(
+          repeat(choice($.line_comment, seq($.record_element, ","))),
+          optional(seq($.record_element, repeat($.line_comment))),
+        ),
         "}",
       ),
     record_element: ($) => seq($.identifier, "=", $.expr),
@@ -81,11 +92,18 @@ export default grammar({
       seq("(", optional(seq($.expr, repeat(seq(",", $.expr)))), ")"),
 
     internal: () => "internal",
-    string: () => /"[^"]*"/,
+    string: () =>
+      seq(
+        '"',
+        repeat(
+          choice(/[^"\n\\]/u, seq("\\", choice("\\", '"', "n", "r", "t"))),
+        ),
+        '"',
+      ),
     number: () => /\d+/,
     bool: () => choice("true", "false"),
 
-    identifier: () => /[a-zA-Z_][a-zA-Z0-9_]*/,
+    identifier: () => /[a-zA-Z_\P{ASCII}][a-zA-Z0-9_\P{ASCII}]*/u,
     line_comment: () => /\/\/.*/,
   },
 });

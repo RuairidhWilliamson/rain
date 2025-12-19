@@ -1,6 +1,6 @@
 let 🌧 = "rain"
 let rain_emoji = "🌧"
 
-fn main() {
+let main = fn() {
 	🌧
 }

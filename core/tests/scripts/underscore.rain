@@ -1,4 +1,4 @@
-fn main() {
+let main = fn() {
 	5 + 6
 	if true {
 		_ + 7

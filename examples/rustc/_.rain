@@ -2,7 +2,7 @@ let area = internal._get_area(internal._module_file())
 let main = internal._import(internal._get_file(area, "main.rain"))
 let std = main.std
 
-fn build() {
+let build = fn() {
 	channel = std.build.rust.stable
 	src = std.utils.get_file("main.rs")
 	outname = "rust-helloworld"

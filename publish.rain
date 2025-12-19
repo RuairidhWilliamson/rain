@@ -13,7 +13,7 @@ let _throw = std.utils._throw
 let bucket = "rain-e870e063"
 let webhook_url = internal._get_secret("RAIN_PUBLISH_WEBHOOK")
 
-fn check_version(version) {
+let check_version = fn(version) {
 	cargo_toml = get_file(area, "Cargo.toml")
 	cargo_workspace_version = internal._parse_toml(internal._read_file(cargo_toml)).workspace.package.version
 	if cargo_workspace_version != version {
@@ -21,7 +21,7 @@ fn check_version(version) {
 	}
 }
 
-fn compress_lib() {
+let compress_lib = fn() {
 	ouch = escape_bin("ouch")
 	lib_dir = get_dir(area, "lib")
 	filename = "lib.tar.gz"
@@ -34,7 +34,7 @@ fn compress_lib() {
 	get_file(run_result.area, filename)
 }
 
-fn upload_gcloud(src, dst) {
+let upload_gcloud = fn(src, dst) {
 	gcloud = escape_bin("gcloud")
 	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--no-clobber"], {})
 	print("Stdout:", run_result.stdout)
@@ -44,7 +44,7 @@ fn upload_gcloud(src, dst) {
 	}
 }
 
-fn upload_gcloud_with_sha256(src, dst) {
+let upload_gcloud_with_sha256 = fn(src, dst) {
 	sha256sum = std.utils.create_file(std.utils.sha256(src), "sha256")
 	gcloud = escape_bin("gcloud")
 	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--no-clobber"], {})
@@ -61,12 +61,12 @@ fn upload_gcloud_with_sha256(src, dst) {
 	}
 }
 
-fn webhook(url, contents) {
+let webhook = fn(url, contents) {
 	std.escape.run(area, std.escape.bin("xhs"), ["POST", url, "content=" + contents, "--ignore-stdin"], {})
 	unit
 }
 
-fn publish(version) {
+let publish = fn(version) {
 	check_version(version)
 	win_amd64 = main.build_release("x86_64-pc-windows-gnu")
 	linux_amd64 = main.build_release("x86_64-unknown-linux-gnu")

@@ -113,3 +113,15 @@ fn fn_type_spec_args() {
         "
     ));
 }
+
+#[test]
+fn list_missing_comma() {
+    let src = "let a = [
+        a, b
+        c
+    ]";
+    match super::parser::parse_module(src) {
+        Ok(_) => panic!("expected parse error"),
+        Err(_err) => {}
+    };
+}

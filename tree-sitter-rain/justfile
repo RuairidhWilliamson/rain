@@ -1,4 +1,3 @@
-
 build:
     tree-sitter generate --abi 14
     tree-sitter build --wasm
@@ -10,3 +9,6 @@ install-helix: build
     mkdir -p ~/.config/helix/runtime/queries/rain/
     cp ./queries/highlights.scm ~/.config/helix/runtime/queries/rain/highlights.scm
     hx --grammar build
+
+test: build
+    tree-sitter parse --quiet ../*.rain

@@ -1,4 +1,4 @@
-pub fn stdlib(version) {
+pub let stdlib = fn(version) {
 	bucket = "rain-e870e063"
 	url = "https://storage.googleapis.com/" + bucket + "/releases/" + version + "/stdlib.tar.gz"
 	filename = "stdlib.tar.gz"

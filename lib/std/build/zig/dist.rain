@@ -3,7 +3,7 @@ let utils = internal._import(internal._get_file(area, "utils.rain"))
 
 // TODO: Check minisig
 
-fn download(version, arch, os) {
+let download = fn(version, arch, os) {
 	if os == "windows" {
 		url = "https://ziglang.org/download/" + version + "/zig-" + arch + "-" + os + "-" + version + ".zip"
 		download_result = utils.download(url)

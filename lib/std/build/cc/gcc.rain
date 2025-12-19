@@ -9,7 +9,7 @@ let _throw = utils._throw
 
 let gcc = escape_bin("gcc")
 
-fn compile(src, outname) {
+let compile = fn(src, outname) {
 	// Implictly requires cc for linking
 	ld = escape_bin("ld")
 

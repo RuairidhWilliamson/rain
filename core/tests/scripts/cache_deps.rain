@@ -1,9 +1,9 @@
-fn main() {
+let main = fn() {
 	foo1 = call_foo_twice()
 	foo2 = call_foo_twice()
 	internal._rust_eq(foo1, foo2)
 }
 
-fn call_foo_twice() {
+let call_foo_twice = fn() {
 	internal._import(internal._get_file("foo.rain"))
 }

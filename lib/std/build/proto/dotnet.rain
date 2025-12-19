@@ -5,7 +5,7 @@ let download = utils.download
 let get_file = utils.get_file
 let get_dir = utils.get_dir
 
-fn download_grpc_tools(version) {
+let download_grpc_tools = fn(version) {
 	tools_download = download("https://www.nuget.org/api/v2/package/Grpc.Tools/" + version)
 	if !tools_download.ok {
 		_throw("failed to download grpc tools from nuget")

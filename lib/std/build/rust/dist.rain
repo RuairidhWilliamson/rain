@@ -6,7 +6,7 @@ let _throw = utils._throw
 let get_file = utils.get_file
 let get_dir = utils.get_dir
 
-fn download_pre_sha(url, filename) {
+let download_pre_sha = fn(url, filename) {
 	file_url = url + "/" + filename
 	sha256_download_result = download(file_url + ".sha256")
 	if !sha256_download_result.ok {
@@ -26,7 +26,7 @@ fn download_pre_sha(url, filename) {
 
 
 // Channel is a string one of stable|beta|nightly|<version>
-fn get_manifest(channel) {
+let get_manifest = fn(channel) {
 	base_url = "https://static.rust-lang.org"
 	manifest_file = download_pre_sha(base_url + "/dist", "channel-rust-" + channel + ".toml")
 	manifest_toml = utils.parse_toml(utils.read_file(manifest_file))
@@ -36,7 +36,7 @@ fn get_manifest(channel) {
 	manifest_toml
 }
 
-fn get_gz_artifact(artifact) {
+let get_gz_artifact = fn(artifact) {
 	if !artifact.available {
 		_throw("requested artifact not available")
 	}
@@ -51,7 +51,7 @@ fn get_gz_artifact(artifact) {
 	utils.extract_tar_gz(download_result.file)
 }
 
-fn get_xz_artifact(artifact) {
+let get_xz_artifact = fn(artifact) {
 	if !artifact.available {
 		_throw("requested artifact not available")
 	}
@@ -66,7 +66,7 @@ fn get_xz_artifact(artifact) {
 	utils.extract_tar_xz(download_result.file)
 }
 
-fn get_version_path(manifest) {
+let get_version_path = fn(manifest) {
 	// Just use the rustc version for everything
 	version_split = utils.split_string(manifest.pkg.rustc.version, " ")
 	version = utils.index(version_split, 0)
@@ -79,7 +79,7 @@ fn get_version_path(manifest) {
 	}
 }
 
-fn get_rustc(channel, target) {
+let get_rustc = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	rustc_pkg = get_xz_artifact(utils.index(manifest.pkg.rustc.target, target))
@@ -87,7 +87,7 @@ fn get_rustc(channel, target) {
 	rustc
 }
 
-fn get_rust_std(channel, target) {
+let get_rust_std = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	pkg_targets = utils.index(manifest.pkg, "rust-std")
@@ -96,7 +96,7 @@ fn get_rust_std(channel, target) {
 	rust_std
 }
 
-fn get_cargo(channel, target) {
+let get_cargo = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	cargo_pkg = get_xz_artifact(utils.index(manifest.pkg.cargo.target, target))
@@ -104,7 +104,7 @@ fn get_cargo(channel, target) {
 	cargo
 }
 
-fn get_clippy(channel, target) {
+let get_clippy = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	pkg_targets = utils.index(manifest.pkg, "clippy-preview")
@@ -113,7 +113,7 @@ fn get_clippy(channel, target) {
 	clippy
 }
 
-fn get_rustfmt(channel, target) {
+let get_rustfmt = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	pkg_targets = utils.index(manifest.pkg, "rustfmt-preview")
@@ -122,7 +122,7 @@ fn get_rustfmt(channel, target) {
 	rustfmt
 }
 
-fn get_llvm_tools(channel, target) {
+let get_llvm_tools = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	pkg_targets = utils.index(manifest.pkg, "llvm-tools-preview")

@@ -4,13 +4,13 @@ let std = main.std
 let print = std.utils.print
 let get_file = std.utils.get_file
 
-fn alpine_linux() {
+let alpine_linux = fn() {
 	url = "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/alpine-minirootfs-3.22.2-x86_64.tar.gz"
 	sha256 = "412454ed98025ad9cd910d13f3d448b184e81502baa83180e89f98d0f13674be"
 	internal._get_dir(internal._extract_tar_gz(std.utils.download_with_sha256(url, sha256)), "/")
 }
 
-fn bwrap_run_ro(image, command, args, env) {
+let bwrap_run_ro = fn(image, command, args, env) {
 	bwrap = std.escape.bin("bwrap")
 	args = ["--ro-bind", image, "/", command] + args
 	result = internal._run(std.utils.unit, bwrap, args, env)
@@ -19,11 +19,11 @@ fn bwrap_run_ro(image, command, args, env) {
 	print(result.stderr)
 }
 
-fn anonymous(layer) {
+let anonymous = fn(layer) {
 	["--overlay-src", layer]
 }
 
-fn bwrap_run(image_layers, command, args, env) {
+let bwrap_run = fn(image_layers, command, args, env) {
 	bwrap = std.escape.bin("bwrap")
 	overlay_working = internal._create_area([])
 	overlay_rw = internal._create_area([])
@@ -47,7 +47,7 @@ fn bwrap_run(image_layers, command, args, env) {
 	print(overlay_rw)
 }
 
-fn download_image(image) {
+let download_image = fn(image) {
 	out = internal._create_area([])
 	// TODO: Download image from OCI registry
 	result = std.utils.escape_run(out, std.escape.bin("podman"), ["image", "save", "-o", "image.tar", image], {})
@@ -57,7 +57,7 @@ fn download_image(image) {
 	[internal._extract_tar(get_file(image, "256f393e029fa2063d8c93720da36a74a032bed3355a2bc3e313ad12f8bde9d1.tar"))]
 }
 
-fn test() {
+let test = fn() {
 	// image = download_image("docker.io/alpine")
 	image = [alpine_linux()]
 	env = {PATH = "/bin:/sbin"}

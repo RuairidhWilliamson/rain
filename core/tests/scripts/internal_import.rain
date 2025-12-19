@@ -1,5 +1,5 @@
 let foo = internal._import(internal._get_file("foo.rain"))
 
-fn main() {
+let main = fn() {
 	foo.foo() + foo.bar
 }

@@ -79,10 +79,6 @@
         {
           "type": "let_declare",
           "named": true
-        },
-        {
-          "type": "line_comment",
-          "named": true
         }
       ]
     }
@@ -275,6 +271,10 @@
         {
           "type": "expr",
           "named": true
+        },
+        {
+          "type": "line_comment",
+          "named": true
         }
       ]
     }
@@ -326,6 +326,10 @@
       "required": false,
       "types": [
         {
+          "type": "line_comment",
+          "named": true
+        },
+        {
           "type": "record_element",
           "named": true
         }
@@ -343,6 +347,10 @@
       "types": [
         {
           "type": "declaration",
+          "named": true
+        },
+        {
+          "type": "line_comment",
           "named": true
         }
       ]
@@ -370,6 +378,11 @@
         }
       ]
     }
+  },
+  {
+    "type": "string",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "type_constraint",
@@ -407,6 +420,10 @@
   },
   {
     "type": "!=",
+    "named": false
+  },
+  {
+    "type": "\"",
     "named": false
   },
   {
@@ -478,6 +495,10 @@
     "named": false
   },
   {
+    "type": "\\",
+    "named": false
+  },
+  {
     "type": "]",
     "named": false
   },
@@ -514,6 +535,10 @@
     "named": true
   },
   {
+    "type": "n",
+    "named": false
+  },
+  {
     "type": "number",
     "named": true
   },
@@ -522,8 +547,12 @@
     "named": false
   },
   {
-    "type": "string",
-    "named": true
+    "type": "r",
+    "named": false
+  },
+  {
+    "type": "t",
+    "named": false
   },
   {
     "type": "true",

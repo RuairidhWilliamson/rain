@@ -8,7 +8,7 @@ let _throw = utils._throw
 
 let clang = escape_bin("clang")
 
-fn compile(src, outname) {
+let compile = fn(src, outname) {
 	result = run(unit, clang, src, "-o", outname)
 	if !result.success {
 		_throw(result)
