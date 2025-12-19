@@ -8,7 +8,8 @@
       "scope": "source.rain",
       "file-types": ["rain"],
       "injection-regex": "^rain$",
-      "class-name": "TreeSitterRain"
+      "class-name": "TreeSitterRain",
+      "highlights": "queries/highlights.scm"
     }
   ],
   "metadata": {

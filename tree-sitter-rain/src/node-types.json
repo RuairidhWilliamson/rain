@@ -42,20 +42,11 @@
       "required": true,
       "types": [
         {
-          "type": "binary_op",
-          "named": true
-        },
-        {
           "type": "expr",
           "named": true
         }
       ]
     }
-  },
-  {
-    "type": "binary_op",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "block",

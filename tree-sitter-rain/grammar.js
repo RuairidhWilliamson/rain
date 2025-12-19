@@ -1,7 +1,7 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-check
 
-module.exports = grammar({
+export default grammar({
   name: "rain",
 
   rules: {
@@ -34,22 +34,28 @@ module.exports = grammar({
         $.if_condition,
         $.list_literal,
         $.record_literal,
-        $.fn_call,
         $.internal,
         $.string,
         $.number,
         $.bool,
         $.fn_declare_expr,
+        $.fn_call,
         $.identifier,
         seq("(", $.expr, ")"),
       ),
 
-    unary_expr: ($) => prec(2, choice(seq("!", $.expr))),
+    unary_expr: ($) => prec(60, choice(seq("!", $.expr))),
 
     // TODO: Precedence should be different for different operators
-    binary_expr: ($) => prec.left(1, seq($.expr, $.binary_op, $.expr)),
-    binary_op: () =>
-      choice("==", "!=", ">", "<", ">=", "<=", "&&", "||", "+", "*", "-", "/"),
+    binary_expr: ($) =>
+      choice(
+        prec.left(50, seq($.expr, choice("*", "/"), $.expr)),
+        prec.left(40, seq($.expr, choice("+", "-"), $.expr)),
+        prec.left(35, seq($.expr, choice(">", "<", ">=", "<="), $.expr)),
+        prec.left(30, seq($.expr, choice("==", "!="), $.expr)),
+        prec.left(20, seq($.expr, "&&", $.expr)),
+        prec.left(20, seq($.expr, "||", $.expr)),
+      ),
 
     namespace: ($) => seq($.expr, ".", $.identifier),
 
