@@ -20,12 +20,16 @@ use rain_lang::{
 
 use crate::config::Config;
 
-pub const FORMAT_VERSION: u64 = 1;
+pub const FORMAT_VERSION: u64 = 2;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PersistCacheError {
-    #[error("serde: {0}")]
-    Serde(#[from] serde_json::Error),
+    #[error("de: {0}")]
+    De(#[from] ciborium::de::Error<std::io::Error>),
+    #[error("ser: {0}")]
+    Ser(#[from] ciborium::ser::Error<std::io::Error>),
+    #[error("serde value: {0}")]
+    SerdeValue(#[from] ciborium::value::Error),
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
     #[error("format missmatch")]
@@ -52,11 +56,11 @@ impl PersistCache {
         let PersistCacheWrapper {
             format_version,
             inner,
-        }: PersistCacheWrapper = serde_json::from_slice(&serialized)?;
+        }: PersistCacheWrapper = ciborium::from_reader(&serialized[..])?;
         if format_version != FORMAT_VERSION {
             return Err(PersistCacheError::FormatVersionMissmatch);
         }
-        Ok(serde_json::from_value(inner)?)
+        Ok(inner.deserialized()?)
     }
 
     pub fn save(self, path: &Path) -> Result<(), PersistCacheError> {
@@ -65,11 +69,11 @@ impl PersistCache {
         };
         let p = PersistCacheWrapper {
             format_version: FORMAT_VERSION,
-            inner: serde_json::to_value(self)?,
+            inner: ciborium::Value::serialized(&self)?,
         };
-        let serialized = serde_json::to_vec_pretty(&p)?;
         std::fs::create_dir_all(dir_path)?;
-        std::fs::write(path, serialized)?;
+        let f = std::fs::File::create(path)?;
+        ciborium::into_writer(&p, f)?;
         Ok(())
     }
 
@@ -123,7 +127,7 @@ impl PersistCache {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct PersistCacheWrapper {
     pub format_version: u64,
-    pub inner: serde_json::Value,
+    pub inner: ciborium::Value,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]

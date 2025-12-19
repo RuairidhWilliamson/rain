@@ -19,6 +19,8 @@ module.exports = grammar({
         ")",
       ),
 
+    fn_expr: ($) => seq("fn", $.fn_declare_args, $.block),
+
     block: ($) => seq("{", repeat($.statement), "}"),
 
     statement: ($) => choice($.assignment, $.expr, $.line_comment),
@@ -38,6 +40,7 @@ module.exports = grammar({
         $.string,
         $.number,
         $.bool,
+        $.fn_expr,
         $.identifier,
         seq("(", $.expr, ")"),
       ),

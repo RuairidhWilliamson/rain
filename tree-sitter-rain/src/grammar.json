@@ -138,6 +138,23 @@
         }
       ]
     },
+    "fn_expr": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "fn"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "fn_declare_args"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "block"
+        }
+      ]
+    },
     "block": {
       "type": "SEQ",
       "members": [
@@ -238,6 +255,10 @@
         {
           "type": "SYMBOL",
           "name": "bool"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "fn_expr"
         },
         {
           "type": "SYMBOL",
