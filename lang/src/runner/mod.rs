@@ -107,10 +107,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 let stacktrace = cx.stacktrace.clone();
                 let mut callee_cx = Cx::new(m, cx.call_depth + 1, HashMap::new(), stacktrace);
                 let start = Instant::now();
-                let key = cache::CacheKey::Declaration {
-                    declaration: id,
-                    args: Vec::new(),
-                };
+                let key = cache::CacheKey::Declaration { declaration: id };
                 if let Some(cache_entry) = self.cache.get(&key) {
                     cx.deps.extend(cache_entry.deps);
                     return Ok(cache_entry.value);

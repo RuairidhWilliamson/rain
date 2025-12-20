@@ -121,7 +121,7 @@ impl<'src> ModuleParser<'src> {
         }))
     }
 
-    fn parse_anonymous_fn_declare(&mut self, fn_token: TokenLocalSpan) -> ParseResult<NodeId> {
+    fn parse_fn_declare(&mut self, fn_token: TokenLocalSpan) -> ParseResult<NodeId> {
         let lparen_token = self.stream.expect_parse_next(&[Token::LParen])?;
         let mut args = Vec::new();
         loop {
@@ -269,7 +269,7 @@ impl<'src> ModuleParser<'src> {
                 .with_error(ParseError::ExpectedExpression));
         };
         let expr = match t.token {
-            Token::Fn => self.parse_anonymous_fn_declare(t)?,
+            Token::Fn => self.parse_fn_declare(t)?,
             Token::Ident => self.push(Ident(t)),
             Token::Number => self.push(IntegerLiteral(t)),
             Token::DoubleQuoteLiteral(_) => self.push(StringLiteral(t)),
