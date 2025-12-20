@@ -216,7 +216,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         exclamation,
                         RunnerError::ExpectedType {
                             actual: inner_value.rain_type_id(),
-                            expected: &[RainTypeId::Boolean],
+                            expected: std::borrow::Cow::Borrowed(&[RainTypeId::Boolean]),
                         },
                     )),
                 }
@@ -290,6 +290,29 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                             actual: arg_values.len(),
                         },
                     ));
+                }
+                for (a, v) in closure_declare.args.iter().zip(arg_values.iter()) {
+                    if let Some(type_spec) = &a.type_spec {
+                        let type_spec_value = self.evaluate_node(cx, type_spec.type_expr)?;
+                        let Value::Type(expected_type) = type_spec_value else {
+                            return Err(cx.nid_err(
+                                type_spec.type_expr,
+                                RunnerError::ExpectedType {
+                                    actual: type_spec_value.rain_type_id(),
+                                    expected: std::borrow::Cow::Borrowed(&[RainTypeId::Type]),
+                                },
+                            ));
+                        };
+                        if v.rain_type_id() != expected_type {
+                            return Err(cx.nid_err(
+                                type_spec.type_expr,
+                                RunnerError::ExpectedType {
+                                    actual: v.rain_type_id(),
+                                    expected: std::borrow::Cow::Owned(vec![expected_type]),
+                                },
+                            ));
+                        }
+                    }
                 }
                 let cache_key = CacheKey::CallClosure {
                     closure: closure.clone(),
@@ -385,7 +408,10 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 call_span,
                 RunnerError::ExpectedType {
                     actual: v.rain_type_id(),
-                    expected: &[RainTypeId::InternalFunction, RainTypeId::Closure],
+                    expected: std::borrow::Cow::Borrowed(&[
+                        RainTypeId::InternalFunction,
+                        RainTypeId::Closure,
+                    ]),
                 },
             )),
         }
@@ -530,7 +556,11 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 op.op_span,
                 RunnerError::ExpectedType {
                     actual: left.rain_type_id(),
-                    expected: &[RainTypeId::Module, RainTypeId::Internal, RainTypeId::Record],
+                    expected: std::borrow::Cow::Borrowed(&[
+                        RainTypeId::Module,
+                        RainTypeId::Internal,
+                        RainTypeId::Record,
+                    ]),
                 },
             )),
         }
@@ -543,7 +573,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 LocalSpan::default(),
                 RunnerError::ExpectedType {
                     actual: condition_value.rain_type_id(),
-                    expected: &[RainTypeId::Boolean],
+                    expected: std::borrow::Cow::Borrowed(&[RainTypeId::Boolean]),
                 },
             ));
         };

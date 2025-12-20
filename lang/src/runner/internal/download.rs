@@ -24,7 +24,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driv
                         *url_nid,
                         RunnerError::ExpectedType {
                             actual: url_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
+                            expected: std::borrow::Cow::Borrowed(&[RainTypeId::String]),
                         },
                     ));
                 };

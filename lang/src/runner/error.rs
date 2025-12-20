@@ -87,7 +87,7 @@ pub enum RunnerError {
     #[error("type mismatch, expected {expected:?} actual {actual:?}")]
     ExpectedType {
         actual: RainTypeId,
-        expected: &'static [RainTypeId],
+        expected: Cow<'static, [RainTypeId]>,
     },
     #[error("invalid integer literal")]
     InvalidIntegerLiteral,
