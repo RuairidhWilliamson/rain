@@ -1140,9 +1140,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driv
         let (list, (func_nid, func_value)) = two_args!(self);
         let list = expect_type!(self, List, list);
         let mut out = Vec::with_capacity(list.0.len());
-        if self.cx.call_depth >= super::MAX_CALL_DEPTH {
-            return Err(self.cx.err(self.call_span, RunnerError::MaxCallDepth));
-        }
         for item in list.0.clone() {
             let arg_values: Vec<(NodeId, Value)> = vec![(func_nid, item)];
             out.push(self.runner.call_function(

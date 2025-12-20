@@ -30,7 +30,6 @@ impl<E: std::error::Error> ErrorTrace<E> {
                 file,
                 src,
                 call_span: span,
-                declaration_span: s.declaration_local_span(ir),
             });
         }
         let module = ir.get_module(self.err_span.span.module);
@@ -40,7 +39,6 @@ impl<E: std::error::Error> ErrorTrace<E> {
             file,
             src,
             call_span: self.err_span.span.span,
-            declaration_span: None,
         });
         ResolvedError {
             err: &self.err_span.err,

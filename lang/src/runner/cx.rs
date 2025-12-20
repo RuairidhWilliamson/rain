@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use crate::{
     afs::area::FileArea,
     ast::NodeId,
-    ir::{DeclarationId, IrModule, ModuleId, Rir},
+    ir::{IrModule, ModuleId},
     local_span::LocalSpan,
     runner::{
         error::{ErrorTrace, RunnerError, Throwing},
@@ -95,14 +95,4 @@ impl<'a> Cx<'a> {
 pub struct StacktraceEntry {
     pub m: ModuleId,
     pub n: NodeId,
-    pub d: Option<DeclarationId>,
-}
-
-impl StacktraceEntry {
-    pub fn declaration_local_span(&self, ir: &Rir) -> Option<LocalSpan> {
-        Some(
-            ir.get_module(self.d?.module_id())
-                .get_declaration_name_span(self.d?.local_id()),
-        )
-    }
 }

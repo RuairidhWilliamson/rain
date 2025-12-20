@@ -8,7 +8,6 @@ pub struct ResolvedSpan<'a> {
     pub file: Option<&'a File>,
     pub src: &'a str,
     pub call_span: LocalSpan,
-    pub declaration_span: Option<LocalSpan>,
 }
 
 #[derive(Debug)]
@@ -25,7 +24,6 @@ impl ResolvedError<'_> {
             file,
             src,
             call_span,
-            declaration_span,
         } in &trace[..trace.len() - 1]
         {
             let (line, col) = call_span.start_line_colo(src);
@@ -33,16 +31,12 @@ impl ResolvedError<'_> {
                 .as_ref()
                 .map(|f| format!("{f}"))
                 .unwrap_or_else(|| String::from("<prelude>"));
-            let name = declaration_span
-                .map(|span| span.contents(src).to_owned())
-                .unwrap_or_default();
-            trace_out.push((name, filename, line, col));
+            trace_out.push((filename, line, col));
         }
         let ResolvedSpan {
             file,
             src,
             call_span,
-            declaration_span: _,
         } = &trace[trace.len() - 1];
         let (line, col) = call_span.start_line_colo(src);
         let [before, contents, after] = call_span.surrounding_lines(src, 2);
@@ -85,7 +79,7 @@ impl std::error::Error for ResolvedError<'_> {}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OwnedResolvedError {
-    pub trace: Vec<(String, String, usize, usize)>,
+    pub trace: Vec<(String, usize, usize)>,
     pub file_name: String,
     pub line: usize,
     pub col: usize,
@@ -110,8 +104,8 @@ impl OwnedResolvedError {
             arrows,
             err,
         } = self;
-        for (n, f, l, c) in trace {
-            writeln!(writer, "{n} {f}:{l}:{c}")?;
+        for (f, l, c) in trace {
+            writeln!(writer, "{f}:{l}:{c}")?;
         }
         writer.set_color(ColorSpec::new().set_fg(Some(Color::Blue)))?;
         writeln!(writer, "{file_name}:{line}:{col}")?;

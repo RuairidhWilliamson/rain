@@ -33,8 +33,6 @@ use crate::{
     },
 };
 
-const MAX_CALL_DEPTH: usize = 250;
-
 type ResultValue = Result<Value>;
 type Result<T, E = ErrorTrace<Throwing>> = core::result::Result<T, E>;
 
@@ -44,6 +42,7 @@ pub struct Runner<'a, Driver, Cache> {
     pub driver: &'a Driver,
     pub offline: bool,
     pub seal: bool,
+    pub max_call_depth: usize,
 }
 
 impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
@@ -54,6 +53,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             driver,
             offline: false,
             seal: false,
+            max_call_depth: 250,
         }
     }
 
@@ -255,9 +255,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         v: &Value,
         fn_call: &FnCall,
     ) -> ResultValue {
-        if cx.call_depth >= MAX_CALL_DEPTH {
-            return Err(cx.err(fn_call.lparen_token, RunnerError::MaxCallDepth));
-        }
         let arg_values: Vec<(NodeId, Value)> = fn_call
             .args
             .iter()
@@ -275,6 +272,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         call_span: LocalSpan,
         arg_values: Vec<(NodeId, Value)>,
     ) -> ResultValue {
+        if cx.call_depth >= self.max_call_depth {
+            return Err(cx.err(call_span, RunnerError::MaxCallDepth));
+        }
         match &v {
             Value::Closure(closure) => {
                 let arg_values: Vec<_> = arg_values.into_iter().map(|(_, v)| v).collect();
@@ -313,7 +313,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     StacktraceEntry {
                         m: cx.module.id,
                         n: nid,
-                        d: None,
                     },
                 );
                 let result = self.evaluate_node(&mut callee_cx, closure_declare.block)?;

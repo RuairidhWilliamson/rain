@@ -41,7 +41,6 @@ impl<E: std::error::Error> ErrorSpan<E> {
                 file,
                 src,
                 call_span: self.span.span,
-                declaration_span: None,
             }],
         }
     }
