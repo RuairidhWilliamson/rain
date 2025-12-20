@@ -27,7 +27,7 @@ use crate::{
     ir::{DeclarationId, Rir},
     local_span::LocalSpan,
     runner::{
-        cache::CacheTrait,
+        cache::{CacheKey, CacheTrait},
         cx::{Cx, StacktraceEntry},
         value::Closure,
     },
@@ -132,7 +132,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> ResultValue {
         match cx.module.get(nid) {
             Node::Closure(_) => {
-                let captures: IndexMap<String, Value> = cx
+                let captures: HashMap<String, Value> = cx
                     .locals
                     .iter()
                     .map(|(k, v)| ((*k).to_string(), v.clone()))
@@ -289,6 +289,15 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         },
                     ));
                 }
+                let cache_key = CacheKey::CallClosure {
+                    closure: closure.clone(),
+                    args: arg_values.clone(),
+                };
+                if let Some(mut entry) = self.cache.get(&cache_key) {
+                    cx.deps.append(&mut entry.deps);
+                    return Ok(entry.value);
+                }
+                let start = Instant::now();
                 let args = closure_declare
                     .args
                     .iter()
@@ -306,6 +315,16 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     },
                 );
                 let result = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
+                self.cache.put_if_slow(
+                    cache_key,
+                    CacheEntry {
+                        execution_time: start.elapsed(),
+                        expires: None,
+                        etag: None,
+                        deps: callee_cx.deps.clone(),
+                        value: result.clone(),
+                    },
+                );
                 cx.deps.append(&mut callee_cx.deps);
                 Ok(result)
             }

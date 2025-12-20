@@ -37,6 +37,10 @@ pub enum CacheKey {
     Declaration {
         declaration: DeclarationId,
     },
+    CallClosure {
+        closure: super::value::Closure,
+        args: Vec<Value>,
+    },
     InternalFunction {
         func: InternalFunction,
         args: Vec<Value>,
@@ -49,12 +53,18 @@ pub enum CacheKey {
 impl Display for CacheKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Prelude => f.write_str("Prelude"),
             Self::Declaration { declaration } => f.write_fmt(format_args!("{declaration}")),
+            Self::CallClosure { closure, args } => f.write_fmt(format_args!(
+                "Closure({},{:?})({})",
+                closure.module,
+                closure.node,
+                display_vec(args)
+            )),
             Self::InternalFunction { func, args } => {
                 f.write_fmt(format_args!("{func}({})", display_vec(args)))
             }
             Self::Download { url } => f.write_fmt(format_args!("Download({url})")),
-            Self::Prelude => f.write_str("Prelude"),
         }
     }
 }

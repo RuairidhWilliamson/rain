@@ -291,7 +291,7 @@ impl PersistCacheKey {
         match key {
             // TODO: It is possible to persist declarations in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
             // TODO: It is possible to persist prelude in the cache if we key it by the rain binary version
-            CacheKey::Declaration { .. } | CacheKey::Prelude => None,
+            CacheKey::Declaration { .. } | CacheKey::CallClosure { .. } | CacheKey::Prelude => None,
             CacheKey::InternalFunction { func, args } => Some(Self::InternalFunction {
                 func: *func,
                 args: args

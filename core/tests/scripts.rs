@@ -11,7 +11,6 @@ fn utf8() {
     insta::assert_debug_snapshot!(run("tests/scripts/utf-8.rain").unwrap());
 }
 
-#[ignore = "closures don't implement caching"]
 #[test]
 fn fib() {
     insta::assert_debug_snapshot!(run("tests/scripts/fib.rain").unwrap());

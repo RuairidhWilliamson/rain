@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fmt::{Debug, Display},
     hash::Hasher,
     sync::Arc,
@@ -212,7 +213,7 @@ impl Value {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Closure {
-    pub captures: Arc<IndexMap<String, Value>>,
+    pub captures: Arc<HashMap<String, Value>>,
     pub module: ModuleId,
     pub node: NodeId,
 }
