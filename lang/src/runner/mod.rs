@@ -327,11 +327,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 call_span,
                 RunnerError::ExpectedType {
                     actual: v.rain_type_id(),
-                    expected: &[
-                        RainTypeId::Function,
-                        RainTypeId::InternalFunction,
-                        RainTypeId::Closure,
-                    ],
+                    expected: &[RainTypeId::InternalFunction, RainTypeId::Closure],
                 },
             )),
         }

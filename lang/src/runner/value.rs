@@ -63,8 +63,6 @@ pub enum RainTypeId {
     Boolean,
     Integer,
     String,
-    // TODO: Remove function type
-    Function,
     Module,
     FileArea,
     File,
@@ -85,7 +83,6 @@ impl std::fmt::Display for RainTypeId {
             Self::Boolean => "Boolean",
             Self::Integer => "Integer",
             Self::String => "String",
-            Self::Function => "Function",
             Self::Module => "Module",
             Self::FileArea => "FileArea",
             Self::File => "File",
