@@ -331,17 +331,40 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 Ok(result)
             }
             Value::InternalFunction(f) => {
+                let cache_key = CacheKey::InternalFunction {
+                    func: *f,
+                    args: arg_values.iter().map(|(_, v)| v.clone()).collect(),
+                };
+                if let Some(mut entry) = self.cache.get(&cache_key) {
+                    cx.deps.append(&mut entry.deps);
+                    return Ok(entry.value);
+                }
+                let start = Instant::now();
                 self.driver.enter_internal_call(f);
                 log::trace!("internal function call {f:?} {arg_values:?}");
-                let v = f.call_internal_function(internal::InternalCx {
+                let mut deps = Vec::new();
+                let internal_cx = internal::InternalCx {
                     func: *f,
                     runner: self,
                     cx,
                     nid,
                     arg_values,
                     call_span,
-                })?;
+                    deps: &mut deps,
+                };
+                let v = f.call_internal_function(internal_cx)?;
                 self.driver.exit_internal_call(f);
+                self.cache.put_if_slow(
+                    cache_key,
+                    CacheEntry {
+                        execution_time: start.elapsed(),
+                        expires: None,
+                        etag: None,
+                        deps: deps.clone(),
+                        value: v.clone(),
+                    },
+                );
+                cx.deps.extend(deps);
                 Ok(v)
             }
             _ => Err(cx.err(
