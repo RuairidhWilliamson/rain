@@ -1,6 +1,6 @@
 FROM docker.io/rust:slim as base
 RUN rustup component add rustfmt clippy
-RUN apt-get -qqy update && apt-get -qqy install pkg-config libssl-dev curl xz-utils libasound2-dev clang
+RUN apt-get -qqy update && apt-get -qqy install pkg-config libssl-dev curl xz-utils libasound2-dev clang nodejs
 
 WORKDIR /usr/rain
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
