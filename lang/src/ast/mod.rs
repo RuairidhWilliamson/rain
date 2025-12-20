@@ -96,13 +96,11 @@ impl From<&Self> for NodeId {
 #[derive(Debug)]
 pub enum Declaration {
     LetDeclare(LetDeclare),
-    FnDeclare(FnDeclare),
 }
 
 impl Declaration {
     fn ast_node(&self) -> &dyn AstNode {
         match self {
-            Self::FnDeclare(inner) => inner,
             Self::LetDeclare(inner) => inner,
         }
     }

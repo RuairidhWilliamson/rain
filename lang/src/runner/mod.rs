@@ -62,40 +62,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         let mut initial_cx = Cx::new(&m, 0, HashMap::new(), Vec::new());
         let v = self.evaluate_declaration(&mut initial_cx, id)?;
         match v {
-            Value::Function(f) => {
-                let m = Arc::clone(self.ir.get_module(f.module_id()));
-                let declaration = m.get_declaration(f.local_id());
-                let Declaration::FnDeclare(fn_declare) = declaration else {
-                    unreachable!()
-                };
-                if fn_declare.args.len() != args.len() {
-                    return Err(fn_declare
-                        .rparen_token
-                        .span
-                        .with_module(m.id)
-                        .with_error(
-                            RunnerError::IncorrectArgs {
-                                required: fn_declare.args.len()..=fn_declare.args.len(),
-                                actual: args.len(),
-                            }
-                            .into(),
-                        )
-                        .with_trace(Vec::new()));
-                }
-                let args = fn_declare
-                    .args
-                    .iter()
-                    .zip(args)
-                    .map(|(a, v)| {
-                        (
-                            a.name.span.contents(&m.src),
-                            Value::String(Arc::new(v.clone())),
-                        )
-                    })
-                    .collect();
-                let mut cx = Cx::new(&m, 0, args, vec![]);
-                self.evaluate_node(&mut cx, fn_declare.block)
-            }
             Value::Closure(closure) => {
                 let m = Arc::clone(self.ir.get_module(closure.module));
                 let Node::Closure(closure_declare) = m.get(closure.node) else {
@@ -163,7 +129,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 cx.deps.append(&mut callee_cx.deps);
                 Ok(result)
             }
-            Declaration::FnDeclare(_) => Ok(Value::Function(id)),
         }
     }
 
@@ -303,7 +268,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         self.call_function(cx, nid, v, call_span, arg_values)
     }
 
-    #[expect(clippy::too_many_lines)]
     fn call_function(
         &mut self,
         cx: &mut Cx,
@@ -313,71 +277,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         arg_values: Vec<(NodeId, Value)>,
     ) -> ResultValue {
         match &v {
-            Value::Function(f) => {
-                let m = &Arc::clone(self.ir.get_module(f.module_id()));
-                let declaration = m.get_declaration(f.local_id());
-                let Declaration::FnDeclare(fn_declare) = declaration else {
-                    unreachable!();
-                };
-                if fn_declare.args.len() != arg_values.len() {
-                    return Err(cx.err(
-                        call_span,
-                        RunnerError::IncorrectArgs {
-                            required: fn_declare.args.len()..=fn_declare.args.len(),
-                            actual: arg_values.len(),
-                        },
-                    ));
-                }
-                let arg_values: Vec<_> = arg_values.into_iter().map(|(_, v)| v).collect();
-                let key = cache::CacheKey::Declaration {
-                    declaration: *f,
-                    args: arg_values.clone(),
-                };
-
-                if let Some(cache_entry) = self.cache.get(&key) {
-                    cx.deps.extend(cache_entry.deps);
-                    return Ok(cache_entry.value);
-                }
-                let start = Instant::now();
-                let function_name = fn_declare.name.span.contents(&m.src);
-                self.driver.enter_call(function_name);
-                let args = fn_declare
-                    .args
-                    .iter()
-                    .zip(arg_values)
-                    .map(|(a, v)| (a.name.span.contents(&m.src), v))
-                    .collect();
-                let mut callee_cx = cx.callee(
-                    m,
-                    args,
-                    StacktraceEntry {
-                        m: cx.module.id,
-                        n: nid,
-                        d: Some(*f),
-                    },
-                );
-                log::trace!("begin function call {:?} {:?}", m.id, function_name);
-                let result = self.evaluate_node(&mut callee_cx, fn_declare.block)?;
-                log::trace!(
-                    "end function call {:?} {:?} {:?}",
-                    m.id,
-                    function_name,
-                    start.elapsed()
-                );
-                self.driver.exit_call(function_name);
-                self.cache.put_if_slow(
-                    key,
-                    CacheEntry {
-                        execution_time: start.elapsed(),
-                        expires: None,
-                        etag: None,
-                        deps: callee_cx.deps.clone(),
-                        value: result.clone(),
-                    },
-                );
-                cx.deps.append(&mut callee_cx.deps);
-                Ok(result)
-            }
             Value::Closure(closure) => {
                 let arg_values: Vec<_> = arg_values.into_iter().map(|(_, v)| v).collect();
                 let m = &Arc::clone(self.ir.get_module(closure.module));

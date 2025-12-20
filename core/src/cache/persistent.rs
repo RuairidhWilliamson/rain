@@ -232,7 +232,7 @@ impl PersistValue {
             )),
             Value::Type(typ) => Some(Self::Type(*typ)),
             // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
-            Value::Function(_) | Value::EscapeFile(_) | Value::Closure(_) => None,
+            Value::EscapeFile(_) | Value::Closure(_) => None,
         }
     }
 

@@ -107,7 +107,6 @@ impl IrModule {
     pub fn get_declaration_name_span(&self, id: LocalDeclarationId) -> LocalSpan {
         match self.inner().module_root().declarations.get(id.0) {
             Some(Declaration::LetDeclare(let_declare)) => let_declare.name.span,
-            Some(Declaration::FnDeclare(fn_declare)) => fn_declare.name.span,
             None => unreachable!(),
         }
     }
@@ -120,26 +119,25 @@ impl IrModule {
                 Declaration::LetDeclare(let_declare) => {
                     let_declare.name.span.contents(&self.src) == name
                 }
-                Declaration::FnDeclare(fn_declare) => {
-                    fn_declare.name.span.contents(&self.src) == name
-                }
             })
             .map(|(id, _)| LocalDeclarationId(id))
     }
 
-    pub fn list_fn_declaration_names(&self) -> impl Iterator<Item = &str> {
-        self.inner().declarations().filter_map(|node| match node {
-            Declaration::FnDeclare(fn_declare) => Some(fn_declare.name.span.contents(&self.src)),
-            Declaration::LetDeclare(_) => None,
+    pub fn list_declaration_names(&self) -> impl Iterator<Item = &str> {
+        self.inner().declarations().map(|d| match d {
+            Declaration::LetDeclare(let_declare) => let_declare.name.span.contents(&self.src),
         })
     }
 
-    pub fn list_pub_fn_declaration_names(&self) -> impl Iterator<Item = &str> {
+    pub fn list_pub_declaration_names(&self) -> impl Iterator<Item = &str> {
         self.inner().declarations().filter_map(|d| match d {
-            Declaration::FnDeclare(fn_declare) if fn_declare.pub_token.is_some() => {
-                Some(fn_declare.name.span.contents(&self.src))
+            Declaration::LetDeclare(let_declare) => {
+                if let_declare.pub_token.is_some() {
+                    Some(let_declare.name.span.contents(&self.src))
+                } else {
+                    None
+                }
             }
-            Declaration::LetDeclare(_) | Declaration::FnDeclare(_) => None,
         })
     }
 }

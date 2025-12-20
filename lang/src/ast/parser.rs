@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        ArgTypeSpec, Declaration, FnDeclare,
+        ArgTypeSpec, Declaration,
         error::{ParseError, ParseResult},
     },
     local_span::ErrorLocalSpan,
@@ -27,8 +27,8 @@ fn parse_module_tree_sitter(source: &str) {
     let language = tree_sitter_rain::LANGUAGE;
     parser
         .set_language(&language.into())
-        .expect("Error loading Rain parser");
-    let tree = parser.parse(source, None).unwrap();
+        .expect("error loading Rain parser");
+    let tree = parser.parse(source, None).expect("no language");
     assert!(!tree.root_node().has_error());
 }
 
@@ -72,13 +72,10 @@ impl<'src> ModuleParser<'src> {
                 Token::Let => {
                     declarations.push(self.parse_let_declare()?);
                 }
-                Token::Fn => {
-                    declarations.push(self.parse_fn_declare()?);
-                }
                 _ => {
                     return Err(peek
                         .span
-                        .with_error(ParseError::ExpectedToken(&[Token::Fn, Token::Let])));
+                        .with_error(ParseError::ExpectedToken(&[Token::Let])));
                 }
             }
         }
@@ -121,69 +118,6 @@ impl<'src> ModuleParser<'src> {
             type_spec,
             equals_token,
             expr,
-        }))
-    }
-
-    fn parse_fn_declare(&mut self) -> ParseResult<Declaration> {
-        let token = self.stream.expect_parse_next(&[Token::Pub, Token::Fn])?;
-        let (pub_token, fn_token) = if token.token == Token::Pub {
-            (Some(token), self.stream.expect_parse_next(&[Token::Fn])?)
-        } else {
-            (None, token)
-        };
-        let name = self.stream.expect_parse_next(&[Token::Ident])?;
-        let lparen_token = self.stream.expect_parse_next(&[Token::LParen])?;
-        let mut args = Vec::new();
-        loop {
-            let t = self.stream.expect_peek(&[Token::RParen, Token::Ident])?;
-            match t.token {
-                Token::RParen => break,
-                Token::Ident => {}
-                _ => unreachable!("parse fn declare rparen"),
-            }
-            self.stream.parse_next()?;
-            let name = t;
-            let mut t = self
-                .stream
-                .expect_peek(&[Token::RParen, Token::Comma, Token::Colon])?;
-            if t.token == Token::Colon {
-                self.stream.parse_next()?;
-                let expr = self.parse_expr()?;
-                args.push(FnDeclareArg {
-                    name,
-                    type_spec: Some(ArgTypeSpec {
-                        colon_token: t,
-                        type_expr: expr,
-                    }),
-                });
-                t = self.stream.expect_peek(&[Token::RParen, Token::Comma])?;
-            } else {
-                args.push(FnDeclareArg {
-                    name,
-                    type_spec: None,
-                });
-            }
-            match t.token {
-                Token::RParen => {
-                    break;
-                }
-                Token::Comma => {
-                    self.stream.parse_next()?;
-                }
-                _ => unreachable!("parse fn declare rparen"),
-            }
-        }
-
-        let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?;
-        let block = self.parse_block()?;
-        Ok(Declaration::FnDeclare(FnDeclare {
-            pub_token,
-            fn_token,
-            name,
-            lparen_token,
-            args,
-            rparen_token,
-            block,
         }))
     }
 

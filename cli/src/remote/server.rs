@@ -467,7 +467,7 @@ fn run_core(
             const SUGGESTION_LIMIT: usize = 20;
             let mut declarations: Vec<String> = ir
                 .get_module(mid)
-                .list_pub_fn_declaration_names()
+                .list_pub_declaration_names()
                 .take(SUGGESTION_LIMIT)
                 .map(std::borrow::ToOwned::to_owned)
                 .collect();
@@ -475,7 +475,7 @@ fn run_core(
                 // If there are no pub fns fallback to private fns
                 declarations = ir
                     .get_module(mid)
-                    .list_fn_declaration_names()
+                    .list_declaration_names()
                     .take(SUGGESTION_LIMIT)
                     .map(std::borrow::ToOwned::to_owned)
                     .collect();

@@ -11,7 +11,7 @@ use crate::{
         absolute::AbsolutePathBuf, area::FileArea, dir::Dir, entry::FSEntryTrait as _, file::File,
     },
     ast::NodeId,
-    ir::{DeclarationId, ModuleId},
+    ir::ModuleId,
 };
 
 use super::internal::InternalFunction;
@@ -22,7 +22,6 @@ pub enum Value {
     Boolean(bool),
     Integer(Arc<RainInteger>),
     String(Arc<String>),
-    Function(DeclarationId),
     Module(ModuleId),
     FileArea(Arc<FileArea>),
     File(Arc<File>),
@@ -43,7 +42,6 @@ impl Display for Value {
             Self::Boolean(b) => Display::fmt(&b, f),
             Self::Integer(rain_integer) => Display::fmt(&rain_integer, f),
             Self::String(s) => Debug::fmt(s, f),
-            Self::Function(declaration_id) => Display::fmt(declaration_id, f),
             Self::Module(module_id) => Display::fmt(module_id, f),
             Self::FileArea(file_area) => Display::fmt(file_area, f),
             Self::File(file) => Display::fmt(file, f),
@@ -180,7 +178,6 @@ impl Value {
             Self::Boolean(_) => RainTypeId::Boolean,
             Self::Integer(_) => RainTypeId::Integer,
             Self::String(_) => RainTypeId::String,
-            Self::Function(_) => RainTypeId::Function,
             Self::Module(_) => RainTypeId::Module,
             Self::FileArea(_) => RainTypeId::FileArea,
             Self::File(_) => RainTypeId::File,
@@ -201,7 +198,6 @@ impl Value {
             | Self::Boolean(_)
             | Self::Integer(_)
             | Self::String(_)
-            | Self::Function(_)
             | Self::Module(_)
             | Self::EscapeFile(_)
             | Self::Internal
