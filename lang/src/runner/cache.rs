@@ -1,8 +1,8 @@
-use std::{fmt::Display, time::Duration};
+use std::{fmt::Display, sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
 
-use crate::ir::DeclarationId;
+use crate::{afs::file::File, ir::DeclarationId};
 
 use super::{dep::Dep, internal::InternalFunction, value::Value};
 
@@ -48,6 +48,9 @@ pub enum CacheKey {
     Download {
         url: String,
     },
+    Import {
+        file: Arc<File>,
+    },
 }
 
 impl Display for CacheKey {
@@ -65,6 +68,7 @@ impl Display for CacheKey {
                 f.write_fmt(format_args!("{func}({})", display_vec(args)))
             }
             Self::Download { url } => f.write_fmt(format_args!("Download({url})")),
+            Self::Import { file } => f.write_fmt(format_args!("Import({file})")),
         }
     }
 }

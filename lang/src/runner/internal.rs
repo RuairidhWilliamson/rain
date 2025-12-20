@@ -466,9 +466,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driv
 
     fn import(self) -> ResultValue {
         let f = expect_type!(self, File, single_arg!(self));
-        let cache_key = CacheKey::InternalFunction {
-            func: self.func,
-            args: self.arg_values.iter().map(|(_, v)| v.clone()).collect(),
+        let cache_key = CacheKey::Import {
+            file: Arc::clone(f),
         };
         if let Some(v) = self.runner.cache.get_value(&cache_key) {
             return Ok(v);
