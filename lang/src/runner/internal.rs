@@ -299,6 +299,8 @@ pub struct InternalCx<'a, 'b, 'c, 'd, 'e, Driver, Cache> {
     pub call_span: LocalSpan,
     pub arg_values: Vec<(NodeId, Value)>,
     pub deps: &'e mut Vec<Dep>,
+    /// Set to false to hint to the caller that this is probably less efficient to go to cache
+    pub cache_hint: &'e mut bool,
 }
 
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driver, Cache> {
@@ -349,6 +351,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driv
     }
 
     fn print(self) -> ResultValue {
+        self.deps.push(Dep::Print);
         let args: Vec<String> = self
             .arg_values
             .into_iter()
@@ -499,6 +502,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driv
     }
 
     fn module_file(self) -> ResultValue {
+        self.deps.push(Dep::CallingModule);
         self.no_args()?;
         Ok(Value::File(Arc::new(
             self.cx
@@ -560,6 +564,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driv
     }
 
     fn unit(self) -> ResultValue {
+        *self.cache_hint = false;
         self.no_args()?;
         Ok(Value::Unit)
     }
@@ -1237,6 +1242,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driv
     }
 
     fn rust_eq(self) -> ResultValue {
+        *self.cache_hint = false;
         let ((_, a), (_, b)) = two_args!(self);
         Ok(Value::Boolean(a == b))
     }

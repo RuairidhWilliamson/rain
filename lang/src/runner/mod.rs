@@ -109,7 +109,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 let start = Instant::now();
                 let key = cache::CacheKey::Declaration { declaration: id };
                 if let Some(cache_entry) = self.cache.get(&key) {
-                    cx.deps.extend(cache_entry.deps);
+                    cx.propogate_deps(cache_entry.deps);
                     return Ok(cache_entry.value);
                 }
                 let result = self.evaluate_node(&mut callee_cx, let_declare.expr)?;
@@ -123,7 +123,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         value: result.clone(),
                     },
                 );
-                cx.deps.append(&mut callee_cx.deps);
+                cx.propogate_deps(callee_cx.deps);
                 Ok(result)
             }
         }
@@ -295,8 +295,8 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     closure: closure.clone(),
                     args: arg_values.clone(),
                 };
-                if let Some(mut entry) = self.cache.get(&cache_key) {
-                    cx.deps.append(&mut entry.deps);
+                if let Some(entry) = self.cache.get(&cache_key) {
+                    cx.propogate_deps(entry.deps);
                     return Ok(entry.value);
                 }
                 let start = Instant::now();
@@ -326,7 +326,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         value: result.clone(),
                     },
                 );
-                cx.deps.append(&mut callee_cx.deps);
+                cx.propogate_deps(callee_cx.deps);
                 Ok(result)
             }
             Value::InternalFunction(f) => {
@@ -334,14 +334,15 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     func: *f,
                     args: arg_values.iter().map(|(_, v)| v.clone()).collect(),
                 };
-                if let Some(mut entry) = self.cache.get(&cache_key) {
-                    cx.deps.append(&mut entry.deps);
+                if let Some(entry) = self.cache.get(&cache_key) {
+                    cx.propogate_deps(entry.deps);
                     return Ok(entry.value);
                 }
                 let start = Instant::now();
                 self.driver.enter_internal_call(f);
                 log::trace!("internal function call {f:?} {arg_values:?}");
                 let mut deps = Vec::new();
+                let mut cache_hint = true;
                 let internal_cx = internal::InternalCx {
                     func: *f,
                     runner: self,
@@ -350,20 +351,34 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     arg_values,
                     call_span,
                     deps: &mut deps,
+                    cache_hint: &mut cache_hint,
                 };
                 let v = f.call_internal_function(internal_cx)?;
                 self.driver.exit_internal_call(f);
-                self.cache.put_if_slow(
-                    cache_key,
-                    CacheEntry {
-                        execution_time: start.elapsed(),
-                        expires: None,
-                        etag: None,
-                        deps: deps.clone(),
-                        value: v.clone(),
-                    },
-                );
-                cx.deps.extend(deps);
+                if cache_hint {
+                    self.cache.put(
+                        cache_key,
+                        CacheEntry {
+                            execution_time: start.elapsed(),
+                            expires: None,
+                            etag: None,
+                            deps: deps.clone(),
+                            value: v.clone(),
+                        },
+                    );
+                } else {
+                    self.cache.put_if_slow(
+                        cache_key,
+                        CacheEntry {
+                            execution_time: start.elapsed(),
+                            expires: None,
+                            etag: None,
+                            deps: deps.clone(),
+                            value: v.clone(),
+                        },
+                    );
+                }
+                cx.propogate_deps(deps);
                 Ok(v)
             }
             _ => Err(cx.err(

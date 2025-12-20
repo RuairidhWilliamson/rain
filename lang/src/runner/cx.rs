@@ -89,6 +89,14 @@ impl<'a> Cx<'a> {
         callee.captures.push(Arc::clone(captures));
         callee
     }
+
+    pub fn propogate_deps(&mut self, callee_deps: Vec<Dep>) {
+        self.deps.extend(
+            callee_deps
+                .into_iter()
+                .filter(|dep| dep.is_propogated_in_closure()),
+        );
+    }
 }
 
 #[derive(Debug, Clone)]
