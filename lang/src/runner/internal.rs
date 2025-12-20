@@ -291,9 +291,9 @@ fn enter_call(driver: &dyn DriverTrait, s: String) -> Call<'_> {
 }
 
 // TODO: Cleanup all those lifetimes :o
-pub struct InternalCx<'a, 'b, 'c, 'e, Driver, Cache> {
+pub struct InternalCx<'a, 'b, 'c, 'd, Driver, Cache> {
     pub func: InternalFunction,
-    pub runner: &'a mut super::Runner<'e, Driver, Cache>,
+    pub runner: &'a mut super::Runner<'d, Driver, Cache>,
     pub cx: &'c mut Cx<'b>,
     pub nid: NodeId,
     pub call_span: LocalSpan,

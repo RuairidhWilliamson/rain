@@ -2,11 +2,11 @@ pub let stdlib = fn(version) {
 	bucket = "rain-e870e063"
 	url = "https://storage.googleapis.com/" + bucket + "/releases/" + version + "/stdlib.tar.gz"
 	filename = "stdlib.tar.gz"
-	sha256_download_result = internal._download(url + ".sha256", filename + ".sha256")
+	sha256_download_result = internal._download(url + ".sha256")
 	if !sha256_download_result.ok {
 		_throw("download sha256 failed")
 	}
-	download_result = internal._download(url, filename)
+	download_result = internal._download(url)
 	if !download_result.ok {
 		internal._throw("failed to download stdlib")
 	}

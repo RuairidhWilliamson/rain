@@ -39,11 +39,11 @@ let _import = internal._import
 let _throw = internal._throw
 
 let download = fn(url) {
-	internal._download(url, "download")
+	internal._download(url)
 }
 
 let download_with_sha256 = fn(url, sha256) {
-	download_result = internal._download(url, "download")
+	download_result = internal._download(url)
 	actual_sha256 = internal._sha256(download_result.file)
 	if actual_sha256 != sha256 {
 		internal._throw("bad sha256 " + actual_sha256)

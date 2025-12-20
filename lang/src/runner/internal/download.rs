@@ -17,22 +17,13 @@ use super::{InternalCx, enter_call};
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, Driver, Cache> {
     pub fn download(self) -> ResultValue {
         match &self.arg_values[..] {
-            [(url_nid, url_value), (name_nid, name_value)] => {
+            [(url_nid, url_value)] => {
                 let start = Instant::now();
                 let Value::String(url) = url_value else {
                     return Err(self.cx.nid_err(
                         *url_nid,
                         RunnerError::ExpectedType {
                             actual: url_value.rain_type_id(),
-                            expected: &[RainTypeId::String],
-                        },
-                    ));
-                };
-                let Value::String(name) = name_value else {
-                    return Err(self.cx.nid_err(
-                        *name_nid,
-                        RunnerError::ExpectedType {
-                            actual: name_value.rain_type_id(),
                             expected: &[RainTypeId::String],
                         },
                     ));
@@ -72,7 +63,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, Driver, 
                 } = self
                     .runner
                     .driver
-                    .download(url, name, etag)
+                    .download(url, "download", etag)
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
                 if !ok && status_code == Some(304) {
                     // Etag matched we can use our cached value!
