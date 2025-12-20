@@ -90,7 +90,7 @@ impl<'a> Cx<'a> {
         callee
     }
 
-    pub fn propogate_deps(&mut self, callee_deps: Vec<Dep>) {
+    pub fn propagate_deps(&mut self, callee_deps: Vec<Dep>) {
         self.deps.extend(
             callee_deps
                 .into_iter()

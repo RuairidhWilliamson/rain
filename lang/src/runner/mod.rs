@@ -109,7 +109,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 let start = Instant::now();
                 let key = cache::CacheKey::Declaration { declaration: id };
                 if let Some(cache_entry) = self.cache.get(&key) {
-                    cx.propogate_deps(cache_entry.deps);
+                    cx.propagate_deps(cache_entry.deps);
                     return Ok(cache_entry.value);
                 }
                 let result = self.evaluate_node(&mut callee_cx, let_declare.expr)?;
@@ -123,7 +123,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         value: result.clone(),
                     },
                 );
-                cx.propogate_deps(callee_cx.deps);
+                cx.propagate_deps(callee_cx.deps);
                 Ok(result)
             }
         }
@@ -319,7 +319,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     args: arg_values.clone(),
                 };
                 if let Some(entry) = self.cache.get(&cache_key) {
-                    cx.propogate_deps(entry.deps);
+                    cx.propagate_deps(entry.deps);
                     return Ok(entry.value);
                 }
                 let start = Instant::now();
@@ -349,7 +349,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         value: result.clone(),
                     },
                 );
-                cx.propogate_deps(callee_cx.deps);
+                cx.propagate_deps(callee_cx.deps);
                 if let Some(type_spec) = &closure_declare.return_type {
                     let type_spec_value = self.evaluate_node(cx, type_spec.type_expr)?;
                     let Value::Type(expected_type) = type_spec_value else {
@@ -380,7 +380,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     args: arg_values.iter().map(|(_, v)| v.clone()).collect(),
                 };
                 if let Some(entry) = self.cache.get(&cache_key) {
-                    cx.propogate_deps(entry.deps);
+                    cx.propagate_deps(entry.deps);
                     return Ok(entry.value);
                 }
                 let start = Instant::now();
@@ -423,7 +423,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         },
                     );
                 }
-                cx.propogate_deps(deps);
+                cx.propagate_deps(deps);
                 Ok(result)
             }
             _ => Err(cx.err(
