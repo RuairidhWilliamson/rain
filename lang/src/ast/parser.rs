@@ -18,7 +18,18 @@ pub fn parse_module(source: &str) -> ParseResult<Module> {
     let mut parser = ModuleParser::new(source);
     let root = parser.parse_module_root()?;
     let nodes = parser.complete()?;
+    parse_module_tree_sitter(source);
     Ok(Module { root, nodes })
+}
+
+fn parse_module_tree_sitter(source: &str) {
+    let mut parser = tree_sitter::Parser::new();
+    let language = tree_sitter_rain::LANGUAGE;
+    parser
+        .set_language(&language.into())
+        .expect("Error loading Rain parser");
+    let tree = parser.parse(source, None).unwrap();
+    assert!(!tree.root_node().has_error());
 }
 
 struct ModuleParser<'src> {
@@ -789,8 +800,8 @@ mod test {
                 log::error!("{}", m.display(src));
             })
         }
-        assert!(parse_display_module("fn foo() {5 6}").is_err());
-        assert!(parse_display_module("fn foo() {a b c}").is_err());
+        assert!(parse_display_module("let foo = fn() {5 6}").is_err());
+        assert!(parse_display_module("let foo = fn() {a b c}").is_err());
     }
 
     #[test]

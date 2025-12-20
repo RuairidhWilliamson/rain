@@ -17,7 +17,7 @@ fn parse_display_script(src: &str) -> String {
 fn hello_world() {
     insta::assert_snapshot!(parse_display_script(
         "
-        fn main() {
+        let main = fn() {
             print(\"Hello world\")
         }
         "
@@ -51,11 +51,11 @@ fn factorial() {
         let assert = std.test.assert
         let eq = std.ops.eq
 
-        fn main() {
+        let main = fn() {
         	assert(factorial(5), 12)
         }
 
-        fn factorial(n) {
+        let factorial = fn(n) {
             if n == 0 {
                 1
             } else {
@@ -82,7 +82,7 @@ fn comment() {
 fn pub_fn() {
     insta::assert_snapshot!(parse_display_script(
         "
-        pub fn foo() {}
+        pub let foo = fn() {}
         "
     ));
 }
@@ -109,7 +109,7 @@ fn let_type_spec() {
 fn fn_type_spec_args() {
     insta::assert_snapshot!(parse_display_script(
         "
-        fn foo(a: A, b: B) {}
+        let foo = fn(a: A, b: B) {}
         "
     ));
 }

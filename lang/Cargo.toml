@@ -21,6 +21,8 @@ target-lexicon = "0.13.2"
 termcolor.workspace = true
 thiserror.workspace = true
 toml.workspace = true
+tree-sitter = "0.25.10"
+tree-sitter-rain.path = "../tree-sitter-rain"
 uuid.workspace = true
 
 [dev-dependencies]

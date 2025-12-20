@@ -1,20 +1,22 @@
 ---
 source: lang/src/ast/test.rs
-expression: "parse_display_script(\"\n        fn main() {\n            print(\\\"Hello world\\\")\n        }\n        \")"
+expression: "parse_display_script(\"\n        let main = fn() {\n            print(\\\"Hello world\\\")\n        }\n        \")"
 ---
 ModuleRoot(
- FnDeclare(
+ LetDeclare(
   private
   main
-  Args(
-  )
-  Block(
-   FnCall(
-    Ident(
-     print
-    )
-    StringLiteral(
-     "Hello world"
+  AnonymousFnDeclare(
+   Args(
+   )
+   Block(
+    FnCall(
+     Ident(
+      print
+     )
+     StringLiteral(
+      "Hello world"
+     )
     )
    )
   )

@@ -9,7 +9,15 @@ export default grammar({
 
     declaration: ($) => $.let_declare,
 
-    let_declare: ($) => seq(optional("pub"), "let", $.identifier, "=", $.expr),
+    let_declare: ($) =>
+      seq(
+        optional("pub"),
+        "let",
+        $.identifier,
+        optional(seq(":", $.type_constraint)),
+        "=",
+        $.expr,
+      ),
     fn_declare_expr: ($) =>
       seq(
         "fn",
@@ -102,7 +110,7 @@ export default grammar({
       seq(
         '"',
         repeat(
-          choice(/[^"\n\\]/u, seq("\\", choice("\\", '"', "n", "r", "t"))),
+          choice(/[^"\n\\]/u, seq("\\", choice("\\", '"', "n", "r", "t", "0"))),
         ),
         '"',
       ),

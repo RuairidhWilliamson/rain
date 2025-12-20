@@ -1,14 +1,16 @@
 ---
 source: lang/src/ast/test.rs
-expression: "parse_display_script(\"\n        pub fn foo() {}\n        \")"
+expression: "parse_display_script(\"\n        pub let foo = fn() {}\n        \")"
 ---
 ModuleRoot(
- FnDeclare(
+ LetDeclare(
   pub
   foo
-  Args(
-  )
-  Block(
+  AnonymousFnDeclare(
+   Args(
+   )
+   Block(
+   )
   )
  )
 )

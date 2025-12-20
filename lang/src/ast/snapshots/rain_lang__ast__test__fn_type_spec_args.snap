@@ -1,26 +1,28 @@
 ---
 source: lang/src/ast/test.rs
-expression: "parse_display_script(\"\n        fn foo(a: A, b: B) {}\n        \")"
+expression: "parse_display_script(\"\n        let foo = fn(a: A, b: B) {}\n        \")"
 ---
 ModuleRoot(
- FnDeclare(
+ LetDeclare(
   private
   foo
-  Args(
-   a
-   TypeSpec(
-    Ident(
-     A
+  AnonymousFnDeclare(
+   Args(
+    a
+    TypeSpec(
+     Ident(
+      A
+     )
+    )
+    b
+    TypeSpec(
+     Ident(
+      B
+     )
     )
    )
-   b
-   TypeSpec(
-    Ident(
-     B
-    )
+   Block(
    )
-  )
-  Block(
   )
  )
 )

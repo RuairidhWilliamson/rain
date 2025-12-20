@@ -260,6 +260,10 @@
         {
           "type": "identifier",
           "named": true
+        },
+        {
+          "type": "type_constraint",
+          "named": true
         }
       ]
     }
@@ -476,6 +480,10 @@
   },
   {
     "type": "/",
+    "named": false
+  },
+  {
+    "type": "0",
     "named": false
   },
   {

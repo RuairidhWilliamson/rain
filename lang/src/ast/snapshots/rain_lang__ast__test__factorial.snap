@@ -1,6 +1,6 @@
 ---
 source: lang/src/ast/test.rs
-expression: "parse_display_script(\"\n        let assert = std.test.assert\n        let eq = std.ops.eq\n\n        fn main() {\n        \tassert(factorial(5), 12)\n        }\n\n        fn factorial(n) {\n            if n == 0 {\n                1\n            } else {\n            \tfactorial(n - 1) * n\n        \t}\n        }\n        \")"
+expression: "parse_display_script(\"\n        let assert = std.test.assert\n        let eq = std.ops.eq\n\n        let main = fn() {\n        \tassert(factorial(5), 12)\n        }\n\n        let factorial = fn(n) {\n            if n == 0 {\n                1\n            } else {\n            \tfactorial(n - 1) * n\n        \t}\n        }\n        \")"
 ---
 ModuleRoot(
  LetDeclare(
@@ -41,71 +41,75 @@ ModuleRoot(
    )
   )
  )
- FnDeclare(
+ LetDeclare(
   private
   main
-  Args(
-  )
-  Block(
-   FnCall(
-    Ident(
-     assert
-    )
+  AnonymousFnDeclare(
+   Args(
+   )
+   Block(
     FnCall(
      Ident(
-      factorial
+      assert
+     )
+     FnCall(
+      Ident(
+       factorial
+      )
+      IntegerLiteral(
+       5
+      )
      )
      IntegerLiteral(
-      5
+      12
      )
-    )
-    IntegerLiteral(
-     12
     )
    )
   )
  )
- FnDeclare(
+ LetDeclare(
   private
   factorial
-  Args(
-   n
-  )
-  Block(
-   IfCondition(
-    BinaryOp(
-     Ident(
-      n
-     )
-     ==
-     IntegerLiteral(
-      0
-     )
-    )
-    Block(
-     IntegerLiteral(
-      1
-     )
-    )
-    Block(
+  AnonymousFnDeclare(
+   Args(
+    n
+   )
+   Block(
+    IfCondition(
      BinaryOp(
-      FnCall(
-       Ident(
-        factorial
-       )
-       BinaryOp(
-        Ident(
-         n
-        )
-        -
-        IntegerLiteral(
-         1
-        )
-       )
-      )
-      *
       Ident(
        n
+      )
+      ==
+      IntegerLiteral(
+       0
+      )
+     )
+     Block(
+      IntegerLiteral(
+       1
+      )
+     )
+     Block(
+      BinaryOp(
+       FnCall(
+        Ident(
+         factorial
+        )
+        BinaryOp(
+         Ident(
+          n
+         )
+         -
+         IntegerLiteral(
+          1
+         )
+        )
+       )
+       *
+       Ident(
+        n
+       )
       )
      )
     )

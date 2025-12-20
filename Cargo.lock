@@ -2768,6 +2768,8 @@ dependencies = [
  "termcolor",
  "thiserror 2.0.17",
  "toml",
+ "tree-sitter",
+ "tree-sitter-rain",
  "uuid",
 ]
 

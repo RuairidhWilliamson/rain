@@ -46,6 +46,27 @@
           "name": "identifier"
         },
         {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ":"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "type_constraint"
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
           "type": "STRING",
           "value": "="
         },
@@ -870,6 +891,10 @@
                       {
                         "type": "STRING",
                         "value": "t"
+                      },
+                      {
+                        "type": "STRING",
+                        "value": "0"
                       }
                     ]
                   }
