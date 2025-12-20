@@ -6,62 +6,29 @@ fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
     rain_core::run_stderr(path, "main")
 }
 
-#[test]
-fn utf8() {
-    insta::assert_debug_snapshot!(run("tests/scripts/utf-8.rain").unwrap());
+macro_rules! tests {
+    ($($name:ident,)*) => {
+        $(
+        #[test]
+        fn $name() {
+            insta::assert_debug_snapshot!(run(concat!("tests/scripts/", stringify!($name), ".rain")).unwrap());
+        }
+        )*
+    };
 }
 
-#[test]
-fn fib() {
-    insta::assert_debug_snapshot!(run("tests/scripts/fib.rain").unwrap());
-}
-
-#[test]
-fn local_var() {
-    insta::assert_debug_snapshot!(run("tests/scripts/local_var.rain").unwrap());
-}
-
-#[test]
-fn fn_call() {
-    insta::assert_debug_snapshot!(run("tests/scripts/fn_call.rain").unwrap());
-}
-
-#[test]
-fn internal_print() {
-    insta::assert_debug_snapshot!(run("tests/scripts/internal_print.rain").unwrap());
-}
-
-#[test]
-fn internal_import() {
-    insta::assert_debug_snapshot!(run("tests/scripts/internal_import.rain").unwrap());
-}
-
-#[test]
-fn underscore() {
-    insta::assert_debug_snapshot!(run("tests/scripts/underscore.rain").unwrap());
-}
-
-#[test]
-fn equality() {
-    insta::assert_debug_snapshot!(run("tests/scripts/equality.rain").unwrap());
-}
-
-#[test]
-fn create_area() {
-    insta::assert_debug_snapshot!(run("tests/scripts/create_area.rain").unwrap());
-}
-
-#[test]
-fn cache_deps() {
-    insta::assert_debug_snapshot!(run("tests/scripts/cache_deps.rain").unwrap());
-}
-
-#[test]
-fn strings() {
-    insta::assert_debug_snapshot!(run("tests/scripts/strings.rain").unwrap());
-}
-
-#[test]
-fn closure() {
-    insta::assert_debug_snapshot!(run("tests/scripts/closure.rain").unwrap());
+tests! {
+    utf8,
+    fib,
+    local_var,
+    fn_call,
+    internal_print,
+    internal_import,
+    underscore,
+    equality,
+    create_area,
+    cache_deps,
+    strings,
+    closure,
+    complex_closures,
 }

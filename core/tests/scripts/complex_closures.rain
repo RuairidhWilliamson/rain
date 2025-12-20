@@ -1,0 +1,11 @@
+let adder = fn(x) {
+	fn(y) {
+		x + y
+	}
+}
+
+let main = fn() {
+	add5 = adder(5)
+	add10 = adder(10)
+	add5(4) + add10(4)
+}

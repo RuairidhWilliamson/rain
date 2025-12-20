@@ -132,11 +132,13 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> ResultValue {
         match cx.module.get(nid) {
             Node::Closure(_) => {
-                let captures: HashMap<String, Value> = cx
-                    .locals
-                    .iter()
-                    .map(|(k, v)| ((*k).to_string(), v.clone()))
-                    .collect();
+                let mut captures = HashMap::<String, Value>::new();
+                for (k, v) in &cx.args {
+                    captures.insert(k.to_string(), v.clone());
+                }
+                for (k, v) in &cx.locals {
+                    captures.insert(k.to_string(), v.clone());
+                }
                 Ok(Value::Closure(Closure {
                     captures: Arc::new(captures),
                     module: cx.module.id,

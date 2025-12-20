@@ -1,0 +1,9 @@
+---
+source: core/tests/scripts.rs
+expression: "run(\"tests/scripts/cache_closures.rain\").unwrap()"
+---
+Integer(
+    RainInteger(
+        23,
+    ),
+)
