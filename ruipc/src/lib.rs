@@ -21,7 +21,7 @@ use std::{
     path::Path,
 };
 
-/// Listener is created after binding to a particular address and can recieve incoming connections from clients by calling [`incoming`].
+/// Listener is created after binding to a particular address and can recieve incoming connections from clients by calling [`Self::incoming`].
 #[derive(Debug)]
 pub struct Listener(sys::Listener);
 

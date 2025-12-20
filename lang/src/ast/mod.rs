@@ -179,7 +179,7 @@ pub struct LetDeclare {
     pub pub_token: Option<TokenLocalSpan>,
     pub let_token: TokenLocalSpan,
     pub name: TokenLocalSpan,
-    pub type_spec: Option<TypeSpec>,
+    pub type_spec: Option<ArgTypeSpec>,
     pub equals_token: TokenLocalSpan,
     pub expr: NodeId,
 }
@@ -210,7 +210,7 @@ impl AstNode for LetDeclare {
 }
 
 #[derive(Debug)]
-pub struct TypeSpec {
+pub struct ArgTypeSpec {
     pub colon_token: TokenLocalSpan,
     pub type_expr: NodeId,
 }
@@ -221,7 +221,14 @@ pub struct Closure {
     pub lparen_token: TokenLocalSpan,
     pub args: Vec<FnDeclareArg>,
     pub rparen_token: TokenLocalSpan,
+    pub return_type: Option<ClosureReturnType>,
     pub block: NodeId,
+}
+
+#[derive(Debug)]
+pub struct ClosureReturnType {
+    pub return_type_arrow: TokenLocalSpan,
+    pub type_expr: NodeId,
 }
 
 impl From<Closure> for Node {
@@ -297,7 +304,7 @@ impl AstNode for FnDeclare {
 #[derive(Debug)]
 pub struct FnDeclareArg {
     pub name: TokenLocalSpan,
-    pub type_spec: Option<TypeSpec>,
+    pub type_spec: Option<ArgTypeSpec>,
 }
 
 #[derive(Debug)]

@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        Declaration, FnDeclare, TypeSpec,
+        ArgTypeSpec, Declaration, FnDeclare,
         error::{ParseError, ParseResult},
     },
     local_span::ErrorLocalSpan,
@@ -93,7 +93,7 @@ impl<'src> ModuleParser<'src> {
             .expect_parse_next(&[Token::Colon, Token::Assign])?;
         let (type_spec, equals_token) = if token.token == Token::Colon {
             (
-                Some(TypeSpec {
+                Some(ArgTypeSpec {
                     colon_token: token,
                     type_expr: self.parse_expr()?,
                 }),
@@ -140,7 +140,7 @@ impl<'src> ModuleParser<'src> {
                 let expr = self.parse_expr()?;
                 args.push(FnDeclareArg {
                     name,
-                    type_spec: Some(TypeSpec {
+                    type_spec: Some(ArgTypeSpec {
                         colon_token: t,
                         type_expr: expr,
                     }),
@@ -196,7 +196,7 @@ impl<'src> ModuleParser<'src> {
                 let expr = self.parse_expr()?;
                 args.push(FnDeclareArg {
                     name,
-                    type_spec: Some(TypeSpec {
+                    type_spec: Some(ArgTypeSpec {
                         colon_token: t,
                         type_expr: expr,
                     }),
@@ -220,12 +220,26 @@ impl<'src> ModuleParser<'src> {
         }
 
         let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?;
+        let mut return_type = None;
+        if let Some(peek) = self.stream.peek()?
+            && peek.token == Token::ReturnType
+        {
+            let Some(arrow) = self.stream.parse_next()? else {
+                unreachable!()
+            };
+            let expr = self.parse_expr()?;
+            return_type = Some(super::ClosureReturnType {
+                return_type_arrow: arrow,
+                type_expr: expr,
+            });
+        }
         let block = self.parse_block()?;
         Ok(self.push(Closure {
             fn_token,
             lparen_token,
             args,
             rparen_token,
+            return_type,
             block,
         }))
     }

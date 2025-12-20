@@ -53,6 +53,7 @@ pub enum Token {
     LogicalOr,
     LessEq,
     GreaterEq,
+    ReturnType,
 
     // Keywords that may be used in the future
     Reserved,

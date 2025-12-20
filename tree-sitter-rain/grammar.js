@@ -10,7 +10,13 @@ export default grammar({
     declaration: ($) => $.let_declare,
 
     let_declare: ($) => seq(optional("pub"), "let", $.identifier, "=", $.expr),
-    fn_declare_expr: ($) => seq("fn", $.fn_declare_args, $.block),
+    fn_declare_expr: ($) =>
+      seq(
+        "fn",
+        $.fn_declare_args,
+        optional(seq("->", $.type_constraint)),
+        $.block,
+      ),
     fn_declare_args: ($) =>
       seq(
         "(",

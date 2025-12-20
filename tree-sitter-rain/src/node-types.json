@@ -218,6 +218,10 @@
         {
           "type": "fn_declare_args",
           "named": true
+        },
+        {
+          "type": "type_constraint",
+          "named": true
         }
       ]
     }
@@ -427,6 +431,14 @@
     "named": false
   },
   {
+    "type": "%",
+    "named": false
+  },
+  {
+    "type": "&",
+    "named": false
+  },
+  {
     "type": "&&",
     "named": false
   },
@@ -452,6 +464,10 @@
   },
   {
     "type": "-",
+    "named": false
+  },
+  {
+    "type": "->",
     "named": false
   },
   {
@@ -500,6 +516,10 @@
   },
   {
     "type": "]",
+    "named": false
+  },
+  {
+    "type": "^",
     "named": false
   },
   {
@@ -560,6 +580,10 @@
   },
   {
     "type": "{",
+    "named": false
+  },
+  {
+    "type": "|",
     "named": false
   },
   {
