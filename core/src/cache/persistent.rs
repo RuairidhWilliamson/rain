@@ -20,7 +20,7 @@ use rain_lang::{
 
 use crate::config::Config;
 
-pub const FORMAT_VERSION: u64 = 2;
+pub const FORMAT_VERSION: u64 = 3;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PersistCacheError {
@@ -40,6 +40,7 @@ pub enum PersistCacheError {
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct PersistCache {
+    pub rain_version: String,
     pub entries: Vec<(PersistCacheKey, PersistCacheEntry)>,
 }
 
@@ -96,7 +97,10 @@ impl PersistCache {
                 Some((k, e))
             })
             .collect();
-        Self { entries }
+        Self {
+            rain_version: env!("CARGO_PKG_VERSION").to_owned(),
+            entries,
+        }
     }
 
     pub fn depersist(
@@ -105,6 +109,10 @@ impl PersistCache {
         stats: &super::CacheStats,
         rir: &mut Rir,
     ) -> super::CacheCore {
+        if self.rain_version != env!("CARGO_PKG_VERSION") {
+            log::warn!("persist cache miss matched rain version");
+            return super::CacheCore::default();
+        }
         let mut lru = lru::LruCache::new(super::CACHE_SIZE);
         for (k, e) in self.entries {
             let Some(k) = k.depersist(config, rir) else {
@@ -291,7 +299,10 @@ impl PersistCacheKey {
         match key {
             // TODO: It is possible to persist declarations in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
             // TODO: It is possible to persist prelude in the cache if we key it by the rain binary version
-            CacheKey::Declaration { .. } | CacheKey::CallClosure { .. } | CacheKey::Prelude => None,
+            CacheKey::Declaration { .. }
+            | CacheKey::CallClosure { .. }
+            | CacheKey::Prelude
+            | CacheKey::Import { .. } => None,
             CacheKey::InternalFunction { func, args } => Some(Self::InternalFunction {
                 func: *func,
                 args: args
