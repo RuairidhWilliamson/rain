@@ -10,7 +10,7 @@ FROM base as build
 RUN cargo install --locked tree-sitter-cli
 # Actually build things
 COPY . .
-RUN tree-sitter build tree-sitter-rain
+RUN cd tree-sitter-rain && tree-sitter generate && tree-sitter build
 # Build the rain-ci-coordinator server
 RUN cargo install -q --path ci/coordinator --locked
 
