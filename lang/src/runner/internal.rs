@@ -808,16 +808,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, Driver, 
         else {
             return Err(self.cx.nid_err(self.nid, RunnerError::IllegalLocalArea));
         };
-        let (path_nid, path_value) = self.arg_values.first().ok_or_else(|| {
-            self.cx.nid_err(
-                self.nid,
-                RunnerError::IncorrectArgs {
-                    required: 1..=1,
-                    actual: self.arg_values.len(),
-                },
-            )
-        })?;
-        let path = expect_type!(self, String, (path_nid, path_value));
+        let path = expect_type!(self, String, single_arg!(self));
         let area_path = current_area_path.join(path.as_ref());
         let area_path = AbsolutePathBuf::try_from(area_path.as_path())
             .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?;
@@ -836,28 +827,21 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, Driver, 
     }
 
     fn split_string(self) -> ResultValue {
-        match &self.arg_values[..] {
-            [(string_nid, string_value), (sep_nid, sep_value)] => {
-                let s = expect_type!(self, String, (string_nid, string_value));
-                let sep = expect_type!(self, String, (sep_nid, sep_value));
-                Ok(Value::List(Arc::new(RainList(
-                    s.split(sep.as_str())
-                        .map(|s| Value::String(Arc::new(s.to_owned())))
-                        .collect(),
-                ))))
-            }
-            _ => self.incorrect_args(2..=2),
-        }
+        let (string, sep) = two_args!(self);
+        let s = expect_type!(self, String, string);
+        let sep = expect_type!(self, String, sep);
+        Ok(Value::List(Arc::new(RainList(
+            s.split(sep.as_str())
+                .map(|s| Value::String(Arc::new(s.to_owned())))
+                .collect(),
+        ))))
     }
 
     fn index(self) -> ResultValue {
-        let [(indexable_nid, indexable_value), (index_nid, index_value)] = &self.arg_values[..]
-        else {
-            return self.incorrect_args(2..=2);
-        };
+        let ((indexable_nid, indexable_value), index) = two_args!(self);
         match indexable_value {
             Value::List(list) => {
-                let big_int = expect_type!(self, Integer, (index_nid, index_value));
+                let big_int = expect_type!(self, Integer, index);
                 let Ok(i) = usize::try_from(&big_int.0) else {
                     return Ok(Value::Unit);
                 };
@@ -869,7 +853,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, Driver, 
                 })
             }
             Value::Record(record) => {
-                let s = expect_type!(self, String, (index_nid, index_value));
+                let s = expect_type!(self, String, index);
                 record.0.get(s.as_str()).cloned().ok_or_else(|| {
                     self.cx.nid_err(
                         self.nid,
@@ -878,7 +862,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, Driver, 
                 })
             }
             _ => Err(self.cx.nid_err(
-                *indexable_nid,
+                indexable_nid,
                 RunnerError::ExpectedType {
                     actual: indexable_value.rain_type_id(),
                     expected: &[RainTypeId::List, RainTypeId::Record],
