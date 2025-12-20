@@ -268,14 +268,14 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         &mut self,
         cx: &mut Cx,
         nid: NodeId,
-        v: &Value,
+        function_value: &Value,
         call_span: LocalSpan,
         arg_values: Vec<(NodeId, Value)>,
     ) -> ResultValue {
         if cx.call_depth >= self.max_call_depth {
             return Err(cx.err(call_span, RunnerError::MaxCallDepth));
         }
-        match &v {
+        match &function_value {
             Value::Closure(closure) => {
                 let arg_values: Vec<_> = arg_values.into_iter().map(|(_, v)| v).collect();
                 let m = &Arc::clone(self.ir.get_module(closure.module));
@@ -350,6 +350,28 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     },
                 );
                 cx.propogate_deps(callee_cx.deps);
+                if let Some(type_spec) = &closure_declare.return_type {
+                    let type_spec_value = self.evaluate_node(cx, type_spec.type_expr)?;
+                    let Value::Type(expected_type) = type_spec_value else {
+                        return Err(cx.nid_err(
+                            type_spec.type_expr,
+                            RunnerError::ExpectedType {
+                                actual: type_spec_value.rain_type_id(),
+                                expected: std::borrow::Cow::Borrowed(&[RainTypeId::Type]),
+                            },
+                        ));
+                    };
+                    if result.rain_type_id() != expected_type {
+                        return Err(cx.nid_err(
+                            type_spec.type_expr,
+                            RunnerError::ExpectedType {
+                                actual: result.rain_type_id(),
+                                expected: std::borrow::Cow::Owned(vec![expected_type]),
+                            },
+                        ));
+                    }
+                }
+
                 Ok(result)
             }
             Value::InternalFunction(f) => {
@@ -376,7 +398,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     deps: &mut deps,
                     cache_hint: &mut cache_hint,
                 };
-                let v = f.call_internal_function(internal_cx)?;
+                let result = f.call_internal_function(internal_cx)?;
                 self.driver.exit_internal_call(f);
                 if cache_hint {
                     self.cache.put(
@@ -386,7 +408,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                             expires: None,
                             etag: None,
                             deps: deps.clone(),
-                            value: v.clone(),
+                            value: result.clone(),
                         },
                     );
                 } else {
@@ -397,17 +419,17 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                             expires: None,
                             etag: None,
                             deps: deps.clone(),
-                            value: v.clone(),
+                            value: result.clone(),
                         },
                     );
                 }
                 cx.propogate_deps(deps);
-                Ok(v)
+                Ok(result)
             }
             _ => Err(cx.err(
                 call_span,
                 RunnerError::ExpectedType {
-                    actual: v.rain_type_id(),
+                    actual: function_value.rain_type_id(),
                     expected: std::borrow::Cow::Borrowed(&[
                         RainTypeId::InternalFunction,
                         RainTypeId::Closure,

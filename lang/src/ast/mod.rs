@@ -208,23 +208,29 @@ impl AstNode for LetDeclare {
 }
 
 #[derive(Debug)]
+pub struct Closure {
+    pub fn_token: TokenLocalSpan,
+    pub lparen_token: TokenLocalSpan,
+    pub args: Vec<FnDeclareArg>,
+    pub rparen_token: TokenLocalSpan,
+    pub return_type: Option<ClosureReturnTypeSpec>,
+    pub block: NodeId,
+}
+
+#[derive(Debug)]
+pub struct FnDeclareArg {
+    pub name: TokenLocalSpan,
+    pub type_spec: Option<ArgTypeSpec>,
+}
+
+#[derive(Debug)]
 pub struct ArgTypeSpec {
     pub colon_token: TokenLocalSpan,
     pub type_expr: NodeId,
 }
 
 #[derive(Debug)]
-pub struct Closure {
-    pub fn_token: TokenLocalSpan,
-    pub lparen_token: TokenLocalSpan,
-    pub args: Vec<FnDeclareArg>,
-    pub rparen_token: TokenLocalSpan,
-    pub return_type: Option<ClosureReturnType>,
-    pub block: NodeId,
-}
-
-#[derive(Debug)]
-pub struct ClosureReturnType {
+pub struct ClosureReturnTypeSpec {
     pub return_type_arrow: TokenLocalSpan,
     pub type_expr: NodeId,
 }
@@ -254,55 +260,6 @@ impl AstNode for Closure {
         });
         b.child(self.block).finish()
     }
-}
-
-#[derive(Debug)]
-pub struct FnDeclare {
-    pub pub_token: Option<TokenLocalSpan>,
-    pub fn_token: TokenLocalSpan,
-    pub name: TokenLocalSpan,
-    pub lparen_token: TokenLocalSpan,
-    pub args: Vec<FnDeclareArg>,
-    pub rparen_token: TokenLocalSpan,
-    pub block: NodeId,
-}
-
-impl AstNode for FnDeclare {
-    fn span(&self, list: &NodeList) -> LocalSpan {
-        let first = if let Some(t) = &self.pub_token {
-            t.span
-        } else {
-            self.fn_token.span
-        };
-        first + list.span(self.block)
-    }
-
-    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        let mut b = f.node("FnDeclare");
-        if let Some(t) = &self.pub_token {
-            b.child_contents(t.span);
-        } else {
-            b.child_str("private");
-        }
-        b.child_contents(self.name.span);
-        b.child_fn(|f| {
-            let mut b = f.node("Args");
-            for arg in &self.args {
-                b.child_contents(arg.name.span);
-                if let Some(t) = &arg.type_spec {
-                    b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
-                }
-            }
-            b.finish()
-        });
-        b.child(self.block).finish()
-    }
-}
-
-#[derive(Debug)]
-pub struct FnDeclareArg {
-    pub name: TokenLocalSpan,
-    pub type_spec: Option<ArgTypeSpec>,
 }
 
 #[derive(Debug)]

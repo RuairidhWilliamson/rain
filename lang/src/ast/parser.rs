@@ -173,7 +173,7 @@ impl<'src> ModuleParser<'src> {
                 unreachable!()
             };
             let expr = self.parse_expr()?;
-            return_type = Some(super::ClosureReturnType {
+            return_type = Some(super::ClosureReturnTypeSpec {
                 return_type_arrow: arrow,
                 type_expr: expr,
             });
