@@ -1,5 +1,5 @@
 let main = fn() {
-	fib(50)
+	fib(20)
 }
 
 let fib = fn(n) {
