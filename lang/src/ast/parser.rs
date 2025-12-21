@@ -172,6 +172,7 @@ impl<'src> ModuleParser<'src> {
             let Some(arrow) = self.stream.parse_next()? else {
                 unreachable!()
             };
+            debug_assert_eq!(arrow.token, Token::ReturnType);
             let expr = self.parse_expr()?;
             return_type = Some(super::ClosureReturnTypeSpec {
                 return_type_arrow: arrow,

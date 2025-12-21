@@ -329,7 +329,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     .zip(arg_values)
                     .map(|(a, v)| (a.name.span.contents(&m.src), v))
                     .collect();
-                let mut callee_cx = cx.callee_closure(
+                let mut callee_cx = cx.callee(
                     m,
                     args,
                     &closure.captures,

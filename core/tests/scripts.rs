@@ -34,4 +34,5 @@ tests! {
     string_add,
     addition,
     binary_operators,
+    type_checks,
 }

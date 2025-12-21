@@ -67,18 +67,6 @@ impl<'a> Cx<'a> {
         &self,
         module: &'a Arc<IrModule>,
         args: HashMap<&'a str, Value>,
-        ste: StacktraceEntry,
-    ) -> Self {
-        let mut st = self.stacktrace.clone();
-        st.push(ste);
-        Cx::new(module, self.call_depth + 1, args, st)
-    }
-
-    #[must_use]
-    pub fn callee_closure(
-        &self,
-        module: &'a Arc<IrModule>,
-        args: HashMap<&'a str, Value>,
         captures: &Arc<HashMap<String, Value>>,
         ste: StacktraceEntry,
     ) -> Self {

@@ -1,0 +1,9 @@
+let main = fn() {
+	double(3)
+}
+
+let Integer = internal._get_type(0)
+
+let double = fn(x: Integer) -> Integer {
+	x * 2
+}

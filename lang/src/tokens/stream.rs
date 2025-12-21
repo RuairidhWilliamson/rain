@@ -42,7 +42,7 @@ impl TokenStream<'_> {
                 (b'.', _) => self.inc(Token::Dot),
                 (b'*', _) => self.inc(Token::Star),
                 (b'+', _) => self.inc(Token::Plus),
-                (b'-', Some(b'>')) => self.inc(Token::ReturnType),
+                (b'-', Some(b'>')) => self.inc2(Token::ReturnType),
                 (b'-', _) => self.inc(Token::Subtract),
                 (b',', _) => self.inc(Token::Comma),
                 (b':', _) => self.inc(Token::Colon),
