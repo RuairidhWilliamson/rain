@@ -18,10 +18,7 @@ pub enum Dep {
 
 impl Dep {
     pub fn is_propogated_in_closure(&self) -> bool {
-        match self {
-            Dep::CallingModule => false,
-            _ => true,
-        }
+        !matches!(self, Self::CallingModule)
     }
 
     pub fn is_intra_run_stable(&self) -> bool {

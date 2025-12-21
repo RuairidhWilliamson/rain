@@ -82,7 +82,7 @@ impl<'a> Cx<'a> {
         self.deps.extend(
             callee_deps
                 .into_iter()
-                .filter(|dep| dep.is_propogated_in_closure()),
+                .filter(Dep::is_propogated_in_closure),
         );
     }
 }

@@ -264,6 +264,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         self.call_function(cx, nid, v, call_span, arg_values)
     }
 
+    #[expect(clippy::too_many_lines)]
     fn call_function(
         &mut self,
         cx: &mut Cx,
