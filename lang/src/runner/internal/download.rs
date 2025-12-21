@@ -14,7 +14,7 @@ use crate::runner::{
 
 use super::{InternalCx, enter_call};
 
-impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driver, Cache> {
+impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
     pub fn download(self) -> ResultValue {
         match &self.arg_values[..] {
             [(url_nid, url_value)] => {

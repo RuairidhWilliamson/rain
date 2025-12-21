@@ -34,6 +34,10 @@ let stringify = internal._stringify
 let escape_run = internal._escape_run
 let create_tar = internal._create_tar
 
+let String = std.types.String
+let List = std.types.List
+let File = std.types.File
+
 // Reserved keywords are prefixed with _
 let _import = internal._import
 let _throw = internal._throw
@@ -42,7 +46,7 @@ let download = fn(url) {
 	internal._download(url)
 }
 
-let download_with_sha256 = fn(url, sha256) {
+let download_with_sha256 = fn(url: String, sha256: String) -> File {
 	download_result = internal._download(url)
 	actual_sha256 = internal._sha256(download_result.file)
 	if actual_sha256 != sha256 {
@@ -51,7 +55,7 @@ let download_with_sha256 = fn(url, sha256) {
 	download_result.file
 }
 
-let run_check = fn(area, bin, args, env) {
+let run_check = fn(area, bin, args: List, env) {
 	run_result = run(area, bin, args, env)
 	if !run_result.success {
 		print("Stdout:", run_result.stdout)

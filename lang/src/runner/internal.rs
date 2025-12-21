@@ -86,7 +86,6 @@ pub enum InternalFunction {
     CopyFile,
     ListLength,
     EscapeHard,
-    ChrootRun,
     Flatten,
     GetType,
 }
@@ -211,7 +210,6 @@ impl InternalFunction {
             Self::CopyFile => icx.copy_file(),
             Self::ListLength => icx.list_length(),
             Self::EscapeHard => icx.escape_hard(),
-            Self::ChrootRun => icx.chroot_run(),
             Self::CreateTarGz => icx.create_tar_gz(),
             Self::Flatten => icx.flatten(),
             Self::ParseJSON => icx.parse_json(),
@@ -290,20 +288,19 @@ fn enter_call(driver: &dyn DriverTrait, s: String) -> Call<'_> {
     Call { driver, s }
 }
 
-// TODO: Cleanup all those lifetimes :o
-pub struct InternalCx<'a, 'b, 'c, 'd, 'e, Driver, Cache> {
+pub struct InternalCx<'a, 'b, 'c, Driver, Cache> {
     pub func: InternalFunction,
-    pub runner: &'a mut super::Runner<'d, Driver, Cache>,
-    pub cx: &'c mut Cx<'b>,
+    pub runner: &'a mut super::Runner<'c, Driver, Cache>,
+    pub cx: &'a mut Cx<'b>,
     pub nid: NodeId,
     pub call_span: LocalSpan,
     pub arg_values: Vec<(NodeId, Value)>,
-    pub deps: &'e mut Vec<Dep>,
+    pub deps: &'a mut Vec<Dep>,
     /// Set to false to hint to the caller that this is probably less efficient to go to cache
-    pub cache_hint: &'e mut bool,
+    pub cache_hint: &'a mut bool,
 }
 
-impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, '_, '_, Driver, Cache> {
+impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
     fn no_args(&self) -> Result<()> {
         if self.arg_values.is_empty() {
             Ok(())
