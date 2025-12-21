@@ -71,10 +71,11 @@ pub mod inner {
 
         async fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId> {
             let row = sqlx::query!(
-                "INSERT INTO runs (created_at, repo, commit) VALUES ($1, $2, $3) RETURNING id",
+                "INSERT INTO runs (created_at, repo, commit, target) VALUES ($1, $2, $3, $4) RETURNING id",
                 run.created_at.naive_utc(),
                 run.repository.id.0,
-                &run.commit
+                &run.commit,
+                &run.target,
             )
             .fetch_one(&self.pool)
             .await?;
