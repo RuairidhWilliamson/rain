@@ -31,4 +31,5 @@ tests! {
     strings,
     closure,
     complex_closures,
+    string_add,
 }
