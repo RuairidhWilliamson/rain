@@ -1,4 +1,4 @@
-FROM docker.io/rust:slim as base
+FROM docker.io/rust:1.92-slim as base
 RUN rustup component add rustfmt clippy
 RUN apt-get -qqy update && apt-get -qqy install pkg-config libssl-dev curl xz-utils libasound2-dev clang nodejs
 
