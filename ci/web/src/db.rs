@@ -146,6 +146,7 @@ impl Db {
             commit: row.commit,
             created_at: row.created_at.and_utc(),
             dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
+            target: row.target,
             finished: row
                 .finished_at
                 .map(|finished_at| {
@@ -183,6 +184,7 @@ impl Db {
                         commit: row.commit,
                         created_at: row.created_at.and_utc(),
                         dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
+                        target: row.target,
                         finished: row
                             .finished_at
                             .map(|finished_at| {
@@ -245,14 +247,20 @@ impl Db {
         })
     }
 
-    pub async fn create_run(&self, repo_id: &RepositoryId, commit: &str) -> Result<RunId> {
+    pub async fn create_run(
+        &self,
+        repo_id: &RepositoryId,
+        commit: &str,
+        target: &str,
+    ) -> Result<RunId> {
         // Check repo exists
         self.get_repo(repo_id).await?;
         let row = sqlx::query!(
-            "INSERT INTO runs (created_at, repo, commit) VALUES ($1, $2, $3) RETURNING id",
+            "INSERT INTO runs (created_at, repo, commit, target) VALUES ($1, $2, $3, $4) RETURNING id",
             Utc::now().naive_utc(),
             repo_id.0,
             commit,
+            target,
         )
         .fetch_one(&self.pool)
         .await?;
@@ -271,6 +279,7 @@ struct QueryRun {
     owner: String,
     name: String,
     commit: String,
+    target: String,
     created_at: NaiveDateTime,
     dequeued_at: Option<NaiveDateTime>,
     status: Option<String>,

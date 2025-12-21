@@ -136,6 +136,7 @@ async fn github_check_run() {
                 owner: repo_owner,
                 name: repo_name,
             },
+            target: String::from("ci"),
             commit: String::from("abcd"),
             created_at: Utc::now(),
             dequeued_at: None,

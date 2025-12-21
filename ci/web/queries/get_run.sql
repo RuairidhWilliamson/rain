@@ -7,6 +7,7 @@ SELECT
     commit,
     created_at,
     dequeued_at,
+    target,
     finished_at as "finished_at?",
     status as "status?",
     execution_time_millis as "execution_time_millis?",

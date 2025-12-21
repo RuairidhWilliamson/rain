@@ -16,6 +16,10 @@
     <td><a href={{ run.commit_url() }}>{{ run.commit }}</a></td>
   </tr>
   <tr>
+    <td>Target</td>
+    <td>{{ run.target }}</td>
+  </tr>
+  <tr>
     <td>Created At</td>
     <td>{{ run.created_at | timestamp }}</td>
   </tr>

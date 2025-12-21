@@ -47,6 +47,7 @@ pub struct Run {
     pub created_at: DateTime<Utc>,
     pub dequeued_at: Option<DateTime<Utc>>,
     pub finished: Option<FinishedRun>,
+    pub target: String,
 }
 
 impl Run {

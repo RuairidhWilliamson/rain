@@ -33,7 +33,7 @@ impl Runner {
     }
 
     #[expect(clippy::unwrap_used)]
-    pub fn run(&self, driver: &DriverImpl, area: FileArea) -> RunComplete {
+    pub fn run(&self, driver: &DriverImpl, area: FileArea, target: &str) -> RunComplete {
         let root_entry = FSEntry::new(area, SealedFilePath::new("/main.rain").unwrap());
         info!("Root entry {root_entry}");
         let root = File::new_checked(driver, root_entry).unwrap();
@@ -51,8 +51,7 @@ impl Runner {
                 };
             }
         };
-        let declaration = "ci";
-        let main = ir.resolve_global_declaration(mid, declaration).unwrap();
+        let main = ir.resolve_global_declaration(mid, target).unwrap();
         let mut persistent_cache = self.persistent_cache.plock();
         let cache_core = persistent_cache
             .take()

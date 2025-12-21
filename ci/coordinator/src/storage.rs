@@ -117,6 +117,7 @@ pub mod inner {
                 name: String,
                 commit: String,
                 created_at: NaiveDateTime,
+                target: String,
                 dequeued_at: Option<NaiveDateTime>,
                 status: Option<String>,
                 finished_at: Option<NaiveDateTime>,
@@ -130,6 +131,7 @@ pub mod inner {
                 commit: row.commit,
                 created_at: row.created_at.and_utc(),
                 dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
+                target: row.target,
                 finished: row
                     .finished_at
                     .map(|finished_at| {

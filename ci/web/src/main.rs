@@ -118,6 +118,7 @@ async fn main() -> Result<()> {
 #[derive(Deserialize)]
 struct RepoCreateRun {
     commit: String,
+    target: String,
 }
 
 async fn repo_create_run(
@@ -136,7 +137,7 @@ async fn repo_create_run(
     let commit = installation_client
         .get_commit(&db_repo.owner, &db_repo.name, &data.commit)
         .await?;
-    let run_id = db.create_run(&repo_id, &commit.sha).await?;
+    let run_id = db.create_run(&repo_id, &commit.sha, &data.target).await?;
     Ok(Redirect::to(&format!("/run/{run_id}")))
 }
 

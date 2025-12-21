@@ -136,6 +136,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
                 },
                 dequeued_at: None,
                 finished: None,
+                target: String::from("ci"),
             })
             .await
             .context("storage create run")?;
@@ -200,7 +201,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
 
         log::info!("Preparing run");
         let result_handle = self
-            .download_and_run(&installation_client, &owner, &repo, head_sha)
+            .download_and_run(&installation_client, &owner, &repo, head_sha, run.target)
             .await;
 
         let (status, conclusion, output) = resolve_error(result_handle).await;
@@ -249,6 +250,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         owner: &str,
         repo: &str,
         head_sha: String,
+        target: String,
     ) -> Result<JoinHandle<Result<RunComplete, anyhow::Error>>, anyhow::Error> {
         let server = Arc::clone(self);
         let installation_client = Arc::clone(installation_client);
@@ -295,7 +297,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         Ok(tokio::task::spawn_blocking(move || {
             let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
             let area = driver.create_area(&[root.inner()]).unwrap();
-            let run_complete = server.runner.run(&driver, area);
+            let run_complete = server.runner.run(&driver, area, &target);
             Ok(run_complete)
         }))
     }
