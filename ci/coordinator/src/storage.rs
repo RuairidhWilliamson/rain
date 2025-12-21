@@ -70,25 +70,14 @@ pub mod inner {
         }
 
         async fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId> {
-            let host: &str = run.repository.host.into();
-            let mut tx = self.pool.begin().await?;
-            let repo = sqlx::query!(
-                "SELECT id FROM repos WHERE host=$1 AND owner=$2 AND name=$3",
-                host,
-                &run.repository.owner,
-                &run.repository.name
-            )
-            .fetch_one(&mut *tx)
-            .await?;
             let row = sqlx::query!(
                 "INSERT INTO runs (created_at, repo, commit) VALUES ($1, $2, $3) RETURNING id",
                 run.created_at.naive_utc(),
-                repo.id,
+                run.repository.id.0,
                 &run.commit
             )
-            .fetch_one(&mut *tx)
+            .fetch_one(&self.pool)
             .await?;
-            tx.commit().await?;
             Ok(RunId(row.id))
         }
 

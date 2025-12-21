@@ -56,7 +56,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
                 match self.handle_github_event(request).await {
                     Ok(()) => (),
                     Err(err) => {
-                        error!("{err}");
+                        error!("{err:#}");
                     }
                 }
                 Ok(Response::builder()
@@ -122,7 +122,8 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         let repo_id = self
             .storage
             .create_or_get_repo(&repo_host, &owner, &repo)
-            .await?;
+            .await
+            .context("resolve repo id")?;
         let run_id = self
             .storage
             .create_run(rain_ci_common::Run {
