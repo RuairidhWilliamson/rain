@@ -162,6 +162,7 @@ impl Db {
                 })
                 .transpose()?,
             repository: Repository {
+                id: rain_ci_common::RepositoryId(row.repo_id),
                 host: RepoHost::from_str(&row.host).context("unknown repo host")?,
                 owner: row.owner,
                 name: row.name,
@@ -200,6 +201,7 @@ impl Db {
                             })
                             .transpose()?,
                         repository: Repository {
+                            id: rain_ci_common::RepositoryId(row.repo_id),
                             host: RepoHost::from_str(&row.host).context("unknown repo host")?,
                             owner: row.owner,
                             name: row.name,
@@ -220,6 +222,7 @@ impl Db {
                 Ok((
                     RepositoryId(row.id),
                     Repository {
+                        id: rain_ci_common::RepositoryId(row.id),
                         host: RepoHost::from_str(&row.host).context("unknown repo host")?,
                         owner: row.owner,
                         name: row.name,
@@ -235,6 +238,7 @@ impl Db {
             .await?;
 
         Ok(Repository {
+            id: *id,
             host: RepoHost::from_str(&row.host).context("unknown repo host")?,
             owner: row.owner,
             name: row.name,
@@ -262,6 +266,7 @@ impl Db {
 
 struct QueryRun {
     id: i64,
+    repo_id: i64,
     host: String,
     owner: String,
     name: String,

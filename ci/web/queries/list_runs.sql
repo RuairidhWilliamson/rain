@@ -3,6 +3,7 @@ SELECT
     commit,
     created_at,
     dequeued_at,
+    repos.id as repo_id,
     repos.host,
     repos.owner,
     repos.name,

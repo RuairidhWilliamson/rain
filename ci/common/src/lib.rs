@@ -11,7 +11,7 @@ impl std::fmt::Display for RunId {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct RepositoryId(pub i64);
 
 impl std::fmt::Display for RepositoryId {
@@ -22,13 +22,14 @@ impl std::fmt::Display for RepositoryId {
 
 #[derive(Debug, Clone)]
 pub struct Repository {
+    pub id: RepositoryId,
     pub host: RepoHost,
     pub owner: String,
     pub name: String,
 }
 
 impl Repository {
-    pub fn repo_url(&self) -> String {
+    pub fn external_repo_url(&self) -> String {
         match self.host {
             RepoHost::Github => format!(
                 "https://github.com/{owner}/{name}",
@@ -62,7 +63,7 @@ impl Run {
     pub fn commit_url(&self) -> String {
         format!(
             "{repo_url}/commit/{commit}",
-            repo_url = self.repository.repo_url(),
+            repo_url = self.repository.external_repo_url(),
             commit = self.commit,
         )
     }

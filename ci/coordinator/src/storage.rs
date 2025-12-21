@@ -1,7 +1,13 @@
 use anyhow::Result;
-use rain_ci_common::{FinishedRun, Run, RunId};
+use rain_ci_common::{FinishedRun, RepoHost, RepositoryId, Run, RunId};
 
 pub trait StorageTrait: Send + Sync + 'static {
+    async fn create_or_get_repo(
+        &self,
+        host: &RepoHost,
+        owner: &str,
+        name: &str,
+    ) -> Result<RepositoryId>;
     async fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId>;
     fn dequeued_run(&self, id: &RunId) -> impl std::future::Future<Output = Result<()>> + Send;
     fn finished_run(
@@ -17,7 +23,7 @@ pub mod inner {
 
     use anyhow::{Context as _, Result};
     use chrono::{NaiveDateTime, TimeDelta, Utc};
-    use rain_ci_common::{FinishedRun, RepoHost, Repository, Run, RunId, RunStatus};
+    use rain_ci_common::{FinishedRun, RepoHost, Repository, RepositoryId, Run, RunId, RunStatus};
 
     pub struct Storage {
         pub pool: sqlx::PgPool,
@@ -30,6 +36,39 @@ pub mod inner {
     }
 
     impl super::StorageTrait for Storage {
+        async fn create_or_get_repo(
+            &self,
+            host: &RepoHost,
+            owner: &str,
+            name: &str,
+        ) -> Result<rain_ci_common::RepositoryId> {
+            let host: &str = host.into();
+            let mut tx = self.pool.begin().await?;
+            if let Some(row) = sqlx::query!(
+                "SELECT id FROM repos WHERE host=$1 AND owner=$2 AND name=$3",
+                host,
+                owner,
+                name
+            )
+            .fetch_optional(&mut *tx)
+            .await?
+            {
+                tx.commit().await?;
+                return Ok(RepositoryId(row.id));
+            }
+            let row = sqlx::query!(
+                "INSERT INTO repos (host, owner, name) VALUES ($1, $2, $3) RETURNING id",
+                host,
+                owner,
+                name
+            )
+            .fetch_one(&mut *tx)
+            .await?;
+
+            tx.commit().await?;
+            Ok(RepositoryId(row.id))
+        }
+
         async fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId> {
             let host: &str = run.repository.host.into();
             let mut tx = self.pool.begin().await?;
@@ -72,6 +111,7 @@ pub mod inner {
 
         async fn get_run(&self, id: &RunId) -> Result<Run> {
             struct QueryRun {
+                repo_id: i64,
                 host: String,
                 owner: String,
                 name: String,
@@ -106,6 +146,7 @@ pub mod inner {
                     })
                     .transpose()?,
                 repository: Repository {
+                    id: RepositoryId(row.repo_id),
                     host: RepoHost::from_str(&row.host).context("unknown repo host")?,
                     owner: row.owner,
                     name: row.name,
@@ -128,24 +169,63 @@ pub mod test {
     use anyhow::Result;
     use chrono::Utc;
     use poison_panic::MutexExt as _;
-    use rain_ci_common::RunId;
+    use rain_ci_common::{RepositoryId, RunId};
 
     #[derive(Default)]
     pub struct Storage {
+        repos: RepoStorage,
+        runs: RunStorage,
+    }
+
+    #[derive(Default)]
+    struct RepoStorage {
+        next_id: AtomicI64,
+        db: Mutex<HashMap<i64, rain_ci_common::Repository>>,
+    }
+
+    #[derive(Default)]
+    struct RunStorage {
         next_id: AtomicI64,
         db: Mutex<HashMap<i64, rain_ci_common::Run>>,
     }
 
     impl super::StorageTrait for Storage {
+        async fn create_or_get_repo(
+            &self,
+            host: &rain_ci_common::RepoHost,
+            owner: &str,
+            name: &str,
+        ) -> Result<rain_ci_common::RepositoryId> {
+            let mut repos = self.repos.db.plock();
+            if let Some((repo_id, _)) = repos
+                .iter()
+                .find(|(_, repo)| &repo.host == host && repo.owner == owner && repo.name == name)
+            {
+                Ok(RepositoryId(*repo_id))
+            } else {
+                let id = RepositoryId(self.repos.next_id.fetch_add(1, Ordering::Relaxed));
+                repos.insert(
+                    id.0,
+                    rain_ci_common::Repository {
+                        id: id,
+                        host: host.clone(),
+                        owner: owner.to_owned(),
+                        name: name.to_owned(),
+                    },
+                );
+                Ok(id)
+            }
+        }
+
         async fn create_run(&self, run: rain_ci_common::Run) -> Result<RunId> {
-            let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-            let mut conn = self.db.plock();
+            let id = self.runs.next_id.fetch_add(1, Ordering::Relaxed);
+            let mut conn = self.runs.db.plock();
             conn.insert(id, run);
             Ok(RunId(id))
         }
 
         async fn dequeued_run(&self, id: &RunId) -> Result<()> {
-            let mut conn = self.db.plock();
+            let mut conn = self.runs.db.plock();
             let run = conn.get_mut(&id.0).unwrap();
             run.dequeued_at = Some(Utc::now());
             Ok(())
@@ -156,14 +236,14 @@ pub mod test {
             id: &RunId,
             finished: rain_ci_common::FinishedRun,
         ) -> Result<()> {
-            let mut conn = self.db.plock();
+            let mut conn = self.runs.db.plock();
             let run = conn.get_mut(&id.0).unwrap();
             run.finished = Some(finished);
             Ok(())
         }
 
         async fn get_run(&self, id: &RunId) -> Result<rain_ci_common::Run> {
-            let conn = self.db.plock();
+            let conn = self.runs.db.plock();
             Ok(conn.get(&id.0).cloned().unwrap())
         }
     }

@@ -118,13 +118,19 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         let head_sha = check_suite_event.check_suite.head_sha;
 
         let start = chrono::Utc::now();
+        let repo_host = rain_ci_common::RepoHost::Github;
+        let repo_id = self
+            .storage
+            .create_or_get_repo(&repo_host, &owner, &repo)
+            .await?;
         let run_id = self
             .storage
             .create_run(rain_ci_common::Run {
                 created_at: start,
                 commit: head_sha.clone(),
                 repository: rain_ci_common::Repository {
-                    host: rain_ci_common::RepoHost::Github,
+                    id: repo_id,
+                    host: repo_host,
                     owner: owner.clone(),
                     name: repo.clone(),
                 },

@@ -1,5 +1,6 @@
 SELECT
     runs.id,
+    repos.id as repo_id,
     repos.host,
     repos.owner,
     repos.name,

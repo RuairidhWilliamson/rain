@@ -119,13 +119,22 @@ async fn github_check_run() {
         storage: crate::storage::test::Storage::default(),
         tx,
     });
+    let repo_host = rain_ci_common::RepoHost::Github;
+    let repo_owner = String::from("alice");
+    let repo_name = String::from("test");
+    let repo_id = server
+        .storage
+        .create_or_get_repo(&repo_host, &repo_owner, &repo_name)
+        .await
+        .unwrap();
     server
         .storage
         .create_run(Run {
             repository: rain_ci_common::Repository {
-                host: rain_ci_common::RepoHost::Github,
-                owner: String::from("alice"),
-                name: String::from("test"),
+                id: repo_id,
+                host: repo_host,
+                owner: repo_owner,
+                name: repo_name,
             },
             commit: String::from("abcd"),
             created_at: Utc::now(),

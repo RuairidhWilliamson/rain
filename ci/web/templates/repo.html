@@ -1,39 +1,39 @@
 {% extends "base.html" %} {% block content %}
 <h1>Repo {{ repo_id }}</h1>
 <table>
-    <tr>
-        <td>ID</td>
-        <td>{{ repo_id }}</td>
-    </tr>
-    <tr>
-        <td>Host</td>
-        <td>{{ repo.host }}</td>
-    </tr>
-    <tr>
-        <td>Owner</td>
-        <td>{{ repo.owner }}</td>
-    </tr>
-    <tr>
-        <td>Name</td>
-        <td>{{ repo.name }}</td>
-    </tr>
-    <tr>
-        <td>Url</td>
-        <td>
-            <a href="{{ repo.repo_url() }}">{{ repo.owner }}/{{ repo.name }}</a>
-        </td>
-    </tr>
-    <tr>
-        <td>Actions</td>
-        <td>
-            <form method="post" name="create_run" action="{{ repo_id }}/run">
-                <label>
-                    Commit:
-                    <input name="commit" value="HEAD" />
-                </label>
-                <button>Create Run</button>
-            </form>
-        </td>
-    </tr>
+  <tr>
+    <td>ID</td>
+    <td>{{ repo_id }}</td>
+  </tr>
+  <tr>
+    <td>Host</td>
+    <td>{{ repo.host }}</td>
+  </tr>
+  <tr>
+    <td>Owner</td>
+    <td>{{ repo.owner }}</td>
+  </tr>
+  <tr>
+    <td>Name</td>
+    <td>{{ repo.name }}</td>
+  </tr>
+  <tr>
+    <td>Url</td>
+    <td>
+      <a href="/repo/{{ repo.id }}">{{ repo.owner }}/{{ repo.name }}</a>
+    </td>
+  </tr>
+  <tr>
+    <td>Actions</td>
+    <td>
+      <form method="post" name="create_run" action="{{ repo_id }}/run">
+        <label>
+          Commit:
+          <input name="commit" value="HEAD" />
+        </label>
+        <button>Create Run</button>
+      </form>
+    </td>
+  </tr>
 </table>
 {% endblock %}
