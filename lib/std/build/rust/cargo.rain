@@ -10,6 +10,9 @@ let unit = utils.unit
 let _throw = utils._throw
 let print = utils.print
 
+let Bool = std.types.Bool
+let File = std.types.File
+
 let host_triple = utils.host_info().triple
 let path_var_sep = utils.path_var_separator(utils.host_info().triple)
 
@@ -35,7 +38,7 @@ let prepare_cargo = fn(channel) {
 	{env = env, cargo_bin = cargo_bin}
 }
 
-let build = fn(channel, area, package, default_features, features, profile, target, extra_args, env) {
+let build = fn(channel, area, package, default_features: Bool, features, profile, target, extra_args, env) -> File {
 	prep = prepare_cargo(channel)
 	args = [
 		"build",
@@ -62,7 +65,7 @@ let build = fn(channel, area, package, default_features, features, profile, targ
 	get_file(run_result.area, "target/" + target + "/" + profile_dir + "/" + package + utils.exe_suffix(target))
 }
 
-let test = fn(channel, area, package, default_features, features, profile) {
+let test = fn(channel, area, package, default_features: Bool, features, profile) {
 	prep = prepare_cargo(channel)
 	args = [
 		"test",

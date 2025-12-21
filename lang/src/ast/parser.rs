@@ -18,7 +18,10 @@ pub fn parse_module(source: &str) -> ParseResult<Module> {
     let mut parser = ModuleParser::new(source);
     let root = parser.parse_module_root()?;
     let nodes = parser.complete()?;
-    parse_module_tree_sitter(source);
+    // Check that tree sitter can parse this too
+    if cfg!(debug_assertions) {
+        parse_module_tree_sitter(source);
+    }
     Ok(Module { root, nodes })
 }
 

@@ -110,8 +110,14 @@ let ci = fn() {
 	check()
 }
 
+let nextest = fn() {
+	cargo = std.escape.bin("cargo")
+	std.escape.run(area, cargo, ["nextest", "run"], {})
+	std.utils.unit
+}
+
 let coverage = fn() -> File {
 	cargo = std.escape.bin("cargo")
-	std.escape.run(area, cargo, ["llvm-cov", "nextest", "--html", "-j", "1"], {})
+	std.escape.run(area, cargo, ["llvm-cov", "nextest", "--html"], {})
 	get_file(area, "target/llvm-cov/html/index.html")
 }
