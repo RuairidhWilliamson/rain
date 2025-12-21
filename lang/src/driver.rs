@@ -29,13 +29,6 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
         args: Vec<String>,
         options: RunOptions,
     ) -> Result<RunStatus, RunnerError>;
-    fn chroot_run(
-        &self,
-        area: Option<&FileArea>,
-        bin: &Path,
-        args: Vec<String>,
-        options: RunOptions,
-    ) -> Result<RunStatus, RunnerError>;
     fn escape_run(
         &self,
         current_dir: &Dir,

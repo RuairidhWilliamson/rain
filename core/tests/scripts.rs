@@ -35,4 +35,5 @@ tests! {
     addition,
     binary_operators,
     type_checks,
+    internal,
 }

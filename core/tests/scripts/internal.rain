@@ -1,0 +1,4 @@
+let main = fn() {
+	internal._print("foo")
+	internal._debug("foo" + internal._stringify(7) + internal._stringify(false))
+}
