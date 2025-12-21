@@ -1,0 +1,7 @@
+let main = fn() {
+	{
+		integers = 5 + 6,
+		lists = [1, 2, 3] + [4, 5, 6],
+		strings = "abc" + "def",
+	}
+}

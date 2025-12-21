@@ -1,0 +1,61 @@
+---
+source: core/tests/scripts.rs
+expression: "run(concat!\n(\"tests/scripts/\", stringify! (binary_operators), \".rain\")).unwrap()"
+---
+Record(
+    RainRecord(
+        {
+            "and1": Boolean(
+                false,
+            ),
+            "and2": Boolean(
+                false,
+            ),
+            "and3": Boolean(
+                false,
+            ),
+            "and4": Boolean(
+                true,
+            ),
+            "or1": Boolean(
+                false,
+            ),
+            "or2": Boolean(
+                true,
+            ),
+            "or3": Boolean(
+                true,
+            ),
+            "or4": Boolean(
+                true,
+            ),
+            "mult": Integer(
+                RainInteger(
+                    20,
+                ),
+            ),
+            "div1": Integer(
+                RainInteger(
+                    5,
+                ),
+            ),
+            "div2": Integer(
+                RainInteger(
+                    4,
+                ),
+            ),
+            "lt": Boolean(
+                true,
+            ),
+            "gt": Boolean(
+                true,
+            ),
+            "lte": Boolean(
+                true,
+            ),
+            "gte": Boolean(
+                true,
+            ),
+        },
+    ),
+)

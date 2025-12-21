@@ -32,4 +32,6 @@ tests! {
     closure,
     complex_closures,
     string_add,
+    addition,
+    binary_operators,
 }

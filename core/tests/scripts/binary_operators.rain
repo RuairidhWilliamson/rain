@@ -1,0 +1,19 @@
+let main = fn() {
+	{
+		and1 = false && false,
+		and2 = false && true,
+		and3 = true && false,
+		and4 = true && true,
+		or1 = false || false,
+		or2 = false || true,
+		or3 = true || false,
+		or4 = true || true,
+		mult = 4 * 5,
+		div1 = 30 / 6,
+		div2 = 30 / 7,
+		lt = 4 < 5,
+		gt = 10 > 9,
+		lte = 4 <= 4,
+		gte = 5 >= 5,
+	}
+}
