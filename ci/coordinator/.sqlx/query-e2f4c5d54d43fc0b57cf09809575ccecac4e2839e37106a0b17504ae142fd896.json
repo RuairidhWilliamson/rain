@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO runs (created_at, repo, commit) VALUES ($1, $2, $3) RETURNING id",
+  "query": "INSERT INTO runs (created_at, repo, commit, target) VALUES ($1, $2, $3, $4) RETURNING id",
   "describe": {
     "columns": [
       {
@@ -13,6 +13,7 @@
       "Left": [
         "Timestamp",
         "Int8",
+        "Text",
         "Text"
       ]
     },
@@ -20,5 +21,5 @@
       false
     ]
   },
-  "hash": "b7534a5d483f8e2b75ac97667e3dcf32850b02ea8150082536ce92c5a0fe42b3"
+  "hash": "e2f4c5d54d43fc0b57cf09809575ccecac4e2839e37106a0b17504ae142fd896"
 }
