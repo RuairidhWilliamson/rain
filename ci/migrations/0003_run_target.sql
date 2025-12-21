@@ -1,3 +1,3 @@
 ALTER TABLE runs ADD COLUMN target TEXT NULL;
-UPDATE runs SET target='ci' WHERE target=NULL;
+UPDATE runs SET target='ci' WHERE target IS NULL;
 ALTER TABLE runs ALTER COLUMN target SET NOT NULL;
