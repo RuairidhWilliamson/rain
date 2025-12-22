@@ -886,6 +886,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     #[expect(clippy::too_many_lines)]
     fn export_to_local(self) -> ResultValue {
+        self.deps.push(Dep::Uncacheable);
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
                 let dst = self.expect_dir_or_area(*dst_nid, dst_value)?;
@@ -1009,6 +1010,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     #[expect(clippy::too_many_lines)]
     fn check_export_to_local(self) -> ResultValue {
+        self.deps.push(Dep::LocalArea);
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
                 let src = expect_type!(self, File, (src_nid, src_value));
@@ -1160,6 +1162,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         ));
                     }
                 };
+                self.deps.add_dep_file_area(d.area());
                 let files = self
                     .runner
                     .driver

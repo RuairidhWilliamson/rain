@@ -38,6 +38,7 @@ let create_tar = internal._create_tar
 let String = types.String
 let List = types.List
 let File = types.File
+let Bool = types.Bool
 
 // Reserved keywords are prefixed with _
 let _import = internal._import
@@ -68,7 +69,7 @@ let run_check = fn(area, bin, args: List, env) {
 
 let newline = "\n"
 
-let exe_suffix = fn(target_triple) {
+let exe_suffix = fn(target_triple: String) -> String {
 	if is_windows(target_triple) {
 		".exe"
 	} else {
@@ -76,7 +77,7 @@ let exe_suffix = fn(target_triple) {
 	}
 }
 
-let shared_library_prefix = fn(target_triple) {
+let shared_library_prefix = fn(target_triple: String) -> String {
 	if is_windows(target_triple) {
 		""
 	} else if is_linux(target_triple) {
@@ -86,7 +87,7 @@ let shared_library_prefix = fn(target_triple) {
 	}
 }
 
-let shared_library_suffix = fn(target_triple) {
+let shared_library_suffix = fn(target_triple: String) -> String {
 	if is_windows(target_triple) {
 		".dll"
 	} else if is_linux(target_triple) {
@@ -96,22 +97,20 @@ let shared_library_suffix = fn(target_triple) {
 	}
 }
 
-let is_linux = fn(target_triple) {
+let is_linux = fn(target_triple: String) -> Bool {
 	string_contains(target_triple, "-linux-")
 }
 
-let is_windows = fn(target_triple) {
+let is_windows = fn(target_triple: String) -> Bool {
 	string_contains(target_triple, "-windows-")
 }
 
-let is_amd64 = fn(target_triple) {
+let is_amd64 = fn(target_triple: String) -> Bool {
 	string_contains(target_triple, "x86_64")
 }
 
-let rename_file = fn(file, new_name) {
-	cp = escape_bin("cp")
-	result = run_check(unit, cp, [file, new_name], {})
-	get_file(result.area, new_name)
+let rename_file = fn(file: File, new_name: String) -> File {
+	internal._copy_file(file, new_name)
 }
 
 let path_var_separator = fn(target_triple) {
