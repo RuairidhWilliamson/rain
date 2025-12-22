@@ -13,10 +13,6 @@ let bwrap_run_ro = fn(image, command, args, env) {
 	print(result.stderr)
 }
 
-let anonymous = fn(layer) {
-	["--overlay-src", layer]
-}
-
 let download_image = fn(image) {
 	out = internal._create_write_area([])
 	result = std.utils.escape_run(out, std.escape.bin("podman"), ["image", "save", "-o", "image.tar", image], {})
@@ -24,14 +20,6 @@ let download_image = fn(image) {
 	manifest = internal._parse_json(internal._read_file(get_file(image, "manifest.json")))
 	print(manifest)
 	[internal._extract_tar(get_file(image, "256f393e029fa2063d8c93720da36a74a032bed3355a2bc3e313ad12f8bde9d1.tar"))]
-}
-
-let test = fn() {
-	// image = download_image("docker.io/alpine")
-	image = [alpine_linux()]
-	env = {PATH = "/bin:/sbin"}
-	// bwrap_run(image, "apk", ["add", "--no-cache", "gcc"], env)
-	bwrap_run(image, "apk", ["add", "--no-cache", "rustup"], env)
 }
 
 let alpine_linux = fn() {
@@ -45,7 +33,9 @@ let bwrap_run = fn(image_layers, command, args, env) {
 	overlay_working = internal._create_write_area([])
 	overlay_rw = internal._create_write_area([])
 
-	layer_args = internal._flatten(internal._foreach(image_layers, anonymous))
+	layer_args = internal._flatten(internal._foreach(image_layers, fn(layer) {
+		["--overlay-src", layer]
+	}))
 	args = layer_args + [
 		"--overlay", overlay_rw, overlay_working, "/",
 		"--dev", "/dev",
@@ -55,9 +45,16 @@ let bwrap_run = fn(image_layers, command, args, env) {
 		"--die-with-parent",
 		command,
 	] + args
-	result = internal._run(std.utils.unit, bwrap, args, env)
-	print(result.success)
+	result = std.utils.run(std.utils.unit, bwrap, args, env)
 	print(result.stdout)
 	print(result.stderr)
-	print(overlay_rw)
+	overlay_rw
+}
+
+let test = fn() {
+	image = [alpine_linux()]
+	env = {PATH = "/bin:/sbin:/usr/bin"}
+	rust_image = bwrap_run(image, "apk", ["add", "--no-cache", "rust", "cargo", "blender"], env)
+	image = image + [rust_image]
+	bwrap_run(image, "rustup-init", ["--profile", "minimal"], env)
 }
