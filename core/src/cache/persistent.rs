@@ -12,7 +12,7 @@ use rain_lang::{
     ir::Rir,
     runner::{
         cache::{CacheEntry, CacheKey},
-        dep::Dep,
+        dep_list::DepList,
         internal::InternalFunction,
         value::{RainInteger, RainList, RainRecord, RainTypeId, Value},
     },
@@ -143,7 +143,7 @@ pub struct PersistCacheEntry {
     pub execution_time: Duration,
     pub expires: Option<DateTime<Utc>>,
     pub etag: Option<Vec<u8>>,
-    pub deps: Vec<Dep>,
+    pub deps: DepList,
     pub value: PersistValue,
 }
 

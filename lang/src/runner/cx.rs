@@ -1,11 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
-    afs::area::FileArea,
     ast::NodeId,
     ir::{IrModule, ModuleId},
     local_span::LocalSpan,
     runner::{
+        dep_list::DepList,
         error::{ErrorTrace, RunnerError, Throwing},
         value::Value,
     },
@@ -19,7 +19,7 @@ pub struct Cx<'a> {
     pub locals: HashMap<&'a str, Value>,
     pub captures: Vec<Arc<HashMap<String, Value>>>,
     pub args: HashMap<&'a str, Value>,
-    pub deps: Vec<Dep>,
+    pub deps: DepList,
     pub previous_line: Option<Value>,
     pub stacktrace: Vec<StacktraceEntry>,
 }
@@ -38,7 +38,7 @@ impl<'a> Cx<'a> {
             args,
             captures: Vec::new(),
             locals: HashMap::new(),
-            deps: Vec::new(),
+            deps: DepList::new(),
             previous_line: None,
             stacktrace,
         }
@@ -53,13 +53,6 @@ impl<'a> Cx<'a> {
 
     pub fn nid_err(&self, nid: impl Into<NodeId>, err: RunnerError) -> ErrorTrace<Throwing> {
         self.err(self.module.span(nid.into()), err)
-    }
-
-    pub fn add_dep_file_area(&mut self, area: &FileArea) {
-        match area {
-            FileArea::Local(_) => self.deps.push(Dep::LocalArea),
-            FileArea::Generated(_) => (),
-        }
     }
 
     #[must_use]
@@ -78,7 +71,7 @@ impl<'a> Cx<'a> {
         callee
     }
 
-    pub fn propagate_deps(&mut self, callee_deps: Vec<Dep>) {
+    pub fn propagate_deps(&mut self, callee_deps: DepList) {
         self.deps.extend(
             callee_deps
                 .into_iter()

@@ -5,6 +5,7 @@ use indexmap::IndexMap;
 
 use crate::driver::{DownloadStatus, DriverTrait};
 use crate::runner::cache::CacheTrait;
+use crate::runner::dep_list::DepList;
 use crate::runner::{
     ResultValue,
     cache::{CacheEntry, CacheKey},
@@ -96,7 +97,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         execution_time: start.elapsed(),
                         etag,
                         expires: Some(Utc::now() + chrono::TimeDelta::hours(1)),
-                        deps: Vec::new(),
+                        deps: DepList::new(),
                         value: out.clone(),
                     },
                 );

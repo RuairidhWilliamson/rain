@@ -23,7 +23,7 @@ use crate::{
     ast::NodeId,
     driver::{DriverTrait, FSEntryQueryResult},
     local_span::LocalSpan,
-    runner::cache::CacheTrait,
+    runner::{cache::CacheTrait, dep_list::DepList},
 };
 
 use super::{
@@ -296,11 +296,13 @@ fn enter_call(driver: &dyn DriverTrait, s: String) -> Call<'_> {
 pub struct InternalCx<'a, 'b, 'c, Driver, Cache> {
     pub func: InternalFunction,
     pub runner: &'a mut super::Runner<'c, Driver, Cache>,
+    /// The calling function's cx
+    /// Deps should not be added to this but to [`deps`]
     pub cx: &'a mut Cx<'b>,
     pub nid: NodeId,
     pub call_span: LocalSpan,
     pub arg_values: Vec<(NodeId, Value)>,
-    pub deps: &'a mut Vec<Dep>,
+    pub deps: &'a mut DepList,
     /// Set to false to hint to the caller that this is probably less efficient to go to cache
     pub cache_hint: &'a mut bool,
 }
@@ -379,7 +381,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .module
                     .file()
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
-                self.cx.add_dep_file_area(file.area());
+                self.deps.add_dep_file_area(file.area());
+                self.deps.push(Dep::CallingModule);
                 let file_path = file
                     .path()
                     .parent()
@@ -398,7 +401,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let path = expect_type!(self, String, (path_nid, path_value));
                 match parent_value {
                     Value::FileArea(area) => {
-                        self.cx.add_dep_file_area(area);
+                        self.deps.add_dep_file_area(area);
                         let file_path = SealedFilePath::new(path)
                             .map_err(|err| self.cx.nid_err(*path_nid, err.into()))?;
                         Ok(FSEntry {
@@ -408,7 +411,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     }
                     Value::Dir(dir) => {
                         let area = dir.area();
-                        self.cx.add_dep_file_area(area);
+                        self.deps.add_dep_file_area(area);
                         let base_path = dir.path();
                         let path = base_path
                             .join(path)
@@ -497,7 +500,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 execution_time: start.elapsed(),
                 expires: None,
                 etag: None,
-                deps: Vec::new(),
+                deps: DepList::new(),
                 value: v.clone(),
             },
         );
@@ -712,6 +715,9 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 )),
             })
             .collect::<Result<Vec<&FSEntry>, _>>()?;
+        for entry in &dirs {
+            self.deps.add_dep_file_area(&entry.area);
+        }
         let merged_area = self
             .runner
             .driver
@@ -792,6 +798,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         else {
             return Err(self.cx.nid_err(self.nid, RunnerError::IllegalLocalArea));
         };
+        self.deps.push(Dep::LocalArea);
         let path = expect_type!(self, String, single_arg!(self));
         let area_path = current_area_path.join(path.as_ref());
         let area_path = AbsolutePathBuf::try_from(area_path.as_path())
@@ -1254,7 +1261,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 execution_time: start.elapsed(),
                 expires: None,
                 etag: None,
-                deps: Vec::new(),
+                deps: DepList::new(),
                 value: v.clone(),
             },
         );

@@ -2,9 +2,9 @@ use std::{fmt::Display, sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
 
-use crate::{afs::file::File, ir::DeclarationId};
+use crate::{afs::file::File, ir::DeclarationId, runner::dep_list::DepList};
 
-use super::{dep::Dep, internal::InternalFunction, value::Value};
+use super::{internal::InternalFunction, value::Value};
 
 pub trait CacheTrait {
     fn get(&self, key: &CacheKey) -> Option<CacheEntry>;
@@ -78,6 +78,6 @@ pub struct CacheEntry {
     pub execution_time: Duration,
     pub expires: Option<DateTime<Utc>>,
     pub etag: Option<Vec<u8>>,
-    pub deps: Vec<Dep>,
+    pub deps: DepList,
     pub value: Value,
 }

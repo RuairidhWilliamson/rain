@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod cx;
 pub mod dep;
+pub mod dep_list;
 pub mod error;
 pub mod internal;
 pub mod value;
@@ -29,6 +30,7 @@ use crate::{
     runner::{
         cache::{CacheKey, CacheTrait},
         cx::{Cx, StacktraceEntry},
+        dep_list::DepList,
         value::Closure,
     },
 };
@@ -389,7 +391,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 let start = Instant::now();
                 self.driver.enter_internal_call(f);
                 log::trace!("internal function call {f:?} {arg_values:?}");
-                let mut deps = Vec::new();
+                let mut deps = DepList::new();
                 let mut cache_hint = true;
                 let internal_cx = internal::InternalCx {
                     func: *f,

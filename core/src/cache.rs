@@ -49,9 +49,9 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
     fn get(&self, key: &CacheKey) -> Option<CacheEntry> {
         let mut guard = self.core.plock();
         let res = guard.storage.get(key).cloned();
-        if res.is_some() {
+        if let Some(entry) = &res {
             self.stats.hits.inc();
-            log::trace!("cache get hit {key:?}");
+            log::trace!("cache get hit {key:?} {:?}", entry.deps);
         } else {
             self.stats.misses.inc();
             log::debug!("cache get miss {key:?}");
