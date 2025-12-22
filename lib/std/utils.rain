@@ -1,5 +1,6 @@
 // utils.rain is designed to be removed in the future but provides useful APIs
 let area = internal._get_area(internal._module_file())
+let types = internal._import(internal._get_file(area, "types.rain"))
 
 let print = internal._print
 let debug = internal._debug
@@ -34,9 +35,9 @@ let stringify = internal._stringify
 let escape_run = internal._escape_run
 let create_tar = internal._create_tar
 
-let String = std.types.String
-let List = std.types.List
-let File = std.types.File
+let String = types.String
+let List = types.List
+let File = types.File
 
 // Reserved keywords are prefixed with _
 let _import = internal._import

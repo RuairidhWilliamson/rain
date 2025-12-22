@@ -4,6 +4,7 @@ let publish_module = internal._import(internal._get_file("publish.rain"))
 let test_mod = internal._import(internal._get_file(area, "test.rain"))
 let examples = internal._import(internal._get_file(area, "examples/_.rain"))
 let hermetic = internal._import(internal._get_file("hermetic.rain"))
+let herm = internal._import(internal._get_file("herm.rain"))
 
 let load_stdlib = fn() {
 	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])

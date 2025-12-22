@@ -90,6 +90,7 @@ pub enum InternalFunction {
     EscapeHard,
     Flatten,
     GetType,
+    CreateWriteArea,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -154,6 +155,7 @@ impl InternalFunction {
             "_flatten" => Some(Self::Flatten),
             "_parse_json" => Some(Self::ParseJSON),
             "_get_type" => Some(Self::GetType),
+            "_create_write_area" => Some(Self::CreateWriteArea),
             _ => None,
         }
     }
@@ -216,6 +218,7 @@ impl InternalFunction {
             Self::Flatten => icx.flatten(),
             Self::ParseJSON => icx.parse_json(),
             Self::GetType => icx.get_type(),
+            Self::CreateWriteArea => icx.create_write_area(),
         }
     }
 }
@@ -692,6 +695,34 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn create_area(self) -> ResultValue {
+        let (dirs_nid, dirs_value) = single_arg!(self);
+        let dirs = expect_type!(self, List, (dirs_nid, dirs_value));
+        let dirs: Vec<&FSEntry> = dirs
+            .0
+            .iter()
+            .map(|dir| match dir {
+                Value::Dir(d) => Ok(d.inner()),
+                Value::File(f) => Ok(f.inner()),
+                _ => Err(self.cx.nid_err(
+                    dirs_nid,
+                    RunnerError::ExpectedType {
+                        actual: dir.rain_type_id(),
+                        expected: Cow::Borrowed(&[RainTypeId::Dir, RainTypeId::File]),
+                    },
+                )),
+            })
+            .collect::<Result<Vec<&FSEntry>, _>>()?;
+        let merged_area = self
+            .runner
+            .driver
+            .create_area(&dirs)
+            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+        Ok(Value::FileArea(Arc::new(merged_area)))
+    }
+
+    fn create_write_area(self) -> ResultValue {
+        // TODO: This probably could be cached but it has some weird behaviour
+        self.deps.push(Dep::Uncacheable);
         let (dirs_nid, dirs_value) = single_arg!(self);
         let dirs = expect_type!(self, List, (dirs_nid, dirs_value));
         let dirs: Vec<&FSEntry> = dirs

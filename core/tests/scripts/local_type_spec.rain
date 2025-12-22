@@ -1,0 +1,12 @@
+let main = fn() {
+	foo = create_foo()
+	foo(5)
+}
+
+let create_foo = fn() {
+	Integer = internal._get_type(0)
+
+	fn(x: Integer) -> Integer {
+		x + 1
+	}
+}

@@ -107,6 +107,19 @@ fn space() {
 }
 
 #[test]
+fn internal() {
+    assert_tokens!(
+        "internal._print(42)",
+        Token::Internal,
+        Token::Dot,
+        Token::Ident,
+        Token::LParen,
+        Token::Number,
+        Token::RParen
+    );
+}
+
+#[test]
 fn single_quote_literal() {
     assert_tokens!("'hei'", Token::SingleQuoteLiteral(None));
     assert!(str_tokens("'hei").is_err());

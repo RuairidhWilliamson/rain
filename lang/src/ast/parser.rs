@@ -806,4 +806,9 @@ mod test {
     fn closure_args() {
         insta::assert_snapshot!(parse_display_expr("fn (a: A, b: B) { 5 }(a, b)"));
     }
+
+    #[test]
+    fn internal() {
+        insta::assert_snapshot!(parse_display_expr("internal._print(42)"));
+    }
 }

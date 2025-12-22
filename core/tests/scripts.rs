@@ -36,4 +36,5 @@ tests! {
     binary_operators,
     type_checks,
     internal,
+    local_type_spec,
 }

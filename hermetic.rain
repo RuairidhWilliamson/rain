@@ -4,12 +4,6 @@ let std = main.std
 let print = std.utils.print
 let get_file = std.utils.get_file
 
-let alpine_linux = fn() {
-	url = "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/alpine-minirootfs-3.22.2-x86_64.tar.gz"
-	sha256 = "412454ed98025ad9cd910d13f3d448b184e81502baa83180e89f98d0f13674be"
-	internal._get_dir(internal._extract_tar_gz(std.utils.download_with_sha256(url, sha256)), "/")
-}
-
 let bwrap_run_ro = fn(image, command, args, env) {
 	bwrap = std.escape.bin("bwrap")
 	args = ["--ro-bind", image, "/", command] + args
@@ -23,15 +17,36 @@ let anonymous = fn(layer) {
 	["--overlay-src", layer]
 }
 
+let download_image = fn(image) {
+	out = internal._create_write_area([])
+	result = std.utils.escape_run(out, std.escape.bin("podman"), ["image", "save", "-o", "image.tar", image], {})
+	image = internal._extract_tar(get_file(out, "image.tar"))
+	manifest = internal._parse_json(internal._read_file(get_file(image, "manifest.json")))
+	print(manifest)
+	[internal._extract_tar(get_file(image, "256f393e029fa2063d8c93720da36a74a032bed3355a2bc3e313ad12f8bde9d1.tar"))]
+}
+
+let test = fn() {
+	// image = download_image("docker.io/alpine")
+	image = [alpine_linux()]
+	env = {PATH = "/bin:/sbin"}
+	// bwrap_run(image, "apk", ["add", "--no-cache", "gcc"], env)
+	bwrap_run(image, "apk", ["add", "--no-cache", "rustup"], env)
+}
+
+let alpine_linux = fn() {
+	url = "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/alpine-minirootfs-3.22.2-x86_64.tar.gz"
+	sha256 = "412454ed98025ad9cd910d13f3d448b184e81502baa83180e89f98d0f13674be"
+	internal._get_dir(internal._extract_tar_gz(std.utils.download_with_sha256(url, sha256)), "/")
+}
+
 let bwrap_run = fn(image_layers, command, args, env) {
 	bwrap = std.escape.bin("bwrap")
-	overlay_working = internal._create_area([])
-	overlay_rw = internal._create_area([])
-	
-	args = internal._flatten(internal._foreach(image_layers, anonymous)) + [
-		// "--hostname", "RESTRICTED",
-		// "--unshare-all",
-		// "--share-net",
+	overlay_working = internal._create_write_area([])
+	overlay_rw = internal._create_write_area([])
+
+	layer_args = internal._flatten(internal._foreach(image_layers, anonymous))
+	args = layer_args + [
 		"--overlay", overlay_rw, overlay_working, "/",
 		"--dev", "/dev",
 		"--proc", "/proc",
@@ -45,21 +60,4 @@ let bwrap_run = fn(image_layers, command, args, env) {
 	print(result.stdout)
 	print(result.stderr)
 	print(overlay_rw)
-}
-
-let download_image = fn(image) {
-	out = internal._create_area([])
-	// TODO: Download image from OCI registry
-	result = std.utils.escape_run(out, std.escape.bin("podman"), ["image", "save", "-o", "image.tar", image], {})
-	image = internal._extract_tar(get_file(out, "image.tar"))
-	manifest = internal._parse_json(internal._read_file(get_file(image, "manifest.json")))
-	print(manifest)
-	[internal._extract_tar(get_file(image, "256f393e029fa2063d8c93720da36a74a032bed3355a2bc3e313ad12f8bde9d1.tar"))]
-}
-
-let test = fn() {
-	// image = download_image("docker.io/alpine")
-	image = [alpine_linux()]
-	env = {PATH = "/bin:/sbin"}
-	bwrap_run(image, "apk", ["add", "--no-cache", "gcc"], env)
 }

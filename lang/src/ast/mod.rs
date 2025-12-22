@@ -256,7 +256,13 @@ impl AstNode for Closure {
                     b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
                 }
             }
-            b.finish()
+            b.finish()?;
+            if let Some(return_type) = &self.return_type {
+                let mut b = f.node("ReturnTypeSpec");
+                b.child(return_type.type_expr);
+                b.finish()?;
+            }
+            Ok(())
         });
         b.child(self.block).finish()
     }
@@ -543,9 +549,7 @@ impl AstNode for InternalLiteral {
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        f.node("IntegerLiteral")
-            .child_contents(self.0.span)
-            .finish()
+        f.node("InternalLiteral").finish()
     }
 }
 

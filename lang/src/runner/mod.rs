@@ -292,9 +292,34 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         },
                     ));
                 }
+                let cache_key = CacheKey::CallClosure {
+                    closure: closure.clone(),
+                    args: arg_values.clone(),
+                };
+                if let Some(entry) = self.cache.get(&cache_key) {
+                    cx.propagate_deps(entry.deps);
+                    return Ok(entry.value);
+                }
+                let start = Instant::now();
+                let args = closure_declare
+                    .args
+                    .iter()
+                    .zip(arg_values.clone())
+                    .map(|(a, v)| (a.name.span.contents(&m.src), v))
+                    .collect();
+                let mut callee_cx = cx.callee(
+                    m,
+                    args,
+                    &closure.captures,
+                    StacktraceEntry {
+                        m: cx.module.id,
+                        n: nid,
+                    },
+                );
                 for (a, v) in closure_declare.args.iter().zip(arg_values.iter()) {
                     if let Some(type_spec) = &a.type_spec {
-                        let type_spec_value = self.evaluate_node(cx, type_spec.type_expr)?;
+                        let type_spec_value =
+                            self.evaluate_node(&mut callee_cx, type_spec.type_expr)?;
                         let Value::Type(expected_type) = type_spec_value else {
                             return Err(cx.nid_err(
                                 type_spec.type_expr,
@@ -315,30 +340,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         }
                     }
                 }
-                let cache_key = CacheKey::CallClosure {
-                    closure: closure.clone(),
-                    args: arg_values.clone(),
-                };
-                if let Some(entry) = self.cache.get(&cache_key) {
-                    cx.propagate_deps(entry.deps);
-                    return Ok(entry.value);
-                }
-                let start = Instant::now();
-                let args = closure_declare
-                    .args
-                    .iter()
-                    .zip(arg_values)
-                    .map(|(a, v)| (a.name.span.contents(&m.src), v))
-                    .collect();
-                let mut callee_cx = cx.callee(
-                    m,
-                    args,
-                    &closure.captures,
-                    StacktraceEntry {
-                        m: cx.module.id,
-                        n: nid,
-                    },
-                );
                 let result = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
                 self.cache.put_if_slow(
                     cache_key,
@@ -350,9 +351,10 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         value: result.clone(),
                     },
                 );
-                cx.propagate_deps(callee_cx.deps);
+                cx.propagate_deps(callee_cx.deps.clone());
                 if let Some(type_spec) = &closure_declare.return_type {
-                    let type_spec_value = self.evaluate_node(cx, type_spec.type_expr)?;
+                    let type_spec_value =
+                        self.evaluate_node(&mut callee_cx, type_spec.type_expr)?;
                     let Value::Type(expected_type) = type_spec_value else {
                         return Err(cx.nid_err(
                             type_spec.type_expr,

@@ -1,0 +1,13 @@
+let area = internal._get_area(internal._module_file())
+let main = internal._import(internal._get_file(area, "main.rain"))
+let std = main.std
+
+let alpine_linux = fn() {
+	url = "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/alpine-minirootfs-3.22.2-x86_64.tar.gz"
+	sha256 = "412454ed98025ad9cd910d13f3d448b184e81502baa83180e89f98d0f13674be"
+	internal._get_dir(internal._extract_tar_gz(std.utils.download_with_sha256(url, sha256)), "/")
+}
+
+let test = fn() {
+	alpine_linux()
+}

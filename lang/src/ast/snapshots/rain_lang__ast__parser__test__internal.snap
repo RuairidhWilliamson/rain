@@ -1,0 +1,17 @@
+---
+source: lang/src/ast/parser.rs
+expression: "parse_display_expr(\"internal._print(42)\")"
+---
+FnCall(
+ BinaryOp(
+  InternalLiteral(
+  )
+  .
+  Ident(
+   _print
+  )
+ )
+ IntegerLiteral(
+  42
+ )
+)
