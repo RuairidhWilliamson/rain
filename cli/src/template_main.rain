@@ -1,2 +1,2 @@
 let area = internal._get_area(internal._module_file())
-let std = internal._prelude().stdlib("0.6.0")
+let std = internal._prelude().stdlib("0.7.0")
