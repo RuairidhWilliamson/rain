@@ -37,4 +37,5 @@ tests! {
     type_checks,
     internal,
     local_type_spec,
+    type_check_inner,
 }

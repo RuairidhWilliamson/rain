@@ -1,0 +1,14 @@
+let Integer = internal._get_type(0)
+let String = internal._get_type("")
+let TypeSpec = internal._get_type(String)
+
+let main = fn() {
+	[
+		add(Integer, 4, 5),
+		add(String, "hello ", "world")
+	]
+}
+
+let add = fn(T: TypeSpec, x: T, y: T) -> T {
+	x + y
+}

@@ -1,0 +1,9 @@
+let Integer = internal._get_type(0)
+
+let main = fn() {
+	foo("hello")
+}
+
+let foo = fn(x: Integer) {
+	internal._print(x + 1)
+}

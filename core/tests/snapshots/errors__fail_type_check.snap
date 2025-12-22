@@ -1,0 +1,9 @@
+---
+source: core/tests/errors.rs
+expression: "run_error(concat! (\"tests/errors/\", stringify! (fail_type_check), \".rain\"))"
+---
+/home/ru/prj/rain/core/tests/errors/fail_type_check.rain:7:17
+| }
+| 
+| let foo = fn(x: Integer) {
+                  ^^^^^^^ unrecoverable error: type mismatch, expected [Integer] actual String

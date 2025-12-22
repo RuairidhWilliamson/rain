@@ -5,6 +5,7 @@ use std::fmt::Write as _;
 mod exe;
 mod remote;
 
+use std::path::PathBuf;
 use std::{
     borrow::Cow,
     ffi::OsStr,
@@ -128,9 +129,13 @@ fn run(
     options: &GlobalOptions,
     mode: ClientMode,
 ) -> Result<(), ()> {
-    let root = rain_core::find_main_rain()
-        .ok_or(())
-        .map_err(|()| eprintln!("no main.rain found"))?;
+    let root = if let Some(entrypoint) = &options.entrypoint {
+        entrypoint.to_path_buf()
+    } else {
+        rain_core::find_main_rain()
+            .ok_or(())
+            .map_err(|()| eprintln!("no main.rain found"))?
+    };
     let mut stack = Vec::new();
     let run_response = make_request_or_start(
         config,
@@ -275,6 +280,9 @@ struct GlobalOptions {
     /// The reporting mode to use
     #[arg(long, global = true, default_value = "short")]
     report: ReportMode,
+    /// The path to the rain source file entrypoint, if not specified will auto resolve main.rain
+    #[arg(long, global = true)]
+    entrypoint: Option<PathBuf>,
 }
 
 #[derive(Debug, Parser)]
