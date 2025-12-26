@@ -28,6 +28,15 @@ pub async fn home(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
     }
 }
 
+pub async fn profile(auth: AdminUser) -> Result<Html<String>, AppError> {
+    #[derive(Template)]
+    #[template(path = "profile.html")]
+    struct Profile {
+        user: User,
+    }
+    Ok(Html(Profile { user: auth.user }.render()?))
+}
+
 pub async fn repos(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
     #[derive(Template)]
     #[template(path = "repos.html")]

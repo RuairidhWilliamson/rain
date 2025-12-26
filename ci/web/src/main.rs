@@ -94,6 +94,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/", get(pages::home))
         .nest("/auth", auth::router())
+        .route("/profile", get(pages::profile))
         .route("/repos", get(pages::repos))
         .route("/repo/{id}", get(pages::repo))
         .route("/repo/{id}/run", post(repo_create_run))
