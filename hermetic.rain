@@ -53,8 +53,12 @@ let bwrap_run = fn(image_layers, command, args, env) {
 
 let test = fn() {
 	image = [alpine_linux()]
-	env = {PATH = "/bin:/sbin:/usr/bin"}
-	rust_image = bwrap_run(image, "apk", ["add", "--no-cache", "rust", "cargo", "blender"], env)
+	env = {
+		PATH = "/bin:/sbin:/usr/bin",
+		HOME = "/root",
+	}
+	rust_image = bwrap_run(image, "apk", ["add", "--no-cache", "rust", "cargo", "blender", "mingw-w64-gcc"], env)
 	image = image + [rust_image]
-	bwrap_run(image, "rustup-init", ["--profile", "minimal"], env)
+	// bwrap_run(image, "ls", ["-la", "/"], env)
+	bwrap_run(image, "cargo", ["--version"], env)
 }

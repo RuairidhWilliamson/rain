@@ -576,11 +576,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn get_area(self) -> ResultValue {
+        *self.cache_hint = false;
         let f = expect_type!(self, File, single_arg!(self));
         Ok(Value::FileArea(Arc::new(f.area().clone())))
     }
 
     fn throw(self) -> ResultValue {
+        *self.cache_hint = false;
         let (_, err_value) = single_arg!(self);
         Err(self
             .cx
@@ -829,6 +831,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn index(self) -> ResultValue {
+        *self.cache_hint = true;
         let ((indexable_nid, indexable_value), index) = two_args!(self);
         match indexable_value {
             Value::List(list) => {
@@ -1393,6 +1396,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn env_var(self) -> ResultValue {
+        self.deps.push(Dep::EnvVar);
         let var_name = expect_type!(self, String, single_arg!(self));
         if let Some(value) = self
             .runner
@@ -1427,6 +1431,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn escape_hard(self) -> ResultValue {
+        self.deps.push(Dep::Escape);
         let file_path = expect_type!(self, String, single_arg!(self));
         Ok(Value::EscapeFile(Arc::new(
             AbsolutePathBuf::try_from(Path::new(file_path.as_str())).map_err(|err| {

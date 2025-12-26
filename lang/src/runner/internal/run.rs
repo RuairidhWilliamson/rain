@@ -1,6 +1,6 @@
 #![allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value)]
 
-use std::{collections::HashMap, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use indexmap::IndexMap;
 
@@ -35,10 +35,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         *area_nid,
                         RunnerError::ExpectedType {
                             actual: area_value.rain_type_id(),
-                            expected: std::borrow::Cow::Borrowed(&[
-                                RainTypeId::FileArea,
-                                RainTypeId::Unit,
-                            ]),
+                            expected: Cow::Borrowed(&[RainTypeId::FileArea, RainTypeId::Unit]),
                         },
                     ))?,
                 };
@@ -50,7 +47,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                             *file_nid,
                             RunnerError::ExpectedType {
                                 actual: file_value.rain_type_id(),
-                                expected: std::borrow::Cow::Borrowed(&[
+                                expected: Cow::Borrowed(&[
                                     RainTypeId::File,
                                     RainTypeId::EscapeFile,
                                 ]),
@@ -63,7 +60,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         *args_nid,
                         RunnerError::ExpectedType {
                             actual: args_value.rain_type_id(),
-                            expected: std::borrow::Cow::Borrowed(&[RainTypeId::List]),
+                            expected: Cow::Borrowed(&[RainTypeId::List]),
                         },
                     ));
                 };
@@ -77,7 +74,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         *env_nid,
                         RunnerError::ExpectedType {
                             actual: env_value.rain_type_id(),
-                            expected: std::borrow::Cow::Borrowed(&[RainTypeId::List]),
+                            expected: Cow::Borrowed(&[RainTypeId::List]),
                         },
                     ));
                 };
@@ -121,7 +118,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     pub fn escape_run(self) -> ResultValue {
-        self.cx.deps.push(Dep::Escape);
+        self.deps.push(Dep::Escape);
+        self.deps.push(Dep::Uncacheable);
         self.check_escape_mode()?;
         match &self.arg_values[..] {
             [
@@ -139,7 +137,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                             *file_nid,
                             RunnerError::ExpectedType {
                                 actual: file_value.rain_type_id(),
-                                expected: std::borrow::Cow::Borrowed(&[
+                                expected: Cow::Borrowed(&[
                                     RainTypeId::File,
                                     RainTypeId::EscapeFile,
                                 ]),
@@ -152,7 +150,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         *args_nid,
                         RunnerError::ExpectedType {
                             actual: args_value.rain_type_id(),
-                            expected: std::borrow::Cow::Borrowed(&[RainTypeId::List]),
+                            expected: Cow::Borrowed(&[RainTypeId::List]),
                         },
                     ));
                 };
@@ -166,7 +164,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         *env_nid,
                         RunnerError::ExpectedType {
                             actual: env_value.rain_type_id(),
-                            expected: std::borrow::Cow::Borrowed(&[RainTypeId::List]),
+                            expected: Cow::Borrowed(&[RainTypeId::List]),
                         },
                     ));
                 };
@@ -243,7 +241,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 env_nid,
                 RunnerError::ExpectedType {
                     actual: value.rain_type_id(),
-                    expected: std::borrow::Cow::Borrowed(&[
+                    expected: Cow::Borrowed(&[
                         RainTypeId::String,
                         RainTypeId::File,
                         RainTypeId::Dir,
@@ -279,7 +277,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 args_nid,
                 RunnerError::ExpectedType {
                     actual: value.rain_type_id(),
-                    expected: std::borrow::Cow::Borrowed(&[
+                    expected: Cow::Borrowed(&[
                         RainTypeId::String,
                         RainTypeId::File,
                         RainTypeId::Dir,

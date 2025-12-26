@@ -14,6 +14,8 @@ pub enum Dep {
     CallingModule,
     /// This prints so should not be cached
     Print,
+    /// This depends on an environment variable
+    EnvVar,
 }
 
 impl Dep {
@@ -24,7 +26,7 @@ impl Dep {
     pub fn is_intra_run_stable(&self) -> bool {
         match self {
             Self::Uncacheable | Self::CallingModule | Self::Print => false,
-            Self::LocalArea | Self::Escape | Self::Secret => true,
+            Self::LocalArea | Self::Escape | Self::Secret | Self::EnvVar => true,
         }
     }
 

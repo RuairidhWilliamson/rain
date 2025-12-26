@@ -130,7 +130,7 @@ fn run(
     mode: ClientMode,
 ) -> Result<(), ()> {
     let root = if let Some(entrypoint) = &options.entrypoint {
-        entrypoint.to_path_buf()
+        entrypoint.clone()
     } else {
         rain_core::find_main_rain()
             .ok_or(())
