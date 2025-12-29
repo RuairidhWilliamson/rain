@@ -4,7 +4,6 @@ pub mod dep;
 pub mod dep_list;
 pub mod error;
 pub mod internal;
-mod sugar;
 pub mod value;
 
 use std::{

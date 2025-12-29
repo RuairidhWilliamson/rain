@@ -1,15 +1,13 @@
 let area = internal._get_area(internal._module_file())
 let std = load_stdlib()
-let publish_module = internal._import(internal._get_file("publish.rain"))
-let test_mod = internal._import(internal._get_file(area, "test.rain"))
-let examples = internal._import(internal._get_file(area, "examples/_.rain"))
-let hermetic = internal._import(internal._get_file("hermetic.rain"))
-let herm = internal._import(internal._get_file("herm.rain"))
+let publish_module = import("publish.rain")
+let test_mod = import("test.rain")
+let examples = import("examples/_.rain")
+let hermetic = import("hermetic.rain")
 
 let load_stdlib = fn() {
 	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])
-	std = internal._import(internal._get_file(stdlib_area, "std.rain"))
-	std
+	internal._prelude().load_stdlib(stdlib_area)
 }
 
 let print = std.utils.print
