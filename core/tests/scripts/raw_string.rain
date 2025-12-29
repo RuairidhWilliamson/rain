@@ -1,0 +1,5 @@
+let main = fn() {
+	a = r"abc\n\0\r\\abc\"
+	b = "abc\\n\\0\\r\\\\abc\\"
+	[a, b]
+}

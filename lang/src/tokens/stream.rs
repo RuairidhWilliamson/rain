@@ -193,9 +193,13 @@ impl TokenStream<'_> {
         let prefix = match prefix_symbol {
             Some(b'\'') => None,
             Some(b @ b'a'..=b'z') => {
+                let Some(prefix) = StringLiteralPrefix::from_byte(b) else {
+                    return Err(LocalSpan::new(start, self.index)
+                        .with_error(TokenError::BadStringLiteralPrefix));
+                };
                 // Skip over the string modifier
                 self.index += 1;
-                StringLiteralPrefix::from_byte(b)
+                Some(prefix)
             }
             _ => unreachable!("single_quote_literal"),
         };
@@ -217,7 +221,7 @@ impl TokenStream<'_> {
                 continue;
             }
             match c {
-                b'\\' => {
+                b'\\' if prefix != Some(StringLiteralPrefix::Raw) => {
                     escape = true;
                 }
                 b'\'' => {
@@ -244,9 +248,13 @@ impl TokenStream<'_> {
         let prefix = match prefix_symbol {
             Some(b'"') => None,
             Some(b @ b'a'..=b'z') => {
+                let Some(prefix) = StringLiteralPrefix::from_byte(b) else {
+                    return Err(LocalSpan::new(start, self.index)
+                        .with_error(TokenError::BadStringLiteralPrefix));
+                };
                 // Skip over the string modifier
                 self.index += 1;
-                StringLiteralPrefix::from_byte(b)
+                Some(prefix)
             }
             _ => unreachable!("double_quote_literal"),
         };
@@ -268,7 +276,7 @@ impl TokenStream<'_> {
                 continue;
             }
             match c {
-                b'\\' => {
+                b'\\' if prefix != Some(StringLiteralPrefix::Raw) => {
                     escape = true;
                 }
                 b'"' => {

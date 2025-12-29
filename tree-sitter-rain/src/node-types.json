@@ -64,7 +64,7 @@
     }
   },
   {
-    "type": "bool",
+    "type": "bool_literal",
     "named": true,
     "fields": {}
   },
@@ -96,7 +96,7 @@
           "named": true
         },
         {
-          "type": "bool",
+          "type": "bool_literal",
           "named": true
         },
         {
@@ -109,6 +109,10 @@
         },
         {
           "type": "fn_declare_expr",
+          "named": true
+        },
+        {
+          "type": "format_string_literal",
           "named": true
         },
         {
@@ -132,7 +136,11 @@
           "named": true
         },
         {
-          "type": "number",
+          "type": "number_literal",
+          "named": true
+        },
+        {
+          "type": "raw_string_literal",
           "named": true
         },
         {
@@ -140,7 +148,7 @@
           "named": true
         },
         {
-          "type": "string",
+          "type": "string_literal",
           "named": true
         },
         {
@@ -225,6 +233,11 @@
         }
       ]
     }
+  },
+  {
+    "type": "format_string_literal",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "if_condition",
@@ -388,7 +401,7 @@
     }
   },
   {
-    "type": "string",
+    "type": "string_literal",
     "named": true,
     "fields": {}
   },
@@ -535,6 +548,10 @@
     "named": false
   },
   {
+    "type": "f\"",
+    "named": false
+  },
+  {
     "type": "false",
     "named": false
   },
@@ -567,7 +584,7 @@
     "named": false
   },
   {
-    "type": "number",
+    "type": "number_literal",
     "named": true
   },
   {
@@ -577,6 +594,10 @@
   {
     "type": "r",
     "named": false
+  },
+  {
+    "type": "raw_string_literal",
+    "named": true
   },
   {
     "type": "t",

@@ -1,7 +1,9 @@
 (internal) @variable.builtin
-(string) @string
-(number) @constant.numeric
-(bool) @constant.builtin.boolean
+(raw_string_literal) @string
+(format_string_literal) @string
+(string_literal) @string
+(number_literal) @constant.numeric
+(bool_literal) @constant.builtin.boolean
 
 "let" @keyword.storage.type
 "fn" @keyword.function

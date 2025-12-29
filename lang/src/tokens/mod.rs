@@ -78,6 +78,7 @@ impl StringLiteralPrefix {
     pub fn from_byte(b: u8) -> Option<Self> {
         match b {
             b'f' => Some(Self::Format),
+            b'r' => Some(Self::Raw),
             _ => None,
         }
     }
@@ -89,6 +90,7 @@ pub enum TokenError {
     UnclosedDoubleQuote,
     IllegalAsciiChar(u8),
     ReservedKeyword,
+    BadStringLiteralPrefix,
 }
 
 impl std::fmt::Display for TokenError {
@@ -98,6 +100,7 @@ impl std::fmt::Display for TokenError {
             Self::UnclosedDoubleQuote => f.write_str("unclosed double quotes"),
             Self::IllegalAsciiChar(c) => f.write_fmt(format_args!("illegal ascii char {c:?}")),
             Self::ReservedKeyword => f.write_str("reserved keyword"),
+            Self::BadStringLiteralPrefix => f.write_str("bad string literal prefix"),
         }
     }
 }

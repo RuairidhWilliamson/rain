@@ -281,15 +281,23 @@
         },
         {
           "type": "SYMBOL",
-          "name": "string"
+          "name": "raw_string_literal"
         },
         {
           "type": "SYMBOL",
-          "name": "number"
+          "name": "format_string_literal"
         },
         {
           "type": "SYMBOL",
-          "name": "bool"
+          "name": "string_literal"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "number_literal"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "bool_literal"
         },
         {
           "type": "SYMBOL",
@@ -845,7 +853,7 @@
       "type": "STRING",
       "value": "internal"
     },
-    "string": {
+    "string_literal": {
       "type": "SEQ",
       "members": [
         {
@@ -909,11 +917,79 @@
         }
       ]
     },
-    "number": {
+    "format_string_literal": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "f\""
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "PATTERN",
+                "value": "[^\"\\n\\\\]",
+                "flags": "u"
+              },
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": "\\"
+                  },
+                  {
+                    "type": "CHOICE",
+                    "members": [
+                      {
+                        "type": "STRING",
+                        "value": "\\"
+                      },
+                      {
+                        "type": "STRING",
+                        "value": "\""
+                      },
+                      {
+                        "type": "STRING",
+                        "value": "n"
+                      },
+                      {
+                        "type": "STRING",
+                        "value": "r"
+                      },
+                      {
+                        "type": "STRING",
+                        "value": "t"
+                      },
+                      {
+                        "type": "STRING",
+                        "value": "0"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "type": "STRING",
+          "value": "\""
+        }
+      ]
+    },
+    "raw_string_literal": {
+      "type": "PATTERN",
+      "value": "r\"[^\"]*\""
+    },
+    "number_literal": {
       "type": "PATTERN",
       "value": "\\d+"
     },
-    "bool": {
+    "bool_literal": {
       "type": "CHOICE",
       "members": [
         {

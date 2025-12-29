@@ -1,0 +1,16 @@
+---
+source: core/tests/scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (raw_string), \".rain\")).unwrap()"
+---
+List(
+    RainList(
+        [
+            String(
+                "abc\\n\\0\\r\\\\abc\\",
+            ),
+            String(
+                "abc\\n\\0\\r\\\\abc\\",
+            ),
+        ],
+    ),
+)

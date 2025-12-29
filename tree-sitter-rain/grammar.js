@@ -50,9 +50,11 @@ export default grammar({
         $.list_literal,
         $.record_literal,
         $.internal,
-        $.string,
-        $.number,
-        $.bool,
+        $.raw_string_literal,
+        $.format_string_literal,
+        $.string_literal,
+        $.number_literal,
+        $.bool_literal,
         $.fn_declare_expr,
         $.fn_call,
         $.identifier,
@@ -106,7 +108,7 @@ export default grammar({
       seq("(", optional(seq($.expr, repeat(seq(",", $.expr)))), ")"),
 
     internal: () => "internal",
-    string: () =>
+    string_literal: () =>
       seq(
         '"',
         repeat(
@@ -114,8 +116,17 @@ export default grammar({
         ),
         '"',
       ),
-    number: () => /\d+/,
-    bool: () => choice("true", "false"),
+    format_string_literal: () =>
+      seq(
+        'f"',
+        repeat(
+          choice(/[^"\n\\]/u, seq("\\", choice("\\", '"', "n", "r", "t", "0"))),
+        ),
+        '"',
+      ),
+    raw_string_literal: () => /r"[^"]*"/,
+    number_literal: () => /\d+/,
+    bool_literal: () => choice("true", "false"),
 
     identifier: () => /[a-zA-Z_\P{ASCII}][a-zA-Z0-9_\P{ASCII}]*/u,
     line_comment: () => /\/\/.*/,
