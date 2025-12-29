@@ -56,6 +56,21 @@ Record(
             "gte": Boolean(
                 true,
             ),
+            "equal": Boolean(
+                true,
+            ),
+            "not_equal1": Boolean(
+                true,
+            ),
+            "not_equal2": Boolean(
+                true,
+            ),
+            "equal_type": Boolean(
+                true,
+            ),
+            "not_equal_type": Boolean(
+                true,
+            ),
         },
     ),
 )

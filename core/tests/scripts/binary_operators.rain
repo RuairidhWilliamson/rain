@@ -15,5 +15,10 @@ let main = fn() {
 		gt = 10 > 9,
 		lte = 4 <= 4,
 		gte = 5 >= 5,
+		equal = 5 == 5,
+		not_equal1 = 4 != 5,
+		not_equal2 = "5" != 5,
+		equal_type = internal._get_type(5) == internal._get_type(4),
+		not_equal_type = internal._get_type("5") != internal._get_type(4),
 	}
 }

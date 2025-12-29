@@ -1,0 +1,7 @@
+let main = fn() {
+	[
+		!true,
+		!(true || true),
+		!true || !true,
+	]
+}

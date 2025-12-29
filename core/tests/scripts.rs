@@ -39,4 +39,5 @@ tests! {
     local_type_spec,
     type_check_inner,
     raw_string,
+    unary_operators,
 }

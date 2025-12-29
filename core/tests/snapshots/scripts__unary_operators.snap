@@ -1,0 +1,19 @@
+---
+source: core/tests/scripts.rs
+expression: "run(concat!\n(\"tests/scripts/\", stringify! (unary_operators), \".rain\")).unwrap()"
+---
+List(
+    RainList(
+        [
+            Boolean(
+                false,
+            ),
+            Boolean(
+                false,
+            ),
+            Boolean(
+                false,
+            ),
+        ],
+    ),
+)

@@ -182,6 +182,14 @@ fn illegal_chars() {
     }
 }
 
+#[test]
+fn bad_string_literal_prefix() {
+    assert_eq!(
+        str_tokens("p\"abc\""),
+        Err(LocalSpan::byte(0).with_error(TokenError::BadStringLiteralPrefix))
+    );
+}
+
 #[expect(clippy::needless_pass_by_value)]
 #[quickcheck_macros::quickcheck]
 fn tokenise_any_script(src: String) {

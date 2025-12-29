@@ -194,8 +194,9 @@ impl TokenStream<'_> {
             Some(b'\'') => None,
             Some(b @ b'a'..=b'z') => {
                 let Some(prefix) = StringLiteralPrefix::from_byte(b) else {
-                    return Err(LocalSpan::new(start, self.index)
-                        .with_error(TokenError::BadStringLiteralPrefix));
+                    return Err(
+                        LocalSpan::byte(self.index).with_error(TokenError::BadStringLiteralPrefix)
+                    );
                 };
                 // Skip over the string modifier
                 self.index += 1;
@@ -249,8 +250,9 @@ impl TokenStream<'_> {
             Some(b'"') => None,
             Some(b @ b'a'..=b'z') => {
                 let Some(prefix) = StringLiteralPrefix::from_byte(b) else {
-                    return Err(LocalSpan::new(start, self.index)
-                        .with_error(TokenError::BadStringLiteralPrefix));
+                    return Err(
+                        LocalSpan::byte(self.index).with_error(TokenError::BadStringLiteralPrefix)
+                    );
                 };
                 // Skip over the string modifier
                 self.index += 1;
