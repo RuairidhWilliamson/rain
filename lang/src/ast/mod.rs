@@ -121,6 +121,7 @@ pub enum Node {
     TrueLiteral(TrueLiteral),
     FalseLiteral(FalseLiteral),
     InternalLiteral(InternalLiteral),
+    ImportLiteral(ImportLiteral),
     Record(Record),
     List(List),
 }
@@ -140,6 +141,7 @@ impl Node {
             Self::TrueLiteral(inner) => inner,
             Self::FalseLiteral(inner) => inner,
             Self::InternalLiteral(inner) => inner,
+            Self::ImportLiteral(inner) => inner,
             Self::Record(inner) => inner,
             Self::List(inner) => inner,
             Self::Closure(inner) => inner,
@@ -550,6 +552,25 @@ impl AstNode for InternalLiteral {
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
         f.node("InternalLiteral").finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct ImportLiteral(pub TokenLocalSpan);
+
+impl From<ImportLiteral> for Node {
+    fn from(inner: ImportLiteral) -> Self {
+        Self::ImportLiteral(inner)
+    }
+}
+
+impl AstNode for ImportLiteral {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.0.span
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("ImportLiteral").finish()
     }
 }
 

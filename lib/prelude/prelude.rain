@@ -19,3 +19,9 @@ pub let stdlib = fn(version) {
 	stdlib_area = internal._create_area([internal._get_dir(lib_area, "lib/std")])
 	internal._import(internal._get_file(stdlib_area, "std.rain"))
 }
+
+let import_implementation = fn(module_file) {
+	fn(path) {
+		internal._import(internal._get_file(internal._get_area(module_file), path))
+	}
+}

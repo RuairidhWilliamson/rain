@@ -40,4 +40,5 @@ tests! {
     type_check_inner,
     raw_string,
     unary_operators,
+    import,
 }

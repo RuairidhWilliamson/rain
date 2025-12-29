@@ -66,6 +66,7 @@ pub enum Token {
     True,
     False,
     Internal,
+    Import,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

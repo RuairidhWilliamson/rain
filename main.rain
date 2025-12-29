@@ -119,6 +119,6 @@ let nextest = fn() {
 
 let coverage = fn() -> File {
 	cargo = std.escape.bin("cargo")
-	std.escape.run(area, cargo, ["llvm-cov", "nextest", "--html"], {})
+	std.escape.run(area, cargo, ["llvm-cov", "nextest", "-p", "rain-lang", "-p", "rain-core", "--html"], {})
 	get_file(area, "target/llvm-cov/html/index.html")
 }

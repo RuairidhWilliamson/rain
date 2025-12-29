@@ -159,10 +159,11 @@ impl TokenStream<'_> {
             "true" => Token::True,
             "false" => Token::False,
             "internal" => Token::Internal,
-            "throw" | "try" | "type" | "for" | "in" | "while" | "match" | "record" | "import"
-            | "async" | "await" | "default" | "struct" | "trait" | "break" | "continue"
-            | "return" | "yield" | "enum" | "union" | "safe" | "unsafe" | "macro" | "const"
-            | "var" | "interface" | "abstract" | "alias" | "super" => Token::Reserved,
+            "import" => Token::Import,
+            "throw" | "try" | "type" | "for" | "in" | "while" | "match" | "record" | "async"
+            | "await" | "default" | "struct" | "trait" | "break" | "continue" | "return"
+            | "yield" | "enum" | "union" | "safe" | "unsafe" | "macro" | "const" | "var"
+            | "interface" | "abstract" | "alias" | "super" => Token::Reserved,
             _ => Token::Ident,
         };
         TokenLocalSpan {

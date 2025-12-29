@@ -4,6 +4,7 @@ pub mod dep;
 pub mod dep_list;
 pub mod error;
 pub mod internal;
+mod sugar;
 pub mod value;
 
 use std::{
@@ -167,6 +168,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 .resolve_ident(cx, tls.0.span.contents(&cx.module.src))?
                 .ok_or_else(|| cx.err(tls.0, RunnerError::UnknownIdent)),
             Node::InternalLiteral(_) => Ok(Value::Internal),
+            Node::ImportLiteral(lit) => self.import_sugar(cx, nid, lit.0.span),
             Node::StringLiteral(lit) => match lit.prefix() {
                 Some(crate::tokens::StringLiteralPrefix::Format) => {
                     log::info!("{lit:?}");
@@ -175,7 +177,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 }
                 Some(crate::tokens::StringLiteralPrefix::Raw) => {
                     let contents = lit.content_span().contents(&cx.module.src);
-                    dbg!(contents);
                     Ok(Value::String(Arc::new(contents.to_string())))
                 }
                 None => {
@@ -404,7 +405,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     deps: &mut deps,
                     cache_hint: &mut cache_hint,
                 };
-                let result = f.call_internal_function(internal_cx)?;
+                let result = internal_cx.call_internal_function()?;
                 self.driver.exit_internal_call(f);
                 if cache_hint {
                     self.cache.put(
@@ -616,6 +617,46 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 None => Ok(Value::Unit),
             }
         }
+    }
+
+    fn import_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> ResultValue {
+        let prelude_value = self.call_function(
+            cx,
+            nid,
+            &Value::InternalFunction(InternalFunction::Prelude),
+            call_span,
+            Vec::new(),
+        )?;
+        let module_file = self.call_function(
+            cx,
+            nid,
+            &Value::InternalFunction(InternalFunction::ModuleFile),
+            call_span,
+            Vec::new(),
+        )?;
+        let Value::Module(prelude_mid) = prelude_value else {
+            return Err(cx.err(
+                call_span,
+                RunnerError::ExpectedType {
+                    actual: prelude_value.rain_type_id(),
+                    expected: (&[RainTypeId::Module]).into(),
+                },
+            ));
+        };
+        let Some(did) = self
+            .ir
+            .resolve_global_declaration(prelude_mid, "import_sugar_implementation")
+        else {
+            return Err(cx.err(call_span, RunnerError::UnknownIdent));
+        };
+        let import_closure_generator = self.evaluate_declaration(cx, did)?;
+        self.call_function(
+            cx,
+            nid,
+            &import_closure_generator,
+            call_span,
+            vec![(nid, module_file)],
+        )
     }
 }
 

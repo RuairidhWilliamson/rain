@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        ArgTypeSpec, Declaration,
+        ArgTypeSpec, Declaration, ImportLiteral,
         error::{ParseError, ParseResult},
     },
     local_span::ErrorLocalSpan,
@@ -280,6 +280,7 @@ impl<'src> ModuleParser<'src> {
             Token::True => self.push(TrueLiteral(t)),
             Token::False => self.push(FalseLiteral(t)),
             Token::Internal => self.push(InternalLiteral(t)),
+            Token::Import => self.push(ImportLiteral(t)),
             Token::LParen => {
                 let expr = self.parse_expr()?;
                 self.stream.expect_parse_next(&[Token::RParen])?;

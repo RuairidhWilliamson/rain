@@ -159,68 +159,6 @@ impl InternalFunction {
             _ => None,
         }
     }
-
-    pub fn call_internal_function<Driver: DriverTrait, Cache: CacheTrait>(
-        self,
-        icx: InternalCx<Driver, Cache>,
-    ) -> ResultValue {
-        match self {
-            Self::Print => icx.print(),
-            Self::Debug => icx.debug(),
-            Self::GetFile => icx.get_file(),
-            Self::GetDir => icx.get_dir(),
-            Self::Import => icx.import(),
-            Self::ModuleFile => icx.module_file(),
-            Self::ExtractZip => icx.extract_zip(),
-            Self::ExtractTarGz => icx.extract_tar_gz(),
-            Self::ExtractTarXz => icx.extract_tar_xz(),
-            Self::ExtractTar => icx.extract_tar(),
-            Self::Run => icx.run(),
-            Self::EscapeBin => icx.escape_bin(),
-            Self::Unit => icx.unit(),
-            Self::GetArea => icx.get_area(),
-            Self::Download => icx.download(),
-            Self::Throw => icx.throw(),
-            Self::Sha256 => icx.sha256(),
-            Self::Sha512 => icx.sha512(),
-            Self::BytesToString => icx.bytes_to_string(),
-            Self::ParseToml => icx.parse_toml(),
-            Self::CreateArea => icx.create_area(),
-            Self::ReadFile => icx.read_file(),
-            Self::CreateFile => icx.create_file(),
-            Self::LocalArea => icx.local_area(),
-            Self::SplitString => icx.split_string(),
-            Self::Index => icx.index(),
-            Self::HostInfo => icx.host_info(),
-            Self::StringContains => icx.string_contains(),
-            Self::ExportToLocal => icx.export_to_local(),
-            Self::CheckExportToLocal => icx.check_export_to_local(),
-            Self::FileMetadata => icx.file_metadata(),
-            Self::Glob => icx.glob(),
-            Self::Foreach => icx.foreach(),
-            Self::Stringify => icx.stringify(),
-            Self::EscapeRun => icx.escape_run(),
-            Self::Prelude => icx.prelude(),
-            Self::CreateTar => icx.create_tar(),
-            Self::RustEq => icx.rust_eq(),
-            Self::GetSecret => icx.get_secret(),
-            Self::SetCacheNever => icx.set_cache_never(),
-            Self::ClearCallingCacheDeps => icx.clear_calling_cache_deps(),
-            Self::MergeRecords => icx.merge_records(),
-            Self::ParseTargetTriple => icx.parse_target_triple(),
-            Self::GitContents => icx.git_contents(),
-            Self::GitLfsSmudge => icx.git_lfs_smudge(),
-            Self::EnvVar => icx.env_var(),
-            Self::CopyFile => icx.copy_file(),
-            Self::ListLength => icx.list_length(),
-            Self::EscapeHard => icx.escape_hard(),
-            Self::CreateTarGz => icx.create_tar_gz(),
-            Self::Flatten => icx.flatten(),
-            Self::ParseJSON => icx.parse_json(),
-            Self::GetType => icx.get_type(),
-            Self::CreateWriteArea => icx.create_write_area(),
-        }
-    }
 }
 
 macro_rules! single_arg {
@@ -308,6 +246,65 @@ pub struct InternalCx<'a, 'b, 'c, Driver, Cache> {
 }
 
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
+    pub fn call_internal_function(self) -> ResultValue {
+        match self.func {
+            InternalFunction::Print => self.print(),
+            InternalFunction::Debug => self.debug(),
+            InternalFunction::GetFile => self.get_file(),
+            InternalFunction::GetDir => self.get_dir(),
+            InternalFunction::Import => self.import(),
+            InternalFunction::ModuleFile => self.module_file(),
+            InternalFunction::ExtractZip => self.extract_zip(),
+            InternalFunction::ExtractTarGz => self.extract_tar_gz(),
+            InternalFunction::ExtractTarXz => self.extract_tar_xz(),
+            InternalFunction::ExtractTar => self.extract_tar(),
+            InternalFunction::Run => self.run(),
+            InternalFunction::EscapeBin => self.escape_bin(),
+            InternalFunction::Unit => self.unit(),
+            InternalFunction::GetArea => self.get_area(),
+            InternalFunction::Download => self.download(),
+            InternalFunction::Throw => self.throw(),
+            InternalFunction::Sha256 => self.sha256(),
+            InternalFunction::Sha512 => self.sha512(),
+            InternalFunction::BytesToString => self.bytes_to_string(),
+            InternalFunction::ParseToml => self.parse_toml(),
+            InternalFunction::CreateArea => self.create_area(),
+            InternalFunction::ReadFile => self.read_file(),
+            InternalFunction::CreateFile => self.create_file(),
+            InternalFunction::LocalArea => self.local_area(),
+            InternalFunction::SplitString => self.split_string(),
+            InternalFunction::Index => self.index(),
+            InternalFunction::HostInfo => self.host_info(),
+            InternalFunction::StringContains => self.string_contains(),
+            InternalFunction::ExportToLocal => self.export_to_local(),
+            InternalFunction::CheckExportToLocal => self.check_export_to_local(),
+            InternalFunction::FileMetadata => self.file_metadata(),
+            InternalFunction::Glob => self.glob(),
+            InternalFunction::Foreach => self.foreach(),
+            InternalFunction::Stringify => self.stringify(),
+            InternalFunction::EscapeRun => self.escape_run(),
+            InternalFunction::Prelude => self.prelude(),
+            InternalFunction::CreateTar => self.create_tar(),
+            InternalFunction::RustEq => self.rust_eq(),
+            InternalFunction::GetSecret => self.get_secret(),
+            InternalFunction::SetCacheNever => self.set_cache_never(),
+            InternalFunction::ClearCallingCacheDeps => self.clear_calling_cache_deps(),
+            InternalFunction::MergeRecords => self.merge_records(),
+            InternalFunction::ParseTargetTriple => self.parse_target_triple(),
+            InternalFunction::GitContents => self.git_contents(),
+            InternalFunction::GitLfsSmudge => self.git_lfs_smudge(),
+            InternalFunction::EnvVar => self.env_var(),
+            InternalFunction::CopyFile => self.copy_file(),
+            InternalFunction::ListLength => self.list_length(),
+            InternalFunction::EscapeHard => self.escape_hard(),
+            InternalFunction::CreateTarGz => self.create_tar_gz(),
+            InternalFunction::Flatten => self.flatten(),
+            InternalFunction::ParseJSON => self.parse_json(),
+            InternalFunction::GetType => self.get_type(),
+            InternalFunction::CreateWriteArea => self.create_write_area(),
+        }
+    }
+
     fn no_args(&self) -> Result<()> {
         if self.arg_values.is_empty() {
             Ok(())
@@ -1177,13 +1174,33 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .collect();
                 Ok(Value::List(Arc::new(RainList(files))))
             }
-            [_, _] => Err(self.cx.nid_err(
-                self.nid,
-                RunnerError::Makeshift(
-                    "implement globbing, for now you can only use globbing with a single arg"
-                        .into(),
-                ),
-            )),
+            [(dir_nid, dir_value), (pattern_nid, pattern_value)] => {
+                let d = match dir_value {
+                    Value::Dir(d) => d.as_ref(),
+                    Value::FileArea(a) => &Dir::root((**a).clone()),
+                    _ => {
+                        return Err(self.cx.nid_err(
+                            *dir_nid,
+                            RunnerError::ExpectedType {
+                                actual: dir_value.rain_type_id(),
+                                expected: Cow::Borrowed(&[RainTypeId::Dir, RainTypeId::FileArea]),
+                            },
+                        ));
+                    }
+                };
+                let pattern = expect_type!(self, String, (pattern_nid, pattern_value));
+                self.deps.add_dep_file_area(d.area());
+                let files = self
+                    .runner
+                    .driver
+                    .glob(d, pattern)
+                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                let files: Vec<Value> = files
+                    .into_iter()
+                    .map(|f| Value::File(Arc::new(f)))
+                    .collect();
+                Ok(Value::List(Arc::new(RainList(files))))
+            }
             _ => self.incorrect_args(1..=2),
         }
     }
