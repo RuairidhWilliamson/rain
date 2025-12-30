@@ -240,7 +240,7 @@ impl AstNode for Declare {
                 b.child_contents(single_name.name.span);
                 if let Some(t) = &single_name.type_spec {
                     b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
-                };
+                }
             }
             DeclareName::NamedDestructure(destructure) => {
                 b.child_fn(|f| {
@@ -251,7 +251,7 @@ impl AstNode for Declare {
                             b.child_contents(e.name.span);
                             if let Some(t) = &e.type_spec {
                                 b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
-                            };
+                            }
                             b.finish()
                         });
                     }

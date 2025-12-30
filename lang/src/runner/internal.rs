@@ -829,34 +829,40 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn index(self) -> ResultValue {
         *self.cache_hint = true;
-        let ((indexable_nid, indexable_value), index) = two_args!(self);
-        match indexable_value {
-            Value::List(list) => {
-                let big_int = expect_type!(self, Integer, index);
-                let Ok(i) = usize::try_from(&big_int.0) else {
+        let ((indexable_nid, indexable_value), (index_nid, index_value)) = two_args!(self);
+        match index_value {
+            Value::Integer(index) => {
+                let list = expect_type!(self, List, (indexable_nid, indexable_value));
+                let Ok(i) = usize::try_from(&index.0) else {
                     return Ok(Value::Unit);
                 };
                 list.0.get(i).cloned().ok_or_else(|| {
                     self.cx.nid_err(
                         self.nid,
-                        RunnerError::IndexOutOfBounds(big_int.as_ref().clone()),
+                        RunnerError::IndexOutOfBounds(index.as_ref().clone()),
                     )
                 })
             }
-            Value::Record(record) => {
-                let s = expect_type!(self, String, index);
-                record.0.get(s.as_str()).cloned().ok_or_else(|| {
-                    self.cx.nid_err(
+            Value::String(name) => {
+                let Some(v) = self.runner.evaluate_named_index(
+                    self.cx,
+                    indexable_value,
+                    self.call_span,
+                    name.as_str(),
+                )?
+                else {
+                    return Err(self.cx.nid_err(
                         self.nid,
-                        RunnerError::IndexKeyNotFound(s.as_ref().to_owned()),
-                    )
-                })
+                        RunnerError::IndexKeyNotFound(name.as_str().to_owned()),
+                    ));
+                };
+                Ok(v)
             }
             _ => Err(self.cx.nid_err(
-                indexable_nid,
+                index_nid,
                 RunnerError::ExpectedType {
                     actual: indexable_value.rain_type_id(),
-                    expected: Cow::Borrowed(&[RainTypeId::List, RainTypeId::Record]),
+                    expected: Cow::Borrowed(&[RainTypeId::String, RainTypeId::Integer]),
                 },
             )),
         }

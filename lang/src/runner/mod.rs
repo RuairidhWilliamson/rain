@@ -7,7 +7,6 @@ pub mod internal;
 pub mod value;
 
 use std::{
-    borrow::Cow,
     collections::HashMap,
     sync::{Arc, LazyLock},
     time::Instant,
@@ -117,33 +116,15 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         let result = match &declaration.name {
             DeclareName::Single(_) => result,
             DeclareName::NamedDestructure(_) => {
-                let name = m.get_declaration_name_span(id.local_id()).contents(&m.src);
-                match result {
-                    Value::Record(record) => record.0.get(name).cloned().ok_or_else(|| {
-                        cx.nid_err(
-                            declaration.expr,
-                            RunnerError::IndexKeyNotFound(name.to_owned()),
-                        )
-                    })?,
-                    Value::Module(mid) => {
-                        let Some(did) = self.ir.resolve_global_declaration(mid, name) else {
-                            return Err(cx.nid_err(
-                                declaration.expr,
-                                RunnerError::IndexKeyNotFound(name.to_owned()),
-                            ));
-                        };
-                        self.evaluate_declaration(cx, did)?
-                    }
-                    _ => {
-                        return Err(cx.nid_err(
-                            declaration.expr,
-                            RunnerError::ExpectedType {
-                                actual: result.rain_type_id(),
-                                expected: Cow::Borrowed(&[RainTypeId::Record, RainTypeId::Module]),
-                            },
-                        ));
-                    }
-                }
+                let span = m.get_declaration_name_span(id.local_id());
+                let name = span.contents(&m.src);
+                let Some(value) = self.evaluate_named_index(cx, &result, span, name)? else {
+                    return Err(cx.nid_err(
+                        declaration.expr,
+                        RunnerError::IndexKeyNotFound(name.to_owned()),
+                    ));
+                };
+                value
             }
         };
         self.cache.put_if_slow(
@@ -560,65 +541,49 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         }
     }
 
-    fn evaluate_dot_operator(&mut self, cx: &mut Cx, op: &BinaryOp, left: &Value) -> ResultValue {
-        match left {
-            Value::Module(module_value) => match cx.module.get(op.right) {
-                Node::Ident(tls) => {
-                    let name = tls.0.span.contents(&cx.module.src);
-                    let Some(did) = self.ir.resolve_global_declaration(*module_value, name) else {
-                        return Err(cx.err(tls.0.span, RunnerError::UnknownIdent));
-                    };
-                    self.evaluate_declaration(cx, did)
-                }
-                _ => Err(cx.err(
-                    op.op_span,
-                    RunnerError::Makeshift("dot operator right side is not ident".into()),
-                )),
-            },
-            Value::Internal => match cx.module.get(op.right) {
-                Node::Ident(tls) => {
-                    let name = tls.0.span.contents(&cx.module.src);
-                    InternalFunction::evaluate_internal_function_name(name)
-                        .map(Value::InternalFunction)
-                        .ok_or_else(|| {
-                            cx.err(
-                                tls.0.span,
-                                RunnerError::Makeshift("unknown internal function name".into()),
-                            )
-                        })
-                }
-                _ => Err(cx.err(
-                    op.op_span,
-                    RunnerError::Makeshift("dot operator right side is not ident".into()),
-                )),
-            },
-            Value::Record(record_value) => match cx.module.get(op.right) {
-                Node::Ident(tls) => {
-                    let name = tls.0.span.contents(&cx.module.src);
-                    record_value.0.get(name).cloned().ok_or_else(|| {
-                        cx.err(
-                            tls.0.span,
-                            RunnerError::RecordMissingEntry {
-                                name: name.to_owned(),
-                            },
-                        )
-                    })
-                }
-                _ => Err(cx.err(
-                    op.op_span,
-                    RunnerError::Makeshift("dot operator right side is not ident".into()),
-                )),
-            },
+    fn evaluate_named_index(
+        &mut self,
+        cx: &mut Cx,
+        value: &Value,
+        span: LocalSpan,
+        name: &str,
+    ) -> Result<Option<Value>> {
+        match value {
+            Value::Module(module_value) => {
+                let Some(did) = self.ir.resolve_global_declaration(*module_value, name) else {
+                    return Ok(None);
+                };
+                Ok(Some(self.evaluate_declaration(cx, did)?))
+            }
+            Value::Internal => Ok(InternalFunction::evaluate_internal_function_name(name)
+                .map(Value::InternalFunction)),
+            Value::Record(record_value) => Ok(record_value.0.get(name).cloned()),
             _ => Err(cx.err(
-                op.op_span,
+                span,
                 RunnerError::ExpectedType {
-                    actual: left.rain_type_id(),
+                    actual: value.rain_type_id(),
                     expected: std::borrow::Cow::Borrowed(&[
                         RainTypeId::Module,
                         RainTypeId::Internal,
                         RainTypeId::Record,
                     ]),
                 },
+            )),
+        }
+    }
+
+    fn evaluate_dot_operator(&mut self, cx: &mut Cx, op: &BinaryOp, left: &Value) -> ResultValue {
+        match cx.module.get(op.right) {
+            Node::Ident(tls) => {
+                let name = tls.0.span.contents(&cx.module.src);
+                let Some(value) = self.evaluate_named_index(cx, left, tls.0.span, name)? else {
+                    return Err(cx.err(tls.0.span, RunnerError::IndexKeyNotFound(name.to_owned())));
+                };
+                Ok(value)
+            }
+            _ => Err(cx.err(
+                op.op_span,
+                RunnerError::Makeshift("dot operator right side is not ident".into()),
             )),
         }
     }
