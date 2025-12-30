@@ -1,22 +1,22 @@
-let area = internal._get_area(internal._module_file())
-let utils = internal._import(internal._get_file(area, "utils.rain"))
+let std = import("std.rain")
+let File = std.types.File
 
-let no_empty = fn(file) {
-	metadata = utils.file_metadata(file)
+let no_empty = fn(file: File) {
+	metadata = std.utils.file_metadata(file)
 	if metadata.size == 0 {
-		utils.print(file)
-		utils._throw("empty file")
+		std.utils.print(file)
+		std.utils._throw("empty file")
 	}
 }
 
-let no_emptish = fn(file) {
-	metadata = utils.file_metadata(file)
+let no_emptish = fn(file: File) {
+	metadata = std.utils.file_metadata(file)
 	if metadata.size == 0 {
-		utils.print(file)
-		utils._throw("empty file")
+		std.utils.print(file)
+		std.utils._throw("empty file")
 	}
 	if metadata.size == 1 {
-		utils.print(file)
-		utils._throw("1 byte file")
+		std.utils.print(file)
+		std.utils._throw("1 byte file")
 	}
 }

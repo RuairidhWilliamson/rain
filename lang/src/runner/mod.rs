@@ -21,8 +21,7 @@ use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
 
 use crate::{
     ast::{
-        AlternateCondition, BinaryOp, BinaryOperatorKind, Declaration, FnCall, IfCondition, Node,
-        NodeId, Not,
+        AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId, Not,
     },
     driver::DriverTrait,
     ir::{DeclarationId, Rir},
@@ -104,31 +103,27 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> ResultValue {
         let m = &Arc::clone(self.ir.get_module(id.module_id()));
         let declaration = m.get_declaration(id.local_id());
-        match declaration {
-            Declaration::LetDeclare(let_declare) => {
-                let stacktrace = cx.stacktrace.clone();
-                let mut callee_cx = Cx::new(m, cx.call_depth + 1, HashMap::new(), stacktrace);
-                let start = Instant::now();
-                let key = cache::CacheKey::Declaration { declaration: id };
-                if let Some(cache_entry) = self.cache.get(&key) {
-                    cx.propagate_deps(cache_entry.deps);
-                    return Ok(cache_entry.value);
-                }
-                let result = self.evaluate_node(&mut callee_cx, let_declare.expr)?;
-                self.cache.put_if_slow(
-                    key,
-                    CacheEntry {
-                        execution_time: start.elapsed(),
-                        expires: None,
-                        etag: None,
-                        deps: callee_cx.deps.clone(),
-                        value: result.clone(),
-                    },
-                );
-                cx.propagate_deps(callee_cx.deps);
-                Ok(result)
-            }
+        let stacktrace = cx.stacktrace.clone();
+        let mut callee_cx = Cx::new(m, cx.call_depth + 1, HashMap::new(), stacktrace);
+        let start = Instant::now();
+        let key = cache::CacheKey::Declaration { declaration: id };
+        if let Some(cache_entry) = self.cache.get(&key) {
+            cx.propagate_deps(cache_entry.deps);
+            return Ok(cache_entry.value);
         }
+        let result = self.evaluate_node(&mut callee_cx, declaration.expr)?;
+        self.cache.put_if_slow(
+            key,
+            CacheEntry {
+                execution_time: start.elapsed(),
+                expires: None,
+                etag: None,
+                deps: callee_cx.deps.clone(),
+                value: result.clone(),
+            },
+        );
+        cx.propagate_deps(callee_cx.deps);
+        Ok(result)
     }
 
     fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> ResultValue {

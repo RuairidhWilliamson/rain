@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     afs::file::File,
-    ast::{Declaration, Module, ModuleRoot, Node, NodeId, error::ParseError},
+    ast::{Declare, DeclareName, Module, ModuleRoot, Node, NodeId, error::ParseError},
     local_span::{ErrorLocalSpan, LocalSpan},
     runner::error::RunnerError,
     span::ErrorSpan,
@@ -97,7 +97,7 @@ impl IrModule {
         self.inner().0.span(id)
     }
 
-    pub fn get_declaration(&self, id: LocalDeclarationId) -> &Declaration {
+    pub fn get_declaration(&self, id: LocalDeclarationId) -> &Declare {
         let Some(d) = self.inner().module_root().declarations.get(id.0) else {
             unreachable!()
         };
@@ -106,7 +106,12 @@ impl IrModule {
 
     pub fn get_declaration_name_span(&self, id: LocalDeclarationId) -> LocalSpan {
         match self.inner().module_root().declarations.get(id.0) {
-            Some(Declaration::LetDeclare(let_declare)) => let_declare.name.span,
+            Some(let_declare) => match &let_declare.name {
+                crate::ast::DeclareName::Single(declare_name_single) => {
+                    assert_eq!(id.1, 0);
+                    declare_name_single.name.span
+                }
+            },
             None => unreachable!(),
         }
     }
@@ -115,30 +120,29 @@ impl IrModule {
         self.inner()
             .declarations()
             .enumerate()
-            .find(|(_, node)| match node {
-                Declaration::LetDeclare(let_declare) => {
-                    let_declare.name.span.contents(&self.src) == name
+            .find_map(|(id, let_declare)| {
+                match &let_declare.name {
+                    DeclareName::Single(declare_name_single) => {
+                        if declare_name_single.name.span.contents(&self.src) == name {
+                            return Some(LocalDeclarationId(id, 0));
+                        }
+                    }
                 }
+                None
             })
-            .map(|(id, _)| LocalDeclarationId(id))
     }
 
     pub fn list_declaration_names(&self) -> impl Iterator<Item = &str> {
-        self.inner().declarations().map(|d| match d {
-            Declaration::LetDeclare(let_declare) => let_declare.name.span.contents(&self.src),
-        })
+        self.inner()
+            .declarations()
+            .flat_map(|let_declare| let_declare.names(&self.src))
     }
 
     pub fn list_pub_declaration_names(&self) -> impl Iterator<Item = &str> {
-        self.inner().declarations().filter_map(|d| match d {
-            Declaration::LetDeclare(let_declare) => {
-                if let_declare.pub_token.is_some() {
-                    Some(let_declare.name.span.contents(&self.src))
-                } else {
-                    None
-                }
-            }
-        })
+        self.inner()
+            .declarations()
+            .filter(|let_declare| let_declare.pub_token.is_some())
+            .flat_map(|let_declare| let_declare.names(&self.src))
     }
 }
 
@@ -150,7 +154,7 @@ impl ParsedIrModule {
         &self.0.root
     }
 
-    fn declarations(&self) -> impl Iterator<Item = &Declaration> {
+    fn declarations(&self) -> impl Iterator<Item = &Declare> {
         self.module_root().declarations.iter()
     }
 }
@@ -165,7 +169,7 @@ impl std::fmt::Display for ModuleId {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct LocalDeclarationId(usize);
+pub struct LocalDeclarationId(usize, usize);
 
 impl std::fmt::Display for LocalDeclarationId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

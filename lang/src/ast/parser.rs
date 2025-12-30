@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        ArgTypeSpec, Declaration, ImportLiteral,
+        ArgTypeSpec, ImportLiteral,
         error::{ParseError, ParseResult},
     },
     local_span::ErrorLocalSpan,
@@ -8,10 +8,10 @@ use crate::{
 };
 
 use super::{
-    AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure, FalseLiteral,
-    FnCall, FnDeclareArg, Ident, IfCondition, IntegerLiteral, InternalLiteral, LetDeclare, List,
-    ListElement, Module, ModuleRoot, Node, NodeId, NodeList, Not, Record, RecordField,
-    StringLiteral, TrueLiteral,
+    AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure, Declare,
+    DeclareName, DeclareNameSingle, FalseLiteral, FnCall, FnDeclareArg, Ident, IfCondition,
+    IntegerLiteral, InternalLiteral, List, ListElement, Module, ModuleRoot, Node, NodeId, NodeList,
+    Not, Record, RecordField, StringLiteral, TrueLiteral,
 };
 
 pub fn parse_module(source: &str) -> ParseResult<Module> {
@@ -91,7 +91,7 @@ impl<'src> ModuleParser<'src> {
         Ok(ModuleRoot { declarations })
     }
 
-    fn parse_let_declare(&mut self) -> ParseResult<Declaration> {
+    fn parse_let_declare(&mut self) -> ParseResult<Declare> {
         let token = self.stream.expect_parse_next(&[Token::Pub, Token::Let])?;
         let (pub_token, let_token) = if token.token == Token::Pub {
             (Some(token), self.stream.expect_parse_next(&[Token::Let])?)
@@ -114,14 +114,13 @@ impl<'src> ModuleParser<'src> {
             (None, token)
         };
         let expr = self.parse_expr()?;
-        Ok(Declaration::LetDeclare(LetDeclare {
+        Ok(Declare {
             pub_token,
             let_token,
-            name,
-            type_spec,
+            name: DeclareName::Single(DeclareNameSingle { name, type_spec }),
             equals_token,
             expr,
-        }))
+        })
     }
 
     fn parse_fn_declare(&mut self, fn_token: TokenLocalSpan) -> ParseResult<NodeId> {

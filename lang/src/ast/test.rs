@@ -125,3 +125,9 @@ fn list_missing_comma() {
         Err(_err) => {}
     };
 }
+
+// #[test]
+// fn destructure_single_item() {
+//     let src = "let {a} = {a}";
+//     insta::assert_snapshot!(parse_display_script(src));
+// }

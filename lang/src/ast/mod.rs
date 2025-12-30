@@ -94,19 +94,6 @@ impl From<&Self> for NodeId {
 }
 
 #[derive(Debug)]
-pub enum Declaration {
-    LetDeclare(LetDeclare),
-}
-
-impl Declaration {
-    fn ast_node(&self) -> &dyn AstNode {
-        match self {
-            Self::LetDeclare(inner) => inner,
-        }
-    }
-}
-
-#[derive(Debug)]
 pub enum Node {
     Closure(Closure),
     Block(Block),
@@ -159,32 +146,54 @@ impl Node {
 
 #[derive(Debug)]
 pub struct ModuleRoot {
-    pub declarations: Vec<Declaration>,
+    pub declarations: Vec<Declare>,
 }
 
 impl AstNode for ModuleRoot {
     fn span(&self, list: &NodeList) -> LocalSpan {
-        LocalSpan::span_iter(self.declarations.iter().map(|d| d.ast_node().span(list)))
+        LocalSpan::span_iter(self.declarations.iter().map(|d| d.span(list)))
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
         f.node("ModuleRoot")
-            .children_ast(self.declarations.iter().map(Declaration::ast_node))
+            .children_ast(self.declarations.iter().map(|d| -> &dyn AstNode { d }))
             .finish()
     }
 }
 
 #[derive(Debug)]
-pub struct LetDeclare {
+pub struct Declare {
     pub pub_token: Option<TokenLocalSpan>,
     pub let_token: TokenLocalSpan,
-    pub name: TokenLocalSpan,
-    pub type_spec: Option<ArgTypeSpec>,
+    pub name: DeclareName,
     pub equals_token: TokenLocalSpan,
     pub expr: NodeId,
 }
 
-impl AstNode for LetDeclare {
+#[derive(Debug)]
+pub enum DeclareName {
+    Single(DeclareNameSingle),
+    // SequenceDestructure,
+    // NamedDestructure,
+}
+
+#[derive(Debug)]
+pub struct DeclareNameSingle {
+    pub name: TokenLocalSpan,
+    pub type_spec: Option<ArgTypeSpec>,
+}
+
+impl Declare {
+    pub fn names<'a>(&self, src: &'a str) -> impl Iterator<Item = &'a str> {
+        match &self.name {
+            DeclareName::Single(declare_name_single) => {
+                std::iter::once(declare_name_single.name.span.contents(src))
+            }
+        }
+    }
+}
+
+impl AstNode for Declare {
     fn span(&self, list: &NodeList) -> LocalSpan {
         let first = if let Some(t) = &self.pub_token {
             t.span
@@ -201,9 +210,13 @@ impl AstNode for LetDeclare {
         } else {
             b.child_str("private");
         }
-        b.child_contents(self.name.span);
-        if let Some(t) = &self.type_spec {
-            b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
+        match &self.name {
+            DeclareName::Single(let_declare_left_side_single) => {
+                b.child_contents(let_declare_left_side_single.name.span);
+                if let Some(t) = &let_declare_left_side_single.type_spec {
+                    b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
+                }
+            }
         }
         b.child(self.expr).finish()
     }
