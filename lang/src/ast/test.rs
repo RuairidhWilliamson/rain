@@ -126,8 +126,14 @@ fn list_missing_comma() {
     };
 }
 
-// #[test]
-// fn destructure_single_item() {
-//     let src = "let {a} = {a}";
-//     insta::assert_snapshot!(parse_display_script(src));
-// }
+#[test]
+fn destructure_single_item() {
+    let src = "let {a} = {a = 4}";
+    insta::assert_snapshot!(parse_display_script(src));
+}
+
+#[test]
+fn destructure_two_items() {
+    let src = "let {a: Integer, b} = {a = 4, b = 6}";
+    insta::assert_snapshot!(parse_display_script(src));
+}

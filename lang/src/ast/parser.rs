@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        ArgTypeSpec, ImportLiteral,
+        ArgTypeSpec, DeclareNameListElement, DeclareNamedDestructure, ImportLiteral,
         error::{ParseError, ParseResult},
     },
     local_span::ErrorLocalSpan,
@@ -98,26 +98,85 @@ impl<'src> ModuleParser<'src> {
         } else {
             (None, token)
         };
-        let name = self.stream.expect_parse_next(&[Token::Ident])?;
+
         let token = self
             .stream
-            .expect_parse_next(&[Token::Colon, Token::Assign])?;
-        let (type_spec, equals_token) = if token.token == Token::Colon {
-            (
-                Some(ArgTypeSpec {
-                    colon_token: token,
-                    type_expr: self.parse_expr()?,
-                }),
-                self.stream.expect_parse_next(&[Token::Assign])?,
-            )
-        } else {
-            (None, token)
+            .expect_parse_next(&[Token::Ident, Token::LBrace])?;
+        let name = match token.token {
+            Token::Ident => {
+                let name = token;
+                let peek = self.stream.expect_peek(&[Token::Colon, Token::Assign])?;
+                let type_spec = if peek.token == Token::Colon {
+                    let colon_token = self.stream.expect_parse_next(&[Token::Colon])?;
+                    Some(ArgTypeSpec {
+                        colon_token,
+                        type_expr: self.parse_expr()?,
+                    })
+                } else {
+                    None
+                };
+                DeclareName::Single(DeclareNameSingle { name, type_spec })
+            }
+            Token::LBrace => {
+                let lbrace = token;
+                let mut elements = Vec::new();
+                loop {
+                    self.stream.skip_if_newline_or_comment()?;
+                    let Some(peek) = self.stream.peek()? else {
+                        break;
+                    };
+                    if peek.token == Token::RBrace {
+                        break;
+                    }
+                    let name = self.stream.expect_parse_next(&[Token::Ident])?;
+                    let peek =
+                        self.stream
+                            .expect_peek(&[Token::Colon, Token::Comma, Token::RBrace])?;
+                    let type_spec = if peek.token == Token::Colon {
+                        let colon_token = self.stream.expect_parse_next(&[Token::Colon])?;
+                        Some(ArgTypeSpec {
+                            colon_token,
+                            type_expr: self.parse_expr()?,
+                        })
+                    } else {
+                        None
+                    };
+                    let peek = self.stream.expect_peek(&[Token::Comma, Token::RBrace])?;
+                    match peek.token {
+                        Token::RBrace => {
+                            elements.push(DeclareNameListElement {
+                                name,
+                                type_spec,
+                                comma: None,
+                            });
+                            break;
+                        }
+                        Token::Comma => {
+                            let comma = Some(self.stream.expect_parse_next(&[Token::Comma])?);
+                            elements.push(DeclareNameListElement {
+                                name,
+                                type_spec,
+                                comma,
+                            });
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+                let rbrace = self.stream.expect_parse_next(&[Token::RBrace])?;
+                DeclareName::NamedDestructure(DeclareNamedDestructure {
+                    lbrace,
+                    elements,
+                    rbrace,
+                })
+            }
+            _ => unreachable!(),
         };
+        let equals_token = self.stream.expect_parse_next(&[Token::Assign])?;
         let expr = self.parse_expr()?;
         Ok(Declare {
             pub_token,
             let_token,
-            name: DeclareName::Single(DeclareNameSingle { name, type_spec }),
+            name,
             equals_token,
             expr,
         })

@@ -1,0 +1,36 @@
+---
+source: lang/src/ast/test.rs
+expression: parse_display_script(src)
+---
+ModuleRoot(
+ LetDeclare(
+  private
+  NamedDestructure(
+   NamedDestructureElement(
+    a
+    TypeSpec(
+     Ident(
+      Integer
+     )
+    )
+   )
+   NamedDestructureElement(
+    b
+   )
+  )
+  Record(
+   RecordEntry(
+    a
+    IntegerLiteral(
+     4
+    )
+   )
+   RecordEntry(
+    b
+    IntegerLiteral(
+     6
+    )
+   )
+  )
+ )
+)

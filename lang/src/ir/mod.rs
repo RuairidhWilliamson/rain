@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     afs::file::File,
-    ast::{Declare, DeclareName, Module, ModuleRoot, Node, NodeId, error::ParseError},
+    ast::{Declare, Module, ModuleRoot, Node, NodeId, error::ParseError},
     local_span::{ErrorLocalSpan, LocalSpan},
     runner::error::RunnerError,
     span::ErrorSpan,
@@ -106,11 +106,9 @@ impl IrModule {
 
     pub fn get_declaration_name_span(&self, id: LocalDeclarationId) -> LocalSpan {
         match self.inner().module_root().declarations.get(id.0) {
-            Some(let_declare) => match &let_declare.name {
-                crate::ast::DeclareName::Single(declare_name_single) => {
-                    assert_eq!(id.1, 0);
-                    declare_name_single.name.span
-                }
+            Some(let_declare) => match let_declare.name_spans().nth(id.1) {
+                Some(span) => span,
+                None => unreachable!(),
             },
             None => unreachable!(),
         }
@@ -121,14 +119,10 @@ impl IrModule {
             .declarations()
             .enumerate()
             .find_map(|(id, let_declare)| {
-                match &let_declare.name {
-                    DeclareName::Single(declare_name_single) => {
-                        if declare_name_single.name.span.contents(&self.src) == name {
-                            return Some(LocalDeclarationId(id, 0));
-                        }
-                    }
-                }
-                None
+                let index = let_declare
+                    .names(&self.src)
+                    .position(|declare_name| declare_name == name)?;
+                Some(LocalDeclarationId(id, index))
             })
     }
 

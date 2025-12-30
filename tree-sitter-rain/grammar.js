@@ -10,14 +10,21 @@ export default grammar({
     declaration: ($) => $.let_declare,
 
     let_declare: ($) =>
+      seq(optional("pub"), "let", $.let_declare_name, "=", $.expr),
+    let_declare_name: ($) =>
+      choice($.declare_single_name, $.declare_named_destructure),
+    declare_single_name: ($) =>
+      seq($.identifier, optional(seq(":", $.type_constraint))),
+    declare_named_destructure: ($) =>
       seq(
-        optional("pub"),
-        "let",
-        $.identifier,
-        optional(seq(":", $.type_constraint)),
-        "=",
-        $.expr,
+        "{",
+        seq(
+          repeat(choice($.line_comment, seq($.declare_single_name, ","))),
+          optional(seq($.declare_single_name, repeat($.line_comment))),
+        ),
+        "}",
       ),
+
     fn_declare_expr: ($) =>
       seq(
         "fn",
@@ -92,7 +99,6 @@ export default grammar({
         ),
         "]",
       ),
-    _list_literal_inner: ($) => choice($.line_comment, $.expr),
     record_literal: ($) =>
       seq(
         "{",

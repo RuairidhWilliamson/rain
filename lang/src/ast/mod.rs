@@ -173,8 +173,8 @@ pub struct Declare {
 #[derive(Debug)]
 pub enum DeclareName {
     Single(DeclareNameSingle),
+    NamedDestructure(DeclareNamedDestructure),
     // SequenceDestructure,
-    // NamedDestructure,
 }
 
 #[derive(Debug)]
@@ -183,13 +183,38 @@ pub struct DeclareNameSingle {
     pub type_spec: Option<ArgTypeSpec>,
 }
 
+#[derive(Debug)]
+pub struct DeclareNamedDestructure {
+    pub lbrace: TokenLocalSpan,
+    pub elements: Vec<DeclareNameListElement>,
+    pub rbrace: TokenLocalSpan,
+}
+
+#[derive(Debug)]
+pub struct DeclareNameListElement {
+    pub name: TokenLocalSpan,
+    pub type_spec: Option<ArgTypeSpec>,
+    pub comma: Option<TokenLocalSpan>,
+}
+
 impl Declare {
-    pub fn names<'a>(&self, src: &'a str) -> impl Iterator<Item = &'a str> {
-        match &self.name {
+    pub fn name_spans(&self) -> impl Iterator<Item = LocalSpan> {
+        let iter: Box<dyn Iterator<Item = LocalSpan>> = match &self.name {
             DeclareName::Single(declare_name_single) => {
-                std::iter::once(declare_name_single.name.span.contents(src))
+                Box::new(std::iter::once(declare_name_single.name.span))
             }
-        }
+            DeclareName::NamedDestructure(declare_named_destructure) => Box::new(
+                declare_named_destructure
+                    .elements
+                    .iter()
+                    .map(|e| e.name.span),
+            ),
+        };
+        iter
+    }
+
+    pub fn names<'a>(&self, src: &'a str) -> impl Iterator<Item = &'a str> {
+        self.name_spans().map(|span| span.contents(src))
     }
 }
 
@@ -211,11 +236,27 @@ impl AstNode for Declare {
             b.child_str("private");
         }
         match &self.name {
-            DeclareName::Single(let_declare_left_side_single) => {
-                b.child_contents(let_declare_left_side_single.name.span);
-                if let Some(t) = &let_declare_left_side_single.type_spec {
+            DeclareName::Single(single_name) => {
+                b.child_contents(single_name.name.span);
+                if let Some(t) = &single_name.type_spec {
                     b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
-                }
+                };
+            }
+            DeclareName::NamedDestructure(destructure) => {
+                b.child_fn(|f| {
+                    let mut b = f.node("NamedDestructure");
+                    for e in &destructure.elements {
+                        b.child_fn(|f| {
+                            let mut b = f.node("NamedDestructureElement");
+                            b.child_contents(e.name.span);
+                            if let Some(t) = &e.type_spec {
+                                b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
+                            };
+                            b.finish()
+                        });
+                    }
+                    b.finish()
+                });
             }
         }
         b.child(self.expr).finish()
