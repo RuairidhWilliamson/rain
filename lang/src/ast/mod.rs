@@ -174,7 +174,7 @@ pub struct Declare {
 pub enum DeclareName {
     Single(DeclareNameSingle),
     NamedDestructure(DeclareNamedDestructure),
-    // SequenceDestructure,
+    // TODO: Add SequenceDestructure,
 }
 
 #[derive(Debug)]

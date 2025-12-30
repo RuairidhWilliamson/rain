@@ -41,4 +41,6 @@ tests! {
     raw_string,
     unary_operators,
     import,
+    destructure,
+    destructure_import,
 }

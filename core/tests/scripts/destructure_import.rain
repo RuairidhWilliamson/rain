@@ -1,0 +1,6 @@
+let {foo, bar} = import("foo.rain")
+
+let main = fn() {
+	foo() + bar
+}
+

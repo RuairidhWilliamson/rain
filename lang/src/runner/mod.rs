@@ -7,6 +7,7 @@ pub mod internal;
 pub mod value;
 
 use std::{
+    borrow::Cow,
     collections::HashMap,
     sync::{Arc, LazyLock},
     time::Instant,
@@ -21,7 +22,8 @@ use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
 
 use crate::{
     ast::{
-        AlternateCondition, BinaryOp, BinaryOperatorKind, FnCall, IfCondition, Node, NodeId, Not,
+        AlternateCondition, BinaryOp, BinaryOperatorKind, DeclareName, FnCall, IfCondition, Node,
+        NodeId, Not,
     },
     driver::DriverTrait,
     ir::{DeclarationId, Rir},
@@ -112,6 +114,38 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             return Ok(cache_entry.value);
         }
         let result = self.evaluate_node(&mut callee_cx, declaration.expr)?;
+        let result = match &declaration.name {
+            DeclareName::Single(_) => result,
+            DeclareName::NamedDestructure(_) => {
+                let name = m.get_declaration_name_span(id.local_id()).contents(&m.src);
+                match result {
+                    Value::Record(record) => record.0.get(name).cloned().ok_or_else(|| {
+                        cx.nid_err(
+                            declaration.expr,
+                            RunnerError::IndexKeyNotFound(name.to_owned()),
+                        )
+                    })?,
+                    Value::Module(mid) => {
+                        let Some(did) = self.ir.resolve_global_declaration(mid, name) else {
+                            return Err(cx.nid_err(
+                                declaration.expr,
+                                RunnerError::IndexKeyNotFound(name.to_owned()),
+                            ));
+                        };
+                        self.evaluate_declaration(cx, did)?
+                    }
+                    _ => {
+                        return Err(cx.nid_err(
+                            declaration.expr,
+                            RunnerError::ExpectedType {
+                                actual: result.rain_type_id(),
+                                expected: Cow::Borrowed(&[RainTypeId::Record, RainTypeId::Module]),
+                            },
+                        ));
+                    }
+                }
+            }
+        };
         self.cache.put_if_slow(
             key,
             CacheEntry {

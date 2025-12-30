@@ -1,0 +1,7 @@
+let main = fn() {
+	[a, b]
+}
+
+let Integer = internal._get_type(0)
+
+let {a, b: Integer} = {a = "4", b = 10}

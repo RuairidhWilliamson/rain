@@ -1,0 +1,18 @@
+---
+source: core/tests/scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (destructure), \".rain\")).unwrap()"
+---
+List(
+    RainList(
+        [
+            String(
+                "4",
+            ),
+            Integer(
+                RainInteger(
+                    10,
+                ),
+            ),
+        ],
+    ),
+)
