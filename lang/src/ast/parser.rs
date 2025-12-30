@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        ArgTypeSpec, DeclareNameListElement, DeclareNamedDestructure, ImportLiteral,
+        ArgTypeSpec, DeclareNameListElement, DeclareNamedDestructure, SimpleLiteralKind,
         error::{ParseError, ParseResult},
     },
     local_span::ErrorLocalSpan,
@@ -9,9 +9,9 @@ use crate::{
 
 use super::{
     AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure, Declare,
-    DeclareName, DeclareNameSingle, FalseLiteral, FnCall, FnDeclareArg, Ident, IfCondition,
-    IntegerLiteral, InternalLiteral, List, ListElement, Module, ModuleRoot, Node, NodeId, NodeList,
-    Not, Record, RecordField, StringLiteral, TrueLiteral,
+    DeclareName, DeclareNameSingle, FnCall, FnDeclareArg, Ident, IfCondition, IntegerLiteral, List,
+    ListElement, Module, ModuleRoot, Node, NodeId, NodeList, Not, Record, RecordField,
+    StringLiteral,
 };
 
 pub fn parse_module(source: &str) -> ParseResult<Module> {
@@ -335,10 +335,12 @@ impl<'src> ModuleParser<'src> {
             Token::Ident => self.push(Ident(t)),
             Token::Number => self.push(IntegerLiteral(t)),
             Token::DoubleQuoteLiteral(_) => self.push(StringLiteral(t)),
-            Token::True => self.push(TrueLiteral(t)),
-            Token::False => self.push(FalseLiteral(t)),
-            Token::Internal => self.push(InternalLiteral(t)),
-            Token::Import => self.push(ImportLiteral(t)),
+            Token::True => self.push(SimpleLiteralKind::True.with(t)),
+            Token::False => self.push(SimpleLiteralKind::False.with(t)),
+            Token::Internal => self.push(SimpleLiteralKind::Internal.with(t)),
+            Token::Import => self.push(SimpleLiteralKind::Import.with(t)),
+            Token::Stdlib => self.push(SimpleLiteralKind::Stdlib.with(t)),
+            Token::ThisFile => self.push(SimpleLiteralKind::ThisFile.with(t)),
             Token::LParen => {
                 let expr = self.parse_expr()?;
                 self.stream.expect_parse_next(&[Token::RParen])?;

@@ -22,7 +22,7 @@ use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
 use crate::{
     ast::{
         AlternateCondition, BinaryOp, BinaryOperatorKind, DeclareName, FnCall, IfCondition, Node,
-        NodeId, Not,
+        NodeId, Not, SimpleLiteral, SimpleLiteralKind,
     },
     driver::DriverTrait,
     ir::{DeclarationId, Rir},
@@ -176,8 +176,30 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             Node::Ident(tls) => self
                 .resolve_ident(cx, tls.0.span.contents(&cx.module.src))?
                 .ok_or_else(|| cx.err(tls.0, RunnerError::UnknownIdent)),
-            Node::InternalLiteral(_) => Ok(Value::Internal),
-            Node::ImportLiteral(lit) => self.import_sugar(cx, nid, lit.0.span),
+            Node::SimpleLiteral(SimpleLiteral {
+                kind: SimpleLiteralKind::True,
+                ..
+            }) => Ok(Value::Boolean(true)),
+            Node::SimpleLiteral(SimpleLiteral {
+                kind: SimpleLiteralKind::False,
+                ..
+            }) => Ok(Value::Boolean(false)),
+            Node::SimpleLiteral(SimpleLiteral {
+                kind: SimpleLiteralKind::Internal,
+                ..
+            }) => Ok(Value::Internal),
+            Node::SimpleLiteral(SimpleLiteral {
+                tls,
+                kind: SimpleLiteralKind::Import,
+            }) => self.import_sugar(cx, nid, tls.span),
+            Node::SimpleLiteral(SimpleLiteral {
+                tls,
+                kind: SimpleLiteralKind::Stdlib,
+            }) => self.stdlib_sugar(cx, nid, tls.span),
+            Node::SimpleLiteral(SimpleLiteral {
+                tls,
+                kind: SimpleLiteralKind::ThisFile,
+            }) => self.this_file_sugar(cx, nid, tls.span),
             Node::StringLiteral(lit) => match lit.prefix() {
                 Some(crate::tokens::StringLiteralPrefix::Format) => {
                     log::info!("{lit:?}");
@@ -202,8 +224,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     .parse::<num_bigint::BigInt>()
                     .map_err(|_| cx.err(tls.0, RunnerError::InvalidIntegerLiteral))?,
             )))),
-            Node::TrueLiteral(_) => Ok(Value::Boolean(true)),
-            Node::FalseLiteral(_) => Ok(Value::Boolean(false)),
             Node::Record(record) => {
                 let mut builder = IndexMap::new();
                 for e in &record.fields {
@@ -649,6 +669,42 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             &import_closure_generator,
             call_span,
             vec![(nid, module_file)],
+        )
+    }
+
+    fn stdlib_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> ResultValue {
+        let prelude_value = self.call_function(
+            cx,
+            nid,
+            &Value::InternalFunction(InternalFunction::Prelude),
+            call_span,
+            Vec::new(),
+        )?;
+        let Value::Module(prelude_mid) = prelude_value else {
+            return Err(cx.err(
+                call_span,
+                RunnerError::ExpectedType {
+                    actual: prelude_value.rain_type_id(),
+                    expected: (&[RainTypeId::Module]).into(),
+                },
+            ));
+        };
+        let Some(did) = self
+            .ir
+            .resolve_global_declaration(prelude_mid, "stdlib_sugar_implementation")
+        else {
+            return Err(cx.err(call_span, RunnerError::UnknownIdent));
+        };
+        self.evaluate_declaration(cx, did)
+    }
+
+    fn this_file_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> ResultValue {
+        self.call_function(
+            cx,
+            nid,
+            &Value::InternalFunction(InternalFunction::ModuleFile),
+            call_span,
+            Vec::new(),
         )
     }
 }

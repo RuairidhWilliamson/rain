@@ -67,6 +67,8 @@ pub enum Token {
     False,
     Internal,
     Import,
+    Stdlib,
+    ThisFile,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

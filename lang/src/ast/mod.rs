@@ -5,6 +5,8 @@ mod display;
 pub mod error;
 pub mod parser;
 
+use std::fmt::Debug;
+
 use crate::{
     local_span::LocalSpan,
     tokens::{StringLiteralPrefix, Token, TokenLocalSpan},
@@ -105,10 +107,7 @@ pub enum Node {
     Ident(Ident),
     StringLiteral(StringLiteral),
     IntegerLiteral(IntegerLiteral),
-    TrueLiteral(TrueLiteral),
-    FalseLiteral(FalseLiteral),
-    InternalLiteral(InternalLiteral),
-    ImportLiteral(ImportLiteral),
+    SimpleLiteral(SimpleLiteral),
     Record(Record),
     List(List),
 }
@@ -125,10 +124,7 @@ impl Node {
             Self::Ident(inner) => inner,
             Self::StringLiteral(inner) => inner,
             Self::IntegerLiteral(inner) => inner,
-            Self::TrueLiteral(inner) => inner,
-            Self::FalseLiteral(inner) => inner,
-            Self::InternalLiteral(inner) => inner,
-            Self::ImportLiteral(inner) => inner,
+            Self::SimpleLiteral(inner) => inner,
             Self::Record(inner) => inner,
             Self::List(inner) => inner,
             Self::Closure(inner) => inner,
@@ -591,78 +587,48 @@ impl AstNode for IntegerLiteral {
 }
 
 #[derive(Debug)]
-pub struct InternalLiteral(pub TokenLocalSpan);
+pub struct SimpleLiteral {
+    pub tls: TokenLocalSpan,
+    pub kind: SimpleLiteralKind,
+}
 
-impl From<InternalLiteral> for Node {
-    fn from(inner: InternalLiteral) -> Self {
-        Self::InternalLiteral(inner)
+impl From<SimpleLiteral> for Node {
+    fn from(inner: SimpleLiteral) -> Self {
+        Self::SimpleLiteral(inner)
     }
 }
 
-impl AstNode for InternalLiteral {
+impl AstNode for SimpleLiteral {
     fn span(&self, _list: &NodeList) -> LocalSpan {
-        self.0.span
+        self.tls.span
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        f.node("InternalLiteral").finish()
+        f.node(match &self.kind {
+            SimpleLiteralKind::True => "TrueLiteral",
+            SimpleLiteralKind::False => "FalseLiteral",
+            SimpleLiteralKind::Internal => "InternalLiteral",
+            SimpleLiteralKind::Import => "ImportLiteral",
+            SimpleLiteralKind::Stdlib => "StdlibLiteral",
+            SimpleLiteralKind::ThisFile => "ThisFileLiteral",
+        })
+        .finish()
     }
 }
 
 #[derive(Debug)]
-pub struct ImportLiteral(pub TokenLocalSpan);
-
-impl From<ImportLiteral> for Node {
-    fn from(inner: ImportLiteral) -> Self {
-        Self::ImportLiteral(inner)
-    }
+pub enum SimpleLiteralKind {
+    True,
+    False,
+    Internal,
+    Import,
+    Stdlib,
+    ThisFile,
 }
 
-impl AstNode for ImportLiteral {
-    fn span(&self, _list: &NodeList) -> LocalSpan {
-        self.0.span
-    }
-
-    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        f.node("ImportLiteral").finish()
-    }
-}
-
-#[derive(Debug)]
-pub struct TrueLiteral(pub TokenLocalSpan);
-
-impl From<TrueLiteral> for Node {
-    fn from(inner: TrueLiteral) -> Self {
-        Self::TrueLiteral(inner)
-    }
-}
-
-impl AstNode for TrueLiteral {
-    fn span(&self, _list: &NodeList) -> LocalSpan {
-        self.0.span
-    }
-
-    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        f.node("TrueLiteral").finish()
-    }
-}
-
-#[derive(Debug)]
-pub struct FalseLiteral(pub TokenLocalSpan);
-
-impl From<FalseLiteral> for Node {
-    fn from(inner: FalseLiteral) -> Self {
-        Self::FalseLiteral(inner)
-    }
-}
-
-impl AstNode for FalseLiteral {
-    fn span(&self, _list: &NodeList) -> LocalSpan {
-        self.0.span
-    }
-
-    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        f.node("FalseLiteral").finish()
+impl SimpleLiteralKind {
+    pub fn with(self, tls: TokenLocalSpan) -> SimpleLiteral {
+        SimpleLiteral { tls, kind: self }
     }
 }
 

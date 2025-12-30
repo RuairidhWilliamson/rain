@@ -160,6 +160,8 @@ impl TokenStream<'_> {
             "false" => Token::False,
             "internal" => Token::Internal,
             "import" => Token::Import,
+            "stdlib" => Token::Stdlib,
+            "this_file" => Token::ThisFile,
             "throw" | "try" | "type" | "for" | "in" | "while" | "match" | "record" | "async"
             | "await" | "default" | "struct" | "trait" | "break" | "continue" | "return"
             | "yield" | "enum" | "union" | "safe" | "unsafe" | "macro" | "const" | "var"
