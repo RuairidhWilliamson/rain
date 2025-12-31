@@ -1,5 +1,4 @@
-let area = internal._get_area(internal._module_file())
-let main = internal._import(internal._get_file(area, "main.rain"))
+let main = import("main.rain")
 let std = main.std
 let print = std.utils.print
 let get_file = std.utils.get_file

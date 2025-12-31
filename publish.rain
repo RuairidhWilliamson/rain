@@ -1,14 +1,9 @@
-let area = internal._get_area(internal._module_file())
-let main = internal._import(internal._get_file(area, "main.rain"))
+let area = internal._get_area(this_file)
+let main = import("main.rain")
 let std = main.std
 
-let print = std.utils.print
-let run = std.utils.run
-let unit = std.utils.unit
-let escape_bin = std.utils.escape_bin
-let get_dir = std.utils.get_dir
-let get_file = std.utils.get_file
-let _throw = std.utils._throw
+let {print, run, unit, get_file, get_dir, _throw} = std.utils
+let escape_bin = std.escape.bin
 
 let bucket = "rain-e870e063"
 let webhook_url = internal._get_secret("RAIN_PUBLISH_WEBHOOK")

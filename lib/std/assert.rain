@@ -1,5 +1,3 @@
-let area = internal._get_area(internal._module_file())
-
 let is_true = fn(b) {
 	if !b {
 		internal._throw("assertion failed: is true check")

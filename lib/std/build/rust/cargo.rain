@@ -1,6 +1,7 @@
-let area = internal._get_area(internal._module_file())
-let utils = internal._import(internal._get_file(area, "utils.rain"))
-let rust_dist = internal._import(internal._get_file("dist.rain"))
+let std = import("std.rain")
+let {utils} = std
+
+let rust_dist = import("build/rust/dist.rain")
 
 let get_file = utils.get_file
 let get_dir = utils.get_dir
