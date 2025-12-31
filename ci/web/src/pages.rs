@@ -19,9 +19,13 @@ pub async fn home(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
     #[template(path = "home.html")]
     struct Homepage {
         user: User,
+        rain_version: &'static str,
     }
     if let Some(auth) = auth {
-        let homepage = Homepage { user: auth.user };
+        let homepage = Homepage {
+            user: auth.user,
+            rain_version: env!("CARGO_PKG_VERSION"),
+        };
         Ok(Html(homepage.render()?))
     } else {
         Ok(Html(PublicHomepage.render()?))
@@ -33,8 +37,15 @@ pub async fn profile(auth: AdminUser) -> Result<Html<String>, AppError> {
     #[template(path = "profile.html")]
     struct Profile {
         user: User,
+        rain_version: &'static str,
     }
-    Ok(Html(Profile { user: auth.user }.render()?))
+    Ok(Html(
+        Profile {
+            user: auth.user,
+            rain_version: env!("CARGO_PKG_VERSION"),
+        }
+        .render()?,
+    ))
 }
 
 pub async fn repos(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
@@ -42,11 +53,13 @@ pub async fn repos(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<Str
     #[template(path = "repos.html")]
     struct ReposPage {
         user: User,
+        rain_version: &'static str,
         repos: Vec<(RepositoryId, Repository)>,
     }
     Ok(Html(
         ReposPage {
             user: auth.user,
+            rain_version: env!("CARGO_PKG_VERSION"),
             repos: db.list_repos().await.context("list repos")?,
         }
         .render()?,
@@ -62,12 +75,14 @@ pub async fn repo(
     #[template(path = "repo.html")]
     struct RepoPage {
         user: User,
+        rain_version: &'static str,
         repo_id: RepositoryId,
         repo: Repository,
     }
     Ok(Html(
         RepoPage {
             user: auth.user,
+            rain_version: env!("CARGO_PKG_VERSION"),
             repo: db.get_repo(&id).await.context("list repos")?,
             repo_id: id,
         }
@@ -80,11 +95,13 @@ pub async fn runs(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<Stri
     #[template(path = "runs.html")]
     struct RunsPage {
         user: User,
+        rain_version: &'static str,
         runs: Vec<(RunId, Run)>,
     }
     Ok(Html(
         RunsPage {
             user: auth.user,
+            rain_version: env!("CARGO_PKG_VERSION"),
             runs: db.list_runs().await.context("list runs")?,
         }
         .render()?,
@@ -100,12 +117,14 @@ pub async fn run(
     #[template(path = "run.html")]
     struct RunPage {
         user: User,
+        rain_version: &'static str,
         run_id: RunId,
         run: Run,
     }
     Ok(Html(
         RunPage {
             user: auth.user,
+            rain_version: env!("CARGO_PKG_VERSION"),
             run: db.get_run(&id).await?,
             run_id: id,
         }
