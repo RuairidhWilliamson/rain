@@ -1,8 +1,7 @@
-let area = internal._get_area(internal._module_file())
-let main = internal._import(internal._get_file(area, "main.rain"))
+let main = import("main.rain")
 let std = main.std
 
-let print = std.utils.print
+let {print} = std.utils
 
 // Run tests to make sure intra-process caching is working
 
@@ -44,16 +43,6 @@ let test_import_cache = fn() {
 	main1 = internal._import(rain_src)
 	main2 = internal._import(rain_src)
 	std.assert.is_true(internal._rust_eq(main1, main2))
-}
-
-let clone_repo = fn() {
-	url = "git@github.com:RuairidhWilliamson/parcel.git"
-	commit = "b3bedffc06998ff0cf98f4e95a8407c800894cea"
-	repo = internal._git_contents(url, commit)
-	internal._git_lfs_smudge(repo)
-	// std.utils.run_check(repo, std.escape.bin("git"), ["lfs", "pull"], {
-	// 	SSH_AUTH_SOCK = internal._env_var("SSH_AUTH_SOCK"),
-	// })
 }
 
 let test_type_check = fn() {

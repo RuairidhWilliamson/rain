@@ -119,7 +119,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     pub fn escape_run(self) -> ResultValue {
         self.deps.push(Dep::Escape);
-        self.deps.push(Dep::Uncacheable);
         self.check_escape_mode()?;
         match &self.arg_values[..] {
             [
