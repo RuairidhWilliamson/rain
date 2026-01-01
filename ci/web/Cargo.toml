@@ -16,6 +16,7 @@ constant_time_eq = "0.4.2"
 dotenvy.workspace = true
 env_logger.workspace = true
 envy.workspace = true
+jsonwebtoken = { version = "10.0.0", default-features = false , features = ["use_pem", "rust_crypto"] }
 log.workspace = true
 oauth2 = "5.0.0"
 rain-ci-common.path = "../common"
@@ -25,7 +26,6 @@ serde.workspace = true
 sqlx.workspace = true
 tokio.workspace = true
 uuid.workspace = true
-jsonwebtoken = { version = "10.0.0", default-features = false , features = ["use_pem", "rust_crypto"] }
 
 [lints]
 workspace = true

@@ -12,10 +12,10 @@ workspace = true
 [dependencies]
 base16 = "0.2.1"
 chrono.workspace = true
+ciborium.workspace = true
 dirs = "6.0.0"
 flate2 = "1.1.0"
 git2 = "0.20.2"
-git-lfs-rs.workspace = true
 ignore = "0.4.23"
 indexmap.workspace = true
 libc.workspace = true
@@ -25,7 +25,6 @@ lru = "0.16.0"
 num-bigint = "0.4.6"
 poison_panic.path = "../poison_panic"
 rain-lang.path = "../lang"
-ciborium.workspace = true
 serde.workspace = true
 sha2 = "0.10.8"
 tar = "0.4.44"
@@ -34,11 +33,10 @@ toml.workspace = true
 ureq.workspace = true
 uuid.workspace = true
 zip = { version = "7.0.0", features = ["deflate"], default-features = false }
-hex = "0.4.3"
 
 [dev-dependencies]
 insta.workspace = true
 quickcheck_macros.workspace = true
 quickcheck.workspace = true
-test-log.workspace = true
 tempfile.workspace = true
+test-log.workspace = true

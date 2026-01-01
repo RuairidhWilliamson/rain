@@ -8,9 +8,9 @@ publish.workspace = true
 
 [dependencies]
 lsp-types = "0.97.0"
-serde.workspace = true
-serde_json.workspace = true
 rain-lang.path = "../lang"
+serde_json.workspace = true
+serde.workspace = true
 
 [lints]
 workspace = true
