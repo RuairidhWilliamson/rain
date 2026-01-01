@@ -1,6 +1,7 @@
 use askama::{Template, filters::Safe};
 use chrono::Utc;
 
+#[askama::filter_fn]
 pub fn timestamp(
     timestamp: &chrono::DateTime<Utc>,
     _: &dyn askama::Values,
@@ -18,6 +19,7 @@ pub fn timestamp(
     Ok(Safe(TimestampTemplate { timestamp, rfc3339 }.render()?))
 }
 
+#[askama::filter_fn]
 pub fn duration(
     duration: &chrono::TimeDelta,
     _: &dyn askama::Values,
