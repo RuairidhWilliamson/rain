@@ -141,6 +141,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         Ok(result)
     }
 
+    #[expect(clippy::too_many_lines)]
     fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> ResultValue {
         match cx.module.get(nid) {
             Node::Closure(_) => {
