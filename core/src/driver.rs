@@ -34,7 +34,7 @@ pub struct DriverImpl<'a> {
     pub print_handler: Option<PrintHandler<'a>>,
     pub enter_handler: Option<PrintHandler<'a>>,
     pub exit_handler: Option<PrintHandler<'a>>,
-    pub prelude: Option<Cow<'static, str>>,
+    pub embed: Option<Cow<'static, str>>,
     pub host_triple: Cow<'static, str>,
 }
 
@@ -50,7 +50,7 @@ impl DriverImpl<'_> {
             print_handler: None,
             enter_handler: None,
             exit_handler: None,
-            prelude: Some(include_str!("../../lib/prelude/prelude.rain").into()),
+            embed: Some(include_str!("../../lib/embed/embed.rain").into()),
             host_triple: default_host_triple().into(),
         }
     }
@@ -475,8 +475,8 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(out)
     }
 
-    fn prelude_src(&self) -> Option<Cow<'static, str>> {
-        self.prelude.clone()
+    fn embed_src(&self) -> Option<Cow<'static, str>> {
+        self.embed.clone()
     }
 
     fn host_triple(&self) -> &str {

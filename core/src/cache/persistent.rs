@@ -298,10 +298,10 @@ impl PersistCacheKey {
     fn persist(key: &CacheKey, rir: &Rir) -> Option<Self> {
         match key {
             // TODO: It is possible to persist declarations in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
-            // TODO: It is possible to persist prelude in the cache if we key it by the rain binary version
+            // TODO: It is possible to persist embed in the cache if we key it by the rain binary version
             CacheKey::Declaration { .. }
             | CacheKey::CallClosure { .. }
-            | CacheKey::Prelude
+            | CacheKey::Embed
             | CacheKey::Import { .. } => None,
             CacheKey::InternalFunction { func, args } => Some(Self::InternalFunction {
                 func: *func,

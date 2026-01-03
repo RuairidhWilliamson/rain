@@ -72,7 +72,7 @@ pub enum InternalFunction {
     Glob,
     Stringify,
     EscapeRun,
-    Prelude,
+    Embed,
     CreateTar,
     CompressGzip,
     RustEq,
@@ -135,7 +135,7 @@ impl InternalFunction {
             "_glob" => Some(Self::Glob),
             "_stringify" => Some(Self::Stringify),
             "_escape_run" => Some(Self::EscapeRun),
-            "_prelude" => Some(Self::Prelude),
+            "_embed" => Some(Self::Embed),
             "_create_tar" => Some(Self::CreateTar),
             "_rust_eq" => Some(Self::RustEq),
             "_get_secret" => Some(Self::GetSecret),
@@ -305,7 +305,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::Glob => self.glob(),
             InternalFunction::Stringify => self.stringify(),
             InternalFunction::EscapeRun => self.escape_run(),
-            InternalFunction::Prelude => self.prelude(),
+            InternalFunction::Embed => self.embed(),
             InternalFunction::CreateTar => self.create_tar(),
             InternalFunction::RustEq => self.rust_eq(),
             InternalFunction::GetSecret => self.get_secret(),
@@ -1274,18 +1274,18 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    fn prelude(self) -> ResultValue {
+    fn embed(self) -> ResultValue {
         *self.cache_hint = false;
         self.no_args()?;
-        let cache_key = CacheKey::Prelude;
+        let cache_key = CacheKey::Embed;
         if let Some(v) = self.runner.cache.get_value(&cache_key) {
             return Ok(v);
         }
         let start = Instant::now();
-        let Some(src) = self.runner.driver.prelude_src() else {
+        let Some(src) = self.runner.driver.embed_src() else {
             return Err(self
                 .cx
-                .nid_err(self.nid, RunnerError::Makeshift("no prelude".into())));
+                .nid_err(self.nid, RunnerError::Makeshift("no embed".into())));
         };
         let module = crate::ast::parser::parse_module(src.as_ref());
         let id = self

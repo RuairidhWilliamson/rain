@@ -68,7 +68,7 @@ impl Rir {
 #[derive(Debug)]
 pub struct IrModule {
     pub id: ModuleId,
-    /// Only None for the prelude module
+    /// Only None for the embed module
     pub file: Option<File>,
     pub src: Cow<'static, str>,
     module: Option<ParsedIrModule>,
@@ -82,11 +82,9 @@ impl IrModule {
         m
     }
 
-    // Get the file of the module, will return [`RunnerError::PreludeContext`] for the prelude module
+    // Get the file of the module, will return [`RunnerError::EmbedContext`] for the embed module
     pub fn file(&self) -> Result<&File, RunnerError> {
-        self.file
-            .as_ref()
-            .ok_or_else(|| RunnerError::PreludeContext)
+        self.file.as_ref().ok_or_else(|| RunnerError::EmbedContext)
     }
 
     pub fn get(&self, id: NodeId) -> &Node {

@@ -30,7 +30,7 @@ impl ResolvedError<'_> {
             let filename = file
                 .as_ref()
                 .map(|f| format!("{f}"))
-                .unwrap_or_else(|| String::from("<prelude>"));
+                .unwrap_or_else(|| String::from("<embed>"));
             trace_out.push((filename, line, col));
         }
         let ResolvedSpan {
@@ -48,7 +48,7 @@ impl ResolvedError<'_> {
         let filename = file
             .as_ref()
             .map(|f| format!("{f}"))
-            .unwrap_or_else(|| String::from("<prelude>"));
+            .unwrap_or_else(|| String::from("<embed>"));
         OwnedResolvedError {
             trace: trace_out,
             file_name: filename,

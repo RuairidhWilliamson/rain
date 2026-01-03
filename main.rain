@@ -7,7 +7,7 @@ let hermetic = import("hermetic.rain")
 
 let load_stdlib = fn() {
 	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])
-	internal._prelude().load_stdlib(stdlib_area)
+	internal._embed().load_stdlib(stdlib_area)
 }
 
 let {print} = std

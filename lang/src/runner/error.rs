@@ -111,8 +111,8 @@ pub enum RunnerError {
     IndexOutOfBounds(RainInteger),
     #[error("index key not found: {0}")]
     IndexKeyNotFound(String),
-    #[error("cannot call from prelude")]
-    PreludeContext,
+    #[error("cannot call from embed")]
+    EmbedContext,
     #[error("can't escape seal 🦭")]
     CantEscapeSeal,
     #[error("{0}")]

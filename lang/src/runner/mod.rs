@@ -700,10 +700,10 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     }
 
     fn import_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> ResultValue {
-        let prelude_value = self.call_function(
+        let embed_value = self.call_function(
             cx,
             nid,
-            &Value::InternalFunction(InternalFunction::Prelude),
+            &Value::InternalFunction(InternalFunction::Embed),
             call_span,
             Vec::new(),
         )?;
@@ -714,18 +714,18 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             call_span,
             Vec::new(),
         )?;
-        let Value::Module(prelude_mid) = prelude_value else {
+        let Value::Module(embed_mid) = embed_value else {
             return Err(cx.err(
                 call_span,
                 RunnerError::ExpectedType {
-                    actual: prelude_value.rain_type_id(),
+                    actual: embed_value.rain_type_id(),
                     expected: (&[RainTypeId::Module]).into(),
                 },
             ));
         };
         let Some(did) = self
             .ir
-            .resolve_global_declaration(prelude_mid, "import_sugar_implementation")
+            .resolve_global_declaration(embed_mid, "import_sugar_implementation")
         else {
             return Err(cx.err(call_span, RunnerError::UnknownIdent));
         };
@@ -740,25 +740,25 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     }
 
     fn stdlib_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> ResultValue {
-        let prelude_value = self.call_function(
+        let embed_value = self.call_function(
             cx,
             nid,
-            &Value::InternalFunction(InternalFunction::Prelude),
+            &Value::InternalFunction(InternalFunction::Embed),
             call_span,
             Vec::new(),
         )?;
-        let Value::Module(prelude_mid) = prelude_value else {
+        let Value::Module(embed_mid) = embed_value else {
             return Err(cx.err(
                 call_span,
                 RunnerError::ExpectedType {
-                    actual: prelude_value.rain_type_id(),
+                    actual: embed_value.rain_type_id(),
                     expected: (&[RainTypeId::Module]).into(),
                 },
             ));
         };
         let Some(did) = self
             .ir
-            .resolve_global_declaration(prelude_mid, "stdlib_sugar_implementation")
+            .resolve_global_declaration(embed_mid, "stdlib_sugar_implementation")
         else {
             return Err(cx.err(call_span, RunnerError::UnknownIdent));
         };

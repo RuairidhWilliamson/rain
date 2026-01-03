@@ -33,7 +33,7 @@ fn display_vec<T: Display>(v: &Vec<T>) -> String {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CacheKey {
-    Prelude,
+    Embed,
     Declaration {
         declaration: DeclarationId,
     },
@@ -56,7 +56,7 @@ pub enum CacheKey {
 impl Display for CacheKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Prelude => f.write_str("Prelude"),
+            Self::Embed => f.write_str("Embed"),
             Self::Declaration { declaration } => f.write_fmt(format_args!("{declaration}")),
             Self::CallClosure { closure, args } => f.write_fmt(format_args!(
                 "Closure({},{:?})({})",

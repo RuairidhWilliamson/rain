@@ -54,7 +54,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     ) -> Result<File, RunnerError>;
     fn file_metadata(&self, file: &File) -> Result<FileMetadata, RunnerError>;
     fn glob(&self, dir: &Dir, pattern: &str) -> Result<Vec<File>, RunnerError>;
-    fn prelude_src(&self) -> Option<Cow<'static, str>>;
+    fn embed_src(&self) -> Option<Cow<'static, str>>;
     fn host_triple(&self) -> &str;
     fn export_file(&self, src: &File, dst: &FSEntry) -> Result<(), RunnerError>;
     fn export_dir(&self, src: &Dir, dst: &FSEntry) -> Result<(), RunnerError>;

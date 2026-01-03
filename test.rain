@@ -6,16 +6,16 @@ let {print} = std
 // Run tests to make sure intra-process caching is working
 
 pub let test_caching = fn() {
-	test_prelude_cache()
+	test_embed_cache()
 	test_rustc_cache()
 	test_create_file_cache()
 	test_import_cache()
 	test_type_check()
 }
 
-let test_prelude_cache = fn() {
-	std1 = internal._prelude().download_stdlib("0.1.4")
-	std2 = internal._prelude().download_stdlib("0.1.4")
+let test_embed_cache = fn() {
+	std1 = internal._embed().download_stdlib("0.1.4")
+	std2 = internal._embed().download_stdlib("0.1.4")
 	std.assert.is_true(internal._rust_eq(std1, std2))
 }
 
