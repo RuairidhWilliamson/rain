@@ -33,4 +33,6 @@ macro_rules! tests {
 
 tests! {
     fail_type_check,
+    fail_let_type_check,
+    fail_let_destructure_type_check,
 }

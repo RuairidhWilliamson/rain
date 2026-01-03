@@ -1,0 +1,9 @@
+---
+source: core/tests/errors.rs
+expression: "run_error(concat!\n(\"tests/errors/\", stringify! (fail_let_destructure_type_check), \".rain\"))"
+---
+/home/ru/prj/rain/core/tests/errors/fail_let_destructure_type_check.rain:7:9
+| let Integer = internal._get_type(0)
+| 
+| let {x: Integer} = {x = "6"}
+          ^^^^^^^ unrecoverable error: type mismatch, expected [Integer] actual String

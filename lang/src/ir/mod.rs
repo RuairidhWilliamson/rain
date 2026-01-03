@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     afs::file::File,
-    ast::{Declare, Module, ModuleRoot, Node, NodeId, error::ParseError},
+    ast::{ArgTypeSpec, Declare, Module, ModuleRoot, Node, NodeId, error::ParseError},
     local_span::{ErrorLocalSpan, LocalSpan},
     runner::error::RunnerError,
     span::ErrorSpan,
@@ -102,6 +102,16 @@ impl IrModule {
             unreachable!()
         };
         d
+    }
+
+    pub fn get_declaration_type_spec(&self, id: LocalDeclarationId) -> &Option<ArgTypeSpec> {
+        match self.inner().module_root().declarations.get(id.0) {
+            Some(let_declare) => match let_declare.type_specs().nth(id.1) {
+                Some(type_spec) => type_spec,
+                None => unreachable!(),
+            },
+            None => unreachable!(),
+        }
     }
 
     pub fn get_declaration_name_span(&self, id: LocalDeclarationId) -> LocalSpan {

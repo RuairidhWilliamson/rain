@@ -1,0 +1,7 @@
+let main = fn() {
+	x
+}
+
+let Integer = internal._get_type(0)
+
+let x: Integer = "5"

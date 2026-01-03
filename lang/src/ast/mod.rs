@@ -194,6 +194,21 @@ pub struct DeclareNameListElement {
 }
 
 impl Declare {
+    pub fn type_specs(&self) -> impl Iterator<Item = &Option<ArgTypeSpec>> {
+        let iter: Box<dyn Iterator<Item = &Option<ArgTypeSpec>>> = match &self.name {
+            DeclareName::Single(declare_name_single) => {
+                Box::new(std::iter::once(&declare_name_single.type_spec))
+            }
+            DeclareName::NamedDestructure(declare_named_destructure) => Box::new(
+                declare_named_destructure
+                    .elements
+                    .iter()
+                    .map(|e| &e.type_spec),
+            ),
+        };
+        iter
+    }
+
     pub fn name_spans(&self) -> impl Iterator<Item = LocalSpan> {
         let iter: Box<dyn Iterator<Item = LocalSpan>> = match &self.name {
             DeclareName::Single(declare_name_single) => {
