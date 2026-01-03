@@ -1,8 +1,10 @@
 let std = import("std.rain")
 
+let {String, File} = std.types
+
 // TODO: Check minisig
 
-let download = fn(version, arch, os) {
+pub let download = fn(version: String, arch: String, os: String) -> File {
 	if os == "windows" {
 		url = "https://ziglang.org/download/" + version + "/zig-" + arch + "-" + os + "-" + version + ".zip"
 		download_result = std.utils.download(url)

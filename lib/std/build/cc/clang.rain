@@ -1,17 +1,17 @@
-let utils = internal._import(internal._get_file("../utils.rain"))
+let std = import("std.rain")
 
-let get_file = utils.get_file
-let escape_bin = utils.escape_bin
-let run = utils.run
-let unit = utils.unit
-let _throw = utils._throw
+let {File, String} = std.types
 
-let clang = escape_bin("clang")
+let clang = std.escape.bin("clang")
 
-let compile = fn(src, outname) {
-	result = run(unit, clang, src, "-o", outname)
+pub let compile = fn(src: File, outname: String) -> File {
+	// Implictly requires cc for linking
+	ld = std.escape.bin("ld")
+
+	env = {PATH = "/usr/bin"}
+	result = std.utils.run(std.utils.unit, clang, [src, "-o", outname], env)
 	if !result.success {
-		_throw(result)
+		std.utils._throw(result)
 	}
-	get_file(result.area, outname)
+	std.fs.file(result.area, outname)
 }

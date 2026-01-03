@@ -1,1 +1,1 @@
-let dotnet = import("build/proto/dotnet.rain")
+pub let dotnet = import("build/proto/dotnet.rain")

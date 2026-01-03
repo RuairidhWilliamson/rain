@@ -1,23 +1,25 @@
-let is_true = fn(b) {
+let std = import("std.rain")
+
+pub let is_true = fn(b) {
 	if !b {
 		internal._throw("assertion failed: is true check")
 	}
 }
 
-let equal = fn(a, b) {
+pub let equal = fn(a, b) {
 	if a != b {
 		internal._throw("assertion failed: equal check")
 	}
 }
 
-let not_equal = fn(a, b) {
+pub let not_equal = fn(a, b) {
 	if a == b {
 		internal._throw("assertion failed: not equal check")
 	}
 }
 
-let is_type = fn(a, typ) {
-	if internal._get_type(a) != typ {
+pub let is_type = fn(a, typ) {
+	if !std.types.check_type(a, typ) {
 		internal._throw("assertion failed: is type check")
 	}
 }

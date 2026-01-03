@@ -1,22 +1,17 @@
 let std = import("std.rain")
-let {utils} = std
 
-let get_file = utils.get_file
-let escape_bin = utils.escape_bin
-let run = utils.run
-let unit = utils.unit
-let _throw = utils._throw
+let {File, String} = std.types
 
-let gcc = escape_bin("gcc")
+let gcc = std.escape.bin("gcc")
 
-let compile = fn(src, outname) {
+pub let compile = fn(src: File, outname: String) -> File {
 	// Implictly requires cc for linking
-	ld = escape_bin("ld")
+	ld = std.escape.bin("ld")
 
 	env = {PATH = "/usr/bin"}
-	result = run(unit, gcc, [src, "-o", outname], env)
+	result = std.utils.run(std.utils.unit, gcc, [src, "-o", outname], env)
 	if !result.success {
-		_throw(result)
+		std.utils._throw(result)
 	}
-	get_file(result.area, outname)
+	std.fs.file(result.area, outname)
 }

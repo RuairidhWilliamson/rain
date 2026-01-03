@@ -94,12 +94,12 @@ fn modify_local_import() {
     )
     .unwrap();
     let child = dir.path().join("child.rain");
-    fs::write(&child, "let x = 4").unwrap();
+    fs::write(&child, "pub let x = 4").unwrap();
 
     let value = cache_tester.run(&root, "main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(4))));
 
-    fs::write(&child, "let x = 5").unwrap();
+    fs::write(&child, "pub let x = 5").unwrap();
     let value = cache_tester.run(&root, "main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(5))));
 }

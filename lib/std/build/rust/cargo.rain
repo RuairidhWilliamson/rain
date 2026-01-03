@@ -1,18 +1,17 @@
 let std = import("std.rain")
 let {utils} = std
 
-let rust_dist = import("build/rust/dist.rain")
+let rust_dist = std.build.rust.dist
 
-let get_file = utils.get_file
-let get_dir = utils.get_dir
-let escape_bin = utils.escape_bin
+let get_file = std.fs.file
+let get_dir = std.fs.dir
+let escape_bin = std.escape.bin
 let run = utils.run
 let unit = utils.unit
 let _throw = utils._throw
-let print = utils.print
+let print = std.print
 
-let Bool = std.types.Bool
-let File = std.types.File
+let {Bool, File} = std.types
 
 let host_triple = utils.host_info().triple
 let path_var_sep = utils.path_var_separator(utils.host_info().triple)

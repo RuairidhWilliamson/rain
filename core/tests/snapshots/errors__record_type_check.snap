@@ -2,7 +2,7 @@
 source: core/tests/errors.rs
 expression: "run_error(concat! (\"tests/errors/\", stringify! (record_type_check), \".rain\"))"
 ---
-/home/ru/prj/rain/core/tests/errors/record_type_check.rain:10:10
+<hidden>:10:10
 | }
 | 
 | let foo: Record(String) = {

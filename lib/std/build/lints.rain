@@ -1,7 +1,7 @@
 let std = import("std.rain")
 let File = std.types.File
 
-let no_empty = fn(file: File) {
+pub let no_empty = fn(file: File) {
 	size = std.fs.size(file)
 	if size == 0 {
 		std.print(file)
@@ -9,7 +9,7 @@ let no_empty = fn(file: File) {
 	}
 }
 
-let no_emptish = fn(file: File) {
+pub let no_emptish = fn(file: File) {
 	size = std.fs.size(file)
 	if size == 0 {
 		std.print(file)

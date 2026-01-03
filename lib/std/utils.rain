@@ -2,28 +2,28 @@
 let std = import("std.rain")
 let {String, List, File, Bool, Any, Area} = std.types
 
-let run = internal._run
-let unit = internal._unit()
-let bytes_to_string = internal._bytes_to_string
-let parse_toml = internal._parse_toml
-let local_area = internal._local_area
-let split_string = internal._split_string
-let index = internal._index
-let host_info = internal._host_info
-let string_contains = internal._string_contains
-let export_to_local = internal._export_to_local
-let check_export_to_local = internal._check_export_to_local
-let glob = internal._glob
-let stringify = internal._stringify
+pub let run = internal._run
+pub let unit = internal._unit()
+pub let bytes_to_string = internal._bytes_to_string
+pub let parse_toml = internal._parse_toml
+pub let local_area = internal._local_area
+pub let split_string = internal._split_string
+pub let index = internal._index
+pub let host_info = internal._host_info
+pub let string_contains = internal._string_contains
+pub let export_to_local = internal._export_to_local
+pub let check_export_to_local = internal._check_export_to_local
+pub let glob = internal._glob
+pub let stringify = internal._stringify
 
 // Reserved keywords are prefixed with _
-let _throw = internal._throw
+pub let _throw = internal._throw
 
-let download = fn(url) {
+pub let download = fn(url) {
 	internal._download(url)
 }
 
-let download_with_sha256 = fn(url: String, sha256: String) -> File {
+pub let download_with_sha256 = fn(url: String, sha256: String) -> File {
 	download_result = internal._download(url)
 	actual_sha256 = internal._sha256(download_result.file)
 	if actual_sha256 != sha256 {
@@ -32,7 +32,7 @@ let download_with_sha256 = fn(url: String, sha256: String) -> File {
 	download_result.file
 }
 
-let run_check = fn(area, bin, args: List(Any), env) {
+pub let run_check = fn(area, bin, args: List(Any), env) {
 	run_result = run(area, bin, args, env)
 	if !run_result.success {
 		print("Stdout:", run_result.stdout)
@@ -42,9 +42,9 @@ let run_check = fn(area, bin, args: List(Any), env) {
 	run_result
 }
 
-let newline = "\n"
+pub let newline = "\n"
 
-let exe_suffix = fn(target_triple: String) -> String {
+pub let exe_suffix = fn(target_triple: String) -> String {
 	if is_windows(target_triple) {
 		".exe"
 	} else {
@@ -52,7 +52,7 @@ let exe_suffix = fn(target_triple: String) -> String {
 	}
 }
 
-let shared_library_prefix = fn(target_triple: String) -> String {
+pub let shared_library_prefix = fn(target_triple: String) -> String {
 	if is_windows(target_triple) {
 		""
 	} else if is_linux(target_triple) {
@@ -62,7 +62,7 @@ let shared_library_prefix = fn(target_triple: String) -> String {
 	}
 }
 
-let shared_library_suffix = fn(target_triple: String) -> String {
+pub let shared_library_suffix = fn(target_triple: String) -> String {
 	if is_windows(target_triple) {
 		".dll"
 	} else if is_linux(target_triple) {
@@ -72,19 +72,19 @@ let shared_library_suffix = fn(target_triple: String) -> String {
 	}
 }
 
-let is_linux = fn(target_triple: String) -> Bool {
+pub let is_linux = fn(target_triple: String) -> Bool {
 	string_contains(target_triple, "-linux-")
 }
 
-let is_windows = fn(target_triple: String) -> Bool {
+pub let is_windows = fn(target_triple: String) -> Bool {
 	string_contains(target_triple, "-windows-")
 }
 
-let is_amd64 = fn(target_triple: String) -> Bool {
+pub let is_amd64 = fn(target_triple: String) -> Bool {
 	string_contains(target_triple, "x86_64")
 }
 
-let path_var_separator = fn(target_triple) {
+pub let path_var_separator = fn(target_triple) {
 	if is_windows(target_triple) {
 		";"
 	} else {

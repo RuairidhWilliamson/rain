@@ -1,14 +1,11 @@
 let std = import("std.rain")
-let {utils, compression} = std
 
-let download = utils.download
-let get_file = utils.get_file
-let get_dir = utils.get_dir
+let {String, Area} = std.types
 
-let download_grpc_tools = fn(version) {
-	tools_download = download("https://www.nuget.org/api/v2/package/Grpc.Tools/" + version)
+pub let download_grpc_tools = fn(version: String) -> Area {
+	tools_download = std.utils.download("https://www.nuget.org/api/v2/package/Grpc.Tools/" + version)
 	if !tools_download.ok {
-		_throw("failed to download grpc tools from nuget")
+		std.utils._throw("failed to download grpc tools from nuget")
 	} 
-	compression.extract_zip(tools_download.file)
+	std.compression.extract_zip(tools_download.file)
 }

@@ -1,0 +1,5 @@
+let main = fn() {
+	contents = "let bar = 5"
+	foo = internal._import(internal._create_file(contents, "foo.rain", false))
+	foo.bar
+}

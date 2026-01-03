@@ -1,6 +1,6 @@
 let String = internal._get_type("")
 
-pub let load_stdlib = fn(version: String) {
+pub let download_stdlib = fn(version: String) {
 	bucket = "rain-e870e063"
 	url = "https://storage.googleapis.com/" + bucket + "/releases/" + version + "/stdlib.tar.gz"
 	filename = "stdlib.tar.gz"
@@ -19,13 +19,17 @@ pub let load_stdlib = fn(version: String) {
 	}
 	lib_area = internal._extract_tar(internal._extract_gzip(download_result.file, "temp.tar"))
 	stdlib_area = internal._create_area([internal._get_dir(lib_area, "lib/std")])
-	internal._import(internal._get_file(stdlib_area, "std.rain"))
+	load_stdlib(stdlib_area)
 }
 
-let import_sugar_implementation = fn(module_file) {
+pub let load_stdlib = fn(area) {
+	internal._import(internal._get_file(area, "std.rain"))
+}
+
+pub let import_sugar_implementation = fn(module_file) {
 	fn(path) {
 		internal._import(internal._get_file(internal._get_area(module_file), path))
 	}
 }
 
-let stdlib_sugar_implementation = load_stdlib
+pub let stdlib_sugar_implementation = download_stdlib

@@ -3,7 +3,19 @@ use rain_core::{CoreError, cache::Cache, config::Config, driver::DriverImpl};
 fn run_error(path: &str) -> CoreError {
     let driver = DriverImpl::new(Config::default());
     let cache = Cache::default();
-    rain_core::run(path, "main", &cache, &driver).unwrap_err()
+    let mut err = rain_core::run(path, "main", &cache, &driver).unwrap_err();
+    match &mut err {
+        CoreError::LangError(owned_resolved_error) => {
+            // Back traces can contain generated filepaths which are unstable for snapshots
+            owned_resolved_error
+                .trace
+                .iter_mut()
+                .for_each(|(s, _, _)| *s = String::from("<hidden>"));
+            owned_resolved_error.file_name = String::from("<hidden>");
+        }
+        _ => {}
+    }
+    err
 }
 
 /*
@@ -36,4 +48,5 @@ tests! {
     fail_let_type_check,
     fail_let_destructure_type_check,
     record_type_check,
+    private_declaration,
 }

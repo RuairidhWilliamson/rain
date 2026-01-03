@@ -78,7 +78,7 @@ let get_version_path = fn(manifest) {
 	}
 }
 
-let get_rustc = fn(channel, target) {
+pub let get_rustc = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	rustc_pkg = get_xz_artifact(std.utils.index(manifest.pkg.rustc.target, target))
@@ -86,7 +86,7 @@ let get_rustc = fn(channel, target) {
 	rustc
 }
 
-let get_rust_std = fn(channel, target) {
+pub let get_rust_std = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	pkg_targets = std.utils.index(manifest.pkg, "rust-std")
@@ -95,7 +95,7 @@ let get_rust_std = fn(channel, target) {
 	rust_std
 }
 
-let get_cargo = fn(channel, target) {
+pub let get_cargo = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	cargo_pkg = get_xz_artifact(std.utils.index(manifest.pkg.cargo.target, target))
@@ -103,7 +103,7 @@ let get_cargo = fn(channel, target) {
 	cargo
 }
 
-let get_clippy = fn(channel, target) {
+pub let get_clippy = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	pkg_targets = std.utils.index(manifest.pkg, "clippy-preview")
@@ -112,7 +112,7 @@ let get_clippy = fn(channel, target) {
 	clippy
 }
 
-let get_rustfmt = fn(channel, target) {
+pub let get_rustfmt = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	pkg_targets = std.utils.index(manifest.pkg, "rustfmt-preview")
@@ -121,7 +121,7 @@ let get_rustfmt = fn(channel, target) {
 	rustfmt
 }
 
-let get_llvm_tools = fn(channel, target) {
+pub let get_llvm_tools = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
 	pkg_targets = std.utils.index(manifest.pkg, "llvm-tools-preview")

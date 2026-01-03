@@ -1,19 +1,12 @@
 let std = import("std.rain")
-let {utils} = std
 
-let get_file = utils.get_file
-let escape_bin = utils.escape_bin
-let run = utils.run
-let unit = utils.unit
-let _throw = utils._throw
-
-let go = escape_bin("go")
+let go = std.escape.bin("go")
 
 // This is experimental
-let build = fn(package, outname) {
-	result = run(unit, go, "-o", outname, package)
+pub let build = fn(package: Dir, outname: String) -> File {
+	result = std.utils.run(unit, go, "-o", outname, package)
 	if !result.success {
-		_throw(result)
+		std.utils._throw(result)
 	}
-	get_file(result.area, outname)
+	std.fs.file(result.area, outname)
 }

@@ -117,4 +117,6 @@ pub enum RunnerError {
     CantEscapeSeal,
     #[error("{0}")]
     FromUtf8Error(#[from] FromUtf8Error),
+    #[error("declaration is private")]
+    PrivateDeclaration,
 }

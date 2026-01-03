@@ -1,6 +1,6 @@
 let print = internal._print
 
-let my_number = 4
+pub let my_number = 4
 
 let main = fn() {
 	print("Hello world")

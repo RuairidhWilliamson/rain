@@ -1,56 +1,56 @@
 let std = import("std.rain")
 
-let {String, Integer, List, File, Dir, Bool, Any, Area} = std.types
+let {String, Integer, List, File, Dir, DirLike, Bool, Any, Area} = std.types
 
-let create_file = fn(contents: String, name: String) -> File {
+pub let create_file = fn(contents: String, name: String) -> File {
 	internal._create_file(contents, name, false)
 }
 
-let read_file = fn(file: File) -> String {
-	internal._read_file(file)
-}
-
-let copy_file = rename_file
-let rename_file = fn(file: File, new_name: String) -> File {
-	internal._copy_file(file, new_name)
-}
-
-let create_executable_file = fn(contents: String, name: String) -> File {
+pub let create_executable_file = fn(contents: String, name: String) -> File {
 	internal._create_file(contents, name, true)
 }
 
-let size = fn(file: File) -> Integer {
+pub let read_file = fn(file: File) -> String {
+	internal._read_file(file)
+}
+
+pub let copy_file = rename_file
+pub let rename_file = fn(file: File, new_name: String) -> File {
+	internal._copy_file(file, new_name)
+}
+
+pub let size = fn(file: File) -> Integer {
 	internal._file_metadata(file).size
 }
 
-let sha256 = fn(file: File) -> String {
+pub let sha256 = fn(file: File) -> String {
 	internal._sha256(file)
 }
 
-let sha512 = fn(file: File) -> String {
+pub let sha512 = fn(file: File) -> String {
 	internal._sha512(file)
 }
 
-let file = fn(area: Area, path: String) -> File {
-	internal._get_file(area, path)
+pub let file = fn(dir: DirLike, path: String) -> File {
+	internal._get_file(dir, path)
 }
 
-let dir = fn(area: Area, path: String) -> Dir {
-	internal._get_dir(area, path)
+pub let dir = fn(dir: DirLike, path: String) -> Dir {
+	internal._get_dir(dir, path)
 }
 
-let area = fn(fs_entry) -> Area {
+pub let area = fn(fs_entry) -> Area {
 	internal._get_area(fs_entry)
 }
 
-let relative_file = fn(path: String) -> File {
+pub let relative_file = fn(path: String) -> File {
 	internal._get_file(path)
 }
 
-let relative_dir = fn(path: String) -> Dir {
+pub let relative_dir = fn(path: String) -> Dir {
 	internal._get_dir(path)
 }
 
-let create_area = fn(fs_entries: List(Any)) -> Area {
+pub let create_area = fn(fs_entries: List(Any)) -> Area {
 	internal._create_area(fs_entries)
 }

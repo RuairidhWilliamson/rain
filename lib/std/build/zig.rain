@@ -1,1 +1,1 @@
-let dist = internal._import(internal._get_file("zig/dist.rain"))
+pub let dist = import("build/zig/dist.rain")

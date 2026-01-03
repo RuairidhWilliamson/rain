@@ -5,7 +5,7 @@ let print = utils.print
 let _throw = utils._throw
 let unit = utils.unit
 
-let bin = fn(name) {
+pub let bin = fn(name) {
 	result = internal._escape_bin(name)
 	if result == unit {
 		_throw(name + " could not be found, you need to install it and make sure it is added to $PATH")
@@ -13,7 +13,7 @@ let bin = fn(name) {
 	result
 }
 
-let bin_or_instruction = fn(name, install_instruction) {
+pub let bin_or_instruction = fn(name, install_instruction) {
 	result = internal._escape_bin(name)
 	if result == unit {
 		_throw(name + " could not be found\ninstall it using " + install_instruction)
@@ -21,7 +21,7 @@ let bin_or_instruction = fn(name, install_instruction) {
 	result
 }
 
-let run = fn(area, bin, args, env) {
+pub let run = fn(area, bin, args, env) {
 	run_result = internal._escape_run(area, bin, args, env)
 	if !run_result.success {
 		print("Stdout:", run_result.stdout)

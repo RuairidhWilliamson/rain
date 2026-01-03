@@ -1,30 +1,30 @@
 let std = import("std.rain")
-let {String, File, Dir, Area} = std.types
+let {String, File, DirLike, Area} = std.types
 
-let extract_gz = fn(file: File, name: String) -> File {
+pub let extract_gz = fn(file: File, name: String) -> File {
 	internal._extract_gzip(file, name)
 }
 
-let extract_xz = fn(file: File, name: String) -> File {
+pub let extract_xz = fn(file: File, name: String) -> File {
 	internal._extract_xz(file, name)
 }
 
-let extract_tar_gz = fn(file: File) -> Area {
+pub let extract_tar_gz = fn(file: File) -> Area {
 	internal._extract_tar(extract_gz(file, "extract_temp.tar"))
 }
 
-let extract_tar_xz = fn(file: File) -> Area {
+pub let extract_tar_xz = fn(file: File) -> Area {
 	internal._extract_tar(extract_xz(file, "extract_temp.tar"))
 }
 
-let compress_tar_gz = fn(dir: Dir, name: String) -> File {
+pub let compress_tar_gz = fn(dir: DirLike, name: String) -> File {
 	internal._compress_gzip(create_tar(dir, "compress_temp.tar"), name)
 }
 
-let create_tar = fn(dir: Dir, name: String) -> File {
+pub let create_tar = fn(dir: DirLike, name: String) -> File {
 	internal._create_tar(dir, name)
 }
 
-let extract_zip = fn(file: File) -> Area {
+pub let extract_zip = fn(file: File) -> Area {
 	internal._extract_zip(file)
 }

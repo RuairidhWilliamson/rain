@@ -1,2 +1,2 @@
-let clang = internal._import(internal._get_file("cc/clang.rain"))
-let gcc = internal._import(internal._get_file("cc/gcc.rain"))
+pub let clang = import("build/cc/clang.rain")
+pub let gcc = import("build/cc/gcc.rain")

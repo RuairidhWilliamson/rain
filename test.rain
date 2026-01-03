@@ -5,7 +5,7 @@ let {print} = std
 
 // Run tests to make sure intra-process caching is working
 
-let test_caching = fn() {
+pub let test_caching = fn() {
 	test_prelude_cache()
 	test_rustc_cache()
 	test_create_file_cache()

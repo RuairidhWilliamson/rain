@@ -13,6 +13,9 @@ pub let Area = get_type(area)
 pub let File = get_type(this_file)
 pub let Dir = get_type(internal._get_dir(area, "build"))
 
+pub let DirLike = fn(v) {
+	get_type(v) == Dir || get_type(v) == Area
+}
 
 pub let Any = fn(v) -> Bool { true }
 

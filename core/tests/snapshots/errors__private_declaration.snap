@@ -1,0 +1,7 @@
+---
+source: core/tests/errors.rs
+expression: "run_error(concat!\n(\"tests/errors/\", stringify! (private_declaration), \".rain\"))"
+---
+<hidden>:1:5
+| let bar = 5
+      ^^^ unrecoverable error: declaration is private

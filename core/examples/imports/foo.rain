@@ -5,5 +5,5 @@ let _import = fn(path) {
 let bar = _import("/bar.rain")
 let baz = _import("subdir/baz.rain")
 
-let apples = 5
-let bananas = 6 + bar.bananas + baz.bananas
+pub let apples = 5
+pub let bananas = 6 + bar.bananas + baz.bananas

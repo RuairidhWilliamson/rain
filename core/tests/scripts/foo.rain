@@ -1,5 +1,5 @@
-let foo = fn() {
+pub let foo = fn() {
 	6 + bar
 }
 
-let bar = 5
+pub let bar = 5

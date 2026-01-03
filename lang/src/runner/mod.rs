@@ -104,6 +104,13 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> ResultValue {
         let m = &Arc::clone(self.ir.get_module(id.module_id()));
         let declaration = m.get_declaration(id.local_id());
+        if id.module_id() != cx.module.id && declaration.pub_token.is_none() {
+            let span = m.get_declaration_name_span(id.local_id());
+            return Err(span
+                .with_module(id.module_id())
+                .with_error(RunnerError::PrivateDeclaration.into())
+                .with_trace(cx.stacktrace.clone()));
+        }
         let stacktrace = cx.stacktrace.clone();
         let mut callee_cx = Cx::new(m, cx.call_depth + 1, HashMap::new(), stacktrace);
         let start = Instant::now();
