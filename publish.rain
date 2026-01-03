@@ -1,16 +1,16 @@
-let area = internal._get_area(this_file)
 let main = import("main.rain")
 let std = main.std
 
-let {run, unit, _throw} = std.utils
+let {run, unit, _throw, parse_toml} = std.utils
 let {print} = std
 
+let area = std.fs.area(this_file)
 let bucket = "rain-e870e063"
 let webhook_url = internal._get_secret("RAIN_PUBLISH_WEBHOOK")
 
 let check_version = fn(version) {
 	cargo_toml = std.fs.file(area, "Cargo.toml")
-	cargo_workspace_version = internal._parse_toml(internal._read_file(cargo_toml)).workspace.package.version
+	cargo_workspace_version = parse_toml(std.fs.read_file(cargo_toml)).workspace.package.version
 	if cargo_workspace_version != version {
 		_throw("cargo workspace version does not match " + cargo_workspace_version +  " != " + version)
 	}
@@ -40,7 +40,7 @@ let upload_gcloud = fn(src, dst) {
 }
 
 let upload_gcloud_with_sha256 = fn(src, dst) {
-	sha256sum = std.utils.create_file(std.utils.sha256(src), "sha256")
+	sha256sum = std.fs.create_file(std.fs.sha256(src), "sha256")
 	gcloud = std.escape.bin("gcloud")
 	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--no-clobber"], {})
 	print("Stdout:", run_result.stdout)
