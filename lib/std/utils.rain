@@ -1,13 +1,11 @@
 // utils.rain is designed to be removed in the future but provides useful APIs
-let {String, List, File, Bool, Any} = import("types.rain")
+let std = import("std.rain")
+let {String, List, File, Bool, Any, Area} = std.types
 
 let print = internal._print
 let debug = internal._debug
 let get_file = internal._get_file
 let module_file = internal._module_file
-let extract_zip = internal._extract_zip
-let extract_tar_gz = internal._extract_tar_gz
-let extract_tar_xz = internal._extract_tar_xz
 let run = internal._run
 let escape_bin = internal._escape_bin
 let unit = internal._unit()
@@ -31,7 +29,6 @@ let file_metadata = internal._file_metadata
 let glob = internal._glob
 let stringify = internal._stringify
 let escape_run = internal._escape_run
-let create_tar = internal._create_tar
 
 // Reserved keywords are prefixed with _
 let _import = internal._import

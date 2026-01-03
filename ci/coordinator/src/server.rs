@@ -267,7 +267,8 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
                 FSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
             std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
             let download = File::new_checked(&driver, download_entry).unwrap();
-            let area = driver.extract_tar_gz(&download).unwrap();
+            let raw_tar = driver.extract_gzip(&download, "extract_temp.tar").unwrap();
+            let area = driver.extract_tar(&raw_tar).unwrap();
             let mut ls =
                 std::fs::read_dir(driver.resolve_fs_entry(Dir::root(area.clone()).inner()))
                     .unwrap();

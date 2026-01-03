@@ -208,10 +208,7 @@ impl Server {
             return;
         };
         // let display = node.to_sexp();
-        let display = node
-            .utf8_text(&entry.source.as_bytes())
-            .unwrap()
-            .to_string();
+        let display = node.utf8_text(entry.source.as_bytes()).unwrap().to_string();
 
         self.comms.send_message(&message.ok_response(Hover {
             contents: lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(display)),

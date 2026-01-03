@@ -44,8 +44,8 @@ pub enum InternalFunction {
     Import,
     ModuleFile,
     ExtractZip,
-    ExtractTarGz,
-    ExtractTarXz,
+    ExtractGzip,
+    ExtractXz,
     ExtractTar,
     Run,
     EscapeBin,
@@ -74,7 +74,7 @@ pub enum InternalFunction {
     EscapeRun,
     Prelude,
     CreateTar,
-    CreateTarGz,
+    CompressGzip,
     RustEq,
     GetSecret,
     SetCacheNever,
@@ -107,8 +107,8 @@ impl InternalFunction {
             "_import" => Some(Self::Import),
             "_module_file" => Some(Self::ModuleFile),
             "_extract_zip" => Some(Self::ExtractZip),
-            "_extract_tar_gz" => Some(Self::ExtractTarGz),
-            "_extract_tar_xz" => Some(Self::ExtractTarXz),
+            "_extract_gzip" => Some(Self::ExtractGzip),
+            "_extract_xz" => Some(Self::ExtractXz),
             "_extract_tar" => Some(Self::ExtractTar),
             "_run" => Some(Self::Run),
             "_escape_bin" => Some(Self::EscapeBin),
@@ -147,7 +147,7 @@ impl InternalFunction {
             "_env_var" => Some(Self::EnvVar),
             "_copy_file" => Some(Self::CopyFile),
             "_escape_hard" => Some(Self::EscapeHard),
-            "_create_tar_gz" => Some(Self::CreateTarGz),
+            "_compress_gzip" => Some(Self::CompressGzip),
             "_parse_json" => Some(Self::ParseJSON),
             "_get_type" => Some(Self::GetType),
             "_create_write_area" => Some(Self::CreateWriteArea),
@@ -276,8 +276,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::Import => self.import(),
             InternalFunction::ModuleFile => self.module_file(),
             InternalFunction::ExtractZip => self.extract_zip(),
-            InternalFunction::ExtractTarGz => self.extract_tar_gz(),
-            InternalFunction::ExtractTarXz => self.extract_tar_xz(),
+            InternalFunction::ExtractGzip => self.extract_gzip(),
+            InternalFunction::ExtractXz => self.extract_xz(),
             InternalFunction::ExtractTar => self.extract_tar(),
             InternalFunction::Run => self.run(),
             InternalFunction::EscapeBin => self.escape_bin(),
@@ -316,7 +316,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::EnvVar => self.env_var(),
             InternalFunction::CopyFile => self.copy_file(),
             InternalFunction::EscapeHard => self.escape_hard(),
-            InternalFunction::CreateTarGz => self.create_tar_gz(),
+            InternalFunction::CompressGzip => self.compress_gzip(),
             InternalFunction::ParseJSON => self.parse_json(),
             InternalFunction::GetType => self.get_type(),
             InternalFunction::CreateWriteArea => self.create_write_area(),
@@ -545,24 +545,28 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::FileArea(Arc::new(area)))
     }
 
-    fn extract_tar_gz(self) -> ResultValue {
-        let f = expect_type!(self, File, single_arg!(self));
+    fn extract_gzip(self) -> ResultValue {
+        let (file, name) = two_args!(self);
+        let file = expect_type!(self, File, file);
+        let name = expect_type!(self, String, name);
         let area = self
             .runner
             .driver
-            .extract_tar_gz(f)
+            .extract_gzip(file, name)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
-        Ok(Value::FileArea(Arc::new(area)))
+        Ok(Value::File(Arc::new(area)))
     }
 
-    fn extract_tar_xz(self) -> ResultValue {
-        let f = expect_type!(self, File, single_arg!(self));
+    fn extract_xz(self) -> ResultValue {
+        let (file, name) = two_args!(self);
+        let file = expect_type!(self, File, file);
+        let name = expect_type!(self, String, name);
         let area = self
             .runner
             .driver
-            .extract_tar_xz(f)
+            .extract_xz(file, name)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
-        Ok(Value::FileArea(Arc::new(area)))
+        Ok(Value::File(Arc::new(area)))
     }
 
     fn extract_tar(self) -> ResultValue {
@@ -790,7 +794,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::File(Arc::new(
             self.runner
                 .driver
-                .create_file(contents, name)
+                .create_file(contents.as_bytes(), name)
                 .map_err(|err| self.cx.nid_err(self.nid, err))?,
         )))
     }
@@ -1311,14 +1315,14 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )))
     }
 
-    fn create_tar_gz(self) -> ResultValue {
-        let ((dir_nid, dir_value), name) = two_args!(self);
-        let dir = self.expect_dir_or_area(dir_nid, dir_value)?;
+    fn compress_gzip(self) -> ResultValue {
+        let (file, name) = two_args!(self);
+        let file = expect_type!(self, File, file);
         let name = expect_type!(self, String, name);
         Ok(Value::File(Arc::new(
             self.runner
                 .driver
-                .create_tar_gz(&dir, name)
+                .compress_gzip(file, name)
                 .map_err(|err| self.cx.nid_err(self.nid, err))?,
         )))
     }

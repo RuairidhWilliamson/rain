@@ -212,32 +212,36 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(area)
     }
 
-    fn extract_tar_gz(&self, file: &File) -> Result<FileArea, RunnerError> {
+    fn extract_gzip(&self, file: &File, name: &str) -> Result<File, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
-        let area = self.create_empty_area()?;
-        let output_dir = Dir::root(area.clone());
-        let output_dir_path = self.resolve_fs_entry(output_dir.inner());
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
-        let raw_tar = flate2::read::GzDecoder::new(f);
-        let mut archive = tar::Archive::new(raw_tar);
-        archive
-            .unpack(output_dir_path)
-            .map_err(|err| RunnerError::ExtractError(Box::new(err)))?;
-        Ok(area)
+        let mut raw = flate2::read::GzDecoder::new(f);
+        let area = self.create_empty_area()?;
+        let path = SealedFilePath::new(name)?;
+        let entry = FSEntry::new(area, path);
+        let resolved_path = self.resolve_fs_entry(&entry);
+        let mut out_file =
+            std::fs::File::create_new(resolved_path).map_err(RunnerError::AreaIOError)?;
+        std::io::copy(&mut raw, &mut out_file).map_err(RunnerError::AreaIOError)?;
+        // Safety: We just created the file
+        let file = unsafe { File::new(entry) };
+        Ok(file)
     }
 
-    fn extract_tar_xz(&self, file: &File) -> Result<FileArea, RunnerError> {
+    fn extract_xz(&self, file: &File, name: &str) -> Result<File, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
-        let area = self.create_empty_area()?;
-        let output_dir = Dir::root(area.clone());
-        let output_dir_path = self.resolve_fs_entry(output_dir.inner());
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
-        let raw_tar = liblzma::read::XzDecoder::new(f);
-        let mut archive = tar::Archive::new(raw_tar);
-        archive
-            .unpack(output_dir_path)
-            .map_err(|err| RunnerError::ExtractError(Box::new(err)))?;
-        Ok(area)
+        let mut raw = liblzma::read::XzDecoder::new(f);
+        let area = self.create_empty_area()?;
+        let path = SealedFilePath::new(name)?;
+        let entry = FSEntry::new(area, path);
+        let resolved_path = self.resolve_fs_entry(&entry);
+        let mut out_file =
+            std::fs::File::create_new(resolved_path).map_err(RunnerError::AreaIOError)?;
+        std::io::copy(&mut raw, &mut out_file).map_err(RunnerError::AreaIOError)?;
+        // Safety: We just created the file
+        let file = unsafe { File::new(entry) };
+        Ok(file)
     }
 
     fn extract_tar(&self, file: &File) -> Result<FileArea, RunnerError> {
@@ -409,7 +413,7 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(contents)
     }
 
-    fn create_file(&self, contents: &str, name: &str) -> Result<File, RunnerError> {
+    fn create_file(&self, contents: &[u8], name: &str) -> Result<File, RunnerError> {
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
         let entry = FSEntry::new(area, path);
@@ -518,21 +522,16 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(file)
     }
 
-    fn create_tar_gz(&self, dir: &Dir, name: &str) -> Result<File, RunnerError> {
-        let dir_path = self.resolve_fs_entry(dir.inner());
+    fn compress_gzip(&self, file: &File, name: &str) -> Result<File, RunnerError> {
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
         let entry = FSEntry::new(area, path);
         let output_path = self.resolve_fs_entry(&entry);
         let f = std::fs::File::create(output_path).map_err(RunnerError::AreaIOError)?;
-        let raw_tar = flate2::write::GzEncoder::new(f, flate2::Compression::default());
-        let mut archive = tar::Builder::new(raw_tar);
-        archive
-            .append_dir_all(".", dir_path)
-            .map_err(|err| RunnerError::MakeshiftIO("create tar gz".into(), err))?;
-        archive
-            .finish()
-            .map_err(|err| RunnerError::MakeshiftIO("create tar gz flush".into(), err))?;
+        let mut encoder = flate2::write::GzEncoder::new(f, flate2::Compression::default());
+        let mut read = std::fs::File::open(self.resolve_fs_entry(file.inner()))
+            .map_err(RunnerError::AreaIOError)?;
+        std::io::copy(&mut read, &mut encoder).map_err(RunnerError::AreaIOError)?;
         // Safety: We just created the file
         let file = unsafe { File::new(entry) };
         Ok(file)

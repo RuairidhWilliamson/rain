@@ -1,5 +1,5 @@
 let std = import("std.rain")
-let {utils} = std
+let {utils, compression} = std
 
 let download = utils.download
 let _throw = utils._throw
@@ -48,7 +48,7 @@ let get_gz_artifact = fn(artifact) {
 	if artifact.hash != hash {
 		_throw("checksum does not match")
 	}
-	utils.extract_tar_gz(download_result.file)
+	compression.extract_tar_gz(download_result.file)
 }
 
 let get_xz_artifact = fn(artifact) {
@@ -63,7 +63,7 @@ let get_xz_artifact = fn(artifact) {
 	if artifact.xz_hash != hash {
 		_throw("checksum does not match")
 	}
-	utils.extract_tar_xz(download_result.file)
+	compression.extract_tar_xz(download_result.file)
 }
 
 let get_version_path = fn(manifest) {

@@ -1,5 +1,5 @@
 let std = import("std.rain")
-let {utils} = std
+let {utils, compression} = std
 
 // TODO: Check minisig
 
@@ -12,7 +12,7 @@ let download = fn(version, arch, os) {
 			utils.print(download_result)
 			utils._throw("download failed")
 		}
-		utils.get_file(utils.extract_zip(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
+		utils.get_file(compression.extract_zip(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
 	} else {
 		url = "https://ziglang.org/download/" + version + "/zig-" + arch + "-" + os + "-" + version + ".tar.xz"
 		download_result = utils.download(url)
@@ -21,6 +21,6 @@ let download = fn(version, arch, os) {
 			utils.print(download_result)
 			utils._throw("download failed")
 		}
-		utils.get_file(utils.extract_tar_xz(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
+		utils.get_file(compression.extract_tar_xz(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
 	}
 }

@@ -19,8 +19,8 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn print(&self, message: String);
     fn escape_bin(&self, name: &str) -> Option<AbsolutePathBuf>;
     fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError>;
-    fn extract_tar_gz(&self, file: &File) -> Result<FileArea, RunnerError>;
-    fn extract_tar_xz(&self, file: &File) -> Result<FileArea, RunnerError>;
+    fn extract_gzip(&self, file: &File, name: &str) -> Result<File, RunnerError>;
+    fn extract_xz(&self, file: &File, name: &str) -> Result<File, RunnerError>;
     fn extract_tar(&self, file: &File) -> Result<FileArea, RunnerError>;
     fn run(
         &self,
@@ -46,7 +46,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn sha512(&self, file: &File) -> Result<String, RunnerError>;
     fn create_area(&self, dirs: &[&FSEntry]) -> Result<FileArea, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, std::io::Error>;
-    fn create_file(&self, contents: &str, name: &str) -> Result<File, RunnerError>;
+    fn create_file(&self, contents: &[u8], name: &str) -> Result<File, RunnerError>;
     fn file_metadata(&self, file: &File) -> Result<FileMetadata, RunnerError>;
     fn glob(&self, dir: &Dir, pattern: &str) -> Result<Vec<File>, RunnerError>;
     fn prelude_src(&self) -> Option<Cow<'static, str>>;
@@ -54,7 +54,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn export_file(&self, src: &File, dst: &FSEntry) -> Result<(), RunnerError>;
     fn export_dir(&self, src: &Dir, dst: &FSEntry) -> Result<(), RunnerError>;
     fn create_tar(&self, dir: &Dir, name: &str) -> Result<File, RunnerError>;
-    fn create_tar_gz(&self, dir: &Dir, name: &str) -> Result<File, RunnerError>;
+    fn compress_gzip(&self, file: &File, name: &str) -> Result<File, RunnerError>;
     fn get_secret(&self, name: &str) -> Result<String, RunnerError>;
     fn git_contents(&self, url: &str, commit: &str) -> Result<FileArea, RunnerError>;
     fn git_lfs_smudge(&self, area: &FileArea) -> Result<FileArea, RunnerError>;

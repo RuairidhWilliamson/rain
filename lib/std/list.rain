@@ -1,5 +1,6 @@
-let {unit} = import("utils.rain")
-let {Any, List, Bool, Integer} = import("types.rain")
+let std = import("std.rain")
+let {unit} = std.utils
+let {Any, List, Bool, Integer} = std.types
 
 pub let fold = internal._fold
 

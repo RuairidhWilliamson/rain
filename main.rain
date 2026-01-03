@@ -120,3 +120,9 @@ let coverage = fn() -> File {
 	std.escape.run(area, cargo, ["llvm-cov", "nextest", "-p", "rain-lang", "-p", "rain-core", "--html"], {})
 	get_file(area, "target/llvm-cov/html/index.html")
 }
+
+let cleanup_snapshots = fn() {
+	cargo = std.escape.bin("cargo")
+	std.escape.run(area, cargo, ["insta", "test", "--unreferenced", "delete"], {})
+	std.utils.unit
+}

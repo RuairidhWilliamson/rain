@@ -1,4 +1,5 @@
-let utils = import("utils.rain")
+let std = import("std.rain")
+let {utils} = std
 
 let get_file = utils.get_file
 let escape_bin = utils.escape_bin

@@ -1,5 +1,5 @@
 let std = import("std.rain")
-let {utils} = std
+let {utils, compression} = std
 
 let download = utils.download
 let get_file = utils.get_file
@@ -10,5 +10,5 @@ let download_grpc_tools = fn(version) {
 	if !tools_download.ok {
 		_throw("failed to download grpc tools from nuget")
 	} 
-	utils.extract_zip(tools_download.file)
+	compression.extract_zip(tools_download.file)
 }

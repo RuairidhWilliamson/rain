@@ -15,16 +15,16 @@ let bwrap_run_ro = fn(image, command, args, env) {
 let download_image = fn(image) {
 	out = internal._create_write_area([])
 	result = std.utils.escape_run(out, std.escape.bin("podman"), ["image", "save", "-o", "image.tar", image], {})
-	image = internal._extract_tar(get_file(out, "image.tar"))
+	image = std.compression.extract_tar(get_file(out, "image.tar"))
 	manifest = internal._parse_json(internal._read_file(get_file(image, "manifest.json")))
 	print(manifest)
-	[internal._extract_tar(get_file(image, "256f393e029fa2063d8c93720da36a74a032bed3355a2bc3e313ad12f8bde9d1.tar"))]
+	[std.compression.extract_tar(get_file(image, "256f393e029fa2063d8c93720da36a74a032bed3355a2bc3e313ad12f8bde9d1.tar"))]
 }
 
 let alpine_linux = fn() {
 	url = "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/alpine-minirootfs-3.22.2-x86_64.tar.gz"
 	sha256 = "412454ed98025ad9cd910d13f3d448b184e81502baa83180e89f98d0f13674be"
-	internal._get_dir(internal._extract_tar_gz(std.utils.download_with_sha256(url, sha256)), "/")
+	internal._get_dir(std.compression.extract_tar_gz(std.utils.download_with_sha256(url, sha256)), "/")
 }
 
 let bwrap_run = fn(image_layers, command, args, env) {
