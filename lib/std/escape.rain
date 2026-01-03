@@ -1,9 +1,7 @@
 let std = import("std.rain")
-let utils = std.utils
 
-let print = utils.print
-let _throw = utils._throw
-let unit = utils.unit
+let {print} = std
+let {unit, _throw, stringify} = std.utils
 
 pub let bin = fn(name) {
 	result = internal._escape_bin(name)
@@ -26,7 +24,7 @@ pub let run = fn(area, bin, args, env) {
 	if !run_result.success {
 		print("Stdout:", run_result.stdout)
 		print("Stderr:", run_result.stderr)
-		_throw("run " + utils.stringify(bin) + " failed")
+		_throw("run " + stringify(bin) + " failed")
 	}
 	run_result
 }

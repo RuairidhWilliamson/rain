@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -429,6 +428,8 @@ impl DriverTrait for DriverImpl<'_> {
         #[cfg(target_family = "unix")]
         {
             if executable {
+                use std::os::unix::fs::PermissionsExt as _;
+
                 let metadata =
                     std::fs::metadata(&resolved_path).map_err(RunnerError::AreaIOError)?;
                 let mut permissions = metadata.permissions();
