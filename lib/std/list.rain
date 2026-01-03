@@ -1,3 +1,4 @@
+let {unit} = import("utils.rain")
 let {Any, List, Bool, Integer} = import("types.rain")
 
 pub let fold = internal._fold
@@ -41,5 +42,12 @@ pub let any = fn(list: List(Bool)) -> Bool {
 pub let count = fn(list: List(Any)) -> Integer {
 	fold(0, list, fn(acc, x) {
 		acc + 1
+	})
+}
+
+pub let foreach = fn(list: List(Any), func) {
+	fold(unit, list, fn(acc, x) {
+		func(x)
+		unit
 	})
 }

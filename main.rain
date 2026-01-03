@@ -64,7 +64,7 @@ let helloworld = fn() {
 }
 
 let check_empty_files = fn() {
-	std.utils.foreach(std.utils.glob(area), std.build.lints.no_emptish)
+	std.list.map(std.utils.glob(area), std.build.lints.no_emptish)
 }
 
 let everything = fn() {

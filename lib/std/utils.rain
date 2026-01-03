@@ -1,5 +1,5 @@
 // utils.rain is designed to be removed in the future but provides useful APIs
-let types = import("types.rain")
+let {String, List, File, Bool, Any} = import("types.rain")
 
 let print = internal._print
 let debug = internal._debug
@@ -29,15 +29,9 @@ let export_to_local = internal._export_to_local
 let check_export_to_local = internal._check_export_to_local
 let file_metadata = internal._file_metadata
 let glob = internal._glob
-let foreach = internal._foreach
 let stringify = internal._stringify
 let escape_run = internal._escape_run
 let create_tar = internal._create_tar
-
-let String = types.String
-let List = types.List
-let File = types.File
-let Bool = types.Bool
 
 // Reserved keywords are prefixed with _
 let _import = internal._import
@@ -56,7 +50,7 @@ let download_with_sha256 = fn(url: String, sha256: String) -> File {
 	download_result.file
 }
 
-let run_check = fn(area, bin, args: List, env) {
+let run_check = fn(area, bin, args: List(Any), env) {
 	run_result = run(area, bin, args, env)
 	if !run_result.success {
 		print("Stdout:", run_result.stdout)
