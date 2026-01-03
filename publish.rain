@@ -2,14 +2,14 @@ let area = internal._get_area(this_file)
 let main = import("main.rain")
 let std = main.std
 
-let {print, run, unit, get_file, get_dir, _throw} = std.utils
-let escape_bin = std.escape.bin
+let {run, unit, _throw} = std.utils
+let {print} = std
 
 let bucket = "rain-e870e063"
 let webhook_url = internal._get_secret("RAIN_PUBLISH_WEBHOOK")
 
 let check_version = fn(version) {
-	cargo_toml = get_file(area, "Cargo.toml")
+	cargo_toml = std.fs.file(area, "Cargo.toml")
 	cargo_workspace_version = internal._parse_toml(internal._read_file(cargo_toml)).workspace.package.version
 	if cargo_workspace_version != version {
 		_throw("cargo workspace version does not match " + cargo_workspace_version +  " != " + version)
@@ -17,8 +17,8 @@ let check_version = fn(version) {
 }
 
 let compress_lib = fn() {
-	ouch = escape_bin("ouch")
-	lib_dir = get_dir(area, "lib")
+	ouch = std.escape.bin("ouch")
+	lib_dir = std.fs.dir(area, "lib")
 	filename = "lib.tar.gz"
 	run_result = run(unit, ouch, ["compress", lib_dir, filename], {})
 	if !run_result.success {
@@ -26,11 +26,11 @@ let compress_lib = fn() {
 		print("Stderr:", run_result.stderr)
 		_throw("ouch compress failed")
 	}
-	get_file(run_result.area, filename)
+	std.fs.file(run_result.area, filename)
 }
 
 let upload_gcloud = fn(src, dst) {
-	gcloud = escape_bin("gcloud")
+	gcloud = std.escape.bin("gcloud")
 	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--no-clobber"], {})
 	print("Stdout:", run_result.stdout)
 	print("Stderr:", run_result.stderr)
@@ -41,7 +41,7 @@ let upload_gcloud = fn(src, dst) {
 
 let upload_gcloud_with_sha256 = fn(src, dst) {
 	sha256sum = std.utils.create_file(std.utils.sha256(src), "sha256")
-	gcloud = escape_bin("gcloud")
+	gcloud = std.escape.bin("gcloud")
 	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--no-clobber"], {})
 	print("Stdout:", run_result.stdout)
 	print("Stderr:", run_result.stderr)
@@ -61,7 +61,7 @@ let webhook = fn(url, contents) {
 	unit
 }
 
-let publish = fn(version) {
+pub let publish = fn(version) {
 	check_version(version)
 	win_amd64 = main.build_release("x86_64-pc-windows-gnu")
 	linux_amd64 = main.build_release("x86_64-unknown-linux-gnu")

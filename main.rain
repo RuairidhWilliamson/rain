@@ -10,11 +10,7 @@ let load_stdlib = fn() {
 	internal._prelude().load_stdlib(stdlib_area)
 }
 
-let print = std.utils.print
-let _import = std.utils._import
-let get_file = std.utils.get_file
-let get_area = std.utils.get_area
-let module_file = std.utils.module_file
+let print = std.print
 
 pub let lint = fn() {
 	check_empty_files()
@@ -29,7 +25,7 @@ let build = fn() {
 	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", true, "", "dev", std.utils.host_info().triple, [], {})
 }
 
-let build_release = fn(target_triple: String) -> File {
+pub let build_release = fn(target_triple: String) -> File {
 	env = {
 		CARGO_TERM_COLOR = "always",
 		CARGO_TERM_QUIET = "true",
@@ -45,11 +41,11 @@ let build_release = fn(target_triple: String) -> File {
 		"--no-default-features",
 	]
 	std.escape.run(area, cargo, args, env)
-	get_file(area, "target/" + target_triple + "/release/rain" + std.utils.exe_suffix(target_triple))
+	std.fs.file(area, "target/" + target_triple + "/release/rain" + std.utils.exe_suffix(target_triple))
 }
 
 let build_c = fn() {
-	std.build.cc.gcc.compile(get_file("core/examples/run/foo.c"), "foo")
+	std.build.cc.gcc.compile(std.fs.file(area, "core/examples/run/foo.c"), "foo")
 }
 
 let run = fn() {
@@ -84,7 +80,7 @@ let test_zig = fn() {
 		print("Stderr:", run_result.stderr)
 		std.utils._throw("build zig")
 	}
-	bin = get_file(run_result.area, "helloworld")
+	bin = std.fs.file(run_result.area, "helloworld")
 	run_result = std.utils.run(std.utils.unit, bin, [], {})
 	if !run_result.success {
 		std.utils._throw("zig helloworld")
@@ -118,7 +114,7 @@ let nextest = fn() {
 let coverage = fn() -> File {
 	cargo = std.escape.bin("cargo")
 	std.escape.run(area, cargo, ["llvm-cov", "nextest", "-p", "rain-lang", "-p", "rain-core", "--html"], {})
-	get_file(area, "target/llvm-cov/html/index.html")
+	std.fs.file(area, "target/llvm-cov/html/index.html")
 }
 
 let cleanup_snapshots = fn() {
