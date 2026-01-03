@@ -20,19 +20,19 @@ pub fn parse_module(source: &str) -> ParseResult<Module> {
     let nodes = parser.complete()?;
     // Check that tree sitter can parse this too
     if cfg!(debug_assertions) {
-        parse_module_tree_sitter(source);
+        let tree = parse_module_tree_sitter(source);
+        debug_assert!(!tree.root_node().has_error());
     }
     Ok(Module { root, nodes })
 }
 
-fn parse_module_tree_sitter(source: &str) {
+pub fn parse_module_tree_sitter(source: &str) -> tree_sitter::Tree {
     let mut parser = tree_sitter::Parser::new();
     let language = tree_sitter_rain::LANGUAGE;
     parser
         .set_language(&language.into())
         .expect("error loading Rain parser");
-    let tree = parser.parse(source, None).expect("no language");
-    assert!(!tree.root_node().has_error());
+    parser.parse(source, None).expect("no language")
 }
 
 struct ModuleParser<'src> {

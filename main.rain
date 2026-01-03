@@ -29,7 +29,7 @@ let build = fn() {
 	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", true, "", "dev", std.utils.host_info().triple, [], {})
 }
 
-let build_release = fn(target_triple) {
+let build_release = fn(target_triple: String) -> File {
 	env = {
 		CARGO_TERM_COLOR = "always",
 		CARGO_TERM_QUIET = "true",

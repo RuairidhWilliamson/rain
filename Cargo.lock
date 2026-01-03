@@ -2747,6 +2747,7 @@ dependencies = [
  "rain-lang",
  "serde",
  "serde_json",
+ "tree-sitter",
 ]
 
 [[package]]

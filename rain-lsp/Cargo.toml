@@ -11,6 +11,7 @@ lsp-types = "0.97.0"
 rain-lang.path = "../lang"
 serde_json.workspace = true
 serde.workspace = true
+tree-sitter.workspace = true
 
 [lints]
 workspace = true
