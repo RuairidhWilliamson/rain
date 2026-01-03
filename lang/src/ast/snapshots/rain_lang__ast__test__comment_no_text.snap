@@ -1,6 +1,0 @@
----
-source: lang/src/ast/test.rs
-expression: parse_display_script(src)
----
-ModuleRoot(
-)
