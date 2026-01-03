@@ -43,4 +43,5 @@ tests! {
     import,
     destructure,
     destructure_import,
+    any_type,
 }

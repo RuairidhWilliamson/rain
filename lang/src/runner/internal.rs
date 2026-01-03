@@ -70,7 +70,6 @@ pub enum InternalFunction {
     CheckExportToLocal,
     FileMetadata,
     Glob,
-    Foreach,
     Stringify,
     EscapeRun,
     Prelude,
@@ -86,11 +85,10 @@ pub enum InternalFunction {
     GitLfsSmudge,
     EnvVar,
     CopyFile,
-    ListLength,
     EscapeHard,
-    Flatten,
     GetType,
     CreateWriteArea,
+    Fold,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -134,7 +132,6 @@ impl InternalFunction {
             "_check_export_to_local" => Some(Self::CheckExportToLocal),
             "_file_metadata" => Some(Self::FileMetadata),
             "_glob" => Some(Self::Glob),
-            "_foreach" => Some(Self::Foreach),
             "_stringify" => Some(Self::Stringify),
             "_escape_run" => Some(Self::EscapeRun),
             "_prelude" => Some(Self::Prelude),
@@ -149,13 +146,12 @@ impl InternalFunction {
             "_git_lfs_smudge" => Some(Self::GitLfsSmudge),
             "_env_var" => Some(Self::EnvVar),
             "_copy_file" => Some(Self::CopyFile),
-            "_list_length" => Some(Self::ListLength),
             "_escape_hard" => Some(Self::EscapeHard),
             "_create_tar_gz" => Some(Self::CreateTarGz),
-            "_flatten" => Some(Self::Flatten),
             "_parse_json" => Some(Self::ParseJSON),
             "_get_type" => Some(Self::GetType),
             "_create_write_area" => Some(Self::CreateWriteArea),
+            "_fold" => Some(Self::Fold),
             _ => None,
         }
     }
@@ -188,7 +184,32 @@ macro_rules! two_args {
                 return Err($icx.cx.err(
                     $icx.call_span,
                     RunnerError::IncorrectArgs {
-                        required: 1..=1,
+                        required: 2..=2,
+                        actual: $icx.arg_values.len(),
+                    },
+                ))
+            }
+        }
+    };
+}
+
+macro_rules! three_args {
+    ($icx:ident) => {
+        match &$icx.arg_values[..] {
+            [
+                (arg1_nid, arg1_value),
+                (arg2_nid, arg2_value),
+                (arg3_nid, arg3_value),
+            ] => (
+                (*arg1_nid, arg1_value),
+                (*arg2_nid, arg2_value),
+                (*arg3_nid, arg3_value),
+            ),
+            _ => {
+                return Err($icx.cx.err(
+                    $icx.call_span,
+                    RunnerError::IncorrectArgs {
+                        required: 3..=3,
                         actual: $icx.arg_values.len(),
                     },
                 ))
@@ -280,7 +301,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::CheckExportToLocal => self.check_export_to_local(),
             InternalFunction::FileMetadata => self.file_metadata(),
             InternalFunction::Glob => self.glob(),
-            InternalFunction::Foreach => self.foreach(),
             InternalFunction::Stringify => self.stringify(),
             InternalFunction::EscapeRun => self.escape_run(),
             InternalFunction::Prelude => self.prelude(),
@@ -295,13 +315,12 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::GitLfsSmudge => self.git_lfs_smudge(),
             InternalFunction::EnvVar => self.env_var(),
             InternalFunction::CopyFile => self.copy_file(),
-            InternalFunction::ListLength => self.list_length(),
             InternalFunction::EscapeHard => self.escape_hard(),
             InternalFunction::CreateTarGz => self.create_tar_gz(),
-            InternalFunction::Flatten => self.flatten(),
             InternalFunction::ParseJSON => self.parse_json(),
             InternalFunction::GetType => self.get_type(),
             InternalFunction::CreateWriteArea => self.create_write_area(),
+            InternalFunction::Fold => self.fold(),
         }
     }
 
@@ -1211,23 +1230,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    fn foreach(self) -> ResultValue {
-        let (list, (func_nid, func_value)) = two_args!(self);
-        let list = expect_type!(self, List, list);
-        let mut out = Vec::with_capacity(list.0.len());
-        for item in list.0.clone() {
-            let arg_values: Vec<(NodeId, Value)> = vec![(func_nid, item)];
-            out.push(self.runner.call_function(
-                self.cx,
-                self.nid,
-                func_value,
-                self.call_span,
-                arg_values,
-            )?);
-        }
-        Ok(Value::List(Arc::new(RainList(out))))
-    }
-
     fn stringify(self) -> ResultValue {
         let (nid, value) = single_arg!(self);
         match value {
@@ -1445,14 +1447,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::File(Arc::new(new_file)))
     }
 
-    fn list_length(self) -> ResultValue {
-        *self.cache_hint = false;
-        let list = expect_type!(self, List, single_arg!(self));
-        Ok(Value::Integer(Arc::new(RainInteger(BigInt::from(
-            list.0.len(),
-        )))))
-    }
-
     fn escape_hard(self) -> ResultValue {
         self.deps.push(Dep::Escape);
         let file_path = expect_type!(self, String, single_arg!(self));
@@ -1466,21 +1460,25 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )))
     }
 
-    fn flatten(self) -> ResultValue {
-        let list = expect_type!(self, List, single_arg!(self));
-        let mut flattened = Vec::new();
-        for value in &list.0 {
-            let inner_list = expect_type!(self, List, (self.nid, value));
-            for v in &inner_list.0 {
-                flattened.push(v.clone());
-            }
-        }
-        Ok(Value::List(Arc::new(RainList(flattened))))
-    }
-
     fn get_type(self) -> ResultValue {
         *self.cache_hint = false;
         let (_arg_nid, arg_value) = single_arg!(self);
         Ok(Value::Type(arg_value.rain_type_id()))
+    }
+
+    fn fold(self) -> ResultValue {
+        let ((initial_nid, initial_value), list, (func_nid, func_value)) = three_args!(self);
+        let list = expect_type!(self, List, list);
+        let mut acc = initial_value.clone();
+        for item in list.0.clone() {
+            acc = self.runner.call_function(
+                self.cx,
+                self.nid,
+                func_value,
+                self.call_span,
+                vec![(initial_nid, acc), (func_nid, item)],
+            )?;
+        }
+        Ok(acc)
     }
 }

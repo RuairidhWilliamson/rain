@@ -1,0 +1,45 @@
+let {Any, List, Bool, Integer} = import("types.rain")
+
+pub let fold = internal._fold
+
+pub let map = fn(list: List(Any), func) -> List(Any) {
+	fold([], list, fn(acc, x) {
+		acc + [func(x)]
+	})
+}
+
+pub let filter = fn(list: List(Any), func) -> List(Any) {
+	fold([], list, fn(acc, x) {
+		if func(x) {
+			acc + [x]
+		} else {
+			acc
+		}
+	})
+}
+
+pub let flatten = fn(list: List(List(Any))) -> List(Any) {
+	fold([], list, fn(acc, x: List(Any)) {
+		fold(acc, x, fn(inner_acc, inner) {
+			inner_acc + [inner]
+		})
+	})
+}
+
+pub let all = fn(list: List(Bool)) -> Bool {
+	fold(true, list, fn(acc, x: Bool) {
+		acc && x
+	})
+}
+
+pub let any = fn(list: List(Bool)) -> Bool {
+	fold(false, list, fn(acc, x: Bool) {
+		acc || x
+	})
+}
+
+pub let count = fn(list: List(Any)) -> Integer {
+	fold(0, list, fn(acc, x) {
+		acc + 1
+	})
+}

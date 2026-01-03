@@ -2,6 +2,7 @@
 source: core/tests/errors.rs
 expression: "run_error(concat! (\"tests/errors/\", stringify! (fail_type_check), \".rain\"))"
 ---
+/home/ru/prj/rain/core/tests/errors/fail_type_check.rain:4:2
 /home/ru/prj/rain/core/tests/errors/fail_type_check.rain:7:17
 | }
 | 

@@ -1,4 +1,4 @@
-let area = internal._get_area(internal._module_file())
+let area = internal._get_area(this_file)
 let std = load_stdlib()
 let publish_module = import("publish.rain")
 let test_mod = import("test.rain")

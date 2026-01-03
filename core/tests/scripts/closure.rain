@@ -1,5 +1,10 @@
+let stdlib_area = internal._local_area("../../../lib/std")
+let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
+
+let {flatten, map} = std.list
+
 let main = fn() {
     a = "hi"
     cb = fn(x) {[a, x]}
-    internal._flatten(internal._foreach(["joe", "susan"], cb))
+    flatten(map(["joe", "susan"], cb))
 }

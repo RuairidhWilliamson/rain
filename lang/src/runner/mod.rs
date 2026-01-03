@@ -118,7 +118,12 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 if let Some(type_spec) = &single.type_spec {
                     let type_spec_value =
                         self.evaluate_node(&mut callee_cx, type_spec.type_expr)?;
-                    self.evaluate_type_check(cx, &result, type_spec.type_expr, type_spec_value)?;
+                    self.evaluate_type_check(
+                        &mut callee_cx,
+                        &result,
+                        type_spec.type_expr,
+                        &type_spec_value,
+                    )?;
                 }
                 result
             }
@@ -134,7 +139,12 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 if let Some(type_spec) = m.get_declaration_type_spec(id.local_id()).as_ref() {
                     let type_spec_value =
                         self.evaluate_node(&mut callee_cx, type_spec.type_expr)?;
-                    self.evaluate_type_check(cx, &value, type_spec.type_expr, type_spec_value)?;
+                    self.evaluate_type_check(
+                        &mut callee_cx,
+                        &value,
+                        type_spec.type_expr,
+                        &type_spec_value,
+                    )?;
                 }
                 value
             }
@@ -366,7 +376,12 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     if let Some(type_spec) = &a.type_spec {
                         let type_spec_value =
                             self.evaluate_node(&mut callee_cx, type_spec.type_expr)?;
-                        self.evaluate_type_check(cx, v, type_spec.type_expr, type_spec_value)?;
+                        self.evaluate_type_check(
+                            &mut callee_cx,
+                            v,
+                            type_spec.type_expr,
+                            &type_spec_value,
+                        )?;
                     }
                 }
                 let result = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
@@ -384,7 +399,12 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 if let Some(type_spec) = &closure_declare.return_type {
                     let type_spec_value =
                         self.evaluate_node(&mut callee_cx, type_spec.type_expr)?;
-                    self.evaluate_type_check(cx, &result, type_spec.type_expr, type_spec_value)?;
+                    self.evaluate_type_check(
+                        &mut callee_cx,
+                        &result,
+                        type_spec.type_expr,
+                        &type_spec_value,
+                    )?;
                 }
 
                 Ok(result)
@@ -459,26 +479,60 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         cx: &mut Cx<'_>,
         v: &Value,
         type_spec_nid: NodeId,
-        type_spec_value: Value,
+        type_spec_value: &Value,
     ) -> Result<(), ErrorTrace<Throwing>> {
-        let Value::Type(expected_type) = type_spec_value else {
-            return Err(cx.nid_err(
+        match type_spec_value {
+            Value::Type(expected_type) => {
+                if v.rain_type_id() != *expected_type {
+                    return Err(cx.nid_err(
+                        type_spec_nid,
+                        RunnerError::ExpectedType {
+                            actual: v.rain_type_id(),
+                            expected: std::borrow::Cow::Owned(vec![*expected_type]),
+                        },
+                    ));
+                }
+                Ok(())
+            }
+            Value::Closure(_) => {
+                let result = self.call_function(
+                    cx,
+                    type_spec_nid,
+                    type_spec_value,
+                    cx.module.span(type_spec_nid),
+                    vec![(type_spec_nid, v.clone())],
+                )?;
+                match result {
+                    Value::Boolean(ok) => {
+                        if !ok {
+                            return Err(cx.nid_err(
+                                type_spec_nid,
+                                RunnerError::ExpectedType {
+                                    actual: v.rain_type_id(),
+                                    // FIXME: We have no way to know what types would work here :(
+                                    expected: std::borrow::Cow::Owned(vec![]),
+                                },
+                            ));
+                        }
+                        Ok(())
+                    }
+                    _ => Err(cx.nid_err(
+                        type_spec_nid,
+                        RunnerError::ExpectedType {
+                            actual: type_spec_value.rain_type_id(),
+                            expected: std::borrow::Cow::Borrowed(&[RainTypeId::Boolean]),
+                        },
+                    )),
+                }
+            }
+            _ => Err(cx.nid_err(
                 type_spec_nid,
                 RunnerError::ExpectedType {
                     actual: type_spec_value.rain_type_id(),
-                    expected: std::borrow::Cow::Borrowed(&[RainTypeId::Type]),
+                    expected: std::borrow::Cow::Borrowed(&[RainTypeId::Type, RainTypeId::Closure]),
                 },
-            ));
-        };
-        Ok(if v.rain_type_id() != expected_type {
-            return Err(cx.nid_err(
-                type_spec_nid,
-                RunnerError::ExpectedType {
-                    actual: v.rain_type_id(),
-                    expected: std::borrow::Cow::Owned(vec![expected_type]),
-                },
-            ));
-        })
+            )),
+        }
     }
 
     fn evaluate_binary_op(&mut self, cx: &mut Cx, op: &BinaryOp) -> ResultValue {

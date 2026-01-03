@@ -1,0 +1,10 @@
+let main = fn() {
+	x
+}
+
+let Bool = internal._get_type(true)
+let Any = fn(v) -> Bool {
+	true
+}
+
+let x: Any = 5
