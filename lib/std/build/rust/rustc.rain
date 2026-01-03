@@ -1,30 +1,20 @@
 let std = import("std.rain")
 
-let get_file = std.utils.get_file
-let get_dir = std.utils.get_dir
-let escape_bin = std.utils.escape_bin
-let run = std.utils.run
-let unit = std.utils.unit
-let _throw = std.utils._throw
+let {File} = std.types
+let {get_file, get_dir, escape_bin, run, unit, _throw} = std.utils
 
-let zig = std.build.zig.dist.download("0.14.1", "x86_64", "linux")
-
-let zig_linker = fn() {
-	linker_script = std.utils.create_file("#!/bin/sh\n" + std.utils.stringify(zig) + " cc \"$@\"", "zig_linker.sh")
-	std.utils.run_check(unit, std.escape.bin("chmod"), ["a+x", linker_script], {})
-	linker_script
-}
+let zig: File = std.build.zig.dist.download("0.14.1", "x86_64", "linux")
+let zig_linker: File = std.utils.create_executable_file("#!/bin/sh\n" + std.utils.stringify(zig) + " cc \"$@\"", "zig_linker4.sh")
 
 let compile = fn(channel, src, outname, target, edition, extra_args) {
-	// Implicitly requires cc for linking
-	// cc = escape_bin("cc")
-
 	// Download components
 	rustc = std.build.rust.dist.get_rustc(channel, std.utils.host_info().triple)
 	rust_std = std.build.rust.dist.get_rust_std(channel, target)
 
 	merged = std.utils.create_area([rustc, rust_std])
 	env = {
+		CARGO_TERM_COLOR = "always",
+		CARGO_TERM_QUIET = "true",
 		LD_LIBRARY_PATH = get_dir(merged, "/lib"),
 		ZIG_GLOBAL_CACHE_DIR = ".",
 	}
@@ -32,11 +22,10 @@ let compile = fn(channel, src, outname, target, edition, extra_args) {
 	args = [
 		src,
 		"-o", outname,
-		"--color", "always",
 		"--target", target,
 		"--edition", edition,
 		"--emit", "dep-info,link",
-		"-C", "linker=" + std.utils.stringify(zig_linker()),
+		"-C", "linker=" + std.utils.stringify(zig_linker),
 	] + extra_args
 	run_result = run(unit, rustc_bin, args, env)
 	if !run_result.success {

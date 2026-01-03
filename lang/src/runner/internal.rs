@@ -788,13 +788,14 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn create_file(self) -> ResultValue {
-        let (contents, name) = two_args!(self);
+        let (contents, name, executable) = three_args!(self);
         let contents = expect_type!(self, String, contents);
         let name = expect_type!(self, String, name);
+        let executable = expect_type!(self, Boolean, executable);
         Ok(Value::File(Arc::new(
             self.runner
                 .driver
-                .create_file(contents.as_bytes(), name)
+                .create_file(contents.as_bytes(), name, *executable)
                 .map_err(|err| self.cx.nid_err(self.nid, err))?,
         )))
     }

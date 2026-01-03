@@ -16,7 +16,6 @@ let bytes_to_string = internal._bytes_to_string
 let parse_toml = internal._parse_toml
 let create_area = internal._create_area
 let read_file = internal._read_file
-let create_file = internal._create_file
 let get_dir = internal._get_dir
 let local_area = internal._local_area
 let split_string = internal._split_string
@@ -29,6 +28,14 @@ let file_metadata = internal._file_metadata
 let glob = internal._glob
 let stringify = internal._stringify
 let escape_run = internal._escape_run
+
+let create_file = fn(contents: String, name: String) -> File {
+	internal._create_file(contents, name, false)
+}
+
+let create_executable_file = fn(contents: String, name: String) -> File {
+	internal._create_file(contents, name, true)
+}
 
 // Reserved keywords are prefixed with _
 let _import = internal._import

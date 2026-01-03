@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -413,12 +414,30 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(contents)
     }
 
-    fn create_file(&self, contents: &[u8], name: &str) -> Result<File, RunnerError> {
+    fn create_file(
+        &self,
+        contents: &[u8],
+        name: &str,
+        executable: bool,
+    ) -> Result<File, RunnerError> {
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
         let entry = FSEntry::new(area, path);
         let resolved_path = self.resolve_fs_entry(&entry);
-        std::fs::write(resolved_path, contents).map_err(RunnerError::AreaIOError)?;
+        std::fs::write(&resolved_path, contents).map_err(RunnerError::AreaIOError)?;
+        // Setting executable is only supported on unix
+        #[cfg(target_family = "unix")]
+        {
+            if executable {
+                let metadata =
+                    std::fs::metadata(&resolved_path).map_err(RunnerError::AreaIOError)?;
+                let mut permissions = metadata.permissions();
+                // Set execute for owner
+                permissions.set_mode(permissions.mode() | 0o100);
+                std::fs::set_permissions(resolved_path, permissions)
+                    .map_err(RunnerError::AreaIOError)?;
+            }
+        }
         // Safety: We just created the file
         let file = unsafe { File::new(entry) };
         Ok(file)

@@ -17,7 +17,7 @@ pub let load_stdlib = fn(version: String) {
 	if expected != actual {
 		internal._throw("checksum does not match '" + expected + "' != '" + actual + "'")
 	}
-	lib_area = internal._extract_tar(internal._extract_gzip(download_result.file))
+	lib_area = internal._extract_tar(internal._extract_gzip(download_result.file, "temp.tar"))
 	stdlib_area = internal._create_area([internal._get_dir(lib_area, "lib/std")])
 	internal._import(internal._get_file(stdlib_area, "std.rain"))
 }

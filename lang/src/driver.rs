@@ -46,7 +46,12 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn sha512(&self, file: &File) -> Result<String, RunnerError>;
     fn create_area(&self, dirs: &[&FSEntry]) -> Result<FileArea, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, std::io::Error>;
-    fn create_file(&self, contents: &[u8], name: &str) -> Result<File, RunnerError>;
+    fn create_file(
+        &self,
+        contents: &[u8],
+        name: &str,
+        executable: bool,
+    ) -> Result<File, RunnerError>;
     fn file_metadata(&self, file: &File) -> Result<FileMetadata, RunnerError>;
     fn glob(&self, dir: &Dir, pattern: &str) -> Result<Vec<File>, RunnerError>;
     fn prelude_src(&self) -> Option<Cow<'static, str>>;

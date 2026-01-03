@@ -7,7 +7,6 @@ mod remote;
 
 use std::path::PathBuf;
 use std::{
-    borrow::Cow,
     ffi::OsStr,
     io::{Write as _, stderr, stdin},
     process::ExitCode,
@@ -149,9 +148,9 @@ fn run(
             host_override: options.host.clone(),
         },
         |im| match options.report {
-            ReportMode::Short => {
+            ReportMode::Basic => {
                 match im {
-                    RunProgress::Print(s) => eprintln!("\r{s:120}"),
+                    RunProgress::Print(s) => eprintln!("{s}"),
                     RunProgress::EnterCall(s) => {
                         if !s.starts_with("internal.") {
                             stack.push(s);
@@ -164,7 +163,22 @@ fn run(
                     }
                 }
                 if let Some(last) = stack.last() {
-                    eprint!("\r{:120}", trunc_string(last, 120));
+                    eprintln!("{last}");
+                }
+                let _ = stderr().flush();
+            }
+            ReportMode::Verbose => {
+                match im {
+                    RunProgress::Print(s) => eprintln!("{s}"),
+                    RunProgress::EnterCall(s) => {
+                        stack.push(s);
+                    }
+                    RunProgress::ExitCall(_) => {
+                        stack.pop();
+                    }
+                }
+                if let Some(last) = stack.last() {
+                    eprintln!("{last}");
                 }
                 let _ = stderr().flush();
             }
@@ -179,7 +193,7 @@ fn run(
         output: result,
         elapsed,
     } = run_response;
-    if options.report == ReportMode::Short {
+    if options.report == ReportMode::Basic {
         eprint!("\r{:120}\r", "");
     }
     match result {
@@ -278,7 +292,7 @@ struct GlobalOptions {
     #[arg(long, global = true, env = "RAIN_SEAL")]
     seal: bool,
     /// The reporting mode to use
-    #[arg(long, global = true, default_value = "short")]
+    #[arg(long, global = true, default_value = "basic")]
     report: ReportMode,
     /// The path to the rain source file entrypoint, if not specified will auto resolve main.rain
     #[arg(long, global = true)]
@@ -330,16 +344,10 @@ fn validate_cli() {
     <Cli as clap::CommandFactory>::command().debug_assert();
 }
 
-fn trunc_string(s: &str, limit: usize) -> Cow<'_, str> {
-    if s.len() <= limit {
-        return s.into();
-    }
-    (s[..limit - 3].to_owned() + "...").into()
-}
-
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, clap::ValueEnum)]
 enum ReportMode {
     #[default]
-    Short,
+    Basic,
+    Verbose,
     None,
 }
