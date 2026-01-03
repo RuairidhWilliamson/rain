@@ -10,14 +10,27 @@ let load_stdlib = fn() {
 	internal._prelude().load_stdlib(stdlib_area)
 }
 
-let print = std.print
+let {print} = std
+let {String, File} = std.types
+
+let cargo = std.escape.bin("cargo")
+
+let cargo_env =  {
+	CARGO_TERM_COLOR = "always",
+	CARGO_TERM_QUIET = "true",
+}
 
 pub let lint = fn() {
 	check_empty_files()
 }
 
+let ci = fn() {
+	check()
+}
+
 pub let check = fn() {
 	lint()
+	clippy()
 	test()
 }
 
@@ -26,21 +39,14 @@ let build = fn() {
 }
 
 pub let build_release = fn(target_triple: String) -> File {
-	env = {
-		CARGO_TERM_COLOR = "always",
-		CARGO_TERM_QUIET = "true",
-	}
-	cargo = std.escape.bin("cargo")
 	args = [
 		"build",
 		"--package", "rain",
 		"--target", target_triple,
-		"--quiet",
 		"--release",
-		"--color", "always",
 		"--no-default-features",
 	]
-	std.escape.run(area, cargo, args, env)
+	std.escape.run(area, cargo, args, cargo_env)
 	std.fs.file(area, "target/" + target_triple + "/release/rain" + std.utils.exe_suffix(target_triple))
 }
 
@@ -88,37 +94,41 @@ let test_zig = fn() {
 	print(run_result.stderr)
 }
 
-let publish = fn(version) {
+pub let publish = fn(version: String) {
 	publish_module.publish(version)
 }
 
-let install_cli = fn() {
-	cargo = std.escape.bin("cargo")
-	std.escape.run(area, cargo, ["install", "--path", "cli", "--locked", "-q"], {})
+pub let install_cli = fn() {
+	std.escape.run(area, cargo, ["install", "--path", "cli", "--locked"], cargo_env)
+	std.utils.unit
 }
 
-let test = fn() {
+pub let test = fn() {
 	test_mod.test_caching()
+	regular_test()
 }
 
-let ci = fn() {
-	check()
+let clippy = fn() {
+	std.escape.run(area, cargo, ["clippy"], cargo_env)
+	std.utils.unit
+}
+
+let regular_test = fn() {
+	std.escape.run(area, cargo, ["test", "-q"], cargo_env)
+	std.utils.unit
 }
 
 let nextest = fn() {
-	cargo = std.escape.bin("cargo")
-	std.escape.run(area, cargo, ["nextest", "run"], {})
+	std.escape.run(area, cargo, ["nextest", "run"], cargo_env)
 	std.utils.unit
 }
 
 let coverage = fn() -> File {
-	cargo = std.escape.bin("cargo")
-	std.escape.run(area, cargo, ["llvm-cov", "nextest", "-p", "rain-lang", "-p", "rain-core", "--html"], {})
+	std.escape.run(area, cargo, ["llvm-cov", "nextest", "-p", "rain-lang", "-p", "rain-core", "--html"], cargo_env)
 	std.fs.file(area, "target/llvm-cov/html/index.html")
 }
 
 let cleanup_snapshots = fn() {
-	cargo = std.escape.bin("cargo")
-	std.escape.run(area, cargo, ["insta", "test", "--unreferenced", "delete"], {})
+	std.escape.run(area, cargo, ["insta", "test", "--unreferenced", "delete"], cargo_env)
 	std.utils.unit
 }

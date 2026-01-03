@@ -14,8 +14,8 @@ pub let test_caching = fn() {
 }
 
 let test_prelude_cache = fn() {
-	std1 = internal._prelude().load_stdlib("0.1.4")
-	std2 = internal._prelude().load_stdlib("0.1.4")
+	std1 = internal._prelude().download_stdlib("0.1.4")
+	std2 = internal._prelude().download_stdlib("0.1.4")
 	std.assert.is_true(internal._rust_eq(std1, std2))
 }
 
