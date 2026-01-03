@@ -1,10 +1,9 @@
 let std = import("std.rain")
-let {utils, compression} = std
 
-let download = utils.download
-let _throw = utils._throw
-let get_file = utils.get_file
-let get_dir = utils.get_dir
+let download = std.utils.download
+let _throw = std.utils._throw
+let get_file = std.fs.file
+let get_dir = std.fs.dir
 
 let download_pre_sha = fn(url, filename) {
 	file_url = url + "/" + filename
@@ -16,8 +15,8 @@ let download_pre_sha = fn(url, filename) {
 	if !download_result.ok {
 		_throw("download failed")
 	}
-	expected = utils.read_file(sha256_download_result.file)
-	actual = utils.sha256(download_result.file) + "  " + filename + utils.newline
+	expected = std.fs.read_file(sha256_download_result.file)
+	actual = std.fs.sha256(download_result.file) + "  " + filename + std.utils.newline
 	if expected != actual {
 		_throw("checksum does not match '" + expected + "' != '" + actual + "'")
 	}
@@ -29,8 +28,8 @@ let download_pre_sha = fn(url, filename) {
 let get_manifest = fn(channel) {
 	base_url = "https://static.rust-lang.org"
 	manifest_file = download_pre_sha(base_url + "/dist", "channel-rust-" + channel + ".toml")
-	manifest_toml = utils.parse_toml(utils.read_file(manifest_file))
-	if utils.index(manifest_toml, "manifest-version") != "2" {
+	manifest_toml = std.utils.parse_toml(std.fs.read_file(manifest_file))
+	if std.utils.index(manifest_toml, "manifest-version") != "2" {
 		_throw("unsupported manifest version, expected 2 but got " + manifest_toml.manifest_version)
 	}
 	manifest_toml
@@ -44,11 +43,11 @@ let get_gz_artifact = fn(artifact) {
 	if !download_result.ok {
 		_throw("download failed")
 	}
-	hash = utils.sha256(download_result.file)
+	hash = std.fs.sha256(download_result.file)
 	if artifact.hash != hash {
 		_throw("checksum does not match")
 	}
-	compression.extract_tar_gz(download_result.file)
+	std.compression.extract_tar_gz(download_result.file)
 }
 
 let get_xz_artifact = fn(artifact) {
@@ -59,20 +58,20 @@ let get_xz_artifact = fn(artifact) {
 	if !download_result.ok {
 		_throw("download failed")
 	}
-	hash = utils.sha256(download_result.file)
+	hash = std.fs.sha256(download_result.file)
 	if artifact.xz_hash != hash {
 		_throw("checksum does not match")
 	}
-	compression.extract_tar_xz(download_result.file)
+	std.compression.extract_tar_xz(download_result.file)
 }
 
 let get_version_path = fn(manifest) {
 	// Just use the rustc version for everything
-	version_split = utils.split_string(manifest.pkg.rustc.version, " ")
-	version = utils.index(version_split, 0)
-	if utils.string_contains(version, "beta") {
+	version_split = std.utils.split_string(manifest.pkg.rustc.version, " ")
+	version = std.utils.index(version_split, 0)
+	if std.utils.string_contains(version, "beta") {
 		"beta"
-	} else if utils.string_contains(version, "nightly") {
+	} else if std.utils.string_contains(version, "nightly") {
 		"nightly"
 	} else {
 		version
@@ -82,7 +81,7 @@ let get_version_path = fn(manifest) {
 let get_rustc = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
-	rustc_pkg = get_xz_artifact(utils.index(manifest.pkg.rustc.target, target))
+	rustc_pkg = get_xz_artifact(std.utils.index(manifest.pkg.rustc.target, target))
 	rustc = get_dir(rustc_pkg, "rustc-" + version + "-" + target + "/rustc")
 	rustc
 }
@@ -90,8 +89,8 @@ let get_rustc = fn(channel, target) {
 let get_rust_std = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
-	pkg_targets = utils.index(manifest.pkg, "rust-std")
-	rust_std_pkg = get_xz_artifact(utils.index(pkg_targets.target, target))
+	pkg_targets = std.utils.index(manifest.pkg, "rust-std")
+	rust_std_pkg = get_xz_artifact(std.utils.index(pkg_targets.target, target))
 	rust_std = get_dir(rust_std_pkg, "rust-std-" + version + "-" + target + "/rust-std-" + target)
 	rust_std
 }
@@ -99,7 +98,7 @@ let get_rust_std = fn(channel, target) {
 let get_cargo = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
-	cargo_pkg = get_xz_artifact(utils.index(manifest.pkg.cargo.target, target))
+	cargo_pkg = get_xz_artifact(std.utils.index(manifest.pkg.cargo.target, target))
 	cargo = get_dir(cargo_pkg, "cargo-" + version + "-" + target + "/cargo")
 	cargo
 }
@@ -107,8 +106,8 @@ let get_cargo = fn(channel, target) {
 let get_clippy = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
-	pkg_targets = utils.index(manifest.pkg, "clippy-preview")
-	clippy_pkg = get_xz_artifact(utils.index(pkg_targets.target, target))
+	pkg_targets = std.utils.index(manifest.pkg, "clippy-preview")
+	clippy_pkg = get_xz_artifact(std.utils.index(pkg_targets.target, target))
 	clippy = get_dir(clippy_pkg, "clippy-" + version + "-" + target + "/clippy-preview")
 	clippy
 }
@@ -116,8 +115,8 @@ let get_clippy = fn(channel, target) {
 let get_rustfmt = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
-	pkg_targets = utils.index(manifest.pkg, "rustfmt-preview")
-	rustfmt_pkg = get_xz_artifact(utils.index(pkg_targets.target, target))
+	pkg_targets = std.utils.index(manifest.pkg, "rustfmt-preview")
+	rustfmt_pkg = get_xz_artifact(std.utils.index(pkg_targets.target, target))
 	rustfmt = get_dir(rustfmt_pkg, "rustfmt-" + version + "-" + target + "/rustfmt-preview")
 	rustfmt
 }
@@ -125,8 +124,8 @@ let get_rustfmt = fn(channel, target) {
 let get_llvm_tools = fn(channel, target) {
 	manifest = get_manifest(channel)
 	version = get_version_path(manifest)
-	pkg_targets = utils.index(manifest.pkg, "llvm-tools-preview")
-	llvm_tools_pkg = get_xz_artifact(utils.index(pkg_targets.target, target))
+	pkg_targets = std.utils.index(manifest.pkg, "llvm-tools-preview")
+	llvm_tools_pkg = get_xz_artifact(std.utils.index(pkg_targets.target, target))
 	rustfmt = get_dir(llvm_tools_pkg, "llvm-tools-" + version + "-" + target + "/llvm-tools-preview")
 	rustfmt
 }

@@ -2,21 +2,10 @@
 let std = import("std.rain")
 let {String, List, File, Bool, Any, Area} = std.types
 
-let print = internal._print
-let debug = internal._debug
-let get_file = internal._get_file
-let module_file = internal._module_file
 let run = internal._run
-let escape_bin = internal._escape_bin
 let unit = internal._unit()
-let get_area = internal._get_area
-let sha256 = internal._sha256
-let sha512 = internal._sha512
 let bytes_to_string = internal._bytes_to_string
 let parse_toml = internal._parse_toml
-let create_area = internal._create_area
-let read_file = internal._read_file
-let get_dir = internal._get_dir
 let local_area = internal._local_area
 let split_string = internal._split_string
 let index = internal._index
@@ -24,21 +13,10 @@ let host_info = internal._host_info
 let string_contains = internal._string_contains
 let export_to_local = internal._export_to_local
 let check_export_to_local = internal._check_export_to_local
-let file_metadata = internal._file_metadata
 let glob = internal._glob
 let stringify = internal._stringify
-let escape_run = internal._escape_run
-
-let create_file = fn(contents: String, name: String) -> File {
-	internal._create_file(contents, name, false)
-}
-
-let create_executable_file = fn(contents: String, name: String) -> File {
-	internal._create_file(contents, name, true)
-}
 
 // Reserved keywords are prefixed with _
-let _import = internal._import
 let _throw = internal._throw
 
 let download = fn(url) {
@@ -104,10 +82,6 @@ let is_windows = fn(target_triple: String) -> Bool {
 
 let is_amd64 = fn(target_triple: String) -> Bool {
 	string_contains(target_triple, "x86_64")
-}
-
-let rename_file = fn(file: File, new_name: String) -> File {
-	internal._copy_file(file, new_name)
 }
 
 let path_var_separator = fn(target_triple) {

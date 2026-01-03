@@ -1,7 +1,13 @@
-let build = import("build.rain")
-let escape = import("escape.rain")
-let utils = import("utils.rain")
-let assert = import("assert.rain")
-let types = import("types.rain")
-let list = import("list.rain")
-let compression = import("compression.rain")
+pub let build = import("build.rain")
+pub let escape = import("escape.rain")
+pub let utils = import("utils.rain")
+pub let assert = import("assert.rain")
+pub let types = import("types.rain")
+pub let list = import("list.rain")
+pub let record = import("record.rain")
+pub let compression = import("compression.rain")
+pub let fs = import("fs.rain")
+
+pub let unit = internal._unit()
+pub let print = internal._print
+pub let debug = internal._debug

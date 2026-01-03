@@ -52,3 +52,7 @@ pub let foreach = fn(list: List(Any), func) {
 		unit
 	})
 }
+
+pub let concat = fn(a: List(Any), b: List(Any)) -> List(Any) {
+	a + b
+}

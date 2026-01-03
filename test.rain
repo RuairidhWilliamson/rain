@@ -1,7 +1,7 @@
 let main = import("main.rain")
 let std = main.std
 
-let {print} = std.utils
+let {print} = std
 
 // Run tests to make sure intra-process caching is working
 
@@ -20,7 +20,7 @@ let test_prelude_cache = fn() {
 }
 
 let rustc_helloworld = fn() {
-	src = std.utils.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
+	src = std.fs.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
 	std.build.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple, "2024", [])
 }
 
@@ -33,13 +33,13 @@ let test_rustc_cache = fn() {
 let test_create_file_cache = fn() {
 	contents = "hello world"
 	name = "helloworld.txt"
-	file1 = std.utils.create_file(contents, name)
-	file2 = std.utils.create_file(contents, name)
+	file1 = std.fs.create_file(contents, name)
+	file2 = std.fs.create_file(contents, name)
 	std.assert.is_true(internal._rust_eq(file1, file2))
 }
 
 let test_import_cache = fn() {
-	rain_src = std.utils.create_file("let foo = 5", "foo.rain")
+	rain_src = std.fs.create_file("let foo = 5", "foo.rain")
 	main1 = internal._import(rain_src)
 	main2 = internal._import(rain_src)
 	std.assert.is_true(internal._rust_eq(main1, main2))

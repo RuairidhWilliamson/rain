@@ -1,26 +1,25 @@
 let std = import("std.rain")
-let {utils, compression} = std
 
 // TODO: Check minisig
 
 let download = fn(version, arch, os) {
 	if os == "windows" {
 		url = "https://ziglang.org/download/" + version + "/zig-" + arch + "-" + os + "-" + version + ".zip"
-		download_result = utils.download(url)
+		download_result = std.utils.download(url)
 		if !download_result.ok {
-			utils.print(url)
-			utils.print(download_result)
-			utils._throw("download failed")
+			std.print(url)
+			std.print(download_result)
+			std.utils._throw("download failed")
 		}
-		utils.get_file(compression.extract_zip(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
+		std.fs.file(std.compression.extract_zip(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
 	} else {
 		url = "https://ziglang.org/download/" + version + "/zig-" + arch + "-" + os + "-" + version + ".tar.xz"
-		download_result = utils.download(url)
+		download_result = std.utils.download(url)
 		if !download_result.ok {
-			utils.print(url)
-			utils.print(download_result)
-			utils._throw("download failed")
+			std.print(url)
+			std.print(download_result)
+			std.utils._throw("download failed")
 		}
-		utils.get_file(compression.extract_tar_xz(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
+		std.fs.file(std.compression.extract_tar_xz(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
 	}
 }

@@ -4,9 +4,9 @@ let b = 2
 let foo = fn() {
 	// Hi
 	if b == 5 {
-		std.utils.print("Wow")
+		std.print("Wow")
 	} else {
-		std.utils.print("Woooo")
+		std.print("Woooo")
 	}
 	internal._throw("Hi")
 	!a
@@ -14,5 +14,5 @@ let foo = fn() {
 }
 
 let bar = fn(x1: std.types.String) {
-	std.utils.print(x1)
+	std.print(x1)
 }

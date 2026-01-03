@@ -1,17 +1,21 @@
 let std = import("std.rain")
 
 let {File, String, List} = std.types
-let {get_file, get_dir, escape_bin, run, unit, _throw} = std.utils
+let {run, unit, _throw} = std.utils
+
+let escape_bin = std.escape.bin
+let get_file = std.fs.file
+let get_dir = std.fs.dir
 
 let zig: File = std.build.zig.dist.download("0.14.1", "x86_64", "linux")
-let zig_linker: File = std.utils.create_executable_file("#!/bin/sh\n" + std.utils.stringify(zig) + " cc \"$@\"", "zig_linker4.sh")
+let zig_linker: File = std.fs.create_executable_file("#!/bin/sh\n" + std.utils.stringify(zig) + " cc \"$@\"", "zig_linker4.sh")
 
 let compile = fn(channel, src: File, outname: String, target: String, edition: String, extra_args: List(String)) {
 	// Download components
 	rustc = std.build.rust.dist.get_rustc(channel, std.utils.host_info().triple)
 	rust_std = std.build.rust.dist.get_rust_std(channel, target)
 
-	merged = std.utils.create_area([rustc, rust_std])
+	merged = std.fs.create_area([rustc, rust_std])
 	env = {
 		CARGO_TERM_COLOR = "always",
 		CARGO_TERM_QUIET = "true",

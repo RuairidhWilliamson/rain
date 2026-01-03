@@ -1,0 +1,11 @@
+let std = import("std.rain")
+
+let {Record, List, String, Any} = std.types
+
+pub let merge = fn(a: Record(Any), b: Record(Any)) -> Record(Any) {
+	internal._merge_records(a, b)
+}
+
+pub let keys = fn(record: Record(Any)) -> List(String) {
+	internal._record_keys(record)
+}
