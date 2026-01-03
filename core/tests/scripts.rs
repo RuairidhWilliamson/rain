@@ -44,4 +44,5 @@ tests! {
     destructure,
     destructure_import,
     any_type,
+    record_type_check,
 }

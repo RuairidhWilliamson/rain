@@ -1,6 +1,7 @@
 let area = internal._get_area(this_file)
 
 let get_type = internal._get_type
+let fold = internal._fold
 
 pub let Unit = get_type(internal._unit())
 pub let Bool = get_type(false)
@@ -16,19 +17,30 @@ pub let Dir = get_type(internal._get_dir(area, "build"))
 pub let Any = fn(v) -> Bool { true }
 
 pub let Type = fn(v) {
+	// A type is either a concrete type or a function
 	get_type(v) == get_type(Unit) || get_type(v) == get_type(Any)
+}
+
+let check_type = fn(v: Any, type_constraint: Type) -> Bool {
+	if get_type(type_constraint) == get_type(Unit) {
+		get_type(v) == type_constraint
+	} else {
+		type_constraint(v)
+	}
 }
 
 pub let List = fn(inner: Type) -> Type {
 	fn(v: Any) -> Bool {
-		get_type(v) == AnyList
-		// TODO: Check all the elements match the inner type
+		get_type(v) == AnyList && fold(true, v, fn(acc, x) {
+			acc && check_type(x, inner)
+		})
 	}
 }
 
 pub let Record = fn(inner: Type) -> Type {
 	fn(v: Any) -> Bool {
-		get_type(v) == AnyRecord
-		// TODO: Check all the elements match the inner type
+		get_type(v) == AnyRecord && fold(true, internal._record_keys(v), fn(acc, x) {
+			acc && check_type(internal._index(v, x), inner)
+		})
 	}
 }

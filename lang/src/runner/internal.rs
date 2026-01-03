@@ -89,6 +89,7 @@ pub enum InternalFunction {
     GetType,
     CreateWriteArea,
     Fold,
+    RecordKeys,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -152,6 +153,7 @@ impl InternalFunction {
             "_get_type" => Some(Self::GetType),
             "_create_write_area" => Some(Self::CreateWriteArea),
             "_fold" => Some(Self::Fold),
+            "_record_keys" => Some(Self::RecordKeys),
             _ => None,
         }
     }
@@ -321,6 +323,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::GetType => self.get_type(),
             InternalFunction::CreateWriteArea => self.create_write_area(),
             InternalFunction::Fold => self.fold(),
+            InternalFunction::RecordKeys => self.record_keys(),
         }
     }
 
@@ -1485,5 +1488,16 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             )?;
         }
         Ok(acc)
+    }
+
+    fn record_keys(self) -> ResultValue {
+        let record = expect_type!(self, Record, single_arg!(self));
+        Ok(Value::List(Arc::new(RainList(
+            record
+                .0
+                .keys()
+                .map(|k| Value::String(Arc::new(k.clone())))
+                .collect(),
+        ))))
     }
 }

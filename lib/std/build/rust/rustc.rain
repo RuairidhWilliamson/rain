@@ -1,12 +1,12 @@
 let std = import("std.rain")
 
-let {File} = std.types
+let {File, String, List} = std.types
 let {get_file, get_dir, escape_bin, run, unit, _throw} = std.utils
 
 let zig: File = std.build.zig.dist.download("0.14.1", "x86_64", "linux")
 let zig_linker: File = std.utils.create_executable_file("#!/bin/sh\n" + std.utils.stringify(zig) + " cc \"$@\"", "zig_linker4.sh")
 
-let compile = fn(channel, src, outname, target, edition, extra_args) {
+let compile = fn(channel, src: File, outname: String, target: String, edition: String, extra_args: List(String)) {
 	// Download components
 	rustc = std.build.rust.dist.get_rustc(channel, std.utils.host_info().triple)
 	rust_std = std.build.rust.dist.get_rust_std(channel, target)

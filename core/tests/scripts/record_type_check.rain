@@ -1,0 +1,13 @@
+let stdlib_area = internal._local_area("../../../lib/std")
+let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
+
+let {String, Record} = std.types
+
+let main = fn() {
+	foo
+}
+
+let foo: Record(String) = {
+	x = "abc",
+	y = "5",
+}

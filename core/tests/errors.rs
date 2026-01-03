@@ -35,4 +35,5 @@ tests! {
     fail_type_check,
     fail_let_type_check,
     fail_let_destructure_type_check,
+    record_type_check,
 }
