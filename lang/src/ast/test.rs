@@ -137,3 +137,15 @@ fn destructure_two_items() {
     let src = "let {a: Integer, b} = {a = 4, b = 6}";
     insta::assert_snapshot!(parse_display_script(src));
 }
+
+#[test]
+fn comment_no_text() {
+    let src = "//\0";
+
+    assert!(super::parser::parse_module(src).is_err());
+}
+
+#[quickcheck_macros::quickcheck]
+fn qc_parse_any_script(src: String) {
+    let _ = super::parser::parse_module(&src);
+}

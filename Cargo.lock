@@ -2701,8 +2701,6 @@ dependencies = [
  "lru",
  "num-bigint",
  "poison_panic",
- "quickcheck",
- "quickcheck_macros",
  "rain-lang",
  "serde",
  "sha2",

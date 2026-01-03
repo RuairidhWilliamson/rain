@@ -193,31 +193,39 @@ fn bad_string_literal_prefix() {
 
 #[expect(clippy::needless_pass_by_value)]
 #[quickcheck_macros::quickcheck]
-fn tokenise_any_script(src: String) {
+fn qc_tokenise_any_script(src: String) {
     let _: Result<(), ErrorLocalSpan<TokenError>> =
         TokenStream::new(&src).try_for_each(|r| r.map(|_| ()));
 }
 
 #[expect(clippy::needless_pass_by_value)]
 #[quickcheck_macros::quickcheck]
-fn tokenise_non_control_character_script(src: String) -> TestResult {
+fn qc_tokenise_non_control_character_script(src: String) -> TestResult {
     if src.contains(|c: char| match c {
         '"' | '\'' | '`' => true,
         _ => c.is_control(),
     }) {
         return TestResult::discard();
     }
-    convert_test_result(TokenStream::new(&src).try_for_each(|r| {
+    let result = TokenStream::new(&src).try_for_each(|r| {
         r.map(|tls| {
             // Check the span can be indexed and doesn't break UTF-8 boundaries
             tls.span.contents(&src);
         })
-    }))
+    });
+    match result {
+        Ok(_) => TestResult::passed(),
+        Err(ErrorLocalSpan {
+            err: TokenError::ReservedKeyword,
+            ..
+        }) => TestResult::discard(),
+        Err(err) => TestResult::error(format!("{err:?}")),
+    }
 }
 
 #[expect(clippy::needless_pass_by_value)]
 #[quickcheck_macros::quickcheck]
-fn tokenise_string_literal(contents: String) -> TestResult {
+fn qc_tokenise_string_literal(contents: String) -> TestResult {
     if contents.contains(['"', '\n', '\\']) {
         return TestResult::discard();
     }

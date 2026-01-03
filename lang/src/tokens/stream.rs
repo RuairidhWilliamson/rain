@@ -38,7 +38,7 @@ impl TokenStream<'_> {
             };
             let c_next = bytes.get(self.index + 1);
             let tls = match (c, c_next) {
-                (b'/', Some(b'/')) => self.comment(),
+                (b'/', Some(b'/')) => self.comment()?,
                 (b'.', _) => self.inc(Token::Dot),
                 (b'*', _) => self.inc(Token::Star),
                 (b'+', _) => self.inc(Token::Plus),
@@ -117,19 +117,27 @@ impl TokenStream<'_> {
         tls
     }
 
-    fn comment(&mut self) -> TokenLocalSpan {
+    fn comment(&mut self) -> Result<TokenLocalSpan, ErrorLocalSpan<TokenError>> {
         let start = self.index;
         self.index += 2;
         while let Some(&c) = self.source.as_bytes().get(self.index) {
-            if b'\n' == c {
-                break;
+            match c {
+                b'\n' => {
+                    break;
+                }
+                b'\0' => {
+                    return Err(
+                        LocalSpan::byte(self.index).with_error(TokenError::IllegalAsciiChar(c))
+                    );
+                }
+                _ => {}
             }
             self.index += 1;
         }
-        TokenLocalSpan {
+        Ok(TokenLocalSpan {
             token: Token::Comment,
             span: LocalSpan::new(start, self.index),
-        }
+        })
     }
 
     fn ident(&mut self) -> TokenLocalSpan {
