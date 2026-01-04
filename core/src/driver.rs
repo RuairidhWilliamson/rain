@@ -552,6 +552,39 @@ impl DriverTrait for DriverImpl<'_> {
         let mut read = std::fs::File::open(self.resolve_fs_entry(file.inner()))
             .map_err(RunnerError::AreaIOError)?;
         std::io::copy(&mut read, &mut encoder).map_err(RunnerError::AreaIOError)?;
+        encoder.finish().map_err(RunnerError::AreaIOError)?;
+        // Safety: We just created the file
+        let file = unsafe { File::new(entry) };
+        Ok(file)
+    }
+
+    fn compress_zstd(&self, file: &File, name: &str, level: u8) -> Result<File, RunnerError> {
+        let area = self.create_empty_area()?;
+        let path = SealedFilePath::new(name)?;
+        let entry = FSEntry::new(area, path);
+        let output_path = self.resolve_fs_entry(&entry);
+        let f = std::fs::File::create(output_path).map_err(RunnerError::AreaIOError)?;
+        let mut encoder = zstd::Encoder::new(f, level as i32).map_err(RunnerError::AreaIOError)?;
+        let mut read = std::fs::File::open(self.resolve_fs_entry(file.inner()))
+            .map_err(RunnerError::AreaIOError)?;
+        std::io::copy(&mut read, &mut encoder).map_err(RunnerError::AreaIOError)?;
+        encoder.finish().map_err(RunnerError::AreaIOError)?;
+        // Safety: We just created the file
+        let file = unsafe { File::new(entry) };
+        Ok(file)
+    }
+
+    fn extract_zstd(&self, file: &File, name: &str) -> Result<File, RunnerError> {
+        let resolved_path = self.resolve_fs_entry(file.inner());
+        let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
+        let mut raw = zstd::Decoder::new(f).map_err(RunnerError::AreaIOError)?;
+        let area = self.create_empty_area()?;
+        let path = SealedFilePath::new(name)?;
+        let entry = FSEntry::new(area, path);
+        let resolved_path = self.resolve_fs_entry(&entry);
+        let mut out_file =
+            std::fs::File::create_new(resolved_path).map_err(RunnerError::AreaIOError)?;
+        std::io::copy(&mut raw, &mut out_file).map_err(RunnerError::AreaIOError)?;
         // Safety: We just created the file
         let file = unsafe { File::new(entry) };
         Ok(file)

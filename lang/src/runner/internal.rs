@@ -4,7 +4,8 @@ mod download;
 mod run;
 
 use std::{
-    borrow::Cow, ops::RangeInclusive, path::Path, str::FromStr as _, sync::Arc, time::Instant,
+    borrow::Cow, hash::Hash, ops::RangeInclusive, path::Path, str::FromStr as _, sync::Arc,
+    time::Instant,
 };
 
 use indexmap::IndexMap;
@@ -37,59 +38,61 @@ use super::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum InternalFunction {
-    Print,
-    Debug,
-    GetFile,
-    GetDir,
-    Import,
-    ModuleFile,
-    ExtractZip,
-    ExtractGzip,
-    ExtractXz,
-    ExtractTar,
-    Run,
-    EscapeBin,
-    Unit,
-    GetArea,
-    Download,
-    Throw,
-    Sha256,
-    Sha512,
     BytesToString,
-    ParseToml,
-    ParseJSON,
-    CreateArea,
-    ReadFile,
-    CreateFile,
-    LocalArea,
-    SplitString,
-    Index,
-    HostInfo,
-    StringContains,
-    ExportToLocal,
     CheckExportToLocal,
-    FileMetadata,
-    Glob,
-    Stringify,
-    EscapeRun,
-    Embed,
-    CreateTar,
-    CompressGzip,
-    RustEq,
-    GetSecret,
-    SetCacheNever,
     ClearCallingCacheDeps,
-    MergeRecords,
-    ParseTargetTriple,
+    CompressGzip,
+    CompressZstd,
+    CopyFile,
+    CreateArea,
+    CreateFile,
+    CreateTar,
+    CreateWriteArea,
+    Debug,
+    Download,
+    Embed,
+    EnvVar,
+    EscapeBin,
+    EscapeHard,
+    EscapeRun,
+    ExportToLocal,
+    ExtractGzip,
+    ExtractTar,
+    ExtractXz,
+    ExtractZip,
+    ExtractZstd,
+    FileMetadata,
+    Fold,
+    GetArea,
+    GetDir,
+    GetFile,
+    GetSecret,
+    GetType,
     GitContents,
     GitLfsSmudge,
-    EnvVar,
-    CopyFile,
-    EscapeHard,
-    GetType,
-    CreateWriteArea,
-    Fold,
+    Glob,
+    HostInfo,
+    Import,
+    Index,
+    LocalArea,
+    MergeRecords,
+    ModuleFile,
+    ParseJSON,
+    ParseTargetTriple,
+    ParseToml,
+    Print,
+    ReadFile,
     RecordKeys,
+    Run,
+    RustEq,
+    SetCacheNever,
+    Sha256,
+    Sha512,
+    SplitString,
+    StringContains,
+    Stringify,
+    Throw,
+    Unit,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -101,59 +104,61 @@ impl std::fmt::Display for InternalFunction {
 impl InternalFunction {
     pub fn evaluate_internal_function_name(name: &str) -> Option<Self> {
         match name {
-            "_print" => Some(Self::Print),
-            "_debug" => Some(Self::Debug),
-            "_get_file" => Some(Self::GetFile),
-            "_get_dir" => Some(Self::GetDir),
-            "_import" => Some(Self::Import),
-            "_module_file" => Some(Self::ModuleFile),
-            "_extract_zip" => Some(Self::ExtractZip),
-            "_extract_gzip" => Some(Self::ExtractGzip),
-            "_extract_xz" => Some(Self::ExtractXz),
-            "_extract_tar" => Some(Self::ExtractTar),
-            "_run" => Some(Self::Run),
-            "_escape_bin" => Some(Self::EscapeBin),
-            "_unit" => Some(Self::Unit),
-            "_get_area" => Some(Self::GetArea),
-            "_download" => Some(Self::Download),
-            "_throw" => Some(Self::Throw),
-            "_sha256" => Some(Self::Sha256),
-            "_sha512" => Some(Self::Sha512),
             "_bytes_to_string" => Some(Self::BytesToString),
-            "_parse_toml" => Some(Self::ParseToml),
-            "_create_area" => Some(Self::CreateArea),
-            "_read_file" => Some(Self::ReadFile),
-            "_create_file" => Some(Self::CreateFile),
-            "_local_area" => Some(Self::LocalArea),
-            "_split_string" => Some(Self::SplitString),
-            "_index" => Some(Self::Index),
-            "_host_info" => Some(Self::HostInfo),
-            "_string_contains" => Some(Self::StringContains),
-            "_export_to_local" => Some(Self::ExportToLocal),
             "_check_export_to_local" => Some(Self::CheckExportToLocal),
-            "_file_metadata" => Some(Self::FileMetadata),
-            "_glob" => Some(Self::Glob),
-            "_stringify" => Some(Self::Stringify),
-            "_escape_run" => Some(Self::EscapeRun),
-            "_embed" => Some(Self::Embed),
-            "_create_tar" => Some(Self::CreateTar),
-            "_rust_eq" => Some(Self::RustEq),
-            "_get_secret" => Some(Self::GetSecret),
-            "_set_cache_never" => Some(Self::SetCacheNever),
             "_clear_calling_cache_deps" => Some(Self::ClearCallingCacheDeps),
-            "_merge_records" => Some(Self::MergeRecords),
-            "_parse_target_triple" => Some(Self::ParseTargetTriple),
+            "_compress_gzip" => Some(Self::CompressGzip),
+            "_compress_zstd" => Some(Self::CompressZstd),
+            "_copy_file" => Some(Self::CopyFile),
+            "_create_area" => Some(Self::CreateArea),
+            "_create_file" => Some(Self::CreateFile),
+            "_create_tar" => Some(Self::CreateTar),
+            "_create_write_area" => Some(Self::CreateWriteArea),
+            "_debug" => Some(Self::Debug),
+            "_download" => Some(Self::Download),
+            "_embed" => Some(Self::Embed),
+            "_env_var" => Some(Self::EnvVar),
+            "_escape_bin" => Some(Self::EscapeBin),
+            "_escape_hard" => Some(Self::EscapeHard),
+            "_escape_run" => Some(Self::EscapeRun),
+            "_export_to_local" => Some(Self::ExportToLocal),
+            "_extract_gzip" => Some(Self::ExtractGzip),
+            "_extract_tar" => Some(Self::ExtractTar),
+            "_extract_xz" => Some(Self::ExtractXz),
+            "_extract_zip" => Some(Self::ExtractZip),
+            "_extract_zstd" => Some(Self::ExtractZstd),
+            "_file_metadata" => Some(Self::FileMetadata),
+            "_fold" => Some(Self::Fold),
+            "_get_area" => Some(Self::GetArea),
+            "_get_dir" => Some(Self::GetDir),
+            "_get_file" => Some(Self::GetFile),
+            "_get_secret" => Some(Self::GetSecret),
+            "_get_type" => Some(Self::GetType),
             "_git_contents" => Some(Self::GitContents),
             "_git_lfs_smudge" => Some(Self::GitLfsSmudge),
-            "_env_var" => Some(Self::EnvVar),
-            "_copy_file" => Some(Self::CopyFile),
-            "_escape_hard" => Some(Self::EscapeHard),
-            "_compress_gzip" => Some(Self::CompressGzip),
+            "_glob" => Some(Self::Glob),
+            "_host_info" => Some(Self::HostInfo),
+            "_import" => Some(Self::Import),
+            "_index" => Some(Self::Index),
+            "_local_area" => Some(Self::LocalArea),
+            "_merge_records" => Some(Self::MergeRecords),
+            "_module_file" => Some(Self::ModuleFile),
             "_parse_json" => Some(Self::ParseJSON),
-            "_get_type" => Some(Self::GetType),
-            "_create_write_area" => Some(Self::CreateWriteArea),
-            "_fold" => Some(Self::Fold),
+            "_parse_target_triple" => Some(Self::ParseTargetTriple),
+            "_parse_toml" => Some(Self::ParseToml),
+            "_print" => Some(Self::Print),
+            "_read_file" => Some(Self::ReadFile),
             "_record_keys" => Some(Self::RecordKeys),
+            "_run" => Some(Self::Run),
+            "_rust_eq" => Some(Self::RustEq),
+            "_set_cache_never" => Some(Self::SetCacheNever),
+            "_sha256" => Some(Self::Sha256),
+            "_sha512" => Some(Self::Sha512),
+            "_split_string" => Some(Self::SplitString),
+            "_string_contains" => Some(Self::StringContains),
+            "_stringify" => Some(Self::Stringify),
+            "_throw" => Some(Self::Throw),
+            "_unit" => Some(Self::Unit),
             _ => None,
         }
     }
@@ -324,6 +329,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::CreateWriteArea => self.create_write_area(),
             InternalFunction::Fold => self.fold(),
             InternalFunction::RecordKeys => self.record_keys(),
+            InternalFunction::CompressZstd => self.compress_zstd(),
+            InternalFunction::ExtractZstd => self.extract_zstd(),
         }
     }
 
@@ -1499,5 +1506,44 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 .map(|k| Value::String(Arc::new(k.clone())))
                 .collect(),
         ))))
+    }
+
+    fn compress_zstd(self) -> ResultValue {
+        let (file, name, level) = three_args!(self);
+        let file = expect_type!(self, File, file);
+        let name = expect_type!(self, String, name);
+        let level = expect_type!(self, Integer, level);
+
+        let level: u8 = (&level.0).try_into().map_err(|err| {
+            log::error!("compress zstd invalid level: {}", err);
+            self.cx.nid_err(
+                self.nid,
+                RunnerError::Makeshift("level must be in the range 0 - 22".into()),
+            )
+        })?;
+        if level > 22 {
+            return Err(self.cx.nid_err(
+                self.nid,
+                RunnerError::Makeshift("level must be in the range 0 - 22".into()),
+            ));
+        }
+        Ok(Value::File(Arc::new(
+            self.runner
+                .driver
+                .compress_zstd(file, name, level)
+                .map_err(|err| self.cx.nid_err(self.nid, err))?,
+        )))
+    }
+
+    fn extract_zstd(self) -> ResultValue {
+        let (file, name) = two_args!(self);
+        let file = expect_type!(self, File, file);
+        let name = expect_type!(self, String, name);
+        let area = self
+            .runner
+            .driver
+            .extract_zstd(file, name)
+            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+        Ok(Value::File(Arc::new(area)))
     }
 }

@@ -33,6 +33,7 @@ toml.workspace = true
 ureq.workspace = true
 uuid.workspace = true
 zip = { version = "7.0.0", features = ["deflate"], default-features = false }
+zstd = "0.13.3"
 
 [dev-dependencies]
 insta.workspace = true
