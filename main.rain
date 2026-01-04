@@ -73,8 +73,6 @@ let everything = fn() {
 	check()
 	build()
 	run()
-	download_test()
-	print_some_stuff()
 }
 
 let test_zig = fn() {

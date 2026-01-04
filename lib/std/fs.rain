@@ -43,13 +43,9 @@ pub let area = fn(fs_entry) -> Area {
 	internal._get_area(fs_entry)
 }
 
-pub let relative_file = fn(path: String) -> File {
-	internal._get_file(path)
-}
+pub let relative_file = internal._get_file
 
-pub let relative_dir = fn(path: String) -> Dir {
-	internal._get_dir(path)
-}
+pub let relative_dir = internal._get_dir
 
 pub let create_area = fn(fs_entries: List(Any)) -> Area {
 	internal._create_area(fs_entries)

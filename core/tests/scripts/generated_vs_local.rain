@@ -1,0 +1,9 @@
+let std = internal._embed().load_stdlib(internal._local_area("../../../lib/std"))
+
+let main = fn() {
+	local_zip = std.fs.relative_file("area.zip")
+	unzipped_area = std.compression.extract_zip(local_zip)
+	inner_file = std.fs.file(unzipped_area, "inner.rain")
+	std.fs.size(inner_file)
+}
+
