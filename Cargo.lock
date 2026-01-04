@@ -2412,7 +2412,7 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
 name = "poison_panic"
-version = "0.9.0"
+version = "0.9.1"
 
 [[package]]
 name = "portable-atomic"
@@ -2566,7 +2566,7 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "rain"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "chrono",
  "ciborium",
@@ -2588,7 +2588,7 @@ dependencies = [
 
 [[package]]
 name = "rain-ci-common"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2606,7 +2606,7 @@ dependencies = [
 
 [[package]]
 name = "rain-ci-coordinator"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "base64",
@@ -2645,7 +2645,7 @@ dependencies = [
 
 [[package]]
 name = "rain-ci-migrator"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "dotenvy",
@@ -2659,7 +2659,7 @@ dependencies = [
 
 [[package]]
 name = "rain-ci-web"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "askama",
@@ -2684,7 +2684,7 @@ dependencies = [
 
 [[package]]
 name = "rain-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "base16",
  "chrono",
@@ -2717,7 +2717,7 @@ dependencies = [
 
 [[package]]
 name = "rain-lang"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "chrono",
  "indexmap",
@@ -2740,7 +2740,7 @@ dependencies = [
 
 [[package]]
 name = "rain-lsp"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "lsp-types",
  "rain-lang",
@@ -2990,7 +2990,7 @@ dependencies = [
 
 [[package]]
 name = "ruipc"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "libc",
  "windows",
@@ -4138,7 +4138,7 @@ checksum = "4ae62f7eae5eb549c71b76658648b72cc6111f2d87d24a1e31fa907f4943e3ce"
 
 [[package]]
 name = "tree-sitter-rain"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "cc",
  "tree-sitter",
