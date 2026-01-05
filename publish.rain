@@ -3,12 +3,13 @@ let std = main.std
 
 let {run, unit, _throw, parse_toml} = std.utils
 let {print} = std
+let {File, Dir, String} = std.types
 
 let area = std.fs.area(this_file)
 let bucket = "rain-e870e063"
 let webhook_url = internal._get_secret("RAIN_PUBLISH_WEBHOOK")
 
-let check_version = fn(version) {
+let check_version = fn(version: String) {
 	cargo_toml = std.fs.file(area, "Cargo.toml")
 	cargo_workspace_version = parse_toml(std.fs.read_file(cargo_toml)).workspace.package.version
 	if cargo_workspace_version != version {
@@ -17,19 +18,12 @@ let check_version = fn(version) {
 }
 
 let compress_lib = fn() {
-	ouch = std.escape.bin("ouch")
 	lib_dir = std.fs.dir(area, "lib")
 	filename = "lib.tar.gz"
-	run_result = run(unit, ouch, ["compress", lib_dir, filename], {})
-	if !run_result.success {
-		print("Stdout:", run_result.stdout)
-		print("Stderr:", run_result.stderr)
-		_throw("ouch compress failed")
-	}
-	std.fs.file(run_result.area, filename)
+	std.compression.compress_tar_gz(lib_dir, filename)
 }
 
-let upload_gcloud = fn(src, dst) {
+let upload_gcloud = fn(src: File, dst: String) {
 	gcloud = std.escape.bin("gcloud")
 	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--no-clobber"], {})
 	print("Stdout:", run_result.stdout)
@@ -39,7 +33,27 @@ let upload_gcloud = fn(src, dst) {
 	}
 }
 
-let upload_gcloud_with_sha256 = fn(src, dst) {
+let upload_gcloud_recursive = fn(src: Dir, dst: String) {
+	gcloud = std.escape.bin("gcloud")
+	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--recursive"], {})
+	print("Stdout:", run_result.stdout)
+	print("Stderr:", run_result.stderr)
+	if !run_result.success {
+		_throw("gcloud upload failed")
+	}
+}
+
+let upload_gcloud_overwrite = fn(src: File, dst: String) {
+	gcloud = std.escape.bin("gcloud")
+	run_result = run(unit, gcloud, ["storage", "cp", src, dst], {})
+	print("Stdout:", run_result.stdout)
+	print("Stderr:", run_result.stderr)
+	if !run_result.success {
+		_throw("gcloud upload failed")
+	}
+}
+
+let upload_gcloud_with_sha256 = fn(src: File, dst: String) {
 	sha256sum = std.fs.create_file(std.fs.sha256(src), "sha256")
 	gcloud = std.escape.bin("gcloud")
 	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--no-clobber"], {})
@@ -61,7 +75,32 @@ let webhook = fn(url, contents) {
 	unit
 }
 
-pub let publish = fn(version) {
+pub let publish_tree_sitter_rain_crate = fn(version: String) {
+	tree_sitter = std.escape.bin("tree-sitter")
+	cargo = std.escape.bin("cargo")
+	cargo_env =  {
+		CARGO_TERM_COLOR = "always",
+		CARGO_TERM_QUIET = "true",
+	}
+	check_version(version)
+	tree_sitter_rain_dir = std.fs.dir(area, "tree-sitter-rain")
+	std.escape.run(tree_sitter_rain_dir, tree_sitter, ["generate", "--abi", "14"], {})
+	std.escape.run(tree_sitter_rain_dir, tree_sitter, ["build", "--wasm"], {})
+	std.escape.run(tree_sitter_rain_dir, cargo, ["package", "--index", "sparse+https://storage.googleapis.com/" + bucket + "/crates/index/"], cargo_env)
+	crate = std.fs.file(area, "target/package/tmp-registry/tree-sitter-rain-" + version + ".crate")
+	new_index = std.fs.file(area, "target/package/tmp-registry/index/tr/ee/tree-sitter-rain")
+	download = std.utils.download("https://storage.googleapis.com/" + bucket + "/crates/index/tr/ee/tree-sitter-rain")
+	if download.ok {
+		index = std.fs.create_file(std.fs.read_file(download.file) + "\n" + std.fs.read_file(new_index), "tree-sitter-rain")
+	} else {
+		index = new_index
+	}
+	upload_gcloud(crate, "gs://" + bucket + "/crates/download/tree-sitter-rain/" + version)
+	upload_gcloud_overwrite(index, "gs://" + bucket + "/crates/index/tr/ee/tree-sitter-rain")
+	print("Published crate tree-sitter-rain ", version)
+}
+
+pub let publish = fn(version: String) {
 	check_version(version)
 	win_amd64 = main.build_release("x86_64-pc-windows-gnu")
 	linux_amd64 = main.build_release("x86_64-unknown-linux-gnu")
