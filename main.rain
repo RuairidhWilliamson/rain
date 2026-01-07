@@ -3,6 +3,7 @@ pub let std = load_stdlib()
 let publish_module = import("publish.rain")
 let test_mod = import("test.rain")
 let hermetic = import("hermetic.rain")
+let tree_sitter_rain = import("tree-sitter-rain/_.rain")
 
 let load_stdlib = fn() {
 	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])
@@ -28,7 +29,7 @@ let ci = fn() {
 }
 
 pub let check = fn() {
-	export_tree_sitter()
+	tree_sitter_rain.build()
 	lint()
 	clippy()
 	test()
@@ -118,13 +119,5 @@ let coverage = fn() -> File {
 
 let cleanup_snapshots = fn() {
 	std.escape.run(area, cargo, ["insta", "test", "--unreferenced", "delete"], cargo_env)
-	std.utils.unit
-}
-
-let export_tree_sitter = fn() {
-	tree_sitter = std.escape.bin("tree-sitter")
-	tree_sitter_rain_dir = std.fs.dir(area, "tree-sitter-rain")
-	std.escape.run(tree_sitter_rain_dir, tree_sitter, ["generate", "--abi", "14"], {})
-	std.escape.run(tree_sitter_rain_dir, tree_sitter, ["build", "--wasm"], {})
 	std.utils.unit
 }

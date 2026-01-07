@@ -76,7 +76,7 @@ let webhook = fn(url, contents) {
 }
 
 pub let publish_tree_sitter_rain_crate = fn(version: String) {
-	main.export_tree_sitter()
+	main.tree_sitter_rain.build()
 	cargo = std.escape.bin("cargo")
 	cargo_env =  {
 		CARGO_TERM_COLOR = "always",
