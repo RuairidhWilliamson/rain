@@ -8,8 +8,8 @@ A hobby build system and language.
 
 Prebuilt releases are available:
 
-- [Windows x64](https://storage.googleapis.com/rain-e870e063/releases/0.9.1/rain-windows-amd64.exe)
-- [Linux x64](https://storage.googleapis.com/rain-e870e063/releases/0.9.1/rain-linux-amd64)
+- [Windows x64](https://storage.googleapis.com/rain-e870e063/releases/0.9.2/rain-windows-amd64.exe)
+- [Linux x64](https://storage.googleapis.com/rain-e870e063/releases/0.9.2/rain-linux-amd64)
 
 ```bash
 git clone git@github.com:RuairidhWilliamson/rain.git
