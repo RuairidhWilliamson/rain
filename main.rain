@@ -2,7 +2,6 @@ let area = internal._get_area(this_file)
 pub let std = load_stdlib()
 let publish_module = import("publish.rain")
 let test_mod = import("test.rain")
-let examples = import("examples/_.rain")
 let hermetic = import("hermetic.rain")
 
 let load_stdlib = fn() {
@@ -48,10 +47,6 @@ pub let build_release = fn(target_triple: String) -> File {
 	]
 	std.escape.run(area, cargo, args, cargo_env)
 	std.fs.file(area, "target/" + target_triple + "/release/rain" + std.utils.exe_suffix(target_triple))
-}
-
-let build_c = fn() {
-	std.build.cc.gcc.compile(std.fs.file(area, "core/examples/run/foo.c"), "foo")
 }
 
 let run = fn() {
