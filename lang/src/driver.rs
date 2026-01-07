@@ -64,7 +64,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn git_contents(&self, url: &str, commit: &str) -> Result<FileArea, RunnerError>;
     fn git_lfs_smudge(&self, area: &FileArea) -> Result<FileArea, RunnerError>;
     fn env_var(&self, key: &str) -> Result<Option<String>, RunnerError>;
-    fn copy_file(&self, file: &File, name: &str) -> Result<File, RunnerError>;
+    fn copy_file(&self, file: &File, name: &str, executable: bool) -> Result<File, RunnerError>;
     fn compress_zstd(&self, file: &File, name: &str, level: u8) -> Result<File, RunnerError>;
     fn extract_zstd(&self, file: &File, name: &str) -> Result<File, RunnerError>;
 }

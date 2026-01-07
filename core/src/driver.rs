@@ -666,14 +666,28 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(std::env::var(key).ok())
     }
 
-    fn copy_file(&self, file: &File, name: &str) -> Result<File, RunnerError> {
+    fn copy_file(&self, file: &File, name: &str, executable: bool) -> Result<File, RunnerError> {
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
         let entry = FSEntry::new(area, path);
         let input_path = self.resolve_fs_entry(file.inner());
         let output_path = self.resolve_fs_entry(&entry);
         // OPTIMISE: Can use hardlink instead
-        std::fs::copy(input_path, output_path).map_err(RunnerError::AreaIOError)?;
+        std::fs::copy(input_path, &output_path).map_err(RunnerError::AreaIOError)?;
+        // Setting executable is only supported on unix
+        #[cfg(target_family = "unix")]
+        {
+            if executable {
+                use std::os::unix::fs::PermissionsExt as _;
+
+                let metadata = std::fs::metadata(&output_path).map_err(RunnerError::AreaIOError)?;
+                let mut permissions = metadata.permissions();
+                // Set execute for owner
+                permissions.set_mode(permissions.mode() | 0o100);
+                std::fs::set_permissions(output_path, permissions)
+                    .map_err(RunnerError::AreaIOError)?;
+            }
+        }
         // Safety: We just created it
         Ok(unsafe { File::new(entry) })
     }

@@ -8,9 +8,7 @@ pub let tree_sitter_cli = fn() {
 		std.utils._throw("download tree_sitter failed")
 	}
 	exe = std.compression.extract_gz(download.file, "tree-sitter")
-	// Nasty hack to make the file executable
-	std.escape.run(area, std.escape.bin("chmod"), ["+x", exe], {})
-	exe
+	std.fs.make_executable(exe)
 }()
 
 pub let build = fn() {

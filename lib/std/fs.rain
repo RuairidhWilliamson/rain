@@ -16,7 +16,11 @@ pub let read_file = fn(file: File) -> String {
 
 pub let copy_file = rename_file
 pub let rename_file = fn(file: File, new_name: String) -> File {
-	internal._copy_file(file, new_name)
+	internal._copy_file(file, new_name, false)
+}
+
+pub let make_executable = fn(file: File) -> File {
+	internal._copy_file(file, internal._file_name(file), true)
 }
 
 pub let size = fn(file: File) -> Integer {

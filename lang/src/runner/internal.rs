@@ -93,6 +93,7 @@ pub enum InternalFunction {
     Stringify,
     Throw,
     Unit,
+    FileName,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -159,6 +160,7 @@ impl InternalFunction {
             "_stringify" => Some(Self::Stringify),
             "_throw" => Some(Self::Throw),
             "_unit" => Some(Self::Unit),
+            "_file_name" => Some(Self::FileName),
             _ => None,
         }
     }
@@ -331,6 +333,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::RecordKeys => self.record_keys(),
             InternalFunction::CompressZstd => self.compress_zstd(),
             InternalFunction::ExtractZstd => self.extract_zstd(),
+            InternalFunction::FileName => self.file_name(),
         }
     }
 
@@ -1451,13 +1454,14 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn copy_file(self) -> ResultValue {
-        let (file, name) = two_args!(self);
+        let (file, name, executable) = three_args!(self);
         let file = expect_type!(self, File, file);
         let name = expect_type!(self, String, name);
+        let executable = expect_type!(self, Boolean, executable);
         let new_file = self
             .runner
             .driver
-            .copy_file(file, name)
+            .copy_file(file, name, *executable)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
         Ok(Value::File(Arc::new(new_file)))
     }
@@ -1545,5 +1549,17 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .extract_zstd(file, name)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
         Ok(Value::File(Arc::new(area)))
+    }
+
+    fn file_name(self) -> ResultValue {
+        let file = single_arg!(self);
+        let file = expect_type!(self, File, file);
+        let Some(name) = file.inner().path.last() else {
+            return Err(self.cx.nid_err(
+                self.nid,
+                RunnerError::Makeshift("file doesn't have a name".into()),
+            ));
+        };
+        Ok(Value::String(Arc::new(name.to_string())))
     }
 }
