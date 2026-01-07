@@ -1,4 +1,0 @@
-let foo = internal._import(internal._get_file("foo.rain"))
-
-pub let apples = 6 + foo.apples
-pub let bananas = 7

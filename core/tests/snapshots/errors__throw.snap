@@ -1,0 +1,8 @@
+---
+source: core/tests/errors.rs
+expression: "run_error(concat! (\"tests/errors/\", stringify! (throw), \".rain\"))"
+---
+<hidden>:2:2
+| let main = fn() {
+| 	internal._throw("test")
+  	^^^^^^^^^^^^^^^^^^^^^^^ "test"

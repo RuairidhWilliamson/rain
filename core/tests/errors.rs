@@ -49,4 +49,5 @@ tests! {
     fail_let_destructure_type_check,
     record_type_check,
     private_declaration,
+    throw,
 }

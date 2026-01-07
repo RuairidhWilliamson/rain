@@ -1,8 +1,0 @@
-let print = internal._print
-
-pub let my_number = 4
-
-let main = fn() {
-	print("Hello world")
-	print("This file is", this_file)
-}

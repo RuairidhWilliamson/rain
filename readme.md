@@ -1,5 +1,9 @@
 # Rain
 
+A hobby build system and language.
+
+- [Test Scripts](https://github.com/RuairidhWilliamson/rain/tree/main/core/tests/scripts)
+
 ### Installation
 
 Prebuilt releases are available:
