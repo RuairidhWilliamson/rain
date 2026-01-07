@@ -15,9 +15,10 @@ let {String, File} = std.types
 
 let cargo = std.escape.bin("cargo")
 
-let cargo_env =  {
+pub let cargo_env =  {
 	CARGO_TERM_COLOR = "always",
 	CARGO_TERM_QUIET = "true",
+	SQLX_OFFLINE = "true",
 }
 
 pub let lint = fn() {

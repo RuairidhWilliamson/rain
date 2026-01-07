@@ -78,13 +78,9 @@ let webhook = fn(url, contents) {
 pub let publish_tree_sitter_rain_crate = fn(version: String) {
 	main.tree_sitter_rain.build()
 	cargo = std.escape.bin("cargo")
-	cargo_env =  {
-		CARGO_TERM_COLOR = "always",
-		CARGO_TERM_QUIET = "true",
-	}
 	check_version(version)
 	tree_sitter_rain_dir = std.fs.dir(area, "tree-sitter-rain")
-	std.escape.run(tree_sitter_rain_dir, cargo, ["package", "--index", "sparse+https://storage.googleapis.com/" + bucket + "/crates/index/"], cargo_env)
+	std.escape.run(tree_sitter_rain_dir, cargo, ["package", "--index", "sparse+https://storage.googleapis.com/" + bucket + "/crates/index/"], main.cargo_env)
 	crate = std.fs.file(area, "target/package/tmp-registry/tree-sitter-rain-" + version + ".crate")
 	new_index = std.fs.file(area, "target/package/tmp-registry/index/tr/ee/tree-sitter-rain")
 	download = std.utils.download("https://storage.googleapis.com/" + bucket + "/crates/index/tr/ee/tree-sitter-rain")
