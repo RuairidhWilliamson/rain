@@ -89,6 +89,7 @@ pub let publish = fn(version: String) {
 }
 
 pub let install_cli = fn() {
+	tree_sitter_rain.build()
 	std.escape.run(area, cargo, ["install", "--path", "cli", "--locked"], cargo_env)
 	std.utils.unit
 }
