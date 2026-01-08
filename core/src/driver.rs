@@ -564,7 +564,8 @@ impl DriverTrait for DriverImpl<'_> {
         let entry = FSEntry::new(area, path);
         let output_path = self.resolve_fs_entry(&entry);
         let f = std::fs::File::create(output_path).map_err(RunnerError::AreaIOError)?;
-        let mut encoder = zstd::Encoder::new(f, level as i32).map_err(RunnerError::AreaIOError)?;
+        let mut encoder =
+            zstd::Encoder::new(f, i32::from(level)).map_err(RunnerError::AreaIOError)?;
         let mut read = std::fs::File::open(self.resolve_fs_entry(file.inner()))
             .map_err(RunnerError::AreaIOError)?;
         std::io::copy(&mut read, &mut encoder).map_err(RunnerError::AreaIOError)?;

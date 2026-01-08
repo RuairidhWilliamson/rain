@@ -1519,7 +1519,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let level = expect_type!(self, Integer, level);
 
         let level: u8 = (&level.0).try_into().map_err(|err| {
-            log::error!("compress zstd invalid level: {}", err);
+            log::error!("compress zstd invalid level: {err}");
             self.cx.nid_err(
                 self.nid,
                 RunnerError::Makeshift("level must be in the range 0 - 22".into()),

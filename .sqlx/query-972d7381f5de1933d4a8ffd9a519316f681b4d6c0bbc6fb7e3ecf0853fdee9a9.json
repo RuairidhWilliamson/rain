@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE runs SET dequeued_at=$1 WHERE id=$2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamp",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "972d7381f5de1933d4a8ffd9a519316f681b4d6c0bbc6fb7e3ecf0853fdee9a9"
+}

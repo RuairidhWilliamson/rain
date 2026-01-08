@@ -100,12 +100,12 @@ pub let test = fn() {
 }
 
 let clippy = fn() {
-	std.escape.run(area, cargo, ["clippy"], cargo_env)
+	std.escape.run(area, cargo, ["clippy", "--", "-Dwarnings"], cargo_env)
 	std.utils.unit
 }
 
 let regular_test = fn() {
-	std.escape.run(area, cargo, ["test", "-q"], cargo_env)
+	std.escape.run(area, cargo, ["test"], cargo_env)
 	std.utils.unit
 }
 
