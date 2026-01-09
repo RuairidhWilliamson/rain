@@ -100,8 +100,7 @@ pub let test = fn() {
 }
 
 let clippy = fn() {
-	print(std.escape.run(area, std.escape.bin("pwd"), [], {}))
-	print(std.escape.run(area, std.escape.bin("ls"), [], {}))
+	print(std.escape.run(area, std.escape.bin("ls"), ["-a"], {}).stdout)
 	std.escape.run(area, cargo, ["clippy", "--", "-Dwarnings"], cargo_env)
 	std.utils.unit
 }
