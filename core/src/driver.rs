@@ -59,7 +59,7 @@ impl DriverImpl<'_> {
         self.create_overlay_area(std::iter::empty(), false)
     }
 
-    fn create_overlay_area<'a>(
+    pub fn create_overlay_area<'a>(
         &self,
         fs_entries: impl Iterator<Item = &'a FSEntry>,
         include_hidden: bool,

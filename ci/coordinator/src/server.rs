@@ -298,7 +298,9 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         #[expect(clippy::unwrap_used)]
         Ok(tokio::task::spawn_blocking(move || {
             let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
-            let area = driver.create_area(&[root.inner()]).unwrap();
+            let area = driver
+                .create_overlay_area(std::iter::once(root.inner()), true)
+                .unwrap();
             let run_complete = server.runner.run(&driver, area, &target);
             Ok(run_complete)
         }))
