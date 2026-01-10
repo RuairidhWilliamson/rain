@@ -404,7 +404,7 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     fn create_area(&self, dirs: &[&FSEntry]) -> Result<FileArea, RunnerError> {
-        self.create_overlay_area(dirs.iter().copied(), false)
+        self.create_overlay_area(dirs.iter().copied(), true)
     }
 
     fn read_file(&self, file: &File) -> Result<String, std::io::Error> {
