@@ -99,17 +99,14 @@ pub let test = fn() {
 
 let clippy = fn() {
 	std.escape.run(area, cargo, ["clippy", "--", "-Dwarnings"], cargo_env)
-	std.utils.unit
 }
 
 let regular_test = fn() {
 	std.escape.run(area, cargo, ["test"], cargo_env)
-	std.utils.unit
 }
 
 let nextest = fn() {
 	std.escape.run(area, cargo, ["nextest", "run"], cargo_env)
-	std.utils.unit
 }
 
 let coverage = fn() -> File {
@@ -119,15 +116,12 @@ let coverage = fn() -> File {
 
 let cleanup_snapshots = fn() {
 	std.escape.run(area, cargo, ["insta", "test", "--unreferenced", "delete"], cargo_env)
-	std.utils.unit
 }
 
 let check_sqlx_prepared = fn() {
 	std.escape.run(area, cargo, ["sqlx", "prepare", "--workspace", "--check"], cargo_env)
-	std.utils.unit
 }
 
 let prepare_sqlx = fn() {
 	std.escape.run(area, cargo, ["sqlx", "prepare", "--workspace"], cargo_env)
-	std.utils.unit
 }
