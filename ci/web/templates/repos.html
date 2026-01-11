@@ -2,13 +2,15 @@
 
 {% block content %}
 <h1>Repos</h1>
+<span>{{paged_repos.full_count}} results, page {{paged_repos.page.get()}} showing {{paged_repos.showing()}}</span>
+
 <table>
   <tr>
     <th>Host</th>
     <th>Owner</th>
     <th>Name</th>
   </tr>
-  {% for (repo_id, repo) in repos %}
+  {% for (repo_id, repo) in paged_repos.elements %}
   <tr>
     <td>{{ repo.host }}</td>
     <td>{{ repo.owner }}</td>
@@ -17,4 +19,13 @@
   </tr>
   {% endfor %}
 </table>
+
+{% for i in 1..=paged_repos.page_count %}
+{% if paged_repos.page.get() == i %}
+<span>{{i}}</span>
+{% else %}
+<a href="?page={{i}}">{{i}}</a>
+{% endif %}
+{% endfor %}
+
 {% endblock %}

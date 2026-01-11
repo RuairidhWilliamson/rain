@@ -59,5 +59,7 @@
   </tr>
 </table>
 <h2>Runs for Repo {{ repo_id }}</h2>
+<span>{{paged_runs.full_count}} results, page {{paged_runs.page.get()}} showing {{paged_runs.showing()}}</span>
+{% let runs = paged_runs.elements %}
 {% include "runs_table.html" %}
 {% endblock %}

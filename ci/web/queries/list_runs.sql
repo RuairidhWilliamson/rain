@@ -17,4 +17,3 @@ INNER JOIN repos ON runs.repo=repos.id
 LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
 ORDER BY runs.id DESC
 OFFSET $1 LIMIT $2;
-

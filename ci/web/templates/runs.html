@@ -2,7 +2,7 @@
 
 {% block content %}
 <h1>Runs</h1>
-<span>{{paged_runs.full_count}} results, showing {{paged_runs.per_page}}</span>
+<span>{{paged_runs.full_count}} results, page {{paged_runs.page.get()}} showing {{paged_runs.showing()}}</span>
 
 {% let runs = paged_runs.elements %}
 {% include "runs_table.html" %}

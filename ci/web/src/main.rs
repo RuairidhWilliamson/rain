@@ -2,6 +2,7 @@ mod auth;
 mod db;
 mod github;
 mod pages;
+mod pagination;
 mod session;
 
 use std::{convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};

@@ -1,7 +1,5 @@
 mod filters;
 
-use std::num::NonZero;
-
 use anyhow::Context as _;
 use askama::Template;
 use axum::{
@@ -11,8 +9,8 @@ use axum::{
 use rain_ci_common::{Repository, RepositoryId, Run, RunId};
 
 use crate::{
-    AdminUser, AppError, AuthUser, User,
-    db::{self, Paginated},
+    AdminUser, AppError, AuthUser, User, db,
+    pagination::{Paginated, Pagination},
 };
 
 struct Base {
@@ -63,17 +61,21 @@ pub async fn profile(auth: AdminUser) -> Result<Html<String>, AppError> {
     ))
 }
 
-pub async fn repos(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
+pub async fn repos(
+    auth: AdminUser,
+    Query(page): Query<Pagination>,
+    State(db): State<db::Db>,
+) -> Result<Html<String>, AppError> {
     #[derive(Template)]
     #[template(path = "repos.html")]
     struct ReposPage {
         base: Base,
-        repos: Vec<(RepositoryId, Repository)>,
+        paged_repos: Paginated<(RepositoryId, Repository)>,
     }
     Ok(Html(
         ReposPage {
             base: Base::new(auth.user),
-            repos: db.list_repos().await.context("list repos")?,
+            paged_repos: db.list_repos(&page).await.context("list repos")?,
         }
         .render()?,
     ))
@@ -90,14 +92,17 @@ pub async fn repo(
         base: Base,
         repo_id: RepositoryId,
         repo: Repository,
-        runs: Vec<(RunId, Run)>,
+        paged_runs: Paginated<(RunId, Run)>,
     }
     Ok(Html(
         RepoPage {
             base: Base::new(auth.user),
             repo: db.get_repo(&id).await.context("list repos")?,
             repo_id: id,
-            runs: db.list_runs_in_repo(&id).await.context("list runs")?,
+            paged_runs: db
+                .list_runs_in_repo(&id, &Pagination { page: None })
+                .await
+                .context("list runs")?,
         }
         .render()?,
     ))
@@ -143,19 +148,4 @@ pub async fn run(
         }
         .render()?,
     ))
-}
-
-#[derive(serde::Deserialize)]
-pub struct Pagination {
-    // The page number starting at 1
-    pub page: Option<NonZero<u64>>,
-}
-
-impl Pagination {
-    pub fn page_numberz(&self) -> anyhow::Result<i64> {
-        match self.page {
-            Some(x) => Ok(i64::try_from(x.get())? - 1),
-            None => Ok(0),
-        }
-    }
 }

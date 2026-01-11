@@ -4,5 +4,4 @@ SELECT
     owner,
     name
 FROM repos
-LIMIT 100;
-
+OFFSET $1 LIMIT $2;
