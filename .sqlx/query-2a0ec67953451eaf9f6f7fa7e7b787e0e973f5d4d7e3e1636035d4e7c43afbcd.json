@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) FROM runs INNER JOIN repos ON runs.repo=repos.id WHERE repos.id=$1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "2a0ec67953451eaf9f6f7fa7e7b787e0e973f5d4d7e3e1636035d4e7c43afbcd"
+}

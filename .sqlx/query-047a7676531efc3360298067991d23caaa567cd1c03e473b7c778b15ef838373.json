@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n    id,\n    host,\n    owner,\n    name\nFROM repos\nLIMIT 100;\n\n",
+  "query": "SELECT\n    id,\n    host,\n    owner,\n    name\nFROM repos\nOFFSET $1 LIMIT $2;\n",
   "describe": {
     "columns": [
       {
@@ -25,7 +25,10 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
     },
     "nullable": [
       false,
@@ -34,5 +37,5 @@
       false
     ]
   },
-  "hash": "f452f7a411affce2a69af8f745484018a4daeb099f7028b436b9a9d913c5785e"
+  "hash": "047a7676531efc3360298067991d23caaa567cd1c03e473b7c778b15ef838373"
 }
