@@ -10,6 +10,20 @@ use rain_ci_common::{Repository, RepositoryId, Run, RunId};
 
 use crate::{AdminUser, AppError, AuthUser, User, db};
 
+struct Base {
+    user: User,
+    rain_version: &'static str,
+}
+
+impl Base {
+    fn new(user: User) -> Self {
+        Self {
+            user,
+            rain_version: env!("CARGO_PKG_VERSION"),
+        }
+    }
+}
+
 pub async fn home(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
     #[derive(Template)]
     #[template(path = "landing.html")]
@@ -18,13 +32,11 @@ pub async fn home(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
     #[derive(Template)]
     #[template(path = "home.html")]
     struct Homepage {
-        user: User,
-        rain_version: &'static str,
+        base: Base,
     }
     if let Some(auth) = auth {
         let homepage = Homepage {
-            user: auth.user,
-            rain_version: env!("CARGO_PKG_VERSION"),
+            base: Base::new(auth.user),
         };
         Ok(Html(homepage.render()?))
     } else {
@@ -36,13 +48,11 @@ pub async fn profile(auth: AdminUser) -> Result<Html<String>, AppError> {
     #[derive(Template)]
     #[template(path = "profile.html")]
     struct Profile {
-        user: User,
-        rain_version: &'static str,
+        base: Base,
     }
     Ok(Html(
         Profile {
-            user: auth.user,
-            rain_version: env!("CARGO_PKG_VERSION"),
+            base: Base::new(auth.user),
         }
         .render()?,
     ))
@@ -52,14 +62,12 @@ pub async fn repos(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<Str
     #[derive(Template)]
     #[template(path = "repos.html")]
     struct ReposPage {
-        user: User,
-        rain_version: &'static str,
+        base: Base,
         repos: Vec<(RepositoryId, Repository)>,
     }
     Ok(Html(
         ReposPage {
-            user: auth.user,
-            rain_version: env!("CARGO_PKG_VERSION"),
+            base: Base::new(auth.user),
             repos: db.list_repos().await.context("list repos")?,
         }
         .render()?,
@@ -74,15 +82,13 @@ pub async fn repo(
     #[derive(Template)]
     #[template(path = "repo.html")]
     struct RepoPage {
-        user: User,
-        rain_version: &'static str,
+        base: Base,
         repo_id: RepositoryId,
         repo: Repository,
     }
     Ok(Html(
         RepoPage {
-            user: auth.user,
-            rain_version: env!("CARGO_PKG_VERSION"),
+            base: Base::new(auth.user),
             repo: db.get_repo(&id).await.context("list repos")?,
             repo_id: id,
         }
@@ -94,14 +100,12 @@ pub async fn runs(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<Stri
     #[derive(Template)]
     #[template(path = "runs.html")]
     struct RunsPage {
-        user: User,
-        rain_version: &'static str,
+        base: Base,
         runs: Vec<(RunId, Run)>,
     }
     Ok(Html(
         RunsPage {
-            user: auth.user,
-            rain_version: env!("CARGO_PKG_VERSION"),
+            base: Base::new(auth.user),
             runs: db.list_runs().await.context("list runs")?,
         }
         .render()?,
@@ -116,15 +120,13 @@ pub async fn run(
     #[derive(Template)]
     #[template(path = "run.html")]
     struct RunPage {
-        user: User,
-        rain_version: &'static str,
+        base: Base,
         run_id: RunId,
         run: Run,
     }
     Ok(Html(
         RunPage {
-            user: auth.user,
-            rain_version: env!("CARGO_PKG_VERSION"),
+            base: Base::new(auth.user),
             run: db.get_run(&id).await?,
             run_id: id,
         }
