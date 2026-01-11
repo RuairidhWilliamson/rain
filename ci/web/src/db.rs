@@ -1,4 +1,4 @@
-use std::{path::PathBuf, str::FromStr as _};
+use std::{num::NonZero, path::PathBuf, str::FromStr as _};
 
 use anyhow::{Context as _, Result, anyhow};
 use chrono::{Days, NaiveDateTime, TimeDelta, Utc};
@@ -6,7 +6,7 @@ use oauth2::CsrfToken;
 use rain_ci_common::{RepoHost, Repository, RepositoryId, Run, RunId, RunStatus};
 use secrecy::{ExposeSecret as _, SecretString};
 
-use crate::session::SessionId;
+use crate::{pages::Pagination, session::SessionId};
 
 pub struct DbConfig {
     pub host: String,
@@ -32,6 +32,7 @@ async fn load_password(config: &DbConfig) -> Result<SecretString> {
 #[derive(Clone)]
 pub struct Db {
     pool: sqlx::PgPool,
+    per_page: u64,
 }
 
 impl Db {
@@ -45,7 +46,7 @@ impl Db {
                 .database(&config.name),
         )
         .await?;
-        Ok(Self { pool })
+        Ok(Self { pool, per_page: 25 })
     }
 
     pub async fn create_session(&self) -> Result<SessionId> {
@@ -145,14 +146,37 @@ impl Db {
         row.convert()
     }
 
-    pub async fn list_runs(&self) -> Result<Vec<(RunId, Run)>> {
-        let rows = sqlx::query_file_as!(QueryRun, "queries/list_runs.sql")
-            .fetch_all(&self.pool)
-            .await?;
+    pub async fn list_runs(&self, page: &Pagination) -> Result<Paginated<(RunId, Run)>> {
+        let mut tx = self.pool.begin().await?;
+        let per_page = i64::try_from(self.per_page)?;
+        let rows = sqlx::query_file_as!(
+            QueryRun,
+            "queries/list_runs.sql",
+            page.page_numberz()? * per_page,
+            per_page,
+        )
+        .fetch_all(&mut *tx)
+        .await?;
 
-        rows.into_iter()
+        let count_row =
+            sqlx::query!("SELECT COUNT(*) FROM runs INNER JOIN repos ON runs.repo=repos.id")
+                .fetch_one(&mut *tx)
+                .await?;
+
+        tx.rollback().await?;
+
+        let elements: Vec<(RunId, Run)> = rows
+            .into_iter()
             .map(|row| Ok((RunId(row.id), row.convert()?)))
-            .collect()
+            .collect::<Result<_>>()?;
+        let full_count = u64::try_from(count_row.count.unwrap_or_default()).unwrap_or_default();
+        Ok(Paginated {
+            elements,
+            full_count,
+            page: page.page.unwrap_or(NonZero::<u64>::MIN),
+            page_count: full_count.div_ceil(self.per_page),
+            per_page: self.per_page,
+        })
     }
 
     pub async fn list_repos(&self) -> Result<Vec<(RepositoryId, Repository)>> {
@@ -278,4 +302,13 @@ struct QueryRepo {
     host: String,
     owner: String,
     name: String,
+}
+
+pub struct Paginated<T> {
+    pub elements: Vec<T>,
+    pub full_count: u64,
+    // Page number starting at 1
+    pub page: NonZero<u64>,
+    pub per_page: u64,
+    pub page_count: u64,
 }

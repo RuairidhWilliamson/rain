@@ -3,17 +3,18 @@ SELECT
     commit,
     created_at,
     dequeued_at,
-    repos.id as repo_id,
+    repos.id AS repo_id,
     repos.host,
     repos.owner,
     repos.name,
     target,
-    finished_at as "finished_at?",
-    status as "status?",
-    execution_time_millis as "execution_time_millis?",
-    output as "output?"
+    finished_at AS "finished_at?",
+    status AS "status?",
+    execution_time_millis AS "execution_time_millis?",
+    output AS "output?"
 FROM runs
 INNER JOIN repos ON runs.repo=repos.id
 LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
-ORDER BY runs.id DESC LIMIT 100;
+ORDER BY runs.id DESC
+OFFSET $1 LIMIT $2;
 

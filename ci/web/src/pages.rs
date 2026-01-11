@@ -1,14 +1,19 @@
 mod filters;
 
+use std::num::NonZero;
+
 use anyhow::Context as _;
 use askama::Template;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::Html,
 };
 use rain_ci_common::{Repository, RepositoryId, Run, RunId};
 
-use crate::{AdminUser, AppError, AuthUser, User, db};
+use crate::{
+    AdminUser, AppError, AuthUser, User,
+    db::{self, Paginated},
+};
 
 struct Base {
     user: User,
@@ -98,17 +103,21 @@ pub async fn repo(
     ))
 }
 
-pub async fn runs(auth: AdminUser, State(db): State<db::Db>) -> Result<Html<String>, AppError> {
+pub async fn runs(
+    auth: AdminUser,
+    Query(page): Query<Pagination>,
+    State(db): State<db::Db>,
+) -> Result<Html<String>, AppError> {
     #[derive(Template)]
     #[template(path = "runs.html")]
     struct RunsPage {
         base: Base,
-        runs: Vec<(RunId, Run)>,
+        paged_runs: Paginated<(RunId, Run)>,
     }
     Ok(Html(
         RunsPage {
             base: Base::new(auth.user),
-            runs: db.list_runs().await.context("list runs")?,
+            paged_runs: db.list_runs(&page).await.context("list runs")?,
         }
         .render()?,
     ))
@@ -134,4 +143,19 @@ pub async fn run(
         }
         .render()?,
     ))
+}
+
+#[derive(serde::Deserialize)]
+pub struct Pagination {
+    // The page number starting at 1
+    pub page: Option<NonZero<u64>>,
+}
+
+impl Pagination {
+    pub fn page_numberz(&self) -> anyhow::Result<i64> {
+        match self.page {
+            Some(x) => Ok(i64::try_from(x.get())? - 1),
+            None => Ok(0),
+        }
+    }
 }
