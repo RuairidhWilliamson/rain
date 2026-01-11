@@ -26,13 +26,19 @@ pub let lint = fn() {
 }
 
 let ci = fn() {
-	check()
+	tree_sitter_rain.build()
+	lint()
+	clippy()
+	// sqlx not installed in CI
+	// check_sqlx_prepared()
+	test()
 }
 
 pub let check = fn() {
 	tree_sitter_rain.build()
 	lint()
 	clippy()
+	check_sqlx_prepared()
 	test()
 }
 
@@ -113,5 +119,15 @@ let coverage = fn() -> File {
 
 let cleanup_snapshots = fn() {
 	std.escape.run(area, cargo, ["insta", "test", "--unreferenced", "delete"], cargo_env)
+	std.utils.unit
+}
+
+let check_sqlx_prepared = fn() {
+	std.escape.run(area, cargo, ["sqlx", "prepare", "--workspace", "--check"], cargo_env)
+	std.utils.unit
+}
+
+let prepare_sqlx = fn() {
+	std.escape.run(area, cargo, ["sqlx", "prepare", "--workspace"], cargo_env)
 	std.utils.unit
 }

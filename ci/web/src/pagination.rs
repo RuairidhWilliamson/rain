@@ -26,7 +26,7 @@ pub struct Paginated<T> {
 
 impl<T> Paginated<T> {
     pub fn new(elements: Vec<T>, full_count: u64, per_page: u64, page: &Pagination) -> Self {
-        Paginated {
+        Self {
             elements,
             full_count,
             page: page.page.unwrap_or(NonZero::<u64>::MIN),
