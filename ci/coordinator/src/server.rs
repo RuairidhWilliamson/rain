@@ -138,6 +138,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
                 dequeued_at: None,
                 finished: None,
                 target: String::from("ci"),
+                rain_version: None,
             })
             .await
             .context("storage create run")?;

@@ -83,9 +83,11 @@ pub mod inner {
         }
 
         async fn dequeued_run(&self, id: &RunId) -> Result<()> {
+            let rain_version = env!("CARGO_PKG_VERSION");
             sqlx::query!(
-                "UPDATE runs SET dequeued_at=$1 WHERE id=$2",
+                "UPDATE runs SET dequeued_at=$1, rain_version=$2 WHERE id=$3",
                 &Utc::now().naive_utc(),
+                rain_version,
                 id.0,
             )
             .execute(&self.pool)
@@ -109,6 +111,7 @@ pub mod inner {
                 created_at: NaiveDateTime,
                 target: String,
                 dequeued_at: Option<NaiveDateTime>,
+                rain_version: Option<String>,
                 status: Option<String>,
                 finished_at: Option<NaiveDateTime>,
                 execution_time_millis: Option<i64>,
@@ -121,6 +124,7 @@ pub mod inner {
                 commit: row.commit,
                 created_at: row.created_at.and_utc(),
                 dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
+                rain_version: row.rain_version,
                 target: row.target,
                 finished: row
                     .finished_at

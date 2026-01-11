@@ -299,6 +299,7 @@ struct QueryRun {
     target: String,
     created_at: NaiveDateTime,
     dequeued_at: Option<NaiveDateTime>,
+    rain_version: Option<String>,
     status: Option<String>,
     finished_at: Option<NaiveDateTime>,
     execution_time_millis: Option<i64>,
@@ -312,6 +313,7 @@ impl QueryRun {
             commit: row.commit,
             created_at: row.created_at.and_utc(),
             dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
+            rain_version: row.rain_version,
             target: row.target,
             finished: row
                 .finished_at

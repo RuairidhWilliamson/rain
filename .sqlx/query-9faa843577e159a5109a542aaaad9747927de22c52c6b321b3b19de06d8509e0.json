@@ -1,0 +1,102 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    runs.id,\n    commit,\n    created_at,\n    dequeued_at,\n    rain_version,\n    repos.id as repo_id,\n    repos.host,\n    repos.owner,\n    repos.name,\n    target,\n    finished_at as \"finished_at?\",\n    status as \"status?\",\n    execution_time_millis as \"execution_time_millis?\",\n    output as \"output?\"\nFROM runs\nINNER JOIN repos ON runs.repo=repos.id\nLEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run\nWHERE repos.id=$1\nORDER BY runs.id DESC\nOFFSET $2 LIMIT $3;\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "commit",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 3,
+        "name": "dequeued_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 4,
+        "name": "rain_version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "repo_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "host",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "owner",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "target",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "finished_at?",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 11,
+        "name": "status?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "execution_time_millis?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
+        "name": "output?",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "9faa843577e159a5109a542aaaad9747927de22c52c6b321b3b19de06d8509e0"
+}

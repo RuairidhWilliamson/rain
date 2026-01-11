@@ -48,6 +48,7 @@ pub struct Run {
     pub dequeued_at: Option<DateTime<Utc>>,
     pub finished: Option<FinishedRun>,
     pub target: String,
+    pub rain_version: Option<String>,
 }
 
 impl Run {

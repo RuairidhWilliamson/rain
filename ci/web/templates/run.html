@@ -20,6 +20,16 @@
     <td>{{ run.target }}</td>
   </tr>
   <tr>
+    <td>Rain Version</td>
+    <td>
+      {% match run.rain_version %}
+      {% when Some with (rain_version) %}
+      {{ rain_version }}
+      {% when None %}
+      {% endmatch %}
+    </td>
+  </tr>
+  <tr>
     <td>Created At</td>
     <td>{{ run.created_at | timestamp }}</td>
   </tr>

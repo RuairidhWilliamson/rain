@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n    runs.id,\n    repos.id as repo_id,\n    repos.host,\n    repos.owner,\n    repos.name,\n    commit,\n    created_at,\n    dequeued_at,\n    target,\n    finished_at as \"finished_at?\",\n    status as \"status?\",\n    execution_time_millis as \"execution_time_millis?\",\n    output as \"output?\"\nFROM runs\nINNER JOIN repos ON runs.repo=repos.id\nLEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run\nWHERE runs.id=$1;\n",
+  "query": "SELECT\n    runs.id,\n    repos.id as repo_id,\n    repos.host,\n    repos.owner,\n    repos.name,\n    commit,\n    created_at,\n    dequeued_at,\n    rain_version,\n    target,\n    finished_at as \"finished_at?\",\n    status as \"status?\",\n    execution_time_millis as \"execution_time_millis?\",\n    output as \"output?\"\nFROM runs\nINNER JOIN repos ON runs.repo=repos.id\nLEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run\nWHERE runs.id=$1;\n",
   "describe": {
     "columns": [
       {
@@ -45,26 +45,31 @@
       },
       {
         "ordinal": 8,
-        "name": "target",
+        "name": "rain_version",
         "type_info": "Text"
       },
       {
         "ordinal": 9,
+        "name": "target",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
         "name": "finished_at?",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "status?",
         "type_info": "Text"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "execution_time_millis?",
         "type_info": "Int8"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "output?",
         "type_info": "Text"
       }
@@ -83,6 +88,7 @@
       false,
       false,
       true,
+      true,
       false,
       false,
       false,
@@ -90,5 +96,5 @@
       false
     ]
   },
-  "hash": "4aa2100eb5a8f65e6f44539c4e3680864dec1527b638ab2a6248602e1cf71e49"
+  "hash": "08d055e4015613bda6b1a1fcb827d73cdd9b48facb70eb9a6dcf9a8227827983"
 }

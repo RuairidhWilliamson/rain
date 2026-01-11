@@ -140,6 +140,7 @@ async fn github_check_run() {
             commit: String::from("abcd"),
             created_at: Utc::now(),
             dequeued_at: None,
+            rain_version: None,
             finished: None,
         })
         .await

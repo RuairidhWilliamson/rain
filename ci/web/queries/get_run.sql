@@ -7,6 +7,7 @@ SELECT
     commit,
     created_at,
     dequeued_at,
+    rain_version,
     target,
     finished_at as "finished_at?",
     status as "status?",

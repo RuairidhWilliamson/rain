@@ -3,6 +3,7 @@ SELECT
     commit,
     created_at,
     dequeued_at,
+    rain_version,
     repos.id AS repo_id,
     repos.host,
     repos.owner,
