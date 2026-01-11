@@ -1,6 +1,6 @@
 let area = internal._get_area(this_file)
 pub let std = load_stdlib()
-let publish_module = import("publish.rain")
+let publish_mod = import("publish.rain")
 let test_mod = import("test.rain")
 let hermetic = import("hermetic.rain")
 let tree_sitter_rain = import("tree-sitter-rain/_.rain")
@@ -70,22 +70,14 @@ let check_empty_files = fn() {
 let test_zig = fn() {
 	src = std.utils.create_file("const std = @import(\"std\"); pub fn main() !void {std.debug.print(\"hello world\", .{});}", "helloworld.zig")
 	zig_bin = std.build.zig.dist.download("0.15.1", "x86_64", "linux")
-	run_result = std.utils.run(std.utils.unit, zig_bin, ["build-exe", src], {ZIG_GLOBAL_CACHE_DIR = "."})
-	if !run_result.success {
-		print("Stdout:", run_result.stdout)
-		print("Stderr:", run_result.stderr)
-		std.utils._throw("build zig")
-	}
+	run_result = std.utils.run_check(std.utils.unit, zig_bin, ["build-exe", src], {ZIG_GLOBAL_CACHE_DIR = "."})
 	bin = std.fs.file(run_result.area, "helloworld")
-	run_result = std.utils.run(std.utils.unit, bin, [], {})
-	if !run_result.success {
-		std.utils._throw("zig helloworld")
-	}
+	run_result = std.utils.run_check(std.utils.unit, bin, [], {})
 	print(run_result.stderr)
 }
 
 pub let publish = fn(version: String) {
-	publish_module.publish(version)
+	publish_mod.publish(version)
 }
 
 pub let install_cli = fn() {
