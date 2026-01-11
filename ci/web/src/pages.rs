@@ -85,12 +85,14 @@ pub async fn repo(
         base: Base,
         repo_id: RepositoryId,
         repo: Repository,
+        runs: Vec<(RunId, Run)>,
     }
     Ok(Html(
         RepoPage {
             base: Base::new(auth.user),
             repo: db.get_repo(&id).await.context("list repos")?,
             repo_id: id,
+            runs: db.list_runs_in_repo(&id).await.context("list runs")?,
         }
         .render()?,
     ))

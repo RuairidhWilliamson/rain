@@ -27,23 +27,81 @@
     <td>Actions</td>
     <td>
       <form method="post" name="create_run" action="{{ repo_id }}/run">
-        <div>
-          <label>
-            Commit:
-            <input name="commit" value="HEAD" />
-          </label>
-        </div>
-        <div>
-          <label>
-            Exec:
-            <input name="target" value="ci" />
-          </label>
-        </div>
-        <div>
-          <button>Create Run</button>
-        </div>
+        <table>
+          <tr>
+            <td>
+              <label for="commit">
+                Reference:
+              </label>
+            </td>
+            <td>
+              <input id="commit" name="commit" value="HEAD" />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label for="target">
+                Exec declaration:
+              </label>
+            </td>
+            <td>
+              <input id="target" name="target" value="ci" />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <button>Create Run</button>
+            </td>
+          </tr>
+        </table>
       </form>
     </td>
   </tr>
+</table>
+<h2>Runs for Repo {{ repo_id }}</h2>
+<table>
+  <tr>
+    <th>Repo</th>
+    <th>Commit</th>
+    <th>Created</th>
+    <th>State</th>
+    <th>Time</th>
+  </tr>
+  {% for (run_id, run) in runs %}
+  <tr>
+    <td><a href="/repo/{{run.repository.id}}">{{ run.repository.owner }}/{{ run.repository.name }}</a></td>
+    <td><a href="{{ run.commit_url() }}"><abbr title="{{ run.commit }}">{{ run.commit | truncate(5) }}</abbr></a></td>
+    <td>{{ run.created_at | timestamp }}</td>
+    <td>
+      {% match run.finished %}
+      {% when Some with (finished) %}
+      {% match finished.status %}
+      {% when rain_ci_common::RunStatus::Success %}
+      <span class="state-icon state-success" title="{{ finished.status }}"></span>
+      {% when rain_ci_common::RunStatus::Failure %}
+      <span class="state-icon state-failure" title="{{ finished.status }}"></span>
+      {% when rain_ci_common::RunStatus::SystemFailure %}
+      <span class="state-icon state-system-failure" title="{{ finished.status }}"></span>
+      {% endmatch %}
+      {% when None %}
+      {% match run.state() %}
+      {% when rain_ci_common::RunState::Queued %}
+      <span class="state-icon state-queued" title="{{ run.state() }}"></span>
+      {% when rain_ci_common::RunState::InProgress %}
+      <span class="state-icon state-in-progress" title="{{ run.state() }}"></span>
+      {% when rain_ci_common::RunState::Finished %}
+      {% endmatch %}
+      {% endmatch %}
+    </td>
+    <td>
+      {% match run.finished %}
+      {% when Some with (finished) %}
+      {{ finished.execution_time | duration }}
+      {% when None %}
+      {% endmatch %}
+    </td>
+    <td><a href="/run/{{run_id}}">View</a></td>
+  </tr>
+  {% endfor %}
 </table>
 {% endblock %}

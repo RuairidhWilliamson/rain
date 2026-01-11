@@ -142,33 +142,7 @@ impl Db {
         let row = sqlx::query_file_as!(QueryRun, "queries/get_run.sql", id.0)
             .fetch_one(&self.pool)
             .await?;
-        Ok(Run {
-            commit: row.commit,
-            created_at: row.created_at.and_utc(),
-            dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
-            target: row.target,
-            finished: row
-                .finished_at
-                .map(|finished_at| {
-                    Result::<_>::Ok(rain_ci_common::FinishedRun {
-                        finished_at: finished_at.and_utc(),
-                        status: RunStatus::from_str(&row.status.context("status missing")?)
-                            .context("unknown status")?,
-                        execution_time: TimeDelta::milliseconds(
-                            row.execution_time_millis
-                                .context("execution_time_millis missing")?,
-                        ),
-                        output: row.output.context("output missing")?,
-                    })
-                })
-                .transpose()?,
-            repository: Repository {
-                id: rain_ci_common::RepositoryId(row.repo_id),
-                host: RepoHost::from_str(&row.host).context("unknown repo host")?,
-                owner: row.owner,
-                name: row.name,
-            },
-        })
+        row.convert()
     }
 
     pub async fn list_runs(&self) -> Result<Vec<(RunId, Run)>> {
@@ -177,41 +151,8 @@ impl Db {
             .await?;
 
         rows.into_iter()
-            .map(|row| {
-                Ok((
-                    RunId(row.id),
-                    Run {
-                        commit: row.commit,
-                        created_at: row.created_at.and_utc(),
-                        dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
-                        target: row.target,
-                        finished: row
-                            .finished_at
-                            .map(|finished_at| {
-                                Result::<_>::Ok(rain_ci_common::FinishedRun {
-                                    finished_at: finished_at.and_utc(),
-                                    status: RunStatus::from_str(
-                                        &row.status.context("status missing")?,
-                                    )
-                                    .context("unknown run status")?,
-                                    execution_time: TimeDelta::milliseconds(
-                                        row.execution_time_millis
-                                            .context("execution_time_millis missing")?,
-                                    ),
-                                    output: row.output.context("output missing")?,
-                                })
-                            })
-                            .transpose()?,
-                        repository: Repository {
-                            id: rain_ci_common::RepositoryId(row.repo_id),
-                            host: RepoHost::from_str(&row.host).context("unknown repo host")?,
-                            owner: row.owner,
-                            name: row.name,
-                        },
-                    },
-                ))
-            })
-            .collect::<Result<_>>()
+            .map(|row| Ok((RunId(row.id), row.convert()?)))
+            .collect()
     }
 
     pub async fn list_repos(&self) -> Result<Vec<(RepositoryId, Repository)>> {
@@ -270,6 +211,17 @@ impl Db {
             .await?;
         Ok(run_id)
     }
+
+    pub async fn list_runs_in_repo(&self, repo_id: &RepositoryId) -> Result<Vec<(RunId, Run)>> {
+        // Check repo exists
+        self.get_repo(repo_id).await?;
+        let rows = sqlx::query_file_as!(QueryRun, "queries/list_runs_in_repo.sql", repo_id.0)
+            .fetch_all(&self.pool)
+            .await?;
+        rows.into_iter()
+            .map(|row| Ok((RunId(row.id), row.convert()?)))
+            .collect()
+    }
 }
 
 struct QueryRun {
@@ -286,6 +238,39 @@ struct QueryRun {
     finished_at: Option<NaiveDateTime>,
     execution_time_millis: Option<i64>,
     output: Option<String>,
+}
+
+impl QueryRun {
+    fn convert(self) -> Result<Run> {
+        let row = self;
+        Ok(Run {
+            commit: row.commit,
+            created_at: row.created_at.and_utc(),
+            dequeued_at: row.dequeued_at.map(|dt| dt.and_utc()),
+            target: row.target,
+            finished: row
+                .finished_at
+                .map(|finished_at| {
+                    Result::<_>::Ok(rain_ci_common::FinishedRun {
+                        finished_at: finished_at.and_utc(),
+                        status: RunStatus::from_str(&row.status.context("status missing")?)
+                            .context("unknown run status")?,
+                        execution_time: TimeDelta::milliseconds(
+                            row.execution_time_millis
+                                .context("execution_time_millis missing")?,
+                        ),
+                        output: row.output.context("output missing")?,
+                    })
+                })
+                .transpose()?,
+            repository: Repository {
+                id: rain_ci_common::RepositoryId(row.repo_id),
+                host: RepoHost::from_str(&row.host).context("unknown repo host")?,
+                owner: row.owner,
+                name: row.name,
+            },
+        })
+    }
 }
 
 struct QueryRepo {
