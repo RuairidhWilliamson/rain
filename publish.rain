@@ -8,6 +8,7 @@ let {File, Dir, String} = std.types
 let area = std.fs.area(this_file)
 let bucket = "rain-e870e063"
 let webhook_url = internal._get_secret("RAIN_PUBLISH_WEBHOOK")
+let gcloud = std.escape.bin("gcloud")
 
 let check_version = fn(version: String) {
 	cargo_toml = std.fs.file(area, "Cargo.toml")
@@ -18,13 +19,12 @@ let check_version = fn(version: String) {
 }
 
 let compress_lib = fn() {
-	lib_dir = std.fs.dir(area, "lib")
-	filename = "lib.tar.gz"
+	lib_dir = std.fs.dir(area, "lib/std")
+	filename = "stdlib.tar.gz"
 	std.compression.compress_tar_gz(lib_dir, filename)
 }
 
 let upload_gcloud = fn(src: File, dst: String) {
-	gcloud = std.escape.bin("gcloud")
 	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--no-clobber"], {})
 	print("Stdout:", run_result.stdout)
 	print("Stderr:", run_result.stderr)
@@ -34,7 +34,6 @@ let upload_gcloud = fn(src: File, dst: String) {
 }
 
 let upload_gcloud_recursive = fn(src: Dir, dst: String) {
-	gcloud = std.escape.bin("gcloud")
 	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--recursive"], {})
 	print("Stdout:", run_result.stdout)
 	print("Stderr:", run_result.stderr)
@@ -44,7 +43,6 @@ let upload_gcloud_recursive = fn(src: Dir, dst: String) {
 }
 
 let upload_gcloud_overwrite = fn(src: File, dst: String) {
-	gcloud = std.escape.bin("gcloud")
 	run_result = run(unit, gcloud, ["storage", "cp", src, dst], {})
 	print("Stdout:", run_result.stdout)
 	print("Stderr:", run_result.stderr)
@@ -55,7 +53,6 @@ let upload_gcloud_overwrite = fn(src: File, dst: String) {
 
 let upload_gcloud_with_sha256 = fn(src: File, dst: String) {
 	sha256sum = std.fs.create_file(std.fs.sha256(src), "sha256")
-	gcloud = std.escape.bin("gcloud")
 	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--no-clobber"], {})
 	print("Stdout:", run_result.stdout)
 	print("Stderr:", run_result.stderr)

@@ -17,8 +17,7 @@ pub let download_stdlib = fn(version: String) {
 	if expected != actual {
 		internal._throw("checksum does not match '" + expected + "' != '" + actual + "'")
 	}
-	lib_area = internal._extract_tar(internal._extract_gzip(download_result.file, "temp.tar"))
-	stdlib_area = internal._create_area([internal._get_dir(lib_area, "lib/std")])
+	stdlib_area = internal._extract_tar(internal._extract_gzip(download_result.file, "temp.tar"))
 	load_stdlib(stdlib_area)
 }
 
