@@ -1,6 +1,7 @@
 // utils.rain is designed to be removed in the future but provides useful APIs
 let std = import("std.rain")
 let {String, List, File, Bool, Any, Area} = std.types
+let {print} = std
 
 pub let run = internal._run
 pub let unit = internal._unit()

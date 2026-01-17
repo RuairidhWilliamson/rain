@@ -43,7 +43,16 @@
         },
         {
           "type": "SYMBOL",
-          "name": "let_declare_name"
+          "name": "assignment"
+        }
+      ]
+    },
+    "assignment": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "declare_name"
         },
         {
           "type": "STRING",
@@ -55,7 +64,7 @@
         }
       ]
     },
-    "let_declare_name": {
+    "declare_name": {
       "type": "CHOICE",
       "members": [
         {
@@ -317,23 +326,6 @@
         {
           "type": "SYMBOL",
           "name": "line_comment"
-        }
-      ]
-    },
-    "assignment": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "identifier"
-        },
-        {
-          "type": "STRING",
-          "value": "="
-        },
-        {
-          "type": "SYMBOL",
-          "name": "expr"
         }
       ]
     },
@@ -1094,7 +1086,12 @@
       "value": "\\s"
     }
   ],
-  "conflicts": [],
+  "conflicts": [
+    [
+      "record_literal",
+      "declare_named_destructure"
+    ]
+  ],
   "precedences": [],
   "externals": [],
   "inline": [],

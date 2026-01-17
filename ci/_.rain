@@ -1,0 +1,45 @@
+let main = import("main.rain")
+let std = main.std
+
+let {Area, File, String, Dir} = std.types
+
+let podman = std.escape.bin("podman")
+
+pub let build_ci_web = fn() -> File {
+	binary = std.build.rust.escape.cargo_build(main.area, "rain-ci-web", "x86_64-unknown-linux-musl", true)
+	container_file = std.fs.relative_file("Containerfile.web")
+	work_area = std.fs.create_area([binary])
+	std.compression.compress_gzip(build_image(work_area, container_file), "rain-ci-web.tar.gz")
+}
+
+pub let build_ci_migrator = fn() -> File {
+	migrations = std.fs.relative_dir("migrations")
+	binary = std.build.rust.escape.cargo_build(main.area, "rain-ci-migrator", "x86_64-unknown-linux-musl", true)
+	container_file = std.fs.relative_file("Containerfile.migrator")
+	work_area = std.fs.create_area2([migrations, binary])
+	std.compression.compress_gzip(build_image(work_area, container_file), "rain-ci-migrator.tar.gz")
+}
+
+pub let build_ci_coordinator = fn() -> File {
+	binary = std.build.rust.escape.cargo_build(main.area, "rain-ci-coordinator", "x86_64-unknown-linux-gnu", true)
+	blender = download_blender("4.5.3", "4.5")
+	container_file = std.fs.relative_file("Containerfile.coordinator")
+	work_area = std.fs.create_area2([blender, binary])
+	std.compression.compress_gzip(build_image(work_area, container_file), "rain-ci-coordinator.tar.gz")
+}
+
+let download_blender = fn(version: String, short_version: String) -> Dir {
+	dl = std.utils.download("https://mirrors.ocf.berkeley.edu/blender/release/Blender" + short_version + "/blender-" + version + "-linux-x64.tar.xz")
+	if std.fs.sha256(dl.file) != "975c58fcb244273838534bba771e64ad87739216b0f9b39a888531a49a72d845" {
+		std.utils._throw("sha256 did not match")
+	}
+	std.compression.extract_tar_xz(dl.file)
+	std.fs.dir(_, "blender-" + version + "-linux-x64")
+	std.fs.rename_dir(_, "blender")
+}
+
+let build_image = fn(work_area: Area, container_file: File) -> File {
+	out_name = "out.tar"
+	std.utils.run_check(work_area, podman, ["image", "build", "--isolation", "chroot", "-f", container_file, "-o", "type=tar,dest=" + out_name, "."], {})
+	std.fs.file(_.area, out_name)
+}

@@ -99,86 +99,11 @@ impl<'src> ModuleParser<'src> {
             (None, token)
         };
 
-        let token = self
-            .stream
-            .expect_parse_next(&[Token::Ident, Token::LBrace])?;
-        let name = match token.token {
-            Token::Ident => {
-                let name = token;
-                let peek = self.stream.expect_peek(&[Token::Colon, Token::Assign])?;
-                let type_spec = if peek.token == Token::Colon {
-                    let colon_token = self.stream.expect_parse_next(&[Token::Colon])?;
-                    Some(ArgTypeSpec {
-                        colon_token,
-                        type_expr: self.parse_expr()?,
-                    })
-                } else {
-                    None
-                };
-                DeclareName::Single(DeclareNameSingle { name, type_spec })
-            }
-            Token::LBrace => {
-                let lbrace = token;
-                let mut elements = Vec::new();
-                loop {
-                    self.stream.skip_if_newline_or_comment()?;
-                    let Some(peek) = self.stream.peek()? else {
-                        break;
-                    };
-                    if peek.token == Token::RBrace {
-                        break;
-                    }
-                    let name = self.stream.expect_parse_next(&[Token::Ident])?;
-                    let peek =
-                        self.stream
-                            .expect_peek(&[Token::Colon, Token::Comma, Token::RBrace])?;
-                    let type_spec = if peek.token == Token::Colon {
-                        let colon_token = self.stream.expect_parse_next(&[Token::Colon])?;
-                        Some(ArgTypeSpec {
-                            colon_token,
-                            type_expr: self.parse_expr()?,
-                        })
-                    } else {
-                        None
-                    };
-                    let peek = self.stream.expect_peek(&[Token::Comma, Token::RBrace])?;
-                    match peek.token {
-                        Token::RBrace => {
-                            elements.push(DeclareNameListElement {
-                                name,
-                                type_spec,
-                                comma: None,
-                            });
-                            break;
-                        }
-                        Token::Comma => {
-                            let comma = Some(self.stream.expect_parse_next(&[Token::Comma])?);
-                            elements.push(DeclareNameListElement {
-                                name,
-                                type_spec,
-                                comma,
-                            });
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-                let rbrace = self.stream.expect_parse_next(&[Token::RBrace])?;
-                DeclareName::NamedDestructure(DeclareNamedDestructure {
-                    lbrace,
-                    elements,
-                    rbrace,
-                })
-            }
-            _ => unreachable!(),
-        };
-        let equals_token = self.stream.expect_parse_next(&[Token::Assign])?;
-        let expr = self.parse_expr()?;
+        let assignment = self.parse_assignment()?;
         Ok(Declare {
             pub_token,
             let_token,
-            name,
-            equals_token,
-            expr,
+            assignment,
         })
     }
 
@@ -284,21 +209,93 @@ impl<'src> ModuleParser<'src> {
     fn parse_statement(&mut self) -> ParseResult<NodeId> {
         if let Some([first, second]) = self.stream.peek_many()? {
             if first.token == Token::Ident && second.token == Token::Assign {
-                return self.parse_assignment();
+                let assignment = self.parse_assignment()?;
+                return Ok(self.push(assignment));
             }
         }
         self.parse_expr()
     }
 
-    fn parse_assignment(&mut self) -> ParseResult<NodeId> {
-        let name = self.stream.expect_parse_next(&[Token::Ident])?;
+    fn parse_assignment(&mut self) -> ParseResult<Assignment> {
+        let token = self
+            .stream
+            .expect_parse_next(&[Token::Ident, Token::LBrace])?;
+        let name = match token.token {
+            Token::Ident => {
+                let name = token;
+                let peek = self.stream.expect_peek(&[Token::Colon, Token::Assign])?;
+                let type_spec = if peek.token == Token::Colon {
+                    let colon_token = self.stream.expect_parse_next(&[Token::Colon])?;
+                    Some(ArgTypeSpec {
+                        colon_token,
+                        type_expr: self.parse_expr()?,
+                    })
+                } else {
+                    None
+                };
+                DeclareName::Single(DeclareNameSingle { name, type_spec })
+            }
+            Token::LBrace => {
+                let lbrace = token;
+                let mut elements = Vec::new();
+                loop {
+                    self.stream.skip_if_newline_or_comment()?;
+                    let Some(peek) = self.stream.peek()? else {
+                        break;
+                    };
+                    if peek.token == Token::RBrace {
+                        break;
+                    }
+                    let name = self.stream.expect_parse_next(&[Token::Ident])?;
+                    let peek =
+                        self.stream
+                            .expect_peek(&[Token::Colon, Token::Comma, Token::RBrace])?;
+                    let type_spec = if peek.token == Token::Colon {
+                        let colon_token = self.stream.expect_parse_next(&[Token::Colon])?;
+                        Some(ArgTypeSpec {
+                            colon_token,
+                            type_expr: self.parse_expr()?,
+                        })
+                    } else {
+                        None
+                    };
+                    let peek = self.stream.expect_peek(&[Token::Comma, Token::RBrace])?;
+                    match peek.token {
+                        Token::RBrace => {
+                            elements.push(DeclareNameListElement {
+                                name,
+                                type_spec,
+                                comma: None,
+                            });
+                            break;
+                        }
+                        Token::Comma => {
+                            let comma = Some(self.stream.expect_parse_next(&[Token::Comma])?);
+                            elements.push(DeclareNameListElement {
+                                name,
+                                type_spec,
+                                comma,
+                            });
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+                let rbrace = self.stream.expect_parse_next(&[Token::RBrace])?;
+                DeclareName::NamedDestructure(DeclareNamedDestructure {
+                    lbrace,
+                    elements,
+                    rbrace,
+                })
+            }
+            _ => unreachable!(),
+        };
         let equals_token = self.stream.expect_parse_next(&[Token::Assign])?;
         let expr = self.parse_expr()?;
-        Ok(self.push(Assignment {
+        Ok(Assignment {
             name,
             equals_token,
             expr,
-        }))
+        })
     }
 
     fn parse_expr(&mut self) -> ParseResult<NodeId> {

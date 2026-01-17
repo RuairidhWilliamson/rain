@@ -119,8 +119,8 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             cx.propagate_deps(cache_entry.deps);
             return Ok(cache_entry.value);
         }
-        let result = self.evaluate_node(&mut callee_cx, declaration.expr)?;
-        let result = match &declaration.name {
+        let result = self.evaluate_node(&mut callee_cx, declaration.assignment.expr)?;
+        let result = match &declaration.assignment.name {
             DeclareName::Single(single) => {
                 if let Some(type_spec) = &single.type_spec {
                     let type_spec_value =
@@ -139,7 +139,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 let name = span.contents(&m.src);
                 let Some(value) = self.evaluate_named_index(cx, &result, span, name)? else {
                     return Err(cx.nid_err(
-                        declaration.expr,
+                        declaration.assignment.expr,
                         RunnerError::IndexKeyNotFound(name.to_owned()),
                     ));
                 };
@@ -198,9 +198,29 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             Node::FnCall(fn_call) => self.evaluate_fn_call(cx, nid, fn_call),
             Node::Assignment(assignment) => {
                 let v = self.evaluate_node(cx, assignment.expr)?;
-                let name = assignment.name.span.contents(&cx.module.src);
-                cx.locals.insert(name, v);
-                Ok(Value::Unit)
+                match &assignment.name {
+                    DeclareName::Single(declare_name_single) => {
+                        let name = declare_name_single.name.span.contents(&cx.module.src);
+                        // TODO: Type check
+                        cx.locals.insert(name, v);
+                        Ok(Value::Unit)
+                    }
+                    DeclareName::NamedDestructure(_) => {
+                        for name_span in assignment.name_spans() {
+                            let name = name_span.contents(&cx.module.src);
+                            let Some(value) = self.evaluate_named_index(cx, &v, name_span, name)?
+                            else {
+                                return Err(cx.nid_err(
+                                    assignment.expr,
+                                    RunnerError::IndexKeyNotFound(name.to_owned()),
+                                ));
+                            };
+                            // TODO: Type check
+                            cx.locals.insert(name, value);
+                        }
+                        Ok(Value::Unit)
+                    }
+                }
             }
             Node::BinaryOp(binary_op) => self.evaluate_binary_op(cx, binary_op),
             Node::Ident(tls) => self

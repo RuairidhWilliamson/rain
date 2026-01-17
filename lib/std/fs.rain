@@ -51,6 +51,16 @@ pub let relative_file = internal._get_file
 
 pub let relative_dir = internal._get_dir
 
-pub let create_area = fn(fs_entries: List(Any)) -> Area {
-	internal._create_area(fs_entries)
+pub let create_area = create_flat_area
+pub let create_flat_area = fn(fs_entries: List(Any)) -> Area {
+	internal._create_area(fs_entries, true)
+}
+
+pub let create_area2 = fn(fs_entries: List(Any)) -> Area {
+	internal._create_area(fs_entries, false)
+}
+
+pub let copy_dir = rename_dir
+pub let rename_dir = fn(dir: Dir, name: String) -> Dir {
+	internal._copy_dir(dir, name)
 }

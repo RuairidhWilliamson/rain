@@ -1,6 +1,7 @@
 pub let dist = import("build/rust/dist.rain")
 pub let cargo = import("build/rust/cargo.rain")
 pub let rustc = import("build/rust/rustc.rain")
+pub let escape = import("build/rust/escape.rain")
 
 pub let stable = "stable"
 pub let beta = "beta"

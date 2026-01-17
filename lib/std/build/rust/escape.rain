@@ -1,0 +1,27 @@
+let std = import("std.rain")
+
+let {String, File, Bool, Area} = std.types
+
+let cargo = std.escape.bin("cargo")
+
+let cargo_env =  {
+	CARGO_TERM_COLOR = "always",
+	CARGO_TERM_QUIET = "true",
+}
+
+pub let cargo_build = fn(area: Area, package: String, target_triple: String, release: Bool) -> File {
+	args = [
+		"build",
+		"--package", package,
+		"--target", target_triple,
+	]
+	if release {
+		args = args + ["--release"]
+	}
+	std.escape.run(area, cargo, args, cargo_env)
+	profile = "debug"
+	if release {
+		profile = "release"
+	}
+	std.fs.file(area, "target/" + target_triple + "/" + profile + "/" + package + std.utils.exe_suffix(target_triple))
+}

@@ -1,0 +1,15 @@
+FROM docker.io/rust:1.92-slim
+RUN rustup component add rustfmt clippy
+RUN apt-get -qqy update && apt-get -qqy install pkg-config libssl-dev curl xz-utils libasound2-dev clang nodejs
+
+WORKDIR /usr/rain
+
+# Install blender
+RUN apt-get -qqy install python3-numpy libxxf86vm1 libxfixes3 libxi6 libx11-6 libxkbcommon0 libgl1 libxrender1 libsm6 && apt-get remove -y --auto-remove
+COPY blender /blender
+ENV PATH="${PATH}:/blender"
+
+COPY rain-ci-coordinator /usr/local/cargo/bin/rain-ci-coordinator
+ENV RUST_LOG=info
+ENTRYPOINT ["rain-ci-coordinator"]
+

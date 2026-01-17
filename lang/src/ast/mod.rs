@@ -161,9 +161,7 @@ impl AstNode for ModuleRoot {
 pub struct Declare {
     pub pub_token: Option<TokenLocalSpan>,
     pub let_token: TokenLocalSpan,
-    pub name: DeclareName,
-    pub equals_token: TokenLocalSpan,
-    pub expr: NodeId,
+    pub assignment: Assignment,
 }
 
 #[derive(Debug)]
@@ -173,10 +171,60 @@ pub enum DeclareName {
     // TODO: Add SequenceDestructure,
 }
 
+impl AstNode for DeclareName {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        match self {
+            Self::Single(declare_name_single) => declare_name_single.span(list),
+            Self::NamedDestructure(declare_named_destructure) => {
+                declare_named_destructure.span(list)
+            }
+        }
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        let mut b = f.node("Name");
+        match &self {
+            Self::Single(single_name) => {
+                b.child_contents(single_name.name.span);
+                if let Some(t) = &single_name.type_spec {
+                    b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
+                }
+            }
+            Self::NamedDestructure(destructure) => {
+                b.child_fn(|f| {
+                    let mut b = f.node("NamedDestructure");
+                    for e in &destructure.elements {
+                        b.child_fn(|f| {
+                            let mut b = f.node("NamedDestructureElement");
+                            b.child_contents(e.name.span);
+                            if let Some(t) = &e.type_spec {
+                                b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
+                            }
+                            b.finish()
+                        });
+                    }
+                    b.finish()
+                });
+            }
+        }
+        b.finish()
+    }
+}
+
 #[derive(Debug)]
 pub struct DeclareNameSingle {
     pub name: TokenLocalSpan,
     pub type_spec: Option<ArgTypeSpec>,
+}
+
+impl DeclareNameSingle {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        if let Some(type_spec) = &self.type_spec {
+            self.name.span + list.span(type_spec.type_expr)
+        } else {
+            self.name.span
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -186,6 +234,12 @@ pub struct DeclareNamedDestructure {
     pub rbrace: TokenLocalSpan,
 }
 
+impl DeclareNamedDestructure {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.lbrace.span + self.rbrace.span
+    }
+}
+
 #[derive(Debug)]
 pub struct DeclareNameListElement {
     pub name: TokenLocalSpan,
@@ -193,7 +247,7 @@ pub struct DeclareNameListElement {
     pub comma: Option<TokenLocalSpan>,
 }
 
-impl Declare {
+impl Assignment {
     pub fn type_specs(&self) -> impl Iterator<Item = &Option<ArgTypeSpec>> {
         let iter: Box<dyn Iterator<Item = &Option<ArgTypeSpec>>> = match &self.name {
             DeclareName::Single(declare_name_single) => {
@@ -236,7 +290,7 @@ impl AstNode for Declare {
         } else {
             self.let_token.span
         };
-        first + list.span(self.expr)
+        first + self.assignment.span(list)
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
@@ -246,7 +300,7 @@ impl AstNode for Declare {
         } else {
             b.child_str("private");
         }
-        match &self.name {
+        match &self.assignment.name {
             DeclareName::Single(single_name) => {
                 b.child_contents(single_name.name.span);
                 if let Some(t) = &single_name.type_spec {
@@ -270,7 +324,7 @@ impl AstNode for Declare {
                 });
             }
         }
-        b.child(self.expr).finish()
+        b.child(self.assignment.expr).finish()
     }
 }
 
@@ -518,7 +572,7 @@ impl AstNode for IfCondition {
 
 #[derive(Debug)]
 pub struct Assignment {
-    pub name: TokenLocalSpan,
+    pub name: DeclareName,
     pub equals_token: TokenLocalSpan,
     pub expr: NodeId,
 }
@@ -531,12 +585,12 @@ impl From<Assignment> for Node {
 
 impl AstNode for Assignment {
     fn span(&self, list: &NodeList) -> LocalSpan {
-        self.name.span + list.span(self.expr)
+        self.name.span(list) + list.span(self.expr)
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
         f.node("Assignment")
-            .child_contents(self.name.span)
+            .child_fn(|f| self.name.ast_display(f))
             .child(self.expr)
             .finish()
     }

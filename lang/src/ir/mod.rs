@@ -104,7 +104,7 @@ impl IrModule {
 
     pub fn get_declaration_type_spec(&self, id: LocalDeclarationId) -> &Option<ArgTypeSpec> {
         match self.inner().module_root().declarations.get(id.0) {
-            Some(let_declare) => match let_declare.type_specs().nth(id.1) {
+            Some(let_declare) => match let_declare.assignment.type_specs().nth(id.1) {
                 Some(type_spec) => type_spec,
                 None => unreachable!(),
             },
@@ -114,7 +114,7 @@ impl IrModule {
 
     pub fn get_declaration_name_span(&self, id: LocalDeclarationId) -> LocalSpan {
         match self.inner().module_root().declarations.get(id.0) {
-            Some(let_declare) => match let_declare.name_spans().nth(id.1) {
+            Some(let_declare) => match let_declare.assignment.name_spans().nth(id.1) {
                 Some(span) => span,
                 None => unreachable!(),
             },
@@ -128,6 +128,7 @@ impl IrModule {
             .enumerate()
             .find_map(|(id, let_declare)| {
                 let index = let_declare
+                    .assignment
                     .names(&self.src)
                     .position(|declare_name| declare_name == name)?;
                 Some(LocalDeclarationId(id, index))
@@ -137,14 +138,14 @@ impl IrModule {
     pub fn list_declaration_names(&self) -> impl Iterator<Item = &str> {
         self.inner()
             .declarations()
-            .flat_map(|let_declare| let_declare.names(&self.src))
+            .flat_map(|let_declare| let_declare.assignment.names(&self.src))
     }
 
     pub fn list_pub_declaration_names(&self) -> impl Iterator<Item = &str> {
         self.inner()
             .declarations()
             .filter(|let_declare| let_declare.pub_token.is_some())
-            .flat_map(|let_declare| let_declare.names(&self.src))
+            .flat_map(|let_declare| let_declare.assignment.names(&self.src))
     }
 }
 

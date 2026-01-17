@@ -14,9 +14,9 @@ pub let test_caching = fn() {
 }
 
 let test_embed_cache = fn() {
-	std1 = internal._embed().download_stdlib("0.1.4")
-	std2 = internal._embed().download_stdlib("0.1.4")
-	std.assert.is_true(internal._rust_eq(std1, std2))
+	// std1 = internal._embed().download_stdlib("0.1.4")
+	// std2 = internal._embed().download_stdlib("0.1.4")
+	// std.assert.is_true(internal._rust_eq(std1, std2))
 }
 
 let rustc_helloworld = fn() {

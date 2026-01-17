@@ -263,7 +263,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         #[expect(clippy::unwrap_used)]
         let (root, lfs_entries) = tokio::task::spawn_blocking(move || {
             let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
-            let download_area = driver.create_area(&[]).unwrap();
+            let download_area = driver.create_area(&[], true).unwrap();
             let download_entry =
                 FSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
             std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
@@ -300,7 +300,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         Ok(tokio::task::spawn_blocking(move || {
             let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
             let area = driver
-                .create_overlay_area(std::iter::once(root.inner()), true)
+                .create_overlay_area(std::iter::once(root.inner()), true, true)
                 .unwrap();
             let run_complete = server.runner.run(&driver, area, &target);
             Ok(run_complete)

@@ -44,7 +44,11 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     ) -> Result<DownloadStatus, RunnerError>;
     fn sha256(&self, file: &File) -> Result<String, RunnerError>;
     fn sha512(&self, file: &File) -> Result<String, RunnerError>;
-    fn create_area(&self, dirs: &[&FSEntry]) -> Result<FileArea, RunnerError>;
+    fn create_area(
+        &self,
+        dirs: &[&FSEntry],
+        flatten_input_dirs: bool,
+    ) -> Result<FileArea, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, std::io::Error>;
     fn create_file(
         &self,
@@ -65,6 +69,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn git_lfs_smudge(&self, area: &FileArea) -> Result<FileArea, RunnerError>;
     fn env_var(&self, key: &str) -> Result<Option<String>, RunnerError>;
     fn copy_file(&self, file: &File, name: &str, executable: bool) -> Result<File, RunnerError>;
+    fn copy_dir(&self, dir: &Dir, name: &str, include_hidden: bool) -> Result<Dir, RunnerError>;
     fn compress_zstd(&self, file: &File, name: &str, level: u8) -> Result<File, RunnerError>;
     fn extract_zstd(&self, file: &File, name: &str) -> Result<File, RunnerError>;
 }

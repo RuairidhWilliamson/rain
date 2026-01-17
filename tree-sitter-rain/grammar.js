@@ -4,14 +4,16 @@
 export default grammar({
   name: "rain",
 
+  conflicts: ($) => [[$.record_literal, $.declare_named_destructure]],
+
   rules: {
     source_file: ($) => repeat(choice($.line_comment, $.declaration)),
 
     declaration: ($) => $.let_declare,
 
-    let_declare: ($) =>
-      seq(optional("pub"), "let", $.let_declare_name, "=", $.expr),
-    let_declare_name: ($) =>
+    let_declare: ($) => seq(optional("pub"), "let", $.assignment),
+    assignment: ($) => seq($.declare_name, "=", $.expr),
+    declare_name: ($) =>
       choice($.declare_single_name, $.declare_named_destructure),
     declare_single_name: ($) =>
       seq($.identifier, optional(seq(":", $.type_constraint))),
@@ -45,8 +47,6 @@ export default grammar({
     block: ($) => seq("{", repeat($.statement), "}"),
 
     statement: ($) => choice($.assignment, $.expr, $.line_comment),
-
-    assignment: ($) => seq($.identifier, "=", $.expr),
 
     expr: ($) =>
       choice(

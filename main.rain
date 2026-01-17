@@ -1,12 +1,13 @@
-let area = internal._get_area(this_file)
+pub let area = internal._get_area(this_file)
 pub let std = load_stdlib()
 let publish_mod = import("publish.rain")
 let test_mod = import("test.rain")
 let hermetic = import("hermetic.rain")
 let tree_sitter_rain = import("tree-sitter-rain/_.rain")
+pub let ci_mod = import("ci/_.rain")
 
 let load_stdlib = fn() {
-	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")])
+	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")], true)
 	internal._embed().load_stdlib(stdlib_area)
 }
 
@@ -47,15 +48,7 @@ let build = fn() {
 }
 
 pub let build_release = fn(target_triple: String) -> File {
-	args = [
-		"build",
-		"--package", "rain",
-		"--target", target_triple,
-		"--release",
-		"--no-default-features",
-	]
-	std.escape.run(area, cargo, args, cargo_env)
-	std.fs.file(area, "target/" + target_triple + "/release/rain" + std.utils.exe_suffix(target_triple))
+	std.build.rust.escape.cargo_build(area, "rain", target_triple, true)
 }
 
 let run = fn() {

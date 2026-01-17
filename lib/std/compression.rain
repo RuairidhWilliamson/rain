@@ -17,8 +17,12 @@ pub let extract_tar_xz = fn(file: File) -> Area {
 	extract_tar(extract_xz(file, "extract_temp.tar"))
 }
 
+pub let compress_gzip = fn(file: File, name: String) -> File {
+	internal._compress_gzip(file, name)
+}
+
 pub let compress_tar_gz = fn(dir: DirLike, name: String) -> File {
-	internal._compress_gzip(create_tar(dir, "compress_temp.tar"), name)
+	compress_gzip(create_tar(dir, "compress_temp.tar"), name)
 }
 
 pub let create_tar = fn(dir: DirLike, name: String) -> File {

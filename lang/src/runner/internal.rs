@@ -94,6 +94,7 @@ pub enum InternalFunction {
     Throw,
     Unit,
     FileName,
+    CopyDir,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -161,6 +162,7 @@ impl InternalFunction {
             "_throw" => Some(Self::Throw),
             "_unit" => Some(Self::Unit),
             "_file_name" => Some(Self::FileName),
+            "_copy_dir" => Some(Self::CopyDir),
             _ => None,
         }
     }
@@ -334,6 +336,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::CompressZstd => self.compress_zstd(),
             InternalFunction::ExtractZstd => self.extract_zstd(),
             InternalFunction::FileName => self.file_name(),
+            InternalFunction::CopyDir => self.copy_dir(),
         }
     }
 
@@ -733,8 +736,9 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn create_area(self) -> ResultValue {
-        let (dirs_nid, dirs_value) = single_arg!(self);
+        let ((dirs_nid, dirs_value), flatten_input_dirs) = two_args!(self);
         let dirs = expect_type!(self, List, (dirs_nid, dirs_value));
+        let flatten_input_dirs = expect_type!(self, Boolean, flatten_input_dirs);
         let dirs: Vec<&FSEntry> = dirs
             .0
             .iter()
@@ -756,7 +760,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let merged_area = self
             .runner
             .driver
-            .create_area(&dirs)
+            .create_area(&dirs, *flatten_input_dirs)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
         Ok(Value::FileArea(Arc::new(merged_area)))
     }
@@ -784,7 +788,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let merged_area = self
             .runner
             .driver
-            .create_area(&dirs)
+            .create_area(&dirs, true)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
         Ok(Value::FileArea(Arc::new(merged_area)))
     }
@@ -1258,6 +1262,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .display()
                     .to_string(),
             ))),
+            Value::FileArea(area) => Ok(Value::String(Arc::new(
+                self.runner
+                    .driver
+                    .resolve_fs_entry(Dir::root((**area).clone()).inner())
+                    .display()
+                    .to_string(),
+            ))),
             Value::Dir(d) => Ok(Value::String(Arc::new(
                 self.runner
                     .driver
@@ -1561,5 +1572,17 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             ));
         };
         Ok(Value::String(Arc::new(name.to_string())))
+    }
+
+    fn copy_dir(self) -> ResultValue {
+        let (dir, name) = two_args!(self);
+        let dir = expect_type!(self, Dir, dir);
+        let name = expect_type!(self, String, name);
+        let out = self
+            .runner
+            .driver
+            .copy_dir(dir, name, true)
+            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+        Ok(Value::Dir(Arc::new(out)))
     }
 }
