@@ -619,7 +619,6 @@ impl DriverTrait for DriverImpl<'_> {
         ))
     }
 
-    #[expect(clippy::unwrap_used)]
     fn git_contents(&self, url: &str, commit: &str) -> Result<FileArea, RunnerError> {
         let area = self.create_empty_area()?;
         let dir = Dir::root(area);
@@ -639,8 +638,9 @@ impl DriverTrait for DriverImpl<'_> {
             .fetch_options(fo)
             .with_checkout(git2::build::CheckoutBuilder::new())
             .clone(url, &self.resolve_fs_entry(dir.inner()))
-            .unwrap();
-        repo.set_head_detached(commit).unwrap();
+            .map_err(|err| RunnerError::Makeshift(format!("clone repo: {err}").into()))?;
+        repo.set_head_detached(commit)
+            .map_err(|err| RunnerError::Makeshift(format!("set head: {err}").into()))?;
         Ok(dir.area().clone())
     }
 
