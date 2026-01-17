@@ -96,28 +96,23 @@ pub let build = fn(version: String) {
 	{
 		win_amd64 = main.build_release("x86_64-pc-windows-gnu"),
 		linux_amd64 = main.build_release("x86_64-unknown-linux-gnu"),
-		ci_web = main.ci_mod.build_ci_web(),
-		ci_migrator = main.ci_mod.build_ci_migrator(),
-		ci_coordinator = main.ci_mod.build_ci_coordinator(),
+		// ci_web = main.ci_mod.build_ci_web(),
+		// ci_migrator = main.ci_mod.build_ci_migrator(),
+		// ci_coordinator = main.ci_mod.build_ci_coordinator(),
 	}
 }
 
 pub let publish = fn(version: String) {
 	check_version(version)
 	built = build(version)
-	win_amd64 = built.win_amd64
-	linux_amd64 = built.linux_amd64
-	ci_web = built.ci_web
-	ci_migrator = built.ci_migrator
-	ci_coordinator = built.ci_coordinator
 
 	prefix = "gs://" + bucket + "/releases/" + version
 	upload_gcloud_with_sha256(compress_lib(), prefix + "/stdlib.tar.gz")
-	upload_gcloud_with_sha256(win_amd64, prefix + "/rain-windows-amd64.exe")
-	upload_gcloud_with_sha256(linux_amd64, prefix + "/rain-linux-amd64")
-	upload_gcloud_with_sha256(ci_web, prefix + "/rain-ci-web")
-	upload_gcloud_with_sha256(ci_migrator, prefix + "/rain-ci-migrator")
-	upload_gcloud_with_sha256(ci_coordinator, prefix + "/rain-ci-coordinator")
+	upload_gcloud_with_sha256(built.win_amd64, prefix + "/rain-windows-amd64.exe")
+	upload_gcloud_with_sha256(built.linux_amd64, prefix + "/rain-linux-amd64")
+	// upload_gcloud_with_sha256(built.ci_web, prefix + "/rain-ci-web")
+	// upload_gcloud_with_sha256(built.ci_migrator, prefix + "/rain-ci-migrator")
+	// upload_gcloud_with_sha256(built.ci_coordinator, prefix + "/rain-ci-coordinator")
 	windows_url = "https://storage.googleapis.com/" + bucket + "/releases/" + version + "/rain-windows-amd64.exe"
 	linux_url = "https://storage.googleapis.com/" + bucket + "/releases/" + version + "/rain-linux-amd64"
 	webhook(webhook_url, "Rain " + version + "\n" + windows_url + "\n" + linux_url)
