@@ -1,4 +1,4 @@
-FROM docker.io/rust:alpine
+FROM docker.io/alpine
 WORKDIR /usr/rain
 COPY rain-ci-migrator /usr/local/cargo/bin/rain-ci-migrator
 COPY migrations migrations

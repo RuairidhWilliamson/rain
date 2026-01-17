@@ -9,7 +9,7 @@ pub let build_ci_web = fn() -> File {
 	binary = std.build.rust.escape.cargo_build(main.area, "rain-ci-web", "x86_64-unknown-linux-musl", true)
 	container_file = std.fs.relative_file("Containerfile.web")
 	work_area = std.fs.create_area([binary])
-	std.compression.compress_gzip(build_image(work_area, container_file), "rain-ci-web.tar.gz")
+	build_image(work_area, container_file, "rain-ci-web")
 }
 
 pub let build_ci_migrator = fn() -> File {
@@ -17,7 +17,7 @@ pub let build_ci_migrator = fn() -> File {
 	binary = std.build.rust.escape.cargo_build(main.area, "rain-ci-migrator", "x86_64-unknown-linux-musl", true)
 	container_file = std.fs.relative_file("Containerfile.migrator")
 	work_area = std.fs.create_area2([migrations, binary])
-	std.compression.compress_gzip(build_image(work_area, container_file), "rain-ci-migrator.tar.gz")
+	build_image(work_area, container_file, "rain-ci-migrator")
 }
 
 pub let build_ci_coordinator = fn() -> File {
@@ -25,7 +25,7 @@ pub let build_ci_coordinator = fn() -> File {
 	blender = download_blender("4.5.3", "4.5")
 	container_file = std.fs.relative_file("Containerfile.coordinator")
 	work_area = std.fs.create_area2([blender, binary])
-	std.compression.compress_gzip(build_image(work_area, container_file), "rain-ci-coordinator.tar.gz")
+	build_image(work_area, container_file, "rain-ci-coordinator")
 }
 
 let download_blender = fn(version: String, short_version: String) -> Dir {
@@ -38,8 +38,9 @@ let download_blender = fn(version: String, short_version: String) -> Dir {
 	std.fs.rename_dir(_, "blender")
 }
 
-let build_image = fn(work_area: Area, container_file: File) -> File {
-	out_name = "out.tar"
-	std.utils.run_check(work_area, podman, ["image", "build", "--isolation", "chroot", "-f", container_file, "-o", "type=tar,dest=" + out_name, "."], {})
+let build_image = fn(work_area: Area, container_file: File, image_name: String) -> File {
+	std.escape.run(work_area, podman, ["image", "build", "--isolation", "chroot", "-f", container_file, "-t", image_name, "."], {})
+	out_name = image_name + ".tar"
+	std.utils.run_check(std.utils.unit, podman, ["image", "save", "-o", out_name, image_name], {})
 	std.fs.file(_.area, out_name)
 }
