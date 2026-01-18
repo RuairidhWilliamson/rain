@@ -1,0 +1,5 @@
+{% if paged.page_count > 1 %}
+<span>{{paged.full_count}} results, page {{paged.page.get()}} showing {{paged.showing()}}</span>
+{% else %}
+<span>{{paged.full_count}} results</span>
+{% endif %}

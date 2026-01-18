@@ -6,7 +6,7 @@
     <th>State</th>
     <th>Time</th>
   </tr>
-  {% for (run_id, run) in runs %}
+  {% for (run_id, run) in paged_runs.elements %}
   <tr>
     <td><a href="/repo/{{run.repository.id}}">{{ run.repository.owner }}/{{ run.repository.name }}</a></td>
     <td><a href="{{ run.commit_url() }}"><abbr title="{{ run.commit }}">{{ run.commit | truncate(5) }}</abbr></a></td>

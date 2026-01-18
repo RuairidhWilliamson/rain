@@ -1,0 +1,9 @@
+{% if paged.page_count > 1 %}
+{% for i in 1..=paged.page_count %}
+{% if paged.page.get() == i %}
+<span>{{i}}</span>
+{% else %}
+<a href="?page={{i}}">{{i}}</a>
+{% endif %}
+{% endfor %}
+{% endif %}

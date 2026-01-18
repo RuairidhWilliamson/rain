@@ -1,7 +1,5 @@
-FROM docker.io/alpine
-RUN apk add --no-cache gcc musl-dev g++ git pkgconfig curl openssl-dev
+FROM scratch
 WORKDIR /usr/rain
-ARG BIN_PATH="rain-ci-web"
-COPY rain-ci-web /usr/local/cargo/bin/rain-ci-web
+COPY rain-ci-web /bin/rain-ci-web
 ENV RUST_LOG=info
 ENTRYPOINT ["rain-ci-web"]

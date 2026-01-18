@@ -2,8 +2,8 @@
 
 {% block content %}
 <h1>Repos</h1>
-<span>{{paged_repos.full_count}} results, page {{paged_repos.page.get()}} showing {{paged_repos.showing()}}</span>
-
+{% let paged = paged_repos %}
+{% include "page_info.html" %}
 <table>
   <tr>
     <th>Host</th>
@@ -20,12 +20,6 @@
   {% endfor %}
 </table>
 
-{% for i in 1..=paged_repos.page_count %}
-{% if paged_repos.page.get() == i %}
-<span>{{i}}</span>
-{% else %}
-<a href="?page={{i}}">{{i}}</a>
-{% endif %}
-{% endfor %}
+{% include "page_buttons.html" %}
 
 {% endblock %}
