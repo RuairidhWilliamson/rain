@@ -450,6 +450,11 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 log::trace!("internal function call {f:?} {arg_values:?}");
                 let mut deps = DepList::new();
                 let mut cache_hint = true;
+                for (_, a) in &arg_values {
+                    for area in a.find_areas() {
+                        deps.add_dep_file_area(area);
+                    }
+                }
                 let internal_cx = internal::InternalCx {
                     func: *f,
                     runner: self,

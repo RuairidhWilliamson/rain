@@ -6,22 +6,39 @@ let {Area, File, String, Dir} = std.types
 let podman = std.escape.bin("podman")
 
 pub let build_ci_web = fn() -> File {
-	binary = std.build.rust.escape.cargo_build(main.area, "rain-ci-web", "x86_64-unknown-linux-musl", true)
+	std.build.rust.escape.cargo_build(main.area, "rain-ci-web", "x86_64-unknown-linux-musl", true)
+}
+
+pub let build_ci_web_image = fn() -> File {
+	binary = build_ci_web()
 	container_file = std.fs.relative_file("Containerfile.web")
 	work_area = std.fs.create_area([binary])
 	build_image(work_area, container_file, "rain-ci-web")
 }
 
 pub let build_ci_migrator = fn() -> File {
-	migrations = std.fs.relative_dir("migrations")
-	binary = std.build.rust.escape.cargo_build(main.area, "rain-ci-migrator", "x86_64-unknown-linux-musl", true)
+	std.build.rust.escape.cargo_build(main.area, "rain-ci-migrator", "x86_64-unknown-linux-musl", true)
+}
+
+let migrations_dir = std.fs.relative_dir("migrations")
+
+pub let build_ci_migrations = fn() -> File {
+	std.compression.compress_tar_gz(migrations_dir, "migrations.tar.gz")
+}
+
+pub let build_ci_migrator_image = fn() -> File {
+	binary = build_ci_migrator()
 	container_file = std.fs.relative_file("Containerfile.migrator")
-	work_area = std.fs.create_area2([migrations, binary])
+	work_area = std.fs.create_area2([migrations_dir, binary])
 	build_image(work_area, container_file, "rain-ci-migrator")
 }
 
 pub let build_ci_coordinator = fn() -> File {
-	binary = std.build.rust.escape.cargo_build(main.area, "rain-ci-coordinator", "x86_64-unknown-linux-gnu", true)
+	std.build.rust.escape.cargo_build(main.area, "rain-ci-coordinator", "x86_64-unknown-linux-gnu", true)
+}
+
+pub let build_ci_coordinator_image = fn() -> File {
+	binary = build_ci_coordinator()
 	blender = download_blender("4.5.3", "4.5")
 	container_file = std.fs.relative_file("Containerfile.coordinator")
 	work_area = std.fs.create_area2([blender, binary])
