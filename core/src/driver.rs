@@ -1,7 +1,8 @@
 use std::{
     borrow::Cow,
+    collections::HashMap,
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 
 use git2::{Cred, Oid};
@@ -30,6 +31,7 @@ pub type PrintHandler<'a> = Box<dyn Fn(&str) + 'a + Send>;
 
 pub struct DriverImpl<'a> {
     pub config: Config,
+    pub custom_config: HashMap<String, Arc<String>>,
     pub prints: Mutex<Vec<String>>,
     pub print_handler: Option<PrintHandler<'a>>,
     pub enter_handler: Option<PrintHandler<'a>>,
@@ -43,9 +45,10 @@ pub const fn default_host_triple() -> &'static str {
 }
 
 impl DriverImpl<'_> {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config, custom_config: HashMap<String, Arc<String>>) -> Self {
         Self {
             config,
+            custom_config,
             prints: Mutex::default(),
             print_handler: None,
             enter_handler: None,
@@ -740,6 +743,10 @@ impl DriverTrait for DriverImpl<'_> {
         }
         // Safety: We just created it
         Ok(unsafe { Dir::new(entry) })
+    }
+
+    fn config(&self, name: &str) -> Option<Arc<String>> {
+        Some(Arc::clone(self.custom_config.get(name)?))
     }
 }
 

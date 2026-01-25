@@ -4,7 +4,7 @@ use std::{
     collections::HashMap,
     path::Path,
     sync::{
-        Mutex,
+        Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
         mpsc::{Receiver, SyncSender, sync_channel},
     },
@@ -389,6 +389,11 @@ fn run_inner<C: MsgConnection>(
     s: &Mutex<&mut ClientHandler<'_, C>>,
     ir: &mut Rir,
 ) -> Result<String, CoreError> {
+    let custom_config: HashMap<String, Arc<String>> = req
+        .custom_config
+        .iter()
+        .map(|(k, v)| (k.clone(), Arc::new(v.clone())))
+        .collect();
     let mut driver = DriverImpl {
         print_handler: Some(Box::new(|m| {
             let send_result = s
@@ -414,7 +419,7 @@ fn run_inner<C: MsgConnection>(
                 log::error!("send intermediate exit call: {err}");
             }
         })),
-        ..DriverImpl::new(config)
+        ..DriverImpl::new(config, custom_config)
     };
     if let Some(host_override) = &req.host_override {
         driver.host_triple = host_override.to_owned().into();
@@ -437,6 +442,7 @@ fn run_core(
         offline,
         seal,
         host_override: _,
+        custom_config: _,
     }: &super::msg::run::RunRequest,
     cache: &Cache,
     driver: &DriverImpl<'_>,

@@ -2,6 +2,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use crate::{
@@ -72,6 +73,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn copy_dir(&self, dir: &Dir, name: &str, include_hidden: bool) -> Result<Dir, RunnerError>;
     fn compress_zstd(&self, file: &File, name: &str, level: u8) -> Result<File, RunnerError>;
     fn extract_zstd(&self, file: &File, name: &str) -> Result<File, RunnerError>;
+    fn config(&self, name: &str) -> Option<Arc<String>>;
 }
 
 pub trait MonitoringTrait {

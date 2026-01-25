@@ -16,6 +16,8 @@ pub enum Dep {
     Print,
     /// This depends on an environment variable
     EnvVar,
+    /// This depends on a config
+    Config,
 }
 
 impl Dep {
@@ -26,7 +28,7 @@ impl Dep {
     pub fn is_intra_run_stable(&self) -> bool {
         match self {
             Self::Uncacheable | Self::CallingModule | Self::Print => false,
-            Self::LocalArea | Self::Escape | Self::Secret | Self::EnvVar => true,
+            Self::LocalArea | Self::Escape | Self::Secret | Self::EnvVar | Self::Config => true,
         }
     }
 

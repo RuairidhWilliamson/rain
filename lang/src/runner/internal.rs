@@ -95,6 +95,7 @@ pub enum InternalFunction {
     Unit,
     FileName,
     CopyDir,
+    Config,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -163,6 +164,7 @@ impl InternalFunction {
             "_unit" => Some(Self::Unit),
             "_file_name" => Some(Self::FileName),
             "_copy_dir" => Some(Self::CopyDir),
+            "_config" => Some(Self::Config),
             _ => None,
         }
     }
@@ -337,6 +339,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::ExtractZstd => self.extract_zstd(),
             InternalFunction::FileName => self.file_name(),
             InternalFunction::CopyDir => self.copy_dir(),
+            InternalFunction::Config => self.config(),
         }
     }
 
@@ -1584,5 +1587,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .copy_dir(dir, name, true)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
         Ok(Value::Dir(Arc::new(out)))
+    }
+
+    fn config(self) -> ResultValue {
+        let name = expect_type!(self, String, single_arg!(self));
+        match self.runner.driver.config(name.as_str()) {
+            Some(v) => Ok(Value::String(v)),
+            None => Ok(Value::Unit),
+        }
     }
 }

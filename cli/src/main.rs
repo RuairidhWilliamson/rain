@@ -1,5 +1,6 @@
 #![allow(clippy::print_stderr, clippy::print_stdout, clippy::exit)]
 
+use std::collections::HashMap;
 use std::fmt::Write as _;
 
 mod exe;
@@ -128,13 +129,8 @@ fn run(
     options: &GlobalOptions,
     mode: ClientMode,
 ) -> Result<(), ()> {
-    let root = if let Some(entrypoint) = &options.entrypoint {
-        entrypoint.clone()
-    } else {
-        rain_core::find_main_rain()
-            .ok_or(())
-            .map_err(|()| eprintln!("no main.rain found"))?
-    };
+    let custom_config = options.parse_config()?;
+    let root = options.resolve_entrypoint()?;
     let mut stack = Vec::new();
     let run_response = make_request_or_start(
         config,
@@ -146,6 +142,7 @@ fn run(
             offline: options.offline,
             seal: options.seal,
             host_override: options.host.clone(),
+            custom_config,
         },
         |im| match options.report {
             ReportMode::Basic => {
@@ -297,6 +294,34 @@ struct GlobalOptions {
     /// The path to the rain source file entrypoint, if not specified will auto resolve main.rain
     #[arg(long, global = true)]
     entrypoint: Option<PathBuf>,
+
+    #[arg(long, global = true)]
+    config: Vec<String>,
+}
+
+impl GlobalOptions {
+    fn parse_config(&self) -> Result<HashMap<String, String>, ()> {
+        self.config
+            .iter()
+            .map(|v| {
+                let Some((k, v)) = v.split_once('=') else {
+                    eprintln!("config name and value must be separated by '='");
+                    return Err(());
+                };
+                Ok((k.to_owned(), v.to_owned()))
+            })
+            .collect()
+    }
+
+    fn resolve_entrypoint(&self) -> Result<PathBuf, ()> {
+        if let Some(entrypoint) = &self.entrypoint {
+            Ok(entrypoint.clone())
+        } else {
+            rain_core::find_main_rain()
+                .ok_or(())
+                .map_err(|()| eprintln!("no main.rain found"))
+        }
+    }
 }
 
 #[derive(Debug, Parser)]

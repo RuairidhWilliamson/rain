@@ -51,7 +51,7 @@ mod private {
 }
 
 pub mod run {
-    use std::{path::PathBuf, time::Duration};
+    use std::{collections::HashMap, path::PathBuf, time::Duration};
 
     use rain_core::CoreError;
 
@@ -64,6 +64,7 @@ pub mod run {
         pub offline: bool,
         pub seal: bool,
         pub host_override: Option<String>,
+        pub custom_config: HashMap<String, String>,
     }
 
     impl From<RunRequest> for super::Request {

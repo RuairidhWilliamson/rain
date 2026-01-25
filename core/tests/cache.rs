@@ -1,6 +1,7 @@
 #![cfg(test)]
 
 use std::{
+    collections::HashMap,
     fs::{self},
     io::{Seek as _, Write as _},
     path::Path,
@@ -26,7 +27,7 @@ struct CacheTester {
 impl CacheTester {
     fn new() -> Self {
         let config = rain_core::config::Config::new();
-        let driver = rain_core::driver::DriverImpl::new(config.clone());
+        let driver = rain_core::driver::DriverImpl::new(config.clone(), HashMap::new());
         let persist_cache = None;
         let stats = rain_core::cache::CacheStats::default();
         Self {
