@@ -67,7 +67,7 @@ let get_xz_artifact = fn(artifact) {
 
 let get_version_path = fn(manifest) {
 	// Just use the rustc version for everything
-	version_split = std.utils.split_string(manifest.pkg.rustc.version, " ")
+	version_split = std.string.split(manifest.pkg.rustc.version, " ")
 	version = std.utils.index(version_split, 0)
 	if std.utils.string_contains(version, "beta") {
 		"beta"

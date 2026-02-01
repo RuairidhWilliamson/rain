@@ -1,0 +1,15 @@
+let std = import("std.rain")
+let {unit} = std.utils
+let {String, List, Bool, Any} = std.types
+
+pub let split = fn(target: String, delimitter: String) -> List(String) {
+	internal._split_string(target, delimitter)
+}
+
+pub let contains = fn(haystack: String, needle: String) -> Bool {
+	internal._string_contains(haystack, needle)
+}
+
+pub let to_string = fn(value: Any) -> String {
+	internal._stringify(value)
+}

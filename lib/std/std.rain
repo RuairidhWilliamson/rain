@@ -7,6 +7,7 @@ pub let list = import("list.rain")
 pub let record = import("record.rain")
 pub let compression = import("compression.rain")
 pub let fs = import("fs.rain")
+pub let string = import("string.rain")
 
 pub let unit = internal._unit()
 pub let print = internal._print
