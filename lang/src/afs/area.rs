@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::absolute::AbsolutePathBuf;
 
 /// A file area is a container of files that is not expected to be modified
@@ -14,6 +16,13 @@ impl FileArea {
             Self::Generated(_) => false,
         }
     }
+
+    pub fn as_ref(&self) -> FileAreaRef {
+        match self {
+            Self::Local(absolute_path_buf) => FileAreaRef::Local(absolute_path_buf),
+            Self::Generated(generated_file_area) => FileAreaRef::Generated(generated_file_area),
+        }
+    }
 }
 
 impl std::fmt::Display for FileArea {
@@ -23,6 +32,11 @@ impl std::fmt::Display for FileArea {
             Self::Generated(GeneratedFileArea { id }) => f.write_fmt(format_args!("{id}")),
         }
     }
+}
+
+pub enum FileAreaRef<'a> {
+    Local(&'a AbsolutePathBuf),
+    Generated(&'a GeneratedFileArea),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -41,5 +55,12 @@ impl GeneratedFileArea {
         Self {
             id: uuid::Uuid::new_v4(),
         }
+    }
+}
+
+impl std::fmt::Display for GeneratedFileArea {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self { id } = self;
+        f.write_fmt(format_args!("{id}"))
     }
 }

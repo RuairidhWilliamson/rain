@@ -32,7 +32,7 @@ pub fn run(
     cache: &cache::Cache,
     driver: &DriverImpl,
 ) -> Result<Value, CoreError> {
-    let file = rain_lang::afs::file::File::new_local(path.as_ref())
+    let file = rain_lang::afs::file::GeneratedFile::new_local(path.as_ref())
         .map_err(|err| CoreError::Other(err.to_string()))?;
     let path = driver.resolve_fs_entry(file.inner());
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;

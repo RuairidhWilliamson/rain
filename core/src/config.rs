@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use rain_lang::{
     afs::{
         area::{FileArea, GeneratedFileArea},
-        entry::FSEntry,
+        entry::GeneratedFSEntry,
     },
     driver::{FSEntryQueryResult, FSTrait},
 };
@@ -78,7 +78,7 @@ impl Config {
 }
 
 impl FSTrait for Config {
-    fn resolve_fs_entry(&self, entry: &FSEntry) -> PathBuf {
+    fn resolve_fs_entry(&self, entry: &GeneratedFSEntry) -> PathBuf {
         let abs_path = entry.path.path();
         let Some(rel_path) = abs_path.strip_prefix('/') else {
             unreachable!("file path must start with /");
@@ -91,7 +91,7 @@ impl FSTrait for Config {
         }
     }
 
-    fn query_fs(&self, entry: &FSEntry) -> Result<FSEntryQueryResult, std::io::Error> {
+    fn query_fs(&self, entry: &GeneratedFSEntry) -> Result<FSEntryQueryResult, std::io::Error> {
         match std::fs::metadata(self.resolve_fs_entry(entry)) {
             Ok(m) if m.is_symlink() => Ok(FSEntryQueryResult::Symlink),
             Ok(m) if m.is_file() => Ok(FSEntryQueryResult::File),

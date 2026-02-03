@@ -86,7 +86,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     ))),
                 );
                 if let Some(file) = file {
-                    m.insert("file".to_owned(), Value::File(Arc::new(file)));
+                    m.insert("file".to_owned(), Value::GeneratedFile(Arc::new(file)));
                 } else {
                     m.insert("file".to_owned(), Value::Unit);
                 }

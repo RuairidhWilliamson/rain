@@ -6,8 +6,8 @@ use rain_lang::{
     afs::{
         area::FileArea,
         dir::Dir,
-        entry::{FSEntry, FSEntryTrait as _},
-        file::File,
+        entry::{FSEntryTrait as _, GeneratedFSEntry},
+        file::GeneratedFile,
     },
     ir::Rir,
     runner::{
@@ -181,13 +181,13 @@ pub enum PersistValue {
     Integer(RainInteger),
     String(String),
     FileArea(FileArea),
-    File(FSEntry),
-    Dir(FSEntry),
+    GeneratedFile(GeneratedFSEntry),
+    Dir(GeneratedFSEntry),
     Internal,
     InternalFunction(InternalFunction),
     List(Vec<Self>),
     Record(IndexMap<String, Self>),
-    Module { file: FSEntry, src: String },
+    Module { file: GeneratedFSEntry, src: String },
     Type(RainTypeId),
 }
 
@@ -212,11 +212,11 @@ impl PersistValue {
                     Some(Self::FileArea((**file_area).clone()))
                 }
             }
-            Value::File(file) => {
+            Value::GeneratedFile(file) => {
                 if file.inner().area.is_local() {
                     None
                 } else {
-                    Some(Self::File(file.inner().clone()))
+                    Some(Self::GeneratedFile(file.inner().clone()))
                 }
             }
             Value::Dir(dir) => Some(Self::Dir(dir.inner().clone())),
@@ -251,7 +251,9 @@ impl PersistValue {
             Self::Integer(rain_integer) => Some(Value::Integer(Arc::new(rain_integer))),
             Self::String(s) => Some(Value::String(Arc::new(s))),
             Self::FileArea(file_area) => Some(Value::FileArea(Arc::new(file_area))),
-            Self::File(fsentry) => Some(Value::File(Arc::new(File::new_checked(config, fsentry)?))),
+            Self::GeneratedFile(fsentry) => Some(Value::GeneratedFile(Arc::new(
+                GeneratedFile::new_checked(config, fsentry)?,
+            ))),
             Self::Dir(fsentry) => Some(Value::Dir(Arc::new(Dir::new_checked(config, fsentry)?))),
             Self::Internal => Some(Value::Internal),
             Self::InternalFunction(internal_function) => {
@@ -270,7 +272,7 @@ impl PersistValue {
             )))),
             Self::Module { file, src } => {
                 let ast = rain_lang::ast::parser::parse_module(&src);
-                match rir.insert_module(Some(File::new_checked(config, file)?), src, ast) {
+                match rir.insert_module(Some(GeneratedFile::new_checked(config, file)?), src, ast) {
                     Ok(mid) => Some(Value::Module(mid)),
                     Err(err) => {
                         log::error!("error loading cached module: {err:?}");

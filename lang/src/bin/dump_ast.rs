@@ -2,7 +2,7 @@
 
 use std::process::ExitCode;
 
-use rain_lang::{afs::file::File, ast::error::ParseError, local_span::ErrorLocalSpan};
+use rain_lang::{afs::file::GeneratedFile, ast::error::ParseError, local_span::ErrorLocalSpan};
 
 fn main() -> ExitCode {
     let Some(src_path) = std::env::args().nth(1) else {
@@ -10,7 +10,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     let src_path = std::path::Path::new(&src_path);
-    let file = match File::new_local(src_path) {
+    let file = match GeneratedFile::new_local(src_path) {
         Ok(path) => path,
         Err(err) => {
             log::error!("Path error");

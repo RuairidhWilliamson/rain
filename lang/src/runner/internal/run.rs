@@ -5,7 +5,7 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 use indexmap::IndexMap;
 
 use crate::{
-    afs::{dir::Dir, entry::FSEntryTrait as _},
+    afs::{Dir, FSEntryTrait as _},
     ast::NodeId,
     driver::{DriverTrait, RunOptions},
     runner::{cache::CacheTrait, dep::Dep},
@@ -40,7 +40,9 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     ))?,
                 };
                 let bin = match file_value {
-                    Value::File(file) => &self.runner.driver.resolve_fs_entry(file.inner()),
+                    Value::GeneratedFile(file) => {
+                        &self.runner.driver.resolve_fs_entry(file.fsinner())
+                    }
                     Value::EscapeFile(escaped_file) => escaped_file.0.as_path(),
                     _ => {
                         return Err(self.cx.nid_err(
@@ -48,7 +50,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                             RunnerError::ExpectedType {
                                 actual: file_value.rain_type_id(),
                                 expected: Cow::Borrowed(&[
-                                    RainTypeId::File,
+                                    RainTypeId::GeneratedFile,
                                     RainTypeId::EscapeFile,
                                 ]),
                             },
@@ -129,7 +131,9 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             ] => {
                 let dir = self.expect_dir_or_area(*area_nid, area_value)?;
                 let bin = match file_value {
-                    Value::File(file) => &self.runner.driver.resolve_fs_entry(file.inner()),
+                    Value::GeneratedFile(file) => {
+                        &self.runner.driver.resolve_fs_entry(file.inner())
+                    }
                     Value::EscapeFile(escaped_file) => escaped_file.0.as_path(),
                     _ => {
                         return Err(self.cx.nid_err(
@@ -137,7 +141,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                             RunnerError::ExpectedType {
                                 actual: file_value.rain_type_id(),
                                 expected: Cow::Borrowed(&[
-                                    RainTypeId::File,
+                                    RainTypeId::GeneratedFile,
                                     RainTypeId::EscapeFile,
                                 ]),
                             },
@@ -212,7 +216,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     ) -> Result<(String, String)> {
         match value {
             Value::String(s) => Ok((key.to_owned(), s.to_string())),
-            Value::File(f) => Ok((
+            Value::GeneratedFile(f) => Ok((
                 key.to_owned(),
                 self.runner
                     .driver
@@ -242,7 +246,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     actual: value.rain_type_id(),
                     expected: Cow::Borrowed(&[
                         RainTypeId::String,
-                        RainTypeId::File,
+                        RainTypeId::GeneratedFile,
                         RainTypeId::Dir,
                         RainTypeId::FileArea,
                     ]),
@@ -254,7 +258,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     fn stringify_args(&self, args_nid: NodeId, value: &Value) -> Result<String> {
         match value {
             Value::String(s) => Ok(s.to_string()),
-            Value::File(f) => Ok(self
+            Value::GeneratedFile(f) => Ok(self
                 .runner
                 .driver
                 .resolve_fs_entry(f.inner())
@@ -278,7 +282,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     actual: value.rain_type_id(),
                     expected: Cow::Borrowed(&[
                         RainTypeId::String,
-                        RainTypeId::File,
+                        RainTypeId::GeneratedFile,
                         RainTypeId::Dir,
                         RainTypeId::FileArea,
                     ]),

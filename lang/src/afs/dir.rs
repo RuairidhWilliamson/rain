@@ -1,45 +1,14 @@
-use crate::driver::{FSEntryQueryResult, FSTrait};
-
-use super::{
-    area::FileArea,
-    entry::{FSEntry, FSEntryTrait},
-    path::SealedFilePath,
-};
-
-#[derive(Debug, Hash, Clone, PartialEq, Eq)]
-pub struct Dir(FSEntry);
-
-impl Dir {
-    /// # Safety
-    /// Only call this if it is guaranteed the directory exists and is actually a directory (not a symlink or file)
-    pub unsafe fn new(ifs: FSEntry) -> Self {
-        Self(ifs)
-    }
-
-    pub fn new_checked(fs: &impl FSTrait, entry: FSEntry) -> Option<Self> {
-        match fs.query_fs(&entry) {
-            // Safety: we have just queried the filesystem entry
-            Ok(FSEntryQueryResult::Directory) => Some(unsafe { Self::new(entry) }),
-            _ => None,
-        }
-    }
-
-    pub fn root(area: FileArea) -> Self {
-        Self(FSEntry {
-            area,
-            path: SealedFilePath::root(),
-        })
-    }
-}
-
-impl FSEntryTrait for Dir {
-    fn inner(&self) -> &FSEntry {
-        &self.0
-    }
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Dir {
+    Generated(super::generated::dir::GeneratedDir),
+    Local(super::local::dir::LocalDir),
 }
 
 impl std::fmt::Display for Dir {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
+        match self {
+            Dir::Generated(generated_file) => generated_file.fmt(f),
+            Dir::Local(local_file) => local_file.fmt(f),
+        }
     }
 }

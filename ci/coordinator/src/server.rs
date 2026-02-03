@@ -10,8 +10,8 @@ use log::{error, info};
 use rain_ci_common::RunStatus;
 use rain_ci_common::github::InstallationClient as _;
 use rain_ci_common::github::model::CheckRunConclusion;
-use rain_lang::afs::{dir::Dir, file::File};
-use rain_lang::afs::{entry::FSEntry, entry::FSEntryTrait as _, path::SealedFilePath};
+use rain_lang::afs::{dir::Dir, file::GeneratedFile};
+use rain_lang::afs::{entry::GeneratedFSEntry, entry::FSEntryTrait as _, path::SealedFilePath};
 use rain_lang::driver::{DriverTrait as _, FSTrait as _};
 use tokio::sync::mpsc::Receiver;
 use tokio::task::JoinHandle;
@@ -268,9 +268,9 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
             let driver = rain_core::driver::DriverImpl::new(config, custom_config);
             let download_area = driver.create_area(&[], true).unwrap();
             let download_entry =
-                FSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
+                GeneratedFSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
             std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
-            let download = File::new_checked(&driver, download_entry).unwrap();
+            let download = GeneratedFile::new_checked(&driver, download_entry).unwrap();
             let raw_tar = driver.extract_gzip(&download, "extract_temp.tar").unwrap();
             let area = driver.extract_tar(&raw_tar).unwrap();
             let mut ls =
@@ -279,7 +279,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
             let entry = ls.next().unwrap().unwrap();
             let download_dir_name = entry.file_name().into_string().unwrap();
             let download_dir_entry =
-                FSEntry::new(area, SealedFilePath::new(&download_dir_name).unwrap());
+                GeneratedFSEntry::new(area, SealedFilePath::new(&download_dir_name).unwrap());
             let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
             let lfs_entries: Vec<_> = driver
                 .glob(&root, "**/*")

@@ -12,8 +12,8 @@ use rain_lang::{
         absolute::AbsolutePathBuf,
         area::{FileArea, GeneratedFileArea},
         dir::Dir,
-        entry::{FSEntry, FSEntryTrait as _},
-        file::File,
+        entry::{FSEntryTrait as _, GeneratedFSEntry},
+        file::GeneratedFile,
         path::SealedFilePath,
     },
     driver::{
@@ -64,11 +64,11 @@ impl DriverImpl<'_> {
 
     pub fn create_overlay_area<'a>(
         &self,
-        fs_entries: impl Iterator<Item = &'a FSEntry>,
+        fs_entries: impl Iterator<Item = &'a GeneratedFSEntry>,
         include_hidden: bool,
         flatten_input_dirs: bool,
-    ) -> Result<FileArea, RunnerError> {
-        let area = FileArea::Generated(GeneratedFileArea::new());
+    ) -> Result<GeneratedFileArea, RunnerError> {
+        let area = GeneratedFileArea::new();
         let output_dir = Dir::root(area.clone());
         let output_dir_path = self.resolve_fs_entry(output_dir.inner());
         if matches!(std::fs::exists(&output_dir_path), Ok(true)) {
@@ -132,11 +132,11 @@ impl DriverImpl<'_> {
 }
 
 impl FSTrait for DriverImpl<'_> {
-    fn resolve_fs_entry(&self, entry: &FSEntry) -> PathBuf {
+    fn resolve_fs_entry(&self, entry: &GeneratedFSEntry) -> PathBuf {
         self.config.resolve_fs_entry(entry)
     }
 
-    fn query_fs(&self, entry: &FSEntry) -> Result<FSEntryQueryResult, std::io::Error> {
+    fn query_fs(&self, entry: &GeneratedFSEntry) -> Result<FSEntryQueryResult, std::io::Error> {
         self.config.query_fs(entry)
     }
 }
@@ -180,7 +180,7 @@ impl DriverTrait for DriverImpl<'_> {
         self.prints.plock().push(message);
     }
 
-    fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError> {
+    fn extract_zip(&self, file: &GeneratedFile) -> Result<FileArea, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
         let area = self.create_empty_area()?;
         let output_dir = Dir::root(area.clone());
@@ -223,39 +223,39 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(area)
     }
 
-    fn extract_gzip(&self, file: &File, name: &str) -> Result<File, RunnerError> {
+    fn extract_gzip(&self, file: &GeneratedFile, name: &str) -> Result<GeneratedFile, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut raw = flate2::read::GzDecoder::new(f);
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
-        let entry = FSEntry::new(area, path);
+        let entry = GeneratedFSEntry::new(area, path);
         let resolved_path = self.resolve_fs_entry(&entry);
         let mut out_file =
             std::fs::File::create_new(resolved_path).map_err(RunnerError::AreaIOError)?;
         std::io::copy(&mut raw, &mut out_file).map_err(RunnerError::AreaIOError)?;
         // Safety: We just created the file
-        let file = unsafe { File::new(entry) };
+        let file = unsafe { GeneratedFile::new(entry) };
         Ok(file)
     }
 
-    fn extract_xz(&self, file: &File, name: &str) -> Result<File, RunnerError> {
+    fn extract_xz(&self, file: &GeneratedFile, name: &str) -> Result<GeneratedFile, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut raw = liblzma::read::XzDecoder::new(f);
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
-        let entry = FSEntry::new(area, path);
+        let entry = GeneratedFSEntry::new(area, path);
         let resolved_path = self.resolve_fs_entry(&entry);
         let mut out_file =
             std::fs::File::create_new(resolved_path).map_err(RunnerError::AreaIOError)?;
         std::io::copy(&mut raw, &mut out_file).map_err(RunnerError::AreaIOError)?;
         // Safety: We just created the file
-        let file = unsafe { File::new(entry) };
+        let file = unsafe { GeneratedFile::new(entry) };
         Ok(file)
     }
 
-    fn extract_tar(&self, file: &File) -> Result<FileArea, RunnerError> {
+    fn extract_tar(&self, file: &GeneratedFile) -> Result<FileArea, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
         let area = self.create_empty_area()?;
         let output_dir = Dir::root(area.clone());
@@ -380,7 +380,7 @@ impl DriverTrait for DriverImpl<'_> {
             .map(|h| h.as_bytes().to_vec());
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
-        let entry = FSEntry::new(area, path);
+        let entry = GeneratedFSEntry::new(area, path);
         let output_path = self.resolve_fs_entry(&entry);
         let mut out = std::fs::File::create_new(output_path)
             .map_err(|err| RunnerError::MakeshiftIO("create download file".into(), err))?;
@@ -388,7 +388,7 @@ impl DriverTrait for DriverImpl<'_> {
         std::io::copy(&mut body.as_reader(), &mut out)
             .map_err(|err| RunnerError::MakeshiftIO("download file".into(), err))?;
         // Safety: We just created the file and checked for errors so it is present
-        let output = unsafe { File::new(entry) };
+        let output = unsafe { GeneratedFile::new(entry) };
         Ok(DownloadStatus {
             ok: response.status().is_success(),
             status_code: Some(response.status().as_u16()),
@@ -397,7 +397,7 @@ impl DriverTrait for DriverImpl<'_> {
         })
     }
 
-    fn sha256(&self, file: &File) -> Result<String, RunnerError> {
+    fn sha256(&self, file: &GeneratedFile) -> Result<String, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
         let mut file = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut hasher = sha2::Sha256::new();
@@ -406,7 +406,7 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(base16::encode_lower(&hash_result))
     }
 
-    fn sha512(&self, file: &File) -> Result<String, RunnerError> {
+    fn sha512(&self, file: &GeneratedFile) -> Result<String, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
         let mut file = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut hasher = sha2::Sha512::new();
@@ -417,13 +417,13 @@ impl DriverTrait for DriverImpl<'_> {
 
     fn create_area(
         &self,
-        dirs: &[&FSEntry],
+        dirs: &[&GeneratedFSEntry],
         flatten_input_dirs: bool,
     ) -> Result<FileArea, RunnerError> {
         self.create_overlay_area(dirs.iter().copied(), true, flatten_input_dirs)
     }
 
-    fn read_file(&self, file: &File) -> Result<String, std::io::Error> {
+    fn read_file(&self, file: &GeneratedFile) -> Result<String, std::io::Error> {
         let resolved_path = self.resolve_fs_entry(file.inner());
         let contents = std::fs::read_to_string(resolved_path)?;
         Ok(contents)
@@ -434,10 +434,10 @@ impl DriverTrait for DriverImpl<'_> {
         contents: &[u8],
         name: &str,
         executable: bool,
-    ) -> Result<File, RunnerError> {
+    ) -> Result<GeneratedFile, RunnerError> {
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
-        let entry = FSEntry::new(area, path);
+        let entry = GeneratedFSEntry::new(area, path);
         let resolved_path = self.resolve_fs_entry(&entry);
         std::fs::write(&resolved_path, contents).map_err(RunnerError::AreaIOError)?;
         // Setting executable is only supported on unix
@@ -456,11 +456,11 @@ impl DriverTrait for DriverImpl<'_> {
             }
         }
         // Safety: We just created the file
-        let file = unsafe { File::new(entry) };
+        let file = unsafe { GeneratedFile::new(entry) };
         Ok(file)
     }
 
-    fn file_metadata(&self, file: &File) -> Result<FileMetadata, RunnerError> {
+    fn file_metadata(&self, file: &GeneratedFile) -> Result<FileMetadata, RunnerError> {
         let metadata = std::fs::metadata(self.resolve_fs_entry(file.inner()))
             .map_err(RunnerError::AreaIOError)?;
         Ok(FileMetadata {
@@ -469,7 +469,7 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     #[expect(clippy::unwrap_used)]
-    fn glob(&self, dir: &Dir, _pattern: &str) -> Result<Vec<File>, RunnerError> {
+    fn glob(&self, dir: &Dir, _pattern: &str) -> Result<Vec<GeneratedFile>, RunnerError> {
         let base_path = self.resolve_fs_entry(dir.inner());
         // TODO: Implement proper globbing instead of ignoring the pattern
         let mut out = Vec::new();
@@ -484,7 +484,8 @@ impl DriverTrait for DriverImpl<'_> {
                 let p = p.strip_prefix(&base_path).unwrap().to_str().unwrap();
                 let p = dir.path().join(p).unwrap();
                 // Safety: We know this file exists, we just checked
-                let file = unsafe { File::new(FSEntry::new(dir.area().clone(), p)) };
+                let file =
+                    unsafe { GeneratedFile::new(GeneratedFSEntry::new(dir.area().clone(), p)) };
                 out.push(file);
             }
         }
@@ -499,7 +500,7 @@ impl DriverTrait for DriverImpl<'_> {
         &self.host_triple
     }
 
-    fn export_file(&self, src: &File, dst: &FSEntry) -> Result<(), RunnerError> {
+    fn export_file(&self, src: &GeneratedFile, dst: &GeneratedFSEntry) -> Result<(), RunnerError> {
         let src_path = self.resolve_fs_entry(src.inner());
         let dst_path = self.resolve_fs_entry(dst);
         // TODO: Backup old file before overwriting, if it exists
@@ -508,7 +509,7 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(())
     }
 
-    fn export_dir(&self, src: &Dir, dst: &FSEntry) -> Result<(), RunnerError> {
+    fn export_dir(&self, src: &Dir, dst: &GeneratedFSEntry) -> Result<(), RunnerError> {
         let src_path = self.resolve_fs_entry(src.inner());
         let dst_path = self.resolve_fs_entry(dst);
         // TODO: Backup old file before overwriting, if it exists
@@ -539,11 +540,11 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(())
     }
 
-    fn create_tar(&self, dir: &Dir, name: &str) -> Result<File, RunnerError> {
+    fn create_tar(&self, dir: &Dir, name: &str) -> Result<GeneratedFile, RunnerError> {
         let dir_path = self.resolve_fs_entry(dir.inner());
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
-        let entry = FSEntry::new(area, path);
+        let entry = GeneratedFSEntry::new(area, path);
         let output_path = self.resolve_fs_entry(&entry);
         let f = std::fs::File::create(output_path).map_err(RunnerError::AreaIOError)?;
         let mut archive = tar::Builder::new(f);
@@ -554,14 +555,18 @@ impl DriverTrait for DriverImpl<'_> {
             .finish()
             .map_err(|err| RunnerError::MakeshiftIO("create tar flush".into(), err))?;
         // Safety: We just created the file
-        let file = unsafe { File::new(entry) };
+        let file = unsafe { GeneratedFile::new(entry) };
         Ok(file)
     }
 
-    fn compress_gzip(&self, file: &File, name: &str) -> Result<File, RunnerError> {
+    fn compress_gzip(
+        &self,
+        file: &GeneratedFile,
+        name: &str,
+    ) -> Result<GeneratedFile, RunnerError> {
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
-        let entry = FSEntry::new(area, path);
+        let entry = GeneratedFSEntry::new(area, path);
         let output_path = self.resolve_fs_entry(&entry);
         let f = std::fs::File::create(output_path).map_err(RunnerError::AreaIOError)?;
         let mut encoder = flate2::write::GzEncoder::new(f, flate2::Compression::default());
@@ -570,14 +575,19 @@ impl DriverTrait for DriverImpl<'_> {
         std::io::copy(&mut read, &mut encoder).map_err(RunnerError::AreaIOError)?;
         encoder.finish().map_err(RunnerError::AreaIOError)?;
         // Safety: We just created the file
-        let file = unsafe { File::new(entry) };
+        let file = unsafe { GeneratedFile::new(entry) };
         Ok(file)
     }
 
-    fn compress_zstd(&self, file: &File, name: &str, level: u8) -> Result<File, RunnerError> {
+    fn compress_zstd(
+        &self,
+        file: &GeneratedFile,
+        name: &str,
+        level: u8,
+    ) -> Result<GeneratedFile, RunnerError> {
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
-        let entry = FSEntry::new(area, path);
+        let entry = GeneratedFSEntry::new(area, path);
         let output_path = self.resolve_fs_entry(&entry);
         let f = std::fs::File::create(output_path).map_err(RunnerError::AreaIOError)?;
         let mut encoder =
@@ -587,23 +597,23 @@ impl DriverTrait for DriverImpl<'_> {
         std::io::copy(&mut read, &mut encoder).map_err(RunnerError::AreaIOError)?;
         encoder.finish().map_err(RunnerError::AreaIOError)?;
         // Safety: We just created the file
-        let file = unsafe { File::new(entry) };
+        let file = unsafe { GeneratedFile::new(entry) };
         Ok(file)
     }
 
-    fn extract_zstd(&self, file: &File, name: &str) -> Result<File, RunnerError> {
+    fn extract_zstd(&self, file: &GeneratedFile, name: &str) -> Result<GeneratedFile, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.inner());
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut raw = zstd::Decoder::new(f).map_err(RunnerError::AreaIOError)?;
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
-        let entry = FSEntry::new(area, path);
+        let entry = GeneratedFSEntry::new(area, path);
         let resolved_path = self.resolve_fs_entry(&entry);
         let mut out_file =
             std::fs::File::create_new(resolved_path).map_err(RunnerError::AreaIOError)?;
         std::io::copy(&mut raw, &mut out_file).map_err(RunnerError::AreaIOError)?;
         // Safety: We just created the file
-        let file = unsafe { File::new(entry) };
+        let file = unsafe { GeneratedFile::new(entry) };
         Ok(file)
     }
 
@@ -683,10 +693,15 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(std::env::var(key).ok())
     }
 
-    fn copy_file(&self, file: &File, name: &str, executable: bool) -> Result<File, RunnerError> {
+    fn copy_file(
+        &self,
+        file: &GeneratedFile,
+        name: &str,
+        executable: bool,
+    ) -> Result<GeneratedFile, RunnerError> {
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
-        let entry = FSEntry::new(area, path);
+        let entry = GeneratedFSEntry::new(area, path);
         let input_path = self.resolve_fs_entry(file.inner());
         let output_path = self.resolve_fs_entry(&entry);
         // OPTIMISE: Can use hardlink instead
@@ -706,13 +721,13 @@ impl DriverTrait for DriverImpl<'_> {
             }
         }
         // Safety: We just created it
-        Ok(unsafe { File::new(entry) })
+        Ok(unsafe { GeneratedFile::new(entry) })
     }
 
     fn copy_dir(&self, dir: &Dir, name: &str, include_hidden: bool) -> Result<Dir, RunnerError> {
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
-        let entry = FSEntry::new(area, path);
+        let entry = GeneratedFSEntry::new(area, path);
         let input_path = self.resolve_fs_entry(dir.inner());
         let output_path = self.resolve_fs_entry(&entry);
         let walker = ignore::WalkBuilder::new(&input_path)

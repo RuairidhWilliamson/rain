@@ -13,13 +13,8 @@ use num_bigint::BigInt;
 
 use crate::{
     afs::{
-        absolute::AbsolutePathBuf,
-        area::FileArea,
-        dir::Dir,
-        entry::{FSEntry, FSEntryTrait as _},
-        error::PathError,
-        file::File,
-        path::SealedFilePath,
+        Dir, FSEntryTrait as _, absolute::AbsolutePathBuf, area::FileArea, error::PathError,
+        generated::entry::GeneratedFSEntry, path::SealedFilePath,
     },
     ast::NodeId,
     driver::{DriverTrait, FSEntryQueryResult},
@@ -370,12 +365,12 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     fn expect_dir_or_area(&self, arg_nid: NodeId, arg_value: &Value) -> Result<Arc<Dir>> {
         match arg_value {
             Value::FileArea(file_area) => Ok(Arc::new(Dir::root(file_area.as_ref().clone()))),
-            Value::Dir(dir) => Ok(Arc::clone(dir)),
+            Value::GeneratedDir(dir) => Ok(Arc::clone(dir)),
             _ => Err(self.cx.nid_err(
                 arg_nid,
                 RunnerError::ExpectedType {
                     actual: arg_value.rain_type_id(),
-                    expected: Cow::Borrowed(&[RainTypeId::Dir, RainTypeId::FileArea]),
+                    expected: Cow::Borrowed(&[RainTypeId::GeneratedDir, RainTypeId::FileArea]),
                 },
             )),
         }
@@ -406,7 +401,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Unit)
     }
 
-    fn file_area_resolve_path(&mut self) -> Result<FSEntry> {
+    fn file_area_resolve_path(&mut self) -> Result<GeneratedFSEntry> {
         match &self.arg_values[..] {
             [(relative_path_nid, relative_path_value)] => {
                 let relative_path =
@@ -427,7 +422,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     })?
                     .join(relative_path.as_str())
                     .map_err(|err| self.cx.nid_err(*relative_path_nid, err.into()))?;
-                Ok(FSEntry {
+                Ok(GeneratedFSEntry {
                     area: file.area().clone(),
                     path: file_path,
                 })
@@ -439,7 +434,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         self.deps.add_dep_file_area(area);
                         let file_path = SealedFilePath::new(path)
                             .map_err(|err| self.cx.nid_err(*path_nid, err.into()))?;
-                        Ok(FSEntry {
+                        Ok(GeneratedFSEntry {
                             area: area.as_ref().clone(),
                             path: file_path,
                         })
@@ -451,7 +446,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         let path = base_path
                             .join(path)
                             .map_err(|err| self.cx.nid_err(*path_nid, err.into()))?;
-                        Ok(FSEntry {
+                        Ok(GeneratedFSEntry {
                             area: area.clone(),
                             path,
                         })
@@ -479,8 +474,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         {
             FSEntryQueryResult::File => {
                 // Safety: Checked that the file exists and is a file
-                let file = unsafe { File::new(entry) };
-                Ok(Value::File(Arc::new(file)))
+                let file = unsafe { GeneratedFile::new(entry) };
+                Ok(Value::GeneratedFile(Arc::new(file)))
             }
             result => Err(self
                 .cx
@@ -509,7 +504,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn import(self) -> ResultValue {
         *self.cache_hint = false;
-        let f = expect_type!(self, File, single_arg!(self));
+        let f = expect_type!(self, GeneratedFile, single_arg!(self));
         let cache_key = CacheKey::Import {
             file: Arc::clone(f),
         };
@@ -545,7 +540,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     fn module_file(self) -> ResultValue {
         self.deps.push(Dep::CallingModule);
         self.no_args()?;
-        Ok(Value::File(Arc::new(
+        Ok(Value::GeneratedFile(Arc::new(
             self.cx
                 .module
                 .file()
@@ -555,7 +550,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn extract_zip(self) -> ResultValue {
-        let f = expect_type!(self, File, single_arg!(self));
+        let f = expect_type!(self, GeneratedFile, single_arg!(self));
         let area = self
             .runner
             .driver
@@ -566,30 +561,30 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn extract_gzip(self) -> ResultValue {
         let (file, name) = two_args!(self);
-        let file = expect_type!(self, File, file);
+        let file = expect_type!(self, GeneratedFile, file);
         let name = expect_type!(self, String, name);
         let area = self
             .runner
             .driver
             .extract_gzip(file, name)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
-        Ok(Value::File(Arc::new(area)))
+        Ok(Value::GeneratedFile(Arc::new(area)))
     }
 
     fn extract_xz(self) -> ResultValue {
         let (file, name) = two_args!(self);
-        let file = expect_type!(self, File, file);
+        let file = expect_type!(self, GeneratedFile, file);
         let name = expect_type!(self, String, name);
         let area = self
             .runner
             .driver
             .extract_xz(file, name)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
-        Ok(Value::File(Arc::new(area)))
+        Ok(Value::GeneratedFile(Arc::new(area)))
     }
 
     fn extract_tar(self) -> ResultValue {
-        let f = expect_type!(self, File, single_arg!(self));
+        let f = expect_type!(self, GeneratedFile, single_arg!(self));
         let area = self
             .runner
             .driver
@@ -616,7 +611,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn get_area(self) -> ResultValue {
         *self.cache_hint = false;
-        let f = expect_type!(self, File, single_arg!(self));
+        let f = expect_type!(self, GeneratedFile, single_arg!(self));
         Ok(Value::FileArea(Arc::new(f.area().clone())))
     }
 
@@ -633,7 +628,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn sha256(self) -> ResultValue {
-        let f = expect_type!(self, File, single_arg!(self));
+        let f = expect_type!(self, GeneratedFile, single_arg!(self));
         Ok(Value::String(Arc::new(
             self.runner
                 .driver
@@ -643,7 +638,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn sha512(self) -> ResultValue {
-        let f = expect_type!(self, File, single_arg!(self));
+        let f = expect_type!(self, GeneratedFile, single_arg!(self));
         Ok(Value::String(Arc::new(
             self.runner
                 .driver
@@ -742,21 +737,21 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let ((dirs_nid, dirs_value), flatten_input_dirs) = two_args!(self);
         let dirs = expect_type!(self, List, (dirs_nid, dirs_value));
         let flatten_input_dirs = expect_type!(self, Boolean, flatten_input_dirs);
-        let dirs: Vec<&FSEntry> = dirs
+        let dirs: Vec<&GeneratedFSEntry> = dirs
             .0
             .iter()
             .map(|dir| match dir {
                 Value::Dir(d) => Ok(d.inner()),
-                Value::File(f) => Ok(f.inner()),
+                Value::GeneratedFile(f) => Ok(f.fsinner()),
                 _ => Err(self.cx.nid_err(
                     dirs_nid,
                     RunnerError::ExpectedType {
                         actual: dir.rain_type_id(),
-                        expected: Cow::Borrowed(&[RainTypeId::Dir, RainTypeId::File]),
+                        expected: Cow::Borrowed(&[RainTypeId::Dir, RainTypeId::GeneratedFile]),
                     },
                 )),
             })
-            .collect::<Result<Vec<&FSEntry>, _>>()?;
+            .collect::<Result<Vec<&GeneratedFSEntry>, _>>()?;
         for entry in &dirs {
             self.deps.add_dep_file_area(&entry.area);
         }
@@ -773,21 +768,21 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         self.deps.push(Dep::Uncacheable);
         let (dirs_nid, dirs_value) = single_arg!(self);
         let dirs = expect_type!(self, List, (dirs_nid, dirs_value));
-        let dirs: Vec<&FSEntry> = dirs
+        let dirs: Vec<&GeneratedFSEntry> = dirs
             .0
             .iter()
             .map(|dir| match dir {
                 Value::Dir(d) => Ok(d.inner()),
-                Value::File(f) => Ok(f.inner()),
+                Value::GeneratedFile(f) => Ok(f.fsinner()),
                 _ => Err(self.cx.nid_err(
                     dirs_nid,
                     RunnerError::ExpectedType {
                         actual: dir.rain_type_id(),
-                        expected: Cow::Borrowed(&[RainTypeId::Dir, RainTypeId::File]),
+                        expected: Cow::Borrowed(&[RainTypeId::Dir, RainTypeId::GeneratedFile]),
                     },
                 )),
             })
-            .collect::<Result<Vec<&FSEntry>, _>>()?;
+            .collect::<Result<Vec<&GeneratedFSEntry>, _>>()?;
         let merged_area = self
             .runner
             .driver
@@ -798,7 +793,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn read_file(self) -> ResultValue {
         let (file_nid, file_value) = single_arg!(self);
-        let f = expect_type!(self, File, (file_nid, file_value));
+        let f = expect_type!(self, GeneratedFile, (file_nid, file_value));
         Ok(Value::String(Arc::new(
             self.runner
                 .driver
@@ -812,7 +807,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let contents = expect_type!(self, String, contents);
         let name = expect_type!(self, String, name);
         let executable = expect_type!(self, Boolean, executable);
-        Ok(Value::File(Arc::new(
+        Ok(Value::GeneratedFile(Arc::new(
             self.runner
                 .driver
                 .create_file(contents.as_bytes(), name, *executable)
@@ -846,7 +841,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let area_path = current_area_path.join(path.as_ref());
         let area_path = AbsolutePathBuf::try_from(area_path.as_path())
             .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?;
-        let entry = FSEntry::new(FileArea::Local(area_path), SealedFilePath::root());
+        let entry = GeneratedFSEntry::new(FileArea::Local(area_path), SealedFilePath::root());
         match self
             .runner
             .driver
@@ -950,7 +945,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     }
                 }
                 match src_value {
-                    Value::File(src) => {
+                    Value::GeneratedFile(src) => {
                         let filename = src.path().last().ok_or_else(|| {
                             self.cx.nid_err(
                                 src_nid,
@@ -960,7 +955,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         let dst_path = dst.path().join(filename).map_err(|err| {
                             self.cx.nid_err(self.nid, RunnerError::PathError(err))
                         })?;
-                        let dst = FSEntry::new(dst.area().clone(), dst_path);
+                        let dst = GeneratedFSEntry::new(dst.area().clone(), dst_path);
 
                         self.runner
                             .driver
@@ -978,7 +973,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         let dst_path = dst.path().join(filename).map_err(|err| {
                             self.cx.nid_err(self.nid, RunnerError::PathError(err))
                         })?;
-                        let dst = FSEntry::new(dst.area().clone(), dst_path);
+                        let dst = GeneratedFSEntry::new(dst.area().clone(), dst_path);
 
                         self.runner
                             .driver
@@ -990,7 +985,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         src_nid,
                         RunnerError::ExpectedType {
                             actual: src_value.rain_type_id(),
-                            expected: Cow::Borrowed(&[RainTypeId::File, RainTypeId::Dir]),
+                            expected: Cow::Borrowed(&[RainTypeId::GeneratedFile, RainTypeId::Dir]),
                         },
                     )),
                 }
@@ -1016,10 +1011,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .path()
                     .join(filename)
                     .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
-                let dst = FSEntry::new(dst.area().clone(), dst_path);
+                let dst = GeneratedFSEntry::new(dst.area().clone(), dst_path);
 
                 match src_value {
-                    Value::File(src) => {
+                    Value::GeneratedFile(src) => {
                         self.runner
                             .driver
                             .export_file(src, &dst)
@@ -1046,7 +1041,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         RunnerError::ExpectedType {
                             actual: src_value.rain_type_id(),
                             expected: Cow::Borrowed(&[
-                                RainTypeId::File,
+                                RainTypeId::GeneratedFile,
                                 RainTypeId::Dir,
                                 RainTypeId::FileArea,
                             ]),
@@ -1063,7 +1058,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         self.deps.push(Dep::LocalArea);
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
-                let src = expect_type!(self, File, (src_nid, src_value));
+                let src = expect_type!(self, GeneratedFile, (src_nid, src_value));
                 let dst = expect_type!(self, Dir, (dst_nid, dst_value));
                 match dst.area() {
                     FileArea::Local(_) => (),
@@ -1084,7 +1079,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .path()
                     .join(filename)
                     .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
-                let entry = FSEntry::new(dst.area().clone(), dst_path);
+                let entry = GeneratedFSEntry::new(dst.area().clone(), dst_path);
                 match self
                     .runner
                     .driver
@@ -1100,7 +1095,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     }
                 }
                 // Safety: We just checked this
-                let dst = unsafe { File::new(entry) };
+                let dst = unsafe { GeneratedFile::new(entry) };
                 let src_contents = self
                     .runner
                     .driver
@@ -1125,7 +1120,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 (dst_nid, dst_value),
                 (filename_nid, filename_value),
             ] => {
-                let src = expect_type!(self, File, (src_nid, src_value));
+                let src = expect_type!(self, GeneratedFile, (src_nid, src_value));
                 let dst = expect_type!(self, Dir, (dst_nid, dst_value));
                 let filename = expect_type!(self, String, (filename_nid, filename_value));
                 match dst.area() {
@@ -1141,7 +1136,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .path()
                     .join(filename)
                     .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
-                let entry = FSEntry::new(dst.area().clone(), dst_path);
+                let entry = GeneratedFSEntry::new(dst.area().clone(), dst_path);
                 match self
                     .runner
                     .driver
@@ -1157,7 +1152,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     }
                 }
                 // Safety: We just checked this
-                let dst = unsafe { File::new(entry) };
+                let dst = unsafe { GeneratedFile::new(entry) };
                 let src_contents = self
                     .runner
                     .driver
@@ -1182,7 +1177,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn file_metadata(self) -> ResultValue {
-        let f = expect_type!(self, File, single_arg!(self));
+        let f = expect_type!(self, GeneratedFile, single_arg!(self));
         let metadata = self
             .runner
             .driver
@@ -1220,7 +1215,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
                 let files: Vec<Value> = files
                     .into_iter()
-                    .map(|f| Value::File(Arc::new(f)))
+                    .map(|f| Value::GeneratedFile(Arc::new(f)))
                     .collect();
                 Ok(Value::List(Arc::new(RainList(files))))
             }
@@ -1247,7 +1242,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
                 let files: Vec<Value> = files
                     .into_iter()
-                    .map(|f| Value::File(Arc::new(f)))
+                    .map(|f| Value::GeneratedFile(Arc::new(f)))
                     .collect();
                 Ok(Value::List(Arc::new(RainList(files))))
             }
@@ -1258,10 +1253,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     fn stringify(self) -> ResultValue {
         let (nid, value) = single_arg!(self);
         match value {
-            Value::File(f) => Ok(Value::String(Arc::new(
+            Value::GeneratedFile(f) => Ok(Value::String(Arc::new(
                 self.runner
                     .driver
-                    .resolve_fs_entry(f.inner())
+                    .resolve_fs_entry(f.fsinner())
                     .display()
                     .to_string(),
             ))),
@@ -1287,7 +1282,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 RunnerError::ExpectedType {
                     actual: value.rain_type_id(),
                     expected: Cow::Borrowed(&[
-                        RainTypeId::File,
+                        RainTypeId::GeneratedFile,
                         RainTypeId::Dir,
                         RainTypeId::EscapeFile,
                         RainTypeId::Integer,
@@ -1335,7 +1330,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let ((dir_nid, dir_value), name) = two_args!(self);
         let dir = self.expect_dir_or_area(dir_nid, dir_value)?;
         let name = expect_type!(self, String, name);
-        Ok(Value::File(Arc::new(
+        Ok(Value::GeneratedFile(Arc::new(
             self.runner
                 .driver
                 .create_tar(&dir, name)
@@ -1345,9 +1340,9 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn compress_gzip(self) -> ResultValue {
         let (file, name) = two_args!(self);
-        let file = expect_type!(self, File, file);
+        let file = expect_type!(self, GeneratedFile, file);
         let name = expect_type!(self, String, name);
-        Ok(Value::File(Arc::new(
+        Ok(Value::GeneratedFile(Arc::new(
             self.runner
                 .driver
                 .compress_gzip(file, name)
@@ -1469,7 +1464,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn copy_file(self) -> ResultValue {
         let (file, name, executable) = three_args!(self);
-        let file = expect_type!(self, File, file);
+        let file = expect_type!(self, GeneratedFile, file);
         let name = expect_type!(self, String, name);
         let executable = expect_type!(self, Boolean, executable);
         let new_file = self
@@ -1477,7 +1472,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .driver
             .copy_file(file, name, *executable)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
-        Ok(Value::File(Arc::new(new_file)))
+        Ok(Value::GeneratedFile(Arc::new(new_file)))
     }
 
     fn escape_hard(self) -> ResultValue {
@@ -1528,7 +1523,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn compress_zstd(self) -> ResultValue {
         let (file, name, level) = three_args!(self);
-        let file = expect_type!(self, File, file);
+        let file = expect_type!(self, GeneratedFile, file);
         let name = expect_type!(self, String, name);
         let level = expect_type!(self, Integer, level);
 
@@ -1545,7 +1540,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 RunnerError::Makeshift("level must be in the range 0 - 22".into()),
             ));
         }
-        Ok(Value::File(Arc::new(
+        Ok(Value::GeneratedFile(Arc::new(
             self.runner
                 .driver
                 .compress_zstd(file, name, level)
@@ -1555,20 +1550,20 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn extract_zstd(self) -> ResultValue {
         let (file, name) = two_args!(self);
-        let file = expect_type!(self, File, file);
+        let file = expect_type!(self, GeneratedFile, file);
         let name = expect_type!(self, String, name);
         let area = self
             .runner
             .driver
             .extract_zstd(file, name)
             .map_err(|err| self.cx.nid_err(self.nid, err))?;
-        Ok(Value::File(Arc::new(area)))
+        Ok(Value::GeneratedFile(Arc::new(area)))
     }
 
     fn file_name(self) -> ResultValue {
         let file = single_arg!(self);
-        let file = expect_type!(self, File, file);
-        let Some(name) = file.inner().path.last() else {
+        let file = expect_type!(self, GeneratedFile, file);
+        let Some(name) = file.fsinner().path.last() else {
             return Err(self.cx.nid_err(
                 self.nid,
                 RunnerError::Makeshift("file doesn't have a name".into()),
