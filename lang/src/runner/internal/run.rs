@@ -132,7 +132,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let dir = self.expect_dir_or_area(*area_nid, area_value)?;
                 let bin = match file_value {
                     Value::GeneratedFile(file) => {
-                        &self.runner.driver.resolve_fs_entry(file.inner())
+                        &self.runner.driver.resolve_fs_entry(file.fsinner())
                     }
                     Value::EscapeFile(escaped_file) => escaped_file.0.as_path(),
                     _ => {
@@ -220,15 +220,15 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 key.to_owned(),
                 self.runner
                     .driver
-                    .resolve_fs_entry(f.inner())
+                    .resolve_fs_entry(f.fsinner())
                     .display()
                     .to_string(),
             )),
-            Value::Dir(d) => Ok((
+            Value::GeneratedDir(d) => Ok((
                 key.to_owned(),
                 self.runner
                     .driver
-                    .resolve_fs_entry(d.inner())
+                    .resolve_fs_entry(d.fsinner())
                     .display()
                     .to_string(),
             )),
@@ -236,7 +236,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 key.to_owned(),
                 self.runner
                     .driver
-                    .resolve_fs_entry(Dir::root(a.as_ref().clone()).inner())
+                    .resolve_fs_entry(Dir::root(a.as_ref().as_ref()).fsinner())
                     .display()
                     .to_string(),
             )),
@@ -247,7 +247,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     expected: Cow::Borrowed(&[
                         RainTypeId::String,
                         RainTypeId::GeneratedFile,
-                        RainTypeId::Dir,
+                        RainTypeId::GeneratedDir,
                         RainTypeId::FileArea,
                     ]),
                 },
@@ -261,19 +261,19 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             Value::GeneratedFile(f) => Ok(self
                 .runner
                 .driver
-                .resolve_fs_entry(f.inner())
+                .resolve_fs_entry(f.fsinner())
                 .display()
                 .to_string()),
-            Value::Dir(d) => Ok(self
+            Value::GeneratedDir(d) => Ok(self
                 .runner
                 .driver
-                .resolve_fs_entry(d.inner())
+                .resolve_fs_entry(d.fsinner())
                 .display()
                 .to_string()),
             Value::FileArea(a) => Ok(self
                 .runner
                 .driver
-                .resolve_fs_entry(Dir::root(a.as_ref().clone()).inner())
+                .resolve_fs_entry(Dir::root(a.as_ref().as_ref()).fsinner())
                 .display()
                 .to_string()),
             _ => Err(self.cx.nid_err(
@@ -283,7 +283,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     expected: Cow::Borrowed(&[
                         RainTypeId::String,
                         RainTypeId::GeneratedFile,
-                        RainTypeId::Dir,
+                        RainTypeId::GeneratedDir,
                         RainTypeId::FileArea,
                     ]),
                 },

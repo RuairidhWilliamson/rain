@@ -9,7 +9,7 @@ use indexmap::IndexMap;
 
 use crate::{
     afs::{
-        FSEntryTrait as _,
+        Dir, FSEntryTrait as _, File,
         absolute::AbsolutePathBuf,
         area::{FileArea, FileAreaRef},
         generated::{dir::GeneratedDir, file::GeneratedFile},
@@ -182,6 +182,20 @@ impl Display for RainRecord {
 }
 
 impl Value {
+    pub fn from_file(file: File) -> Self {
+        match file {
+            File::Generated(generated_file) => Self::GeneratedFile(generated_file),
+            File::Local(local_file) => Self::LocalFile(local_file),
+        }
+    }
+
+    pub fn from_dir(file: Dir) -> Self {
+        match file {
+            Dir::Generated(generated_dir) => Self::GeneratedDir(generated_dir),
+            Dir::Local(local_dir) => Self::LocalDir(local_dir),
+        }
+    }
+
     pub fn rain_type_id(&self) -> RainTypeId {
         match self {
             Self::Unit => RainTypeId::Unit,

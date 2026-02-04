@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use super::absolute::AbsolutePathBuf;
 
 /// A file area is a container of files that is not expected to be modified
@@ -34,9 +32,21 @@ impl std::fmt::Display for FileArea {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum FileAreaRef<'a> {
     Local(&'a AbsolutePathBuf),
     Generated(&'a GeneratedFileArea),
+}
+
+impl FileAreaRef<'_> {
+    pub fn to_owned(self) -> FileArea {
+        match self {
+            FileAreaRef::Local(absolute_path_buf) => FileArea::Local(absolute_path_buf.clone()),
+            FileAreaRef::Generated(generated_file_area) => {
+                FileArea::Generated(generated_file_area.clone())
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
