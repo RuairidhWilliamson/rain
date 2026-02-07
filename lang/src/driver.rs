@@ -6,23 +6,29 @@ use std::{
 };
 
 use crate::{
-    afs::{absolute::AbsolutePathBuf, area::FileArea, dir::Dir, entry::FSEntry, file::File},
+    afs::{
+        Dir, File,
+        absolute::AbsolutePathBuf,
+        area::FileArea,
+        entry::FSEntryRef,
+        generated::{area::GeneratedFileArea, dir::GeneratedDir, file::GeneratedFile},
+    },
     runner::{error::RunnerError, internal::InternalFunction},
 };
 
 pub trait FSTrait {
     /// Resolves file path locally returning an absolute path
-    fn resolve_fs_entry(&self, file: &FSEntry) -> PathBuf;
-    fn query_fs(&self, entry: &FSEntry) -> Result<FSEntryQueryResult, std::io::Error>;
+    fn resolve_fs_entry(&self, file: FSEntryRef) -> PathBuf;
+    fn query_fs(&self, entry: FSEntryRef) -> Result<FSEntryQueryResult, std::io::Error>;
 }
 
 pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn print(&self, message: String);
     fn escape_bin(&self, name: &str) -> Option<AbsolutePathBuf>;
     fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError>;
-    fn extract_gzip(&self, file: &File, name: &str) -> Result<File, RunnerError>;
-    fn extract_xz(&self, file: &File, name: &str) -> Result<File, RunnerError>;
-    fn extract_tar(&self, file: &File) -> Result<FileArea, RunnerError>;
+    fn extract_gzip(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError>;
+    fn extract_xz(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError>;
+    fn extract_tar(&self, file: &File) -> Result<GeneratedFileArea, RunnerError>;
     fn run(
         &self,
         area: Option<&FileArea>,
@@ -47,32 +53,47 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn sha512(&self, file: &File) -> Result<String, RunnerError>;
     fn create_area(
         &self,
-        dirs: &[&FSEntry],
+        dirs: &[FSEntryRef],
         flatten_input_dirs: bool,
-    ) -> Result<FileArea, RunnerError>;
+    ) -> Result<GeneratedFileArea, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, std::io::Error>;
     fn create_file(
         &self,
         contents: &[u8],
         name: &str,
         executable: bool,
-    ) -> Result<File, RunnerError>;
+    ) -> Result<GeneratedFile, RunnerError>;
     fn file_metadata(&self, file: &File) -> Result<FileMetadata, RunnerError>;
     fn glob(&self, dir: &Dir, pattern: &str) -> Result<Vec<File>, RunnerError>;
     fn embed_src(&self) -> Option<Cow<'static, str>>;
     fn host_triple(&self) -> &str;
-    fn export_file(&self, src: &File, dst: &FSEntry) -> Result<(), RunnerError>;
-    fn export_dir(&self, src: &Dir, dst: &FSEntry) -> Result<(), RunnerError>;
-    fn create_tar(&self, dir: &Dir, name: &str) -> Result<File, RunnerError>;
-    fn compress_gzip(&self, file: &File, name: &str) -> Result<File, RunnerError>;
+    fn export_file(&self, src: &File, dst: FSEntryRef) -> Result<(), RunnerError>;
+    fn export_dir(&self, src: &Dir, dst: FSEntryRef) -> Result<(), RunnerError>;
+    fn create_tar(&self, dir: &Dir, name: &str) -> Result<GeneratedFile, RunnerError>;
+    fn compress_gzip(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError>;
     fn get_secret(&self, name: &str) -> Result<String, RunnerError>;
-    fn git_contents(&self, url: &str, commit: &str) -> Result<FileArea, RunnerError>;
-    fn git_lfs_smudge(&self, area: &FileArea) -> Result<FileArea, RunnerError>;
+    fn git_contents(&self, url: &str, commit: &str) -> Result<GeneratedFileArea, RunnerError>;
+    fn git_lfs_smudge(&self, area: &FileArea) -> Result<GeneratedFileArea, RunnerError>;
     fn env_var(&self, key: &str) -> Result<Option<String>, RunnerError>;
-    fn copy_file(&self, file: &File, name: &str, executable: bool) -> Result<File, RunnerError>;
-    fn copy_dir(&self, dir: &Dir, name: &str, include_hidden: bool) -> Result<Dir, RunnerError>;
-    fn compress_zstd(&self, file: &File, name: &str, level: u8) -> Result<File, RunnerError>;
-    fn extract_zstd(&self, file: &File, name: &str) -> Result<File, RunnerError>;
+    fn copy_file(
+        &self,
+        file: &File,
+        name: &str,
+        executable: bool,
+    ) -> Result<GeneratedFile, RunnerError>;
+    fn copy_dir(
+        &self,
+        dir: &Dir,
+        name: &str,
+        include_hidden: bool,
+    ) -> Result<GeneratedDir, RunnerError>;
+    fn compress_zstd(
+        &self,
+        file: &File,
+        name: &str,
+        level: u8,
+    ) -> Result<GeneratedFile, RunnerError>;
+    fn extract_zstd(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError>;
     fn config(&self, name: &str) -> Option<Arc<String>>;
 }
 
@@ -91,7 +112,7 @@ pub struct RunOptions {
 pub struct RunStatus {
     pub success: bool,
     pub exit_code: Option<i32>,
-    pub area: FileArea,
+    pub area: GeneratedFileArea,
     pub stdout: String,
     pub stderr: String,
 }
@@ -106,7 +127,7 @@ pub struct EscapeRunStatus {
 pub struct DownloadStatus {
     pub ok: bool,
     pub status_code: Option<u16>,
-    pub file: Option<File>,
+    pub file: Option<GeneratedFile>,
     pub etag: Option<Vec<u8>>,
 }
 

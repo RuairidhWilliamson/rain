@@ -21,7 +21,7 @@ use rain_core::{
     config::Config,
     driver::DriverImpl,
     rain_lang::{
-        afs::{entry::FSEntryTrait as _, file::File},
+        afs::{File, local::file::LocalFile},
         driver::FSTrait as _,
         ir::Rir,
         runner::{Runner, cache::CacheTrait as _, value::Value},
@@ -427,8 +427,14 @@ fn run_inner<C: MsgConnection>(
 
     run_core(req, cache, &driver, ir).map(|v| match v {
         Value::Unit => String::new(),
-        Value::Dir(d) if req.resolve => driver.resolve_fs_entry(d.inner()).display().to_string(),
-        Value::File(f) if req.resolve => driver.resolve_fs_entry(f.inner()).display().to_string(),
+        Value::GeneratedDir(d) if req.resolve => driver
+            .resolve_fs_entry(d.fsinner().into())
+            .display()
+            .to_string(),
+        Value::GeneratedFile(f) if req.resolve => driver
+            .resolve_fs_entry(f.fsinner().into())
+            .display()
+            .to_string(),
         _ => format!("{v}"),
     })
 }
@@ -449,12 +455,13 @@ fn run_core(
     ir: &mut Rir,
 ) -> Result<Value, CoreError> {
     let path = root;
-    let file = File::new_local(path.as_ref()).map_err(|err| CoreError::Other(err.to_string()))?;
-    let path = driver.resolve_fs_entry(file.inner());
+    let file =
+        LocalFile::new_local(path.as_ref()).map_err(|err| CoreError::Other(err.to_string()))?;
+    let path = driver.resolve_fs_entry(file.fsinner().into());
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
     let module = rain_core::rain_lang::ast::parser::parse_module(&src);
     let mut mid = ir
-        .insert_module(Some(file), src, module)
+        .insert_module(Some(File::Local(file)), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(ir).into_owned())))?;
     let mut runner = Runner::new(ir, cache, driver);
     runner.offline = *offline;

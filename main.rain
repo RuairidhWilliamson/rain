@@ -91,7 +91,7 @@ pub let test = fn() {
 }
 
 let clippy = fn() {
-	std.escape.run(area, cargo, ["clippy", "--", "-Dwarnings"], cargo_env)
+	std.escape.run(area, cargo, ["clippy", "--all-targets", "--", "-Dwarnings"], cargo_env)
 }
 
 let regular_test = fn() {

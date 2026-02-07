@@ -14,7 +14,7 @@ use std::{
 use lru::LruCache;
 use poison_panic::MutexExt as _;
 use rain_lang::{
-    afs::area::{FileArea, GeneratedFileArea},
+    afs::{area::FileAreaRef, generated::area::GeneratedFileArea},
     runner::cache::{CacheEntry, CacheKey},
 };
 
@@ -131,11 +131,11 @@ impl CacheCore {
         self.storage.len()
     }
 
-    pub fn get_all_generated_areas(&self) -> HashSet<&rain_lang::afs::area::GeneratedFileArea> {
+    pub fn get_all_generated_areas(&self) -> HashSet<&GeneratedFileArea> {
         let mut out = HashSet::new();
         for (_, entry) in &self.storage {
             for area in entry.value.find_areas() {
-                if let FileArea::Generated(generated_file_area) = area {
+                if let FileAreaRef::Generated(generated_file_area) = area {
                     out.insert(generated_file_area);
                 }
             }

@@ -3,25 +3,34 @@ let area = internal._get_area(this_file)
 let get_type = internal._get_type
 let fold = internal._fold
 
+pub let Any = fn(v) -> Bool { true }
+
+pub let Type = fn(v) {
+	// A type is either a concrete type or a function
+	get_type(v) == get_type(Unit) || get_type(v) == get_type(Any)
+}
+
 pub let Unit = get_type(internal._unit())
 pub let Bool = get_type(false)
 pub let Integer = get_type(0)
 pub let String = get_type("")
 pub let AnyRecord = get_type({})
 pub let AnyList = get_type([])
+
 pub let Area = get_type(area)
-pub let File = get_type(this_file)
-pub let Dir = get_type(internal._get_dir(area, "build"))
+pub let GeneratedFile = get_type(this_file)
+pub let GeneratedDir = get_type(internal._get_dir(area, "build"))
+// TOOD: Actually specify Local FS types
+pub let LocalFile = Any
+pub let LocalDir = Any
+pub let File = Either(GeneratedFile, LocalFile)
+pub let Dir = Either(GeneratedDir, LocalDir)
+pub let DirLike = Either(Dir, Area)
 
-pub let DirLike = fn(v) -> Bool {
-	get_type(v) == Dir || get_type(v) == Area
-}
-
-pub let Any = fn(v) -> Bool { true }
-
-pub let Type = fn(v) {
-	// A type is either a concrete type or a function
-	get_type(v) == get_type(Unit) || get_type(v) == get_type(Any)
+pub let Either = fn(a: Type, b: Type) -> Type {
+	fn (v: Any) -> Bool {
+		check_type(v, a) || check_type(v, b)
+	}
 }
 
 let check_type = fn(v: Any, type_constraint: Type) -> Bool {

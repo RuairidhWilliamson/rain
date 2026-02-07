@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use termcolor::{NoColor, WriteColor};
 
-use crate::{afs::file::File, local_span::LocalSpan};
+use crate::{afs::File, local_span::LocalSpan};
 
 #[derive(Debug)]
 pub struct ResolvedSpan<'a> {

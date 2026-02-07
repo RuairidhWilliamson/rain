@@ -9,7 +9,11 @@ use indexmap::IndexMap;
 
 use crate::{
     afs::{
-        absolute::AbsolutePathBuf, area::FileArea, dir::Dir, entry::FSEntryTrait as _, file::File,
+        FSEntryTrait as _,
+        absolute::AbsolutePathBuf,
+        area::{FileArea, FileAreaRef},
+        generated::{dir::GeneratedDir, file::GeneratedFile},
+        local::{dir::LocalDir, file::LocalFile},
     },
     ast::NodeId,
     ir::ModuleId,
@@ -25,9 +29,11 @@ pub enum Value {
     String(Arc<String>),
     Module(ModuleId),
     FileArea(Arc<FileArea>),
-    File(Arc<File>),
+    GeneratedFile(Arc<GeneratedFile>),
+    LocalFile(Arc<LocalFile>),
     EscapeFile(Arc<AbsolutePathBuf>),
-    Dir(Arc<Dir>),
+    GeneratedDir(Arc<GeneratedDir>),
+    LocalDir(Arc<LocalDir>),
     Internal,
     InternalFunction(InternalFunction),
     List(Arc<RainList>),
@@ -45,9 +51,11 @@ impl Display for Value {
             Self::String(s) => Debug::fmt(s, f),
             Self::Module(module_id) => Display::fmt(module_id, f),
             Self::FileArea(file_area) => Display::fmt(file_area, f),
-            Self::File(file) => Display::fmt(file, f),
+            Self::GeneratedFile(file) => Display::fmt(file, f),
+            Self::LocalFile(file) => Display::fmt(file, f),
             Self::EscapeFile(path) => Display::fmt(&path.display(), f),
-            Self::Dir(dir) => Display::fmt(dir, f),
+            Self::GeneratedDir(dir) => Display::fmt(dir, f),
+            Self::LocalDir(dir) => Display::fmt(dir, f),
             Self::Internal => f.write_str("internal"),
             Self::InternalFunction(internal_function) => Display::fmt(internal_function, f),
             Self::List(rain_list) => Display::fmt(rain_list, f),
@@ -66,9 +74,11 @@ pub enum RainTypeId {
     String,
     Module,
     FileArea,
-    File,
+    GeneratedFile,
+    LocalFile,
     EscapeFile,
-    Dir,
+    GeneratedDir,
+    LocalDir,
     Internal,
     InternalFunction,
     List,
@@ -86,9 +96,11 @@ impl std::fmt::Display for RainTypeId {
             Self::String => "String",
             Self::Module => "Module",
             Self::FileArea => "FileArea",
-            Self::File => "File",
+            Self::GeneratedFile => "GeneratedFile",
+            Self::LocalFile => "LocalFile",
             Self::EscapeFile => "EscapeFile",
-            Self::Dir => "Dir",
+            Self::GeneratedDir => "GeneratedDir",
+            Self::LocalDir => "LocalDir",
             Self::Internal => "Internal",
             Self::InternalFunction => "InternalFunction",
             Self::List => "List",
@@ -178,9 +190,11 @@ impl Value {
             Self::String(_) => RainTypeId::String,
             Self::Module(_) => RainTypeId::Module,
             Self::FileArea(_) => RainTypeId::FileArea,
-            Self::File(_) => RainTypeId::File,
+            Self::GeneratedFile(_) => RainTypeId::GeneratedFile,
+            Self::LocalFile(_) => RainTypeId::LocalFile,
             Self::EscapeFile(_) => RainTypeId::EscapeFile,
-            Self::Dir(_) => RainTypeId::Dir,
+            Self::GeneratedDir(_) => RainTypeId::GeneratedDir,
+            Self::LocalDir(_) => RainTypeId::LocalDir,
             Self::Internal => RainTypeId::Internal,
             Self::InternalFunction(_) => RainTypeId::InternalFunction,
             Self::List(_) => RainTypeId::List,
@@ -190,7 +204,7 @@ impl Value {
         }
     }
 
-    pub fn find_areas(&self) -> Vec<&FileArea> {
+    pub fn find_areas(&self) -> Vec<FileAreaRef<'_>> {
         match self {
             Self::Unit
             | Self::Boolean(_)
@@ -202,10 +216,12 @@ impl Value {
             | Self::InternalFunction(_)
             | Self::Closure(_)
             | Self::Type(_) => Vec::new(),
-            Self::File(f) => vec![f.area()],
-            Self::Dir(d) => vec![d.area()],
-            Self::FileArea(file_area) => vec![file_area],
-            Self::List(list) => list.0.iter().flat_map(|v| v.find_areas()).collect(),
+            Self::GeneratedFile(f) => vec![f.area()],
+            Self::LocalFile(f) => vec![f.area()],
+            Self::GeneratedDir(d) => vec![d.area()],
+            Self::LocalDir(d) => vec![d.area()],
+            Self::FileArea(file_area) => vec![file_area.as_ref().as_area_ref()],
+            Self::List(list) => list.0.iter().flat_map(Self::find_areas).collect(),
             Self::Record(record) => record.0.iter().flat_map(|(_, v)| v.find_areas()).collect(),
         }
     }

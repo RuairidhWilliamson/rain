@@ -8,7 +8,7 @@ use rain_core::{
     driver::DriverImpl,
 };
 use rain_lang::{
-    afs::{area::FileArea, entry::FSEntry, file::File, path::SealedFilePath},
+    afs::{File, area::FileArea, entry::FSEntry, path::SealedFilePath},
     driver::DriverTrait as _,
 };
 

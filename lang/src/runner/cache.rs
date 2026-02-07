@@ -1,8 +1,8 @@
-use std::{fmt::Display, sync::Arc, time::Duration};
+use std::{fmt::Display, time::Duration};
 
 use chrono::{DateTime, Utc};
 
-use crate::{afs::file::File, ir::DeclarationId, runner::dep_list::DepList};
+use crate::{afs::File, ir::DeclarationId, runner::dep_list::DepList};
 
 use super::{internal::InternalFunction, value::Value};
 
@@ -49,7 +49,7 @@ pub enum CacheKey {
         url: String,
     },
     Import {
-        file: Arc<File>,
+        file: File,
     },
 }
 

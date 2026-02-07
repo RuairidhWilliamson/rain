@@ -1,4 +1,4 @@
-use crate::{afs::area::FileArea, runner::dep::Dep};
+use crate::{afs::area::FileAreaRef, runner::dep::Dep};
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct DepList {
@@ -14,10 +14,10 @@ impl DepList {
         self.inner.push(dep);
     }
 
-    pub fn add_dep_file_area(&mut self, area: &FileArea) {
+    pub fn add_dep_file_area(&mut self, area: FileAreaRef) {
         match area {
-            FileArea::Local(_) => self.inner.push(Dep::LocalArea),
-            FileArea::Generated(_) => (),
+            FileAreaRef::Local(_) => self.push(Dep::LocalArea),
+            FileAreaRef::Generated(_) => (),
         }
     }
 

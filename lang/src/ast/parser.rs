@@ -584,7 +584,7 @@ mod test {
     use std::path::Path;
 
     use crate::{
-        afs::file::File,
+        afs::{File, local::file::LocalFile},
         ast::{error::ParseError, parser::ModuleParser},
         local_span::{ErrorLocalSpan, LocalSpan},
     };
@@ -592,7 +592,7 @@ mod test {
     use super::parse_module;
 
     fn parse_display_expr(src: &str) -> String {
-        let file = File::new_local(Path::new(file!())).unwrap();
+        let file = File::Local(LocalFile::new_local(Path::new(file!())).unwrap());
         let mut parser = ModuleParser::new(src);
         let id = match parser.parse_expr() {
             Ok(s) => s,
