@@ -277,9 +277,9 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
             std::fs::write(driver.resolve_fs_entry((&download_entry).into()), download).unwrap();
             let download = GeneratedFile::new_checked(&driver, download_entry).unwrap();
             let raw_tar = driver
-                .extract_gzip(&File::Generated(download ), "extract_temp.tar")
+                .extract_gzip(&File::Generated(download), "extract_temp.tar")
                 .unwrap();
-            let area = driver.extract_tar(&File::Generated(raw_tar )).unwrap();
+            let area = driver.extract_tar(&File::Generated(raw_tar)).unwrap();
             let mut ls = std::fs::read_dir(
                 driver.resolve_fs_entry(GeneratedDir::root(area.clone()).fsinner().into()),
             )
