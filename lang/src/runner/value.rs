@@ -9,7 +9,7 @@ use indexmap::IndexMap;
 
 use crate::{
     afs::{
-        Dir, FSEntryTrait as _, File,
+        FSEntryTrait as _,
         absolute::AbsolutePathBuf,
         area::{FileArea, FileAreaRef},
         generated::{dir::GeneratedDir, file::GeneratedFile},
@@ -221,7 +221,7 @@ impl Value {
             Self::GeneratedDir(d) => vec![d.area()],
             Self::LocalDir(d) => vec![d.area()],
             Self::FileArea(file_area) => vec![file_area.as_ref().as_area_ref()],
-            Self::List(list) => list.0.iter().flat_map(Value::find_areas).collect(),
+            Self::List(list) => list.0.iter().flat_map(Self::find_areas).collect(),
             Self::Record(record) => record.0.iter().flat_map(|(_, v)| v.find_areas()).collect(),
         }
     }

@@ -461,7 +461,7 @@ fn run_core(
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
     let module = rain_core::rain_lang::ast::parser::parse_module(&src);
     let mut mid = ir
-        .insert_module(Some(File::Local((file))), src, module)
+        .insert_module(Some(File::Local(file)), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(ir).into_owned())))?;
     let mut runner = Runner::new(ir, cache, driver);
     runner.offline = *offline;

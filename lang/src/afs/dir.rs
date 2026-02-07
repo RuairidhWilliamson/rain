@@ -22,16 +22,16 @@ pub enum Dir {
 impl Dir {
     pub unsafe fn new(entry: FSEntry) -> Self {
         match entry {
-            FSEntry::Local(entry) => Self::Local((unsafe { LocalDir::new(entry) })),
-            FSEntry::Generated(entry) => Self::Generated((unsafe { GeneratedDir::new(entry) })),
+            FSEntry::Local(entry) => Self::Local(unsafe { LocalDir::new(entry) } ),
+            FSEntry::Generated(entry) => Self::Generated(unsafe { GeneratedDir::new(entry) } ),
         }
     }
 
     pub fn new_checked(fs: &impl FSTrait, entry: FSEntry) -> Option<Self> {
         match entry {
-            FSEntry::Local(entry) => Some(Self::Local((LocalDir::new_checked(fs, entry)?))),
+            FSEntry::Local(entry) => Some(Self::Local(LocalDir::new_checked(fs, entry)? )),
             FSEntry::Generated(entry) => {
-                Some(Self::Generated((GeneratedDir::new_checked(fs, entry)?)))
+                Some(Self::Generated(GeneratedDir::new_checked(fs, entry)? ))
             }
         }
     }
@@ -39,10 +39,10 @@ impl Dir {
     pub fn root(area: FileAreaRef) -> Self {
         match area {
             FileAreaRef::Local(absolute_path_buf) => {
-                Self::Local((LocalDir::root(absolute_path_buf.clone())))
+                Self::Local(LocalDir::root(absolute_path_buf.clone()) )
             }
             FileAreaRef::Generated(generated_file_area) => {
-                Self::Generated((GeneratedDir::root(generated_file_area.clone())))
+                Self::Generated(GeneratedDir::root(generated_file_area.clone()) )
             }
         }
     }

@@ -1,6 +1,6 @@
 #![expect(clippy::print_stdout)]
 
-use std::{process::ExitCode, sync::Arc};
+use std::process::ExitCode;
 
 use rain_lang::{
     afs::{File, local::file::LocalFile},

@@ -22,16 +22,16 @@ pub enum File {
 impl File {
     pub unsafe fn new(entry: FSEntry) -> Self {
         match entry {
-            FSEntry::Local(entry) => Self::Local((unsafe { LocalFile::new(entry) })),
-            FSEntry::Generated(entry) => Self::Generated((unsafe { GeneratedFile::new(entry) })),
+            FSEntry::Local(entry) => Self::Local(unsafe { LocalFile::new(entry) } ),
+            FSEntry::Generated(entry) => Self::Generated(unsafe { GeneratedFile::new(entry) } ),
         }
     }
 
     pub fn new_checked(fs: &impl FSTrait, entry: FSEntry) -> Option<Self> {
         match entry {
-            FSEntry::Local(entry) => Some(Self::Local((LocalFile::new_checked(fs, entry)?))),
+            FSEntry::Local(entry) => Some(Self::Local(LocalFile::new_checked(fs, entry)? )),
             FSEntry::Generated(entry) => {
-                Some(Self::Generated((GeneratedFile::new_checked(fs, entry)?)))
+                Some(Self::Generated(GeneratedFile::new_checked(fs, entry)? ))
             }
         }
     }
