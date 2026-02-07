@@ -214,7 +214,7 @@ fn qc_tokenise_non_control_character_script(src: String) -> TestResult {
         })
     });
     match result {
-        Ok(_) => TestResult::passed(),
+        Ok(()) => TestResult::passed(),
         Err(ErrorLocalSpan {
             err: TokenError::ReservedKeyword,
             ..

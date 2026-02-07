@@ -51,7 +51,7 @@ impl CacheTester {
         );
         let cache = rain_core::cache::Cache::new(cache_core);
         let mid = ir
-            .insert_module(Some(File::Local(Arc::new(file))), src, module)
+            .insert_module(Some(File::Local(file)), src, module)
             .unwrap();
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, &self.driver);

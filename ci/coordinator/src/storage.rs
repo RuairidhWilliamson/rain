@@ -203,7 +203,7 @@ pub mod test {
                 repos.insert(
                     id.0,
                     rain_ci_common::Repository {
-                        id: id,
+                        id,
                         host: host.clone(),
                         owner: owner.to_owned(),
                         name: name.to_owned(),

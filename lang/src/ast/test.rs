@@ -1,9 +1,9 @@
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
 use crate::afs::{File, local::file::LocalFile};
 
 fn parse_display_script(src: &str) -> String {
-    let file = File::Local((LocalFile::new_local(Path::new(file!())).unwrap()));
+    let file = File::Local(LocalFile::new_local(Path::new(file!())).unwrap());
     let s = match super::parser::parse_module(src) {
         Ok(s) => s,
         Err(err) => {
@@ -123,7 +123,7 @@ fn list_missing_comma() {
     match super::parser::parse_module(src) {
         Ok(_) => panic!("expected parse error"),
         Err(_err) => {}
-    };
+    }
 }
 
 #[test]
@@ -146,6 +146,7 @@ fn comment_no_text() {
 }
 
 #[quickcheck_macros::quickcheck]
+#[expect(clippy::needless_pass_by_value)]
 fn qc_parse_any_script(src: String) {
     let _ = super::parser::parse_module(&src);
 }

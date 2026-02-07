@@ -581,7 +581,7 @@ pub fn get_token_precedence_associativity(token: Token) -> Option<(Precedence, A
 
 #[cfg(test)]
 mod test {
-    use std::{path::Path, sync::Arc};
+    use std::path::Path;
 
     use crate::{
         afs::{File, local::file::LocalFile},
@@ -592,7 +592,7 @@ mod test {
     use super::parse_module;
 
     fn parse_display_expr(src: &str) -> String {
-        let file = File::Local(Arc::new(LocalFile::new_local(Path::new(file!())).unwrap()));
+        let file = File::Local(LocalFile::new_local(Path::new(file!())).unwrap());
         let mut parser = ModuleParser::new(src);
         let id = match parser.parse_expr() {
             Ok(s) => s,
