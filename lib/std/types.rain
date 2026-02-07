@@ -3,6 +3,8 @@ let area = internal._get_area(this_file)
 let get_type = internal._get_type
 let fold = internal._fold
 
+let concrete_types = internal._concrete_types()
+
 pub let Any = fn(v) -> Bool { true }
 
 pub let Type = fn(v) {
@@ -17,12 +19,11 @@ pub let String = get_type("")
 pub let AnyRecord = get_type({})
 pub let AnyList = get_type([])
 
-pub let Area = get_type(area)
-pub let GeneratedFile = get_type(this_file)
-pub let GeneratedDir = get_type(internal._get_dir(area, "build"))
-// TOOD: Actually specify Local FS types
-pub let LocalFile = Any
-pub let LocalDir = Any
+pub let Area = concrete_types.area
+pub let GeneratedFile = concrete_types.generated_file
+pub let GeneratedDir = concrete_types.generated_dir
+pub let LocalFile = concrete_types.local_file
+pub let LocalDir = concrete_types.local_dir
 pub let File = Either(GeneratedFile, LocalFile)
 pub let Dir = Either(GeneratedDir, LocalDir)
 pub let DirLike = Either(Dir, Area)

@@ -96,6 +96,7 @@ pub enum InternalFunction {
     FileName,
     CopyDir,
     Config,
+    ConcreteTypes,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -165,6 +166,7 @@ impl InternalFunction {
             "_file_name" => Some(Self::FileName),
             "_copy_dir" => Some(Self::CopyDir),
             "_config" => Some(Self::Config),
+            "_concrete_types" => Some(Self::ConcreteTypes),
             _ => None,
         }
     }
@@ -340,6 +342,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::FileName => self.file_name(),
             InternalFunction::CopyDir => self.copy_dir(),
             InternalFunction::Config => self.config(),
+            InternalFunction::ConcreteTypes => self.concrete_types(),
         }
     }
 
@@ -757,6 +760,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .map(|dir| match dir {
                 Value::GeneratedDir(d) => Ok(d.fsinner().into()),
                 Value::GeneratedFile(f) => Ok(f.fsinner().into()),
+                Value::LocalFile(f) => Ok(f.fsinner().into()),
+                Value::LocalDir(d) => Ok(d.fsinner().into()),
                 _ => Err(self.cx.nid_err(
                     dirs_nid,
                     RunnerError::ExpectedType {
@@ -764,6 +769,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         expected: Cow::Borrowed(&[
                             RainTypeId::GeneratedDir,
                             RainTypeId::GeneratedFile,
+                            RainTypeId::LocalDir,
+                            RainTypeId::LocalFile,
                         ]),
                     },
                 )),
@@ -791,6 +798,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .map(|dir| match dir {
                 Value::GeneratedDir(d) => Ok(d.fsinner().into()),
                 Value::GeneratedFile(f) => Ok(f.fsinner().into()),
+                Value::LocalFile(f) => Ok(f.fsinner().into()),
+                Value::LocalDir(d) => Ok(d.fsinner().into()),
                 _ => Err(self.cx.nid_err(
                     dirs_nid,
                     RunnerError::ExpectedType {
@@ -798,6 +807,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         expected: Cow::Borrowed(&[
                             RainTypeId::GeneratedDir,
                             RainTypeId::GeneratedFile,
+                            RainTypeId::LocalDir,
+                            RainTypeId::LocalFile,
                         ]),
                     },
                 )),
@@ -1585,5 +1596,25 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             Some(v) => Ok(Value::String(v)),
             None => Ok(Value::Unit),
         }
+    }
+
+    fn concrete_types(self) -> ResultValue {
+        self.no_args()?;
+        let mut map = IndexMap::new();
+        map.insert(
+            String::from("local_file"),
+            Value::Type(RainTypeId::LocalFile),
+        );
+        map.insert(String::from("local_dir"), Value::Type(RainTypeId::LocalDir));
+        map.insert(
+            String::from("generated_file"),
+            Value::Type(RainTypeId::GeneratedFile),
+        );
+        map.insert(
+            String::from("generated_dir"),
+            Value::Type(RainTypeId::GeneratedDir),
+        );
+        map.insert(String::from("area"), Value::Type(RainTypeId::FileArea));
+        Ok(Value::Record(Arc::new(RainRecord(map))))
     }
 }
