@@ -1,10 +1,6 @@
-use std::sync::Arc;
-
 use crate::{
     afs::{
-        FSEntryTrait,
-        area::{FileAreaRef, GeneratedFileArea},
-        entry::FSEntryRef,
+        FSEntryTrait, area::FileAreaRef, entry::FSEntryRef, generated::area::GeneratedFileArea,
         path::SealedFilePath,
     },
     driver::{FSEntryQueryResult, FSTrait},
@@ -30,7 +26,7 @@ impl GeneratedDir {
         }
     }
 
-    pub fn root(area: Arc<GeneratedFileArea>) -> Self {
+    pub fn root(area: GeneratedFileArea) -> Self {
         Self(GeneratedFSEntry {
             area,
             path: SealedFilePath::root(),

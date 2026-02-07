@@ -272,10 +272,8 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
             let custom_config = HashMap::new();
             let driver = rain_core::driver::DriverImpl::new(config, custom_config);
             let download_area = driver.create_area(&[], true).unwrap();
-            let download_entry = GeneratedFSEntry::new(
-                Arc::new(download_area),
-                SealedFilePath::new("/download").unwrap(),
-            );
+            let download_entry =
+                GeneratedFSEntry::new((download_area), SealedFilePath::new("/download").unwrap());
             std::fs::write(driver.resolve_fs_entry((&download_entry).into()), download).unwrap();
             let download = GeneratedFile::new_checked(&driver, download_entry).unwrap();
             let raw_tar = driver
@@ -285,16 +283,13 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
                 .extract_tar(&File::Generated(Arc::new(raw_tar)))
                 .unwrap();
             let mut ls = std::fs::read_dir(
-                driver
-                    .resolve_fs_entry(GeneratedDir::root(Arc::new(area.clone())).fsinner().into()),
+                driver.resolve_fs_entry(GeneratedDir::root((area.clone())).fsinner().into()),
             )
             .unwrap();
             let entry = ls.next().unwrap().unwrap();
             let download_dir_name = entry.file_name().into_string().unwrap();
-            let download_dir_entry = GeneratedFSEntry::new(
-                Arc::new(area),
-                SealedFilePath::new(&download_dir_name).unwrap(),
-            );
+            let download_dir_entry =
+                GeneratedFSEntry::new((area), SealedFilePath::new(&download_dir_name).unwrap());
             let root = GeneratedDir::new_checked(&driver, download_dir_entry).unwrap();
             let lfs_entries: Vec<_> = driver
                 .glob(&Dir::Generated(Arc::new(root.clone())), "**/*")

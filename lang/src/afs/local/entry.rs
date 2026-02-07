@@ -1,17 +1,15 @@
-use std::sync::Arc;
-
 use crate::afs::{
     FSEntryTrait, absolute::AbsolutePathBuf, area::FileAreaRef, path::SealedFilePath,
 };
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LocalFSEntry {
-    pub area: Arc<AbsolutePathBuf>,
+    pub area: AbsolutePathBuf,
     pub path: SealedFilePath,
 }
 
 impl LocalFSEntry {
-    pub fn new(area: Arc<AbsolutePathBuf>, path: SealedFilePath) -> Self {
+    pub fn new(area: AbsolutePathBuf, path: SealedFilePath) -> Self {
         Self { area, path }
     }
 }

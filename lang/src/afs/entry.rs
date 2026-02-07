@@ -14,10 +14,8 @@ pub enum FSEntry {
 impl FSEntry {
     pub fn new(area: FileArea, path: SealedFilePath) -> Self {
         match area {
-            FileArea::Local(area) => Self::Local(LocalFSEntry::new(Arc::new(area), path)),
-            FileArea::Generated(area) => {
-                Self::Generated(GeneratedFSEntry::new(Arc::new(area), path))
-            }
+            FileArea::Local(area) => Self::Local(LocalFSEntry::new(area, path)),
+            FileArea::Generated(area) => Self::Generated(GeneratedFSEntry::new(area, path)),
         }
     }
 

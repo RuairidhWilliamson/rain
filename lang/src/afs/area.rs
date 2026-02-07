@@ -1,10 +1,6 @@
-use std::sync::Arc;
-
-use crate::runner::value::Value;
+use crate::afs::{generated::area::GeneratedFileArea, local::area::LocalFSArea};
 
 use super::absolute::AbsolutePathBuf;
-
-// TODO: Use arcs in FileArea??
 
 /// A file area is a container of files that is not expected to be modified
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -40,7 +36,7 @@ impl std::fmt::Display for FileArea {
 
 #[derive(Clone, Copy)]
 pub enum FileAreaRef<'a> {
-    Local(&'a AbsolutePathBuf),
+    Local(&'a LocalFSArea),
     Generated(&'a GeneratedFileArea),
 }
 
@@ -52,35 +48,5 @@ impl FileAreaRef<'_> {
                 FileArea::Generated(generated_file_area.clone())
             }
         }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub struct GeneratedFileArea {
-    pub id: uuid::Uuid,
-}
-
-impl Default for GeneratedFileArea {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl GeneratedFileArea {
-    pub fn new() -> Self {
-        Self {
-            id: uuid::Uuid::new_v4(),
-        }
-    }
-
-    pub fn to_value(self) -> Value {
-        Value::FileArea(Arc::new(FileArea::Generated(self)))
-    }
-}
-
-impl std::fmt::Display for GeneratedFileArea {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Self { id } = self;
-        f.write_fmt(format_args!("{id}"))
     }
 }

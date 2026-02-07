@@ -43,7 +43,7 @@ impl LocalFile {
             .to_str()
             .ok_or(PathError::NotUnicode)?;
         Ok(Self(LocalFSEntry {
-            area: Arc::new(dir),
+            area: dir,
             path: SealedFilePath::new(file_name)?,
         }))
     }

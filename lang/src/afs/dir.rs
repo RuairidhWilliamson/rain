@@ -40,12 +40,12 @@ impl Dir {
 
     pub fn root(area: FileAreaRef) -> Self {
         match area {
-            FileAreaRef::Local(absolute_path_buf) => Self::Local(Arc::new(LocalDir::root(
-                Arc::new(absolute_path_buf.clone()),
-            ))),
-            FileAreaRef::Generated(generated_file_area) => Self::Generated(Arc::new(
-                GeneratedDir::root(Arc::new(generated_file_area.clone())),
-            )),
+            FileAreaRef::Local(absolute_path_buf) => {
+                Self::Local(Arc::new(LocalDir::root(absolute_path_buf.clone())))
+            }
+            FileAreaRef::Generated(generated_file_area) => {
+                Self::Generated(Arc::new(GeneratedDir::root(generated_file_area.clone())))
+            }
         }
     }
 

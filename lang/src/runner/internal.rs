@@ -860,7 +860,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let area_path = current_area_path.join(path.as_ref());
         let area_path = AbsolutePathBuf::try_from(area_path.as_path())
             .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?;
-        let entry = LocalFSEntry::new(Arc::new(area_path), SealedFilePath::root());
+        let entry = LocalFSEntry::new(area_path, SealedFilePath::root());
         match self
             .runner
             .driver

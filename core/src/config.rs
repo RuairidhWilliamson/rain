@@ -2,9 +2,7 @@ use std::path::{Path, PathBuf};
 
 use rain_lang::{
     afs::{
-        FSEntryTrait as _,
-        area::{FileAreaRef, GeneratedFileArea},
-        entry::FSEntryRef,
+        FSEntryTrait as _, area::FileAreaRef, entry::FSEntryRef, generated::area::GeneratedFileArea,
     },
     driver::{FSEntryQueryResult, FSTrait},
 };

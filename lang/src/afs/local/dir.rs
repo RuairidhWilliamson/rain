@@ -1,8 +1,6 @@
-use std::sync::Arc;
-
 use crate::{
     afs::{
-        FSEntryTrait, absolute::AbsolutePathBuf, area::FileAreaRef, entry::FSEntryRef,
+        FSEntryTrait, area::FileAreaRef, entry::FSEntryRef, local::area::LocalFSArea,
         path::SealedFilePath,
     },
     driver::{FSEntryQueryResult, FSTrait},
@@ -28,7 +26,7 @@ impl LocalDir {
         }
     }
 
-    pub fn root(area: Arc<AbsolutePathBuf>) -> Self {
+    pub fn root(area: LocalFSArea) -> Self {
         Self(LocalFSEntry {
             area,
             path: SealedFilePath::root(),

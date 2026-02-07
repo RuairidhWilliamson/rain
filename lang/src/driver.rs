@@ -9,9 +9,9 @@ use crate::{
     afs::{
         Dir, File,
         absolute::AbsolutePathBuf,
-        area::{FileArea, GeneratedFileArea},
+        area::FileArea,
         entry::FSEntryRef,
-        generated::{dir::GeneratedDir, file::GeneratedFile},
+        generated::{area::GeneratedFileArea, dir::GeneratedDir, file::GeneratedFile},
     },
     runner::{error::RunnerError, internal::InternalFunction},
 };
