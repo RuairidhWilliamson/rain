@@ -1089,7 +1089,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    #[expect(clippy::too_many_lines)]
     fn check_export_to_local(self) -> ResultValue {
         self.deps.push(Dep::LocalArea);
         match &self.arg_values[..] {
