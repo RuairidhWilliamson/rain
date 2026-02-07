@@ -1,8 +1,12 @@
 #![expect(clippy::print_stdout)]
 
-use std::process::ExitCode;
+use std::{process::ExitCode, sync::Arc};
 
-use rain_lang::{afs::file::GeneratedFile, ast::error::ParseError, local_span::ErrorLocalSpan};
+use rain_lang::{
+    afs::{File, local::file::LocalFile},
+    ast::error::ParseError,
+    local_span::ErrorLocalSpan,
+};
 
 fn main() -> ExitCode {
     let Some(src_path) = std::env::args().nth(1) else {
@@ -10,7 +14,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     let src_path = std::path::Path::new(&src_path);
-    let file = match GeneratedFile::new_local(src_path) {
+    let file = match LocalFile::new_local(src_path) {
         Ok(path) => path,
         Err(err) => {
             log::error!("Path error");
@@ -27,6 +31,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    let file = File::Local(Arc::new(file));
     if let Err(err) = inner(&src) {
         let resolved = err.resolve(Some(&file), &src);
         println!("{resolved}");

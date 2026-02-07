@@ -1,11 +1,58 @@
 use std::sync::Arc;
 
-use crate::afs::{FSEntryTrait, area::FileAreaRef, path::SealedFilePath};
+use crate::{
+    afs::{
+        FSEntryTrait,
+        area::FileAreaRef,
+        entry::{FSEntry, FSEntryRef},
+        generated::file::GeneratedFile,
+        local::file::LocalFile,
+        path::SealedFilePath,
+    },
+    driver::FSTrait,
+    runner::value::Value,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum File {
-    Generated(Arc<super::generated::file::GeneratedFile>),
-    Local(Arc<super::local::file::LocalFile>),
+    Generated(Arc<GeneratedFile>),
+    Local(Arc<LocalFile>),
+}
+
+impl File {
+    pub unsafe fn new(entry: FSEntry) -> Self {
+        match entry {
+            FSEntry::Local(entry) => Self::Local(Arc::new(unsafe { LocalFile::new(entry) })),
+            FSEntry::Generated(entry) => {
+                Self::Generated(Arc::new(unsafe { GeneratedFile::new(entry) }))
+            }
+        }
+    }
+
+    pub fn new_checked(fs: &impl FSTrait, entry: FSEntry) -> Option<Self> {
+        match entry {
+            FSEntry::Local(entry) => {
+                Some(Self::Local(Arc::new(LocalFile::new_checked(fs, entry)?)))
+            }
+            FSEntry::Generated(entry) => Some(Self::Generated(Arc::new(
+                GeneratedFile::new_checked(fs, entry)?,
+            ))),
+        }
+    }
+
+    pub fn to_value(self) -> Value {
+        match self {
+            File::Generated(file) => Value::GeneratedFile(file),
+            File::Local(file) => Value::LocalFile(file),
+        }
+    }
+
+    pub fn fsinner(&self) -> FSEntryRef<'_> {
+        match self {
+            File::Generated(file) => FSEntryRef::Generated(file.fsinner()),
+            File::Local(file) => FSEntryRef::Local(file.fsinner()),
+        }
+    }
 }
 
 impl FSEntryTrait for File {

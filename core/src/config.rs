@@ -2,8 +2,9 @@ use std::path::{Path, PathBuf};
 
 use rain_lang::{
     afs::{
-        area::{FileArea, GeneratedFileArea},
-        entry::GeneratedFSEntry,
+        FSEntryTrait as _,
+        area::{FileAreaRef, GeneratedFileArea},
+        entry::FSEntryRef,
     },
     driver::{FSEntryQueryResult, FSTrait},
 };
@@ -78,20 +79,20 @@ impl Config {
 }
 
 impl FSTrait for Config {
-    fn resolve_fs_entry(&self, entry: &GeneratedFSEntry) -> PathBuf {
-        let abs_path = entry.path.path();
+    fn resolve_fs_entry(&self, entry: FSEntryRef) -> PathBuf {
+        let abs_path = entry.path().path();
         let Some(rel_path) = abs_path.strip_prefix('/') else {
             unreachable!("file path must start with /");
         };
-        match &entry.area {
-            FileArea::Local(p) => p.join(rel_path),
-            FileArea::Generated(GeneratedFileArea { id }) => {
+        match &entry.area() {
+            FileAreaRef::Local(p) => p.join(rel_path),
+            FileAreaRef::Generated(GeneratedFileArea { id }) => {
                 self.base_generated_dir.join(id.to_string()).join(rel_path)
             }
         }
     }
 
-    fn query_fs(&self, entry: &GeneratedFSEntry) -> Result<FSEntryQueryResult, std::io::Error> {
+    fn query_fs(&self, entry: FSEntryRef) -> Result<FSEntryQueryResult, std::io::Error> {
         match std::fs::metadata(self.resolve_fs_entry(entry)) {
             Ok(m) if m.is_symlink() => Ok(FSEntryQueryResult::Symlink),
             Ok(m) if m.is_file() => Ok(FSEntryQueryResult::File),

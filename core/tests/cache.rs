@@ -11,7 +11,7 @@ use std::{
 use poison_panic::MutexExt as _;
 use rain_core::cache::persistent::PersistCache;
 use rain_lang::{
-    afs::entry::FSEntryTrait as _,
+    afs::{File, local::file::LocalFile},
     driver::FSTrait as _,
     runner::value::{RainInteger, Value},
 };
@@ -39,8 +39,8 @@ impl CacheTester {
     }
 
     fn run(&mut self, path: impl AsRef<Path>, declaration: &str) -> Value {
-        let file = rain_lang::afs::file::GeneratedFile::new_local(path.as_ref()).unwrap();
-        let path = self.driver.resolve_fs_entry(file.inner());
+        let file = LocalFile::new_local(path.as_ref()).unwrap();
+        let path = self.driver.resolve_fs_entry(file.fsinner().into());
         let src = std::fs::read_to_string(&path).unwrap();
         let module = rain_lang::ast::parser::parse_module(&src);
         let mut ir = rain_lang::ir::Rir::new();
@@ -50,7 +50,9 @@ impl CacheTester {
             &mut ir,
         );
         let cache = rain_core::cache::Cache::new(cache_core);
-        let mid = ir.insert_module(Some(file), src, module).unwrap();
+        let mid = ir
+            .insert_module(Some(File::Local(Arc::new(file))), src, module)
+            .unwrap();
         let main = ir.resolve_global_declaration(mid, declaration).unwrap();
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, &self.driver);
         let value = runner.evaluate_and_call(main, &[]).unwrap();

@@ -1,4 +1,10 @@
+use std::sync::Arc;
+
+use crate::runner::value::Value;
+
 use super::absolute::AbsolutePathBuf;
+
+// TODO: Use arcs in FileArea??
 
 /// A file area is a container of files that is not expected to be modified
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -15,7 +21,7 @@ impl FileArea {
         }
     }
 
-    pub fn as_ref(&self) -> FileAreaRef {
+    pub fn as_area_ref(&self) -> FileAreaRef<'_> {
         match self {
             Self::Local(absolute_path_buf) => FileAreaRef::Local(absolute_path_buf),
             Self::Generated(generated_file_area) => FileAreaRef::Generated(generated_file_area),
@@ -39,7 +45,7 @@ pub enum FileAreaRef<'a> {
 }
 
 impl FileAreaRef<'_> {
-    pub fn to_owned(self) -> FileArea {
+    pub fn to_owned_area(self) -> FileArea {
         match self {
             FileAreaRef::Local(absolute_path_buf) => FileArea::Local(absolute_path_buf.clone()),
             FileAreaRef::Generated(generated_file_area) => {
@@ -65,6 +71,10 @@ impl GeneratedFileArea {
         Self {
             id: uuid::Uuid::new_v4(),
         }
+    }
+
+    pub fn to_value(self) -> Value {
+        Value::FileArea(Arc::new(FileArea::Generated(self)))
     }
 }
 

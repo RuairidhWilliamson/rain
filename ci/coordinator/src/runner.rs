@@ -8,7 +8,7 @@ use rain_core::{
     driver::DriverImpl,
 };
 use rain_lang::{
-    afs::{area::FileArea, entry::GeneratedFSEntry, file::GeneratedFile, path::SealedFilePath},
+    afs::{File, area::FileArea, entry::FSEntry, path::SealedFilePath},
     driver::DriverTrait as _,
 };
 
@@ -34,9 +34,9 @@ impl Runner {
 
     #[expect(clippy::unwrap_used)]
     pub fn run(&self, driver: &DriverImpl, area: FileArea, target: &str) -> RunComplete {
-        let root_entry = GeneratedFSEntry::new(area, SealedFilePath::new("/main.rain").unwrap());
+        let root_entry = FSEntry::new(area, SealedFilePath::new("/main.rain").unwrap());
         info!("Root entry {root_entry}");
-        let root = GeneratedFile::new_checked(driver, root_entry).unwrap();
+        let root = File::new_checked(driver, root_entry).unwrap();
         let src = driver.read_file(&root).unwrap();
         let module = rain_lang::ast::parser::parse_module(&src);
         let mut ir = rain_lang::ir::Rir::new();

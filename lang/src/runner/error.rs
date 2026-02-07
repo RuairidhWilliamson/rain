@@ -1,7 +1,7 @@
 use std::{borrow::Cow, ops::RangeInclusive, string::FromUtf8Error};
 
 use crate::{
-    afs::{error::PathError, generated::entry::GeneratedFSEntry, local::entry::LocalFSEntry},
+    afs::{entry::FSEntry, error::PathError},
     ast::error::ParseError,
     driver::FSEntryQueryResult,
     error::{ResolvedError, ResolvedSpan},
@@ -105,10 +105,8 @@ pub enum RunnerError {
     ImportParseError(#[from] ParseError),
     #[error("zip error: {0}")]
     ExtractError(Box<dyn std::error::Error>),
-    #[error("local fs query path {0} {1}")]
-    LocalFSQuery(LocalFSEntry, FSEntryQueryResult),
-    #[error("generated fs query path {0} {1}")]
-    GeneratedFSQuery(GeneratedFSEntry, FSEntryQueryResult),
+    #[error("fs query path {0} {1}")]
+    FSQuery(FSEntry, FSEntryQueryResult),
     #[error("index out of bounds: {0}")]
     IndexOutOfBounds(RainInteger),
     #[error("index key not found: {0}")]

@@ -4,6 +4,7 @@ use crate::{
     afs::{
         FSEntryTrait,
         area::{FileAreaRef, GeneratedFileArea},
+        entry::FSEntryRef,
         path::SealedFilePath,
     },
     driver::{FSEntryQueryResult, FSTrait},
@@ -22,7 +23,7 @@ impl GeneratedDir {
     }
 
     pub fn new_checked(fs: &impl FSTrait, entry: GeneratedFSEntry) -> Option<Self> {
-        match fs.query_fs(entry.fsinner()) {
+        match fs.query_fs(FSEntryRef::from_generated(&entry)) {
             // Safety: we have just queried the filesystem entry
             Ok(FSEntryQueryResult::Directory) => Some(unsafe { Self::new(entry) }),
             _ => None,
@@ -35,10 +36,14 @@ impl GeneratedDir {
             path: SealedFilePath::root(),
         })
     }
+
+    pub fn fsinner(&self) -> &GeneratedFSEntry {
+        &self.0
+    }
 }
 
 impl FSEntryTrait for GeneratedDir {
-    fn area(&self) -> FileAreaRef {
+    fn area(&self) -> FileAreaRef<'_> {
         self.0.area()
     }
 

@@ -10,8 +10,13 @@ use log::{error, info};
 use rain_ci_common::RunStatus;
 use rain_ci_common::github::InstallationClient as _;
 use rain_ci_common::github::model::CheckRunConclusion;
-use rain_lang::afs::{dir::Dir, file::GeneratedFile};
-use rain_lang::afs::{entry::GeneratedFSEntry, entry::FSEntryTrait as _, path::SealedFilePath};
+use rain_lang::afs::File;
+use rain_lang::afs::area::FileArea;
+use rain_lang::afs::dir::Dir;
+use rain_lang::afs::generated::dir::GeneratedDir;
+use rain_lang::afs::generated::entry::GeneratedFSEntry;
+use rain_lang::afs::generated::file::GeneratedFile;
+use rain_lang::afs::path::SealedFilePath;
 use rain_lang::driver::{DriverTrait as _, FSTrait as _};
 use tokio::sync::mpsc::Receiver;
 use tokio::task::JoinHandle;
@@ -267,26 +272,36 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
             let custom_config = HashMap::new();
             let driver = rain_core::driver::DriverImpl::new(config, custom_config);
             let download_area = driver.create_area(&[], true).unwrap();
-            let download_entry =
-                GeneratedFSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
-            std::fs::write(driver.resolve_fs_entry(&download_entry), download).unwrap();
+            let download_entry = GeneratedFSEntry::new(
+                Arc::new(download_area),
+                SealedFilePath::new("/download").unwrap(),
+            );
+            std::fs::write(driver.resolve_fs_entry((&download_entry).into()), download).unwrap();
             let download = GeneratedFile::new_checked(&driver, download_entry).unwrap();
-            let raw_tar = driver.extract_gzip(&download, "extract_temp.tar").unwrap();
-            let area = driver.extract_tar(&raw_tar).unwrap();
-            let mut ls =
-                std::fs::read_dir(driver.resolve_fs_entry(Dir::root(area.clone()).inner()))
-                    .unwrap();
+            let raw_tar = driver
+                .extract_gzip(&File::Generated(Arc::new(download)), "extract_temp.tar")
+                .unwrap();
+            let area = driver
+                .extract_tar(&File::Generated(Arc::new(raw_tar)))
+                .unwrap();
+            let mut ls = std::fs::read_dir(
+                driver
+                    .resolve_fs_entry(GeneratedDir::root(Arc::new(area.clone())).fsinner().into()),
+            )
+            .unwrap();
             let entry = ls.next().unwrap().unwrap();
             let download_dir_name = entry.file_name().into_string().unwrap();
-            let download_dir_entry =
-                GeneratedFSEntry::new(area, SealedFilePath::new(&download_dir_name).unwrap());
-            let root = Dir::new_checked(&driver, download_dir_entry).unwrap();
+            let download_dir_entry = GeneratedFSEntry::new(
+                Arc::new(area),
+                SealedFilePath::new(&download_dir_name).unwrap(),
+            );
+            let root = GeneratedDir::new_checked(&driver, download_dir_entry).unwrap();
             let lfs_entries: Vec<_> = driver
-                .glob(&root, "**/*")
+                .glob(&Dir::Generated(Arc::new(root.clone())), "**/*")
                 .unwrap()
                 .into_iter()
                 .filter_map(|entry| {
-                    let path = driver.resolve_fs_entry(entry.inner());
+                    let path = driver.resolve_fs_entry(entry.fsinner());
                     let lfs_object = git_lfs_rs::object::Object::from_path(&path).ok()?;
                     Some((path, lfs_object))
                 })
@@ -306,9 +321,11 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
                 HashMap::new(),
             );
             let area = driver
-                .create_overlay_area(std::iter::once(root.inner()), true, true)
+                .create_overlay_area(std::iter::once(root.fsinner().into()), true, true)
                 .unwrap();
-            let run_complete = server.runner.run(&driver, area, &target);
+            let run_complete = server
+                .runner
+                .run(&driver, FileArea::Generated(area), &target);
             Ok(run_complete)
         }))
     }

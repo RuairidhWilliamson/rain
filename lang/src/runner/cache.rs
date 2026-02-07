@@ -1,4 +1,4 @@
-use std::{fmt::Display, sync::Arc, time::Duration};
+use std::{fmt::Display, time::Duration};
 
 use chrono::{DateTime, Utc};
 

@@ -12,7 +12,9 @@ pub use rain_lang;
 
 use driver::DriverImpl;
 use rain_lang::{
-    afs::entry::FSEntryTrait as _, driver::FSTrait as _, error::OwnedResolvedError,
+    afs::{File, local::file::LocalFile},
+    driver::FSTrait as _,
+    error::OwnedResolvedError,
     runner::value::Value,
 };
 use serde::{Deserialize, Serialize};
@@ -32,14 +34,14 @@ pub fn run(
     cache: &cache::Cache,
     driver: &DriverImpl,
 ) -> Result<Value, CoreError> {
-    let file = rain_lang::afs::file::GeneratedFile::new_local(path.as_ref())
-        .map_err(|err| CoreError::Other(err.to_string()))?;
-    let path = driver.resolve_fs_entry(file.inner());
+    let file =
+        LocalFile::new_local(path.as_ref()).map_err(|err| CoreError::Other(err.to_string()))?;
+    let path = driver.resolve_fs_entry(file.fsinner().into());
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
     let module = rain_lang::ast::parser::parse_module(&src);
     let mut ir = rain_lang::ir::Rir::new();
     let mid = ir
-        .insert_module(Some(file), src, module)
+        .insert_module(Some(File::Local(Arc::new(file))), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&ir).into_owned())))?;
     let main = ir
         .resolve_global_declaration(mid, declaration)

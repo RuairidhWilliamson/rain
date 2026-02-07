@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
-    afs::{FSEntryTrait, absolute::AbsolutePathBuf, area::FileAreaRef, path::SealedFilePath},
+    afs::{
+        FSEntryTrait, absolute::AbsolutePathBuf, area::FileAreaRef, entry::FSEntryRef,
+        path::SealedFilePath,
+    },
     driver::{FSEntryQueryResult, FSTrait},
 };
 
@@ -18,7 +21,7 @@ impl LocalDir {
     }
 
     pub fn new_checked(fs: &impl FSTrait, entry: LocalFSEntry) -> Option<Self> {
-        match fs.query_fs(entry.fsinner()) {
+        match fs.query_fs(FSEntryRef::from_local(&entry)) {
             // Safety: we have just queried the filesystem entry
             Ok(FSEntryQueryResult::Directory) => Some(unsafe { Self::new(entry) }),
             _ => None,
@@ -30,6 +33,10 @@ impl LocalDir {
             area,
             path: SealedFilePath::root(),
         })
+    }
+
+    pub fn fsinner(&self) -> &LocalFSEntry {
+        &self.0
     }
 }
 

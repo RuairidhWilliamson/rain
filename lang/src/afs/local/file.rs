@@ -2,8 +2,8 @@ use std::{path::Path, sync::Arc};
 
 use crate::{
     afs::{
-        FSEntryTrait, absolute::AbsolutePathBuf, area::FileAreaRef, error::PathError,
-        path::SealedFilePath,
+        FSEntryTrait, absolute::AbsolutePathBuf, area::FileAreaRef, entry::FSEntryRef,
+        error::PathError, path::SealedFilePath,
     },
     driver::{FSEntryQueryResult, FSTrait},
 };
@@ -22,7 +22,7 @@ impl LocalFile {
 
     /// Creates a [`GeneratedFile`] by checking it exists
     pub fn new_checked(fs: &impl FSTrait, entry: LocalFSEntry) -> Option<Self> {
-        match fs.query_fs(entry.fsinner()) {
+        match fs.query_fs(FSEntryRef::from_local(&entry)) {
             // Safety: we have just queried the filesystem entry
             Ok(FSEntryQueryResult::File) => Some(unsafe { Self::new(entry) }),
             _ => None,
@@ -46,6 +46,10 @@ impl LocalFile {
             area: Arc::new(dir),
             path: SealedFilePath::new(file_name)?,
         }))
+    }
+
+    pub fn fsinner(&self) -> &LocalFSEntry {
+        &self.0
     }
 }
 

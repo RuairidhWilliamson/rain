@@ -5,7 +5,7 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 use indexmap::IndexMap;
 
 use crate::{
-    afs::{Dir, FSEntryTrait as _},
+    afs::{Dir, entry::FSEntryRef},
     ast::NodeId,
     driver::{DriverTrait, RunOptions},
     runner::{cache::CacheTrait, dep::Dep},
@@ -40,9 +40,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     ))?,
                 };
                 let bin = match file_value {
-                    Value::GeneratedFile(file) => {
-                        &self.runner.driver.resolve_fs_entry(file.fsinner())
-                    }
+                    Value::GeneratedFile(file) => &self
+                        .runner
+                        .driver
+                        .resolve_fs_entry(FSEntryRef::from_generated(file.fsinner())),
                     Value::EscapeFile(escaped_file) => escaped_file.0.as_path(),
                     _ => {
                         return Err(self.cx.nid_err(
@@ -110,7 +111,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     "exit_code".to_owned(),
                     Value::Integer(Arc::new(RainInteger(status.exit_code.unwrap_or(-1).into()))),
                 );
-                m.insert("area".to_owned(), Value::FileArea(Arc::new(status.area)));
+                m.insert("area".to_owned(), status.area.to_value());
                 m.insert("stdout".to_owned(), Value::String(Arc::new(status.stdout)));
                 m.insert("stderr".to_owned(), Value::String(Arc::new(status.stderr)));
                 Ok(Value::Record(Arc::new(RainRecord(m))))
@@ -129,11 +130,12 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 (args_nid, args_value),
                 (env_nid, env_value),
             ] => {
-                let dir = self.expect_dir_or_area(*area_nid, area_value)?;
+                let dir = self.expect_dir_or_area((*area_nid, area_value))?;
                 let bin = match file_value {
-                    Value::GeneratedFile(file) => {
-                        &self.runner.driver.resolve_fs_entry(file.fsinner())
-                    }
+                    Value::GeneratedFile(file) => &self
+                        .runner
+                        .driver
+                        .resolve_fs_entry(FSEntryRef::from_generated(file.fsinner())),
                     Value::EscapeFile(escaped_file) => escaped_file.0.as_path(),
                     _ => {
                         return Err(self.cx.nid_err(
@@ -220,7 +222,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 key.to_owned(),
                 self.runner
                     .driver
-                    .resolve_fs_entry(f.fsinner())
+                    .resolve_fs_entry(FSEntryRef::from_generated(f.fsinner()))
                     .display()
                     .to_string(),
             )),
@@ -228,7 +230,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 key.to_owned(),
                 self.runner
                     .driver
-                    .resolve_fs_entry(d.fsinner())
+                    .resolve_fs_entry(FSEntryRef::from_generated(d.fsinner()))
                     .display()
                     .to_string(),
             )),
@@ -236,7 +238,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 key.to_owned(),
                 self.runner
                     .driver
-                    .resolve_fs_entry(Dir::root(a.as_ref().as_ref()).fsinner())
+                    .resolve_fs_entry(Dir::root(a.as_ref().as_area_ref()).fsinner())
                     .display()
                     .to_string(),
             )),
@@ -261,19 +263,19 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             Value::GeneratedFile(f) => Ok(self
                 .runner
                 .driver
-                .resolve_fs_entry(f.fsinner())
+                .resolve_fs_entry(f.fsinner().into())
                 .display()
                 .to_string()),
             Value::GeneratedDir(d) => Ok(self
                 .runner
                 .driver
-                .resolve_fs_entry(d.fsinner())
+                .resolve_fs_entry(d.fsinner().into())
                 .display()
                 .to_string()),
             Value::FileArea(a) => Ok(self
                 .runner
                 .driver
-                .resolve_fs_entry(Dir::root(a.as_ref().as_ref()).fsinner())
+                .resolve_fs_entry(Dir::root(a.as_ref().as_area_ref()).fsinner())
                 .display()
                 .to_string()),
             _ => Err(self.cx.nid_err(

@@ -4,10 +4,9 @@ use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
 use rain_lang::{
     afs::{
+        File,
         area::FileArea,
-        dir::Dir,
-        entry::{FSEntryTrait as _, GeneratedFSEntry},
-        file::GeneratedFile,
+        generated::{dir::GeneratedDir, entry::GeneratedFSEntry, file::GeneratedFile},
     },
     ir::Rir,
     runner::{
@@ -182,7 +181,7 @@ pub enum PersistValue {
     String(String),
     FileArea(FileArea),
     GeneratedFile(GeneratedFSEntry),
-    Dir(GeneratedFSEntry),
+    GeneratedDir(GeneratedFSEntry),
     Internal,
     InternalFunction(InternalFunction),
     List(Vec<Self>),
@@ -200,10 +199,13 @@ impl PersistValue {
             Value::String(s) => Some(Self::String((**s).clone())),
             Value::Module(mid) => {
                 let module = rir.get_module(*mid);
-                Some(Self::Module {
-                    file: module.file.as_ref()?.inner().clone(),
-                    src: module.src.clone().into_owned(),
-                })
+                match module.file.as_ref()? {
+                    File::Generated(generated_file) => Some(Self::Module {
+                        file: generated_file.fsinner().clone(),
+                        src: module.src.clone().into_owned(),
+                    }),
+                    File::Local(_) => None,
+                }
             }
             Value::FileArea(file_area) => {
                 if file_area.is_local() {
@@ -212,14 +214,8 @@ impl PersistValue {
                     Some(Self::FileArea((**file_area).clone()))
                 }
             }
-            Value::GeneratedFile(file) => {
-                if file.inner().area.is_local() {
-                    None
-                } else {
-                    Some(Self::GeneratedFile(file.inner().clone()))
-                }
-            }
-            Value::Dir(dir) => Some(Self::Dir(dir.inner().clone())),
+            Value::GeneratedFile(file) => Some(Self::GeneratedFile(file.fsinner().clone())),
+            Value::GeneratedDir(dir) => Some(Self::GeneratedDir(dir.fsinner().clone())),
             Value::Internal => Some(Self::Internal),
             Value::InternalFunction(internal_function) => {
                 Some(Self::InternalFunction(*internal_function))
@@ -239,8 +235,9 @@ impl PersistValue {
                     .collect::<Option<_>>()?,
             )),
             Value::Type(typ) => Some(Self::Type(*typ)),
-            // TODO: It is possible to persist these in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
-            Value::EscapeFile(_) | Value::Closure(_) => None,
+            Value::EscapeFile(_) | Value::Closure(_) | Value::LocalFile(_) | Value::LocalDir(_) => {
+                None
+            }
         }
     }
 
@@ -254,7 +251,9 @@ impl PersistValue {
             Self::GeneratedFile(fsentry) => Some(Value::GeneratedFile(Arc::new(
                 GeneratedFile::new_checked(config, fsentry)?,
             ))),
-            Self::Dir(fsentry) => Some(Value::Dir(Arc::new(Dir::new_checked(config, fsentry)?))),
+            Self::GeneratedDir(fsentry) => Some(Value::GeneratedDir(Arc::new(
+                GeneratedDir::new_checked(config, fsentry)?,
+            ))),
             Self::Internal => Some(Value::Internal),
             Self::InternalFunction(internal_function) => {
                 Some(Value::InternalFunction(internal_function))
@@ -272,7 +271,13 @@ impl PersistValue {
             )))),
             Self::Module { file, src } => {
                 let ast = rain_lang::ast::parser::parse_module(&src);
-                match rir.insert_module(Some(GeneratedFile::new_checked(config, file)?), src, ast) {
+                match rir.insert_module(
+                    Some(File::Generated(Arc::new(GeneratedFile::new_checked(
+                        config, file,
+                    )?))),
+                    src,
+                    ast,
+                ) {
                     Ok(mid) => Some(Value::Module(mid)),
                     Err(err) => {
                         log::error!("error loading cached module: {err:?}");

@@ -1,5 +1,5 @@
 use crate::{
-    afs::{FSEntryTrait, area::FileAreaRef, path::SealedFilePath},
+    afs::{FSEntryTrait, area::FileAreaRef, entry::FSEntryRef, path::SealedFilePath},
     driver::{FSEntryQueryResult, FSTrait},
 };
 
@@ -17,11 +17,15 @@ impl GeneratedFile {
 
     /// Creates a [`GeneratedFile`] by checking it exists
     pub fn new_checked(fs: &impl FSTrait, entry: GeneratedFSEntry) -> Option<Self> {
-        match fs.query_fs(entry.fsinner()) {
+        match fs.query_fs(FSEntryRef::from_generated(&entry)) {
             // Safety: we have just queried the filesystem entry
             Ok(FSEntryQueryResult::File) => Some(unsafe { Self::new(entry) }),
             _ => None,
         }
+    }
+
+    pub fn fsinner(&self) -> &GeneratedFSEntry {
+        &self.0
     }
 }
 
