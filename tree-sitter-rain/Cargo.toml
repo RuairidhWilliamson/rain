@@ -21,6 +21,9 @@ include = [
   "/LICENSE",
 ]
 
+[lints]
+workspace = true
+
 [lib]
 path = "bindings/rust/lib.rs"
 

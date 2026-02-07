@@ -16,7 +16,7 @@ impl<'a> From<TokenStream<'a>> for PeekTokenStream<'a> {
     fn from(stream: TokenStream<'a>) -> Self {
         Self {
             stream,
-            peeked: Default::default(),
+            peeked: VecDeque::default(),
         }
     }
 }
