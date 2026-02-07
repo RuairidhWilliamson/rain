@@ -182,20 +182,6 @@ impl Display for RainRecord {
 }
 
 impl Value {
-    pub fn from_file(file: File) -> Self {
-        match file {
-            File::Generated(generated_file) => Self::GeneratedFile(generated_file),
-            File::Local(local_file) => Self::LocalFile(local_file),
-        }
-    }
-
-    pub fn from_dir(file: Dir) -> Self {
-        match file {
-            Dir::Generated(generated_dir) => Self::GeneratedDir(generated_dir),
-            Dir::Local(local_dir) => Self::LocalDir(local_dir),
-        }
-    }
-
     pub fn rain_type_id(&self) -> RainTypeId {
         match self {
             Self::Unit => RainTypeId::Unit,
@@ -235,7 +221,7 @@ impl Value {
             Self::GeneratedDir(d) => vec![d.area()],
             Self::LocalDir(d) => vec![d.area()],
             Self::FileArea(file_area) => vec![file_area.as_ref().as_area_ref()],
-            Self::List(list) => list.0.iter().flat_map(|v| v.find_areas()).collect(),
+            Self::List(list) => list.0.iter().flat_map(Value::find_areas).collect(),
             Self::Record(record) => record.0.iter().flat_map(|(_, v)| v.find_areas()).collect(),
         }
     }

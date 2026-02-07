@@ -273,26 +273,24 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
             let driver = rain_core::driver::DriverImpl::new(config, custom_config);
             let download_area = driver.create_area(&[], true).unwrap();
             let download_entry =
-                GeneratedFSEntry::new((download_area), SealedFilePath::new("/download").unwrap());
+                GeneratedFSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
             std::fs::write(driver.resolve_fs_entry((&download_entry).into()), download).unwrap();
             let download = GeneratedFile::new_checked(&driver, download_entry).unwrap();
             let raw_tar = driver
-                .extract_gzip(&File::Generated(Arc::new(download)), "extract_temp.tar")
+                .extract_gzip(&File::Generated((download)), "extract_temp.tar")
                 .unwrap();
-            let area = driver
-                .extract_tar(&File::Generated(Arc::new(raw_tar)))
-                .unwrap();
+            let area = driver.extract_tar(&File::Generated((raw_tar))).unwrap();
             let mut ls = std::fs::read_dir(
-                driver.resolve_fs_entry(GeneratedDir::root((area.clone())).fsinner().into()),
+                driver.resolve_fs_entry(GeneratedDir::root(area.clone()).fsinner().into()),
             )
             .unwrap();
             let entry = ls.next().unwrap().unwrap();
             let download_dir_name = entry.file_name().into_string().unwrap();
             let download_dir_entry =
-                GeneratedFSEntry::new((area), SealedFilePath::new(&download_dir_name).unwrap());
+                GeneratedFSEntry::new(area, SealedFilePath::new(&download_dir_name).unwrap());
             let root = GeneratedDir::new_checked(&driver, download_dir_entry).unwrap();
             let lfs_entries: Vec<_> = driver
-                .glob(&Dir::Generated(Arc::new(root.clone())), "**/*")
+                .glob(&Dir::Generated(root.clone()), "**/*")
                 .unwrap()
                 .into_iter()
                 .filter_map(|entry| {

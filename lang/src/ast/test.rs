@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use crate::afs::{File, local::file::LocalFile};
 
 fn parse_display_script(src: &str) -> String {
-    let file = File::Local(Arc::new(LocalFile::new_local(Path::new(file!())).unwrap()));
+    let file = File::Local((LocalFile::new_local(Path::new(file!())).unwrap()));
     let s = match super::parser::parse_module(src) {
         Ok(s) => s,
         Err(err) => {

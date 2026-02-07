@@ -272,9 +272,7 @@ impl PersistValue {
             Self::Module { file, src } => {
                 let ast = rain_lang::ast::parser::parse_module(&src);
                 match rir.insert_module(
-                    Some(File::Generated(Arc::new(GeneratedFile::new_checked(
-                        config, file,
-                    )?))),
+                    Some(File::Generated(GeneratedFile::new_checked(config, file)?)),
                     src,
                     ast,
                 ) {

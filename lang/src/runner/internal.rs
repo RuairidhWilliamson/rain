@@ -369,8 +369,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn expect_file(&self, (arg_nid, arg_value): (NodeId, &Value)) -> Result<File> {
         match arg_value {
-            Value::GeneratedFile(file) => Ok(File::Generated(file.clone())),
-            Value::LocalFile(file) => Ok(File::Local(file.clone())),
+            Value::GeneratedFile(file) => Ok(File::Generated(file.as_ref().clone())),
+            Value::LocalFile(file) => Ok(File::Local(file.as_ref().clone())),
             _ => Err(self.cx.nid_err(
                 arg_nid,
                 RunnerError::ExpectedType {
@@ -384,8 +384,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     fn expect_dir_or_area(&self, (arg_nid, arg_value): (NodeId, &Value)) -> Result<Dir> {
         match arg_value {
             Value::FileArea(file_area) => Ok(Dir::root(file_area.as_ref().as_area_ref())),
-            Value::GeneratedDir(dir) => Ok(Dir::Generated(dir.clone())),
-            Value::LocalDir(dir) => Ok(Dir::Local(dir.clone())),
+            Value::GeneratedDir(dir) => Ok(Dir::Generated(dir.as_ref().clone())),
+            Value::LocalDir(dir) => Ok(Dir::Local(dir.as_ref().clone())),
             _ => Err(self.cx.nid_err(
                 arg_nid,
                 RunnerError::ExpectedType {
@@ -533,7 +533,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let id = self
             .runner
             .ir
-            .insert_module(Some(f.clone()), src, module)
+            .insert_module(Some(f), src, module)
             .map_err(|err| err.convert().with_trace(self.cx.stacktrace.clone()))?;
         let v = Value::Module(id);
         self.runner.cache.put(
@@ -552,13 +552,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     fn module_file(self) -> ResultValue {
         self.deps.push(Dep::CallingModule);
         self.no_args()?;
-        Ok(Value::from_file(
-            self.cx
-                .module
-                .file()
-                .map_err(|err| self.cx.nid_err(self.nid, err))?
-                .clone(),
-        ))
+        Ok(self
+            .cx
+            .module
+            .file()
+            .map_err(|err| self.cx.nid_err(self.nid, err))?
+            .clone()
+            .to_value())
     }
 
     fn extract_zip(self) -> ResultValue {
@@ -980,7 +980,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
                         self.runner
                             .driver
-                            .export_file(&File::Generated(src.clone()), dst.as_fs_entry_ref())
+                            .export_file(
+                                &File::Generated(src.as_ref().clone()),
+                                dst.as_fs_entry_ref(),
+                            )
                             .map_err(|err| self.cx.nid_err(self.nid, err))?;
                         Ok(Value::Unit)
                     }
@@ -998,7 +1001,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
                         self.runner
                             .driver
-                            .export_dir(&Dir::Generated(src.clone()), dst.as_fs_entry_ref())
+                            .export_dir(
+                                &Dir::Generated(src.as_ref().clone()),
+                                dst.as_fs_entry_ref(),
+                            )
                             .map_err(|err| self.cx.nid_err(self.nid, err))?;
                         Ok(Value::Unit)
                     }
@@ -1041,14 +1047,20 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     Value::GeneratedFile(src) => {
                         self.runner
                             .driver
-                            .export_file(&File::Generated(src.clone()), dst.as_fs_entry_ref())
+                            .export_file(
+                                &File::Generated(src.as_ref().clone()),
+                                dst.as_fs_entry_ref(),
+                            )
                             .map_err(|err| self.cx.nid_err(self.nid, err))?;
                         Ok(Value::Unit)
                     }
                     Value::GeneratedDir(src) => {
                         self.runner
                             .driver
-                            .export_dir(&Dir::Generated(src.clone()), dst.as_fs_entry_ref())
+                            .export_dir(
+                                &Dir::Generated(src.as_ref().clone()),
+                                dst.as_fs_entry_ref(),
+                            )
                             .map_err(|err| self.cx.nid_err(self.nid, err))?;
                         Ok(Value::Unit)
                     }
@@ -1114,7 +1126,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let src_contents = self
                     .runner
                     .driver
-                    .read_file(&File::Generated(src.clone()))
+                    .read_file(&File::Generated(src.as_ref().clone()))
                     .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?;
                 let dst_contents = self
                     .runner
@@ -1158,11 +1170,11 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     }
                 }
                 // Safety: We just checked this
-                let dst = Arc::new(unsafe { LocalFile::new(entry) });
+                let dst = unsafe { LocalFile::new(entry) };
                 let src_contents = self
                     .runner
                     .driver
-                    .read_file(&File::Generated(src.clone()))
+                    .read_file(&File::Generated(src.as_ref().clone()))
                     .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?;
                 let dst_contents = self
                     .runner
@@ -1207,7 +1219,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .driver
                     .glob(&d, "**/*")
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
-                let files: Vec<Value> = files.into_iter().map(|f| f.to_value()).collect();
+                let files: Vec<Value> = files
+                    .into_iter()
+                    .map(super::super::afs::file::File::to_value)
+                    .collect();
                 Ok(Value::List(Arc::new(RainList(files))))
             }
             [(dir_nid, dir_value), (pattern_nid, pattern_value)] => {
@@ -1219,7 +1234,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .driver
                     .glob(&d, pattern)
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
-                let files: Vec<Value> = files.into_iter().map(|f| f.to_value()).collect();
+                let files: Vec<Value> = files
+                    .into_iter()
+                    .map(super::super::afs::file::File::to_value)
+                    .collect();
                 Ok(Value::List(Arc::new(RainList(files))))
             }
             _ => self.incorrect_args(1..=2),

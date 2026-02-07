@@ -31,7 +31,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let file = File::Local(Arc::new(file));
+    let file = File::Local(file);
     if let Err(err) = inner(&src) {
         let resolved = err.resolve(Some(&file), &src);
         println!("{resolved}");

@@ -1,4 +1,3 @@
-use std::sync::Arc;
 
 use crate::afs::{
     FSEntryTrait, area::FileArea, generated::entry::GeneratedFSEntry, local::entry::LocalFSEntry,
@@ -21,8 +20,8 @@ impl FSEntry {
 
     pub fn as_fs_entry_ref(&self) -> FSEntryRef<'_> {
         match self {
-            FSEntry::Local(entry) => FSEntryRef::Local(entry),
-            FSEntry::Generated(entry) => FSEntryRef::Generated(entry),
+            Self::Local(entry) => FSEntryRef::Local(entry),
+            Self::Generated(entry) => FSEntryRef::Generated(entry),
         }
     }
 }
@@ -55,11 +54,11 @@ pub enum FSEntryRef<'a> {
 }
 
 impl<'a> FSEntryRef<'a> {
-    pub fn from_local(entry: &'a LocalFSEntry) -> FSEntryRef<'a> {
+    pub fn from_local(entry: &'a LocalFSEntry) -> Self {
         FSEntryRef::Local(entry)
     }
 
-    pub fn from_generated(entry: &'a GeneratedFSEntry) -> FSEntryRef<'a> {
+    pub fn from_generated(entry: &'a GeneratedFSEntry) -> Self {
         FSEntryRef::Generated(entry)
     }
 }
