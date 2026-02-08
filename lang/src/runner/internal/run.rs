@@ -5,7 +5,6 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 use indexmap::IndexMap;
 
 use crate::{
-    afs::{Dir, entry::FSEntryRef},
     ast::NodeId,
     driver::{DriverTrait, RunOptions},
     runner::{cache::CacheTrait, dep::Dep},
@@ -39,25 +38,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         },
                     ))?,
                 };
-                let bin = match file_value {
-                    Value::GeneratedFile(file) => &self
-                        .runner
-                        .driver
-                        .resolve_fs_entry(FSEntryRef::from_generated(file.fsinner())),
-                    Value::EscapeFile(escaped_file) => escaped_file.0.as_path(),
-                    _ => {
-                        return Err(self.cx.nid_err(
-                            *file_nid,
-                            RunnerError::ExpectedType {
-                                actual: file_value.rain_type_id(),
-                                expected: Cow::Borrowed(&[
-                                    RainTypeId::GeneratedFile,
-                                    RainTypeId::EscapeFile,
-                                ]),
-                            },
-                        ));
-                    }
-                };
+                let bin = self.expect_file_path((*file_nid, file_value))?;
                 let Value::List(args) = args_value else {
                     return Err(self.cx.nid_err(
                         *args_nid,
@@ -70,7 +51,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let args = args
                     .0
                     .iter()
-                    .map(|value| self.stringify_args(*args_nid, value))
+                    .map(|value| self.stringify_arg(*args_nid, value))
                     .collect::<Result<Vec<String>>>()?;
                 let Value::Record(env) = env_value else {
                     return Err(self.cx.nid_err(
@@ -97,7 +78,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .driver
                     .run(
                         overlay_area,
-                        bin,
+                        &bin,
                         args,
                         RunOptions {
                             inherit_env: false,
@@ -131,25 +112,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 (env_nid, env_value),
             ] => {
                 let dir = self.expect_dir_or_area((*area_nid, area_value))?;
-                let bin = match file_value {
-                    Value::GeneratedFile(file) => &self
-                        .runner
-                        .driver
-                        .resolve_fs_entry(FSEntryRef::from_generated(file.fsinner())),
-                    Value::EscapeFile(escaped_file) => escaped_file.0.as_path(),
-                    _ => {
-                        return Err(self.cx.nid_err(
-                            *file_nid,
-                            RunnerError::ExpectedType {
-                                actual: file_value.rain_type_id(),
-                                expected: Cow::Borrowed(&[
-                                    RainTypeId::GeneratedFile,
-                                    RainTypeId::EscapeFile,
-                                ]),
-                            },
-                        ));
-                    }
-                };
+                let bin = self.expect_file_path((*file_nid, file_value))?;
                 let Value::List(args) = args_value else {
                     return Err(self.cx.nid_err(
                         *args_nid,
@@ -162,7 +125,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let args = args
                     .0
                     .iter()
-                    .map(|value| self.stringify_args(*args_nid, value))
+                    .map(|value| self.stringify_arg(*args_nid, value))
                     .collect::<Result<Vec<String>>>()?;
                 let Value::Record(env) = env_value else {
                     return Err(self.cx.nid_err(
@@ -188,7 +151,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .driver
                     .escape_run(
                         &dir,
-                        bin,
+                        &bin,
                         args,
                         RunOptions {
                             inherit_env: true,
@@ -216,80 +179,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         key: &String,
         value: &Value,
     ) -> Result<(String, String)> {
-        match value {
-            Value::String(s) => Ok((key.to_owned(), s.to_string())),
-            Value::GeneratedFile(f) => Ok((
-                key.to_owned(),
-                self.runner
-                    .driver
-                    .resolve_fs_entry(FSEntryRef::from_generated(f.fsinner()))
-                    .display()
-                    .to_string(),
-            )),
-            Value::GeneratedDir(d) => Ok((
-                key.to_owned(),
-                self.runner
-                    .driver
-                    .resolve_fs_entry(FSEntryRef::from_generated(d.fsinner()))
-                    .display()
-                    .to_string(),
-            )),
-            Value::FileArea(a) => Ok((
-                key.to_owned(),
-                self.runner
-                    .driver
-                    .resolve_fs_entry(Dir::root(a.as_ref().as_area_ref()).fsinner())
-                    .display()
-                    .to_string(),
-            )),
-            _ => Err(self.cx.nid_err(
-                env_nid,
-                RunnerError::ExpectedType {
-                    actual: value.rain_type_id(),
-                    expected: Cow::Borrowed(&[
-                        RainTypeId::String,
-                        RainTypeId::GeneratedFile,
-                        RainTypeId::GeneratedDir,
-                        RainTypeId::FileArea,
-                    ]),
-                },
-            )),
-        }
+        Ok((key.to_owned(), self.stringify_impl(env_nid, value)?))
     }
 
-    fn stringify_args(&self, args_nid: NodeId, value: &Value) -> Result<String> {
-        match value {
-            Value::String(s) => Ok(s.to_string()),
-            Value::GeneratedFile(f) => Ok(self
-                .runner
-                .driver
-                .resolve_fs_entry(f.fsinner().into())
-                .display()
-                .to_string()),
-            Value::GeneratedDir(d) => Ok(self
-                .runner
-                .driver
-                .resolve_fs_entry(d.fsinner().into())
-                .display()
-                .to_string()),
-            Value::FileArea(a) => Ok(self
-                .runner
-                .driver
-                .resolve_fs_entry(Dir::root(a.as_ref().as_area_ref()).fsinner())
-                .display()
-                .to_string()),
-            _ => Err(self.cx.nid_err(
-                args_nid,
-                RunnerError::ExpectedType {
-                    actual: value.rain_type_id(),
-                    expected: Cow::Borrowed(&[
-                        RainTypeId::String,
-                        RainTypeId::GeneratedFile,
-                        RainTypeId::GeneratedDir,
-                        RainTypeId::FileArea,
-                    ]),
-                },
-            )),
-        }
+    fn stringify_arg(&self, nid: NodeId, value: &Value) -> Result<String> {
+        self.stringify_impl(nid, value)
     }
 }

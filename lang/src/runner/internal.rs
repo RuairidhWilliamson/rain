@@ -4,7 +4,12 @@ mod download;
 mod run;
 
 use std::{
-    borrow::Cow, hash::Hash, ops::RangeInclusive, path::Path, str::FromStr as _, sync::Arc,
+    borrow::Cow,
+    hash::Hash,
+    ops::RangeInclusive,
+    path::{Path, PathBuf},
+    str::FromStr as _,
+    sync::Arc,
     time::Instant,
 };
 
@@ -378,7 +383,26 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 arg_nid,
                 RunnerError::ExpectedType {
                     actual: arg_value.rain_type_id(),
-                    expected: Cow::Borrowed(&[RainTypeId::GeneratedDir, RainTypeId::FileArea]),
+                    expected: Cow::Borrowed(&[RainTypeId::GeneratedFile, RainTypeId::LocalFile]),
+                },
+            )),
+        }
+    }
+
+    fn expect_file_path(&self, (arg_nid, arg_value): (NodeId, &Value)) -> Result<PathBuf> {
+        match arg_value {
+            Value::GeneratedFile(file) => {
+                Ok(self.runner.driver.resolve_fs_entry(file.fsinner().into()))
+            }
+            Value::LocalFile(file) => {
+                Ok(self.runner.driver.resolve_fs_entry(file.fsinner().into()))
+            }
+            Value::EscapeFile(file) => Ok(file.to_path_buf()),
+            _ => Err(self.cx.nid_err(
+                arg_nid,
+                RunnerError::ExpectedType {
+                    actual: arg_value.rain_type_id(),
+                    expected: Cow::Borrowed(&[RainTypeId::GeneratedFile, RainTypeId::LocalFile]),
                 },
             )),
         }
@@ -1254,40 +1278,51 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    fn stringify(self) -> ResultValue {
-        let (nid, value) = single_arg!(self);
-        match value {
-            Value::GeneratedFile(f) => Ok(Value::String(Arc::new(
-                self.runner
-                    .driver
-                    .resolve_fs_entry(f.fsinner().into())
-                    .display()
-                    .to_string(),
-            ))),
-            Value::FileArea(area) => Ok(Value::String(Arc::new(
-                self.runner
-                    .driver
-                    .resolve_fs_entry(Dir::root(area.as_ref().as_area_ref()).fsinner())
-                    .display()
-                    .to_string(),
-            ))),
-            Value::LocalDir(d) => Ok(Value::String(Arc::new(
-                self.runner
-                    .driver
-                    .resolve_fs_entry(d.fsinner().into())
-                    .display()
-                    .to_string(),
-            ))),
-            Value::EscapeFile(f) => Ok(Value::String(Arc::new(format!("{}", f.0.display())))),
-            Value::Integer(i) => Ok(Value::String(Arc::new(i.to_string()))),
-            Value::Boolean(b) => Ok(Value::String(Arc::new(b.to_string()))),
+    fn stringify_impl(&self, nid: NodeId, v: &Value) -> Result<String> {
+        match v {
+            Value::String(s) => Ok(s.as_ref().clone()),
+            Value::GeneratedFile(f) => Ok(self
+                .runner
+                .driver
+                .resolve_fs_entry(f.fsinner().into())
+                .display()
+                .to_string()),
+            Value::LocalFile(f) => Ok(self
+                .runner
+                .driver
+                .resolve_fs_entry(f.fsinner().into())
+                .display()
+                .to_string()),
+            Value::FileArea(area) => Ok(self
+                .runner
+                .driver
+                .resolve_fs_entry(Dir::root(area.as_ref().as_area_ref()).fsinner())
+                .display()
+                .to_string()),
+            Value::GeneratedDir(d) => Ok(self
+                .runner
+                .driver
+                .resolve_fs_entry(d.fsinner().into())
+                .display()
+                .to_string()),
+            Value::LocalDir(d) => Ok(self
+                .runner
+                .driver
+                .resolve_fs_entry(d.fsinner().into())
+                .display()
+                .to_string()),
+            Value::EscapeFile(f) => Ok(format!("{}", f.0.display())),
+            Value::Integer(i) => Ok(i.to_string()),
+            Value::Boolean(b) => Ok(b.to_string()),
             _ => Err(self.cx.nid_err(
                 nid,
                 RunnerError::ExpectedType {
-                    actual: value.rain_type_id(),
+                    actual: v.rain_type_id(),
                     expected: Cow::Borrowed(&[
+                        RainTypeId::String,
                         RainTypeId::GeneratedFile,
                         RainTypeId::GeneratedDir,
+                        RainTypeId::FileArea,
                         RainTypeId::LocalFile,
                         RainTypeId::LocalDir,
                         RainTypeId::EscapeFile,
@@ -1297,6 +1332,11 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 },
             )),
         }
+    }
+
+    fn stringify(self) -> ResultValue {
+        let (nid, value) = single_arg!(self);
+        Ok(Value::String(Arc::new(self.stringify_impl(nid, value)?)))
     }
 
     fn embed(self) -> ResultValue {
