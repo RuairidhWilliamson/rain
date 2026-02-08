@@ -282,7 +282,7 @@ pub struct InternalCx<'a, 'b, 'c, Driver, Cache> {
     pub call_span: LocalSpan,
     pub arg_values: Vec<(NodeId, Value)>,
     pub deps: &'a mut DepList,
-    /// Set to false to hint to the caller that this is probably less efficient to go to cache
+    /// Set to false to hint to the caller that this is probably less efficient to store in cache
     pub cache_hint: &'a mut bool,
 }
 
@@ -489,6 +489,15 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                             .map_err(|err| self.cx.nid_err(*path_nid, err.into()))?;
                         Ok(FSEntry::new(area.to_owned_area(), path))
                     }
+                    Value::LocalDir(dir) => {
+                        let area = dir.area();
+                        self.deps.add_dep_file_area(area);
+                        let base_path = dir.path();
+                        let path = base_path
+                            .join(path)
+                            .map_err(|err| self.cx.nid_err(*path_nid, err.into()))?;
+                        Ok(FSEntry::new(area.to_owned_area(), path))
+                    }
                     _ => Err(self.cx.nid_err(
                         *parent_nid,
                         RunnerError::ExpectedType {
@@ -496,6 +505,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                             expected: Cow::Borrowed(&[
                                 RainTypeId::FileArea,
                                 RainTypeId::GeneratedDir,
+                                RainTypeId::LocalDir,
                             ]),
                         },
                     )),
