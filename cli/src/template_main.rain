@@ -1,1 +1,1 @@
-let std = stdlib("0.11.0")
+let std = stdlib("0.11.1")
