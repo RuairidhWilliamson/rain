@@ -9,9 +9,9 @@ use crate::{
     afs::{
         Dir, File,
         absolute::AbsolutePathBuf,
-        area::FileArea,
+        area::{FSArea, FileAreaRef},
         entry::FSEntryRef,
-        generated::{area::GeneratedFileArea, dir::GeneratedDir, file::GeneratedFile},
+        generated::{area::GeneratedFSArea, dir::GeneratedDir, file::GeneratedFile},
     },
     runner::{error::RunnerError, internal::InternalFunction},
 };
@@ -25,13 +25,13 @@ pub trait FSTrait {
 pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn print(&self, message: String);
     fn escape_bin(&self, name: &str) -> Option<AbsolutePathBuf>;
-    fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError>;
+    fn extract_zip(&self, file: &File) -> Result<GeneratedFSArea, RunnerError>;
     fn extract_gzip(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError>;
     fn extract_xz(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError>;
-    fn extract_tar(&self, file: &File) -> Result<GeneratedFileArea, RunnerError>;
+    fn extract_tar(&self, file: &File) -> Result<GeneratedFSArea, RunnerError>;
     fn run(
         &self,
-        area: Option<&FileArea>,
+        area: Option<FileAreaRef>,
         bin: &Path,
         args: Vec<String>,
         options: RunOptions,
@@ -55,7 +55,7 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
         &self,
         dirs: &[FSEntryRef],
         flatten_input_dirs: bool,
-    ) -> Result<GeneratedFileArea, RunnerError>;
+    ) -> Result<GeneratedFSArea, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, std::io::Error>;
     fn create_file(
         &self,
@@ -72,8 +72,8 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     fn create_tar(&self, dir: &Dir, name: &str) -> Result<GeneratedFile, RunnerError>;
     fn compress_gzip(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError>;
     fn get_secret(&self, name: &str) -> Result<String, RunnerError>;
-    fn git_contents(&self, url: &str, commit: &str) -> Result<GeneratedFileArea, RunnerError>;
-    fn git_lfs_smudge(&self, area: &FileArea) -> Result<GeneratedFileArea, RunnerError>;
+    fn git_contents(&self, url: &str, commit: &str) -> Result<GeneratedFSArea, RunnerError>;
+    fn git_lfs_smudge(&self, area: &FSArea) -> Result<GeneratedFSArea, RunnerError>;
     fn env_var(&self, key: &str) -> Result<Option<String>, RunnerError>;
     fn copy_file(
         &self,
@@ -112,7 +112,7 @@ pub struct RunOptions {
 pub struct RunStatus {
     pub success: bool,
     pub exit_code: Option<i32>,
-    pub area: GeneratedFileArea,
+    pub area: GeneratedFSArea,
     pub stdout: String,
     pub stderr: String,
 }

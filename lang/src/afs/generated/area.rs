@@ -1,19 +1,19 @@
 use std::sync::Arc;
 
-use crate::{afs::area::FileArea, runner::value::Value};
+use crate::runner::value::Value;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub struct GeneratedFileArea {
+pub struct GeneratedFSArea {
     pub id: uuid::Uuid,
 }
 
-impl Default for GeneratedFileArea {
+impl Default for GeneratedFSArea {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl GeneratedFileArea {
+impl GeneratedFSArea {
     pub fn new() -> Self {
         Self {
             id: uuid::Uuid::new_v4(),
@@ -21,11 +21,11 @@ impl GeneratedFileArea {
     }
 
     pub fn to_value(self) -> Value {
-        Value::FileArea(Arc::new(FileArea::Generated(self)))
+        Value::GeneratedFSArea(Arc::new(self))
     }
 }
 
-impl std::fmt::Display for GeneratedFileArea {
+impl std::fmt::Display for GeneratedFSArea {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self { id } = self;
         f.write_fmt(format_args!("{id}"))

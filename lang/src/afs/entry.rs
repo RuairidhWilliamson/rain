@@ -1,5 +1,5 @@
 use crate::afs::{
-    FSEntryTrait, area::FileArea, generated::entry::GeneratedFSEntry, local::entry::LocalFSEntry,
+    FSEntryTrait, area::FSArea, generated::entry::GeneratedFSEntry, local::entry::LocalFSEntry,
     path::SealedFilePath,
 };
 
@@ -10,10 +10,10 @@ pub enum FSEntry {
 }
 
 impl FSEntry {
-    pub fn new(area: FileArea, path: SealedFilePath) -> Self {
+    pub fn new(area: FSArea, path: SealedFilePath) -> Self {
         match area {
-            FileArea::Local(area) => Self::Local(LocalFSEntry::new(area, path)),
-            FileArea::Generated(area) => Self::Generated(GeneratedFSEntry::new(area, path)),
+            FSArea::Local(area) => Self::Local(LocalFSEntry::new(area, path)),
+            FSArea::Generated(area) => Self::Generated(GeneratedFSEntry::new(area, path)),
         }
     }
 

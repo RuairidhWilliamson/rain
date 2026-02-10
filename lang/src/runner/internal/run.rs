@@ -5,6 +5,7 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 use indexmap::IndexMap;
 
 use crate::{
+    afs::area::FileAreaRef,
     ast::NodeId,
     driver::{DriverTrait, RunOptions},
     runner::{cache::CacheTrait, dep::Dep},
@@ -27,14 +28,19 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 (args_nid, args_value),
                 (env_nid, env_value),
             ] => {
-                let overlay_area = match area_value {
+                let overlay_area: Option<FileAreaRef> = match area_value {
                     Value::Unit => None,
-                    Value::FileArea(area) => Some(area.as_ref()),
+                    Value::GeneratedFSArea(area) => Some(area.as_ref().into()),
+                    Value::LocalFSArea(area) => Some(area.as_ref().into()),
                     _ => Err(self.cx.nid_err(
                         *area_nid,
                         RunnerError::ExpectedType {
                             actual: area_value.rain_type_id(),
-                            expected: Cow::Borrowed(&[RainTypeId::FileArea, RainTypeId::Unit]),
+                            expected: Cow::Borrowed(&[
+                                RainTypeId::GeneratedFSArea,
+                                RainTypeId::LocalFSArea,
+                                RainTypeId::Unit,
+                            ]),
                         },
                     ))?,
                 };

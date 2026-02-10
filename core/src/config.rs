@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use rain_lang::{
     afs::{
-        FSEntryTrait as _, area::FileAreaRef, entry::FSEntryRef, generated::area::GeneratedFileArea,
+        FSEntryTrait as _, area::FileAreaRef, entry::FSEntryRef, generated::area::GeneratedFSArea,
     },
     driver::{FSEntryQueryResult, FSTrait},
 };
@@ -84,7 +84,7 @@ impl FSTrait for Config {
         };
         match &entry.area() {
             FileAreaRef::Local(p) => p.join(rel_path),
-            FileAreaRef::Generated(GeneratedFileArea { id }) => {
+            FileAreaRef::Generated(GeneratedFSArea { id }) => {
                 self.base_generated_dir.join(id.to_string()).join(rel_path)
             }
         }

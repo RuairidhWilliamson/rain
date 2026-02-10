@@ -1,15 +1,15 @@
 use crate::afs::{
-    FSEntryTrait, area::FileAreaRef, generated::area::GeneratedFileArea, path::SealedFilePath,
+    FSEntryTrait, area::FileAreaRef, generated::area::GeneratedFSArea, path::SealedFilePath,
 };
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct GeneratedFSEntry {
-    pub area: GeneratedFileArea,
+    pub area: GeneratedFSArea,
     pub path: SealedFilePath,
 }
 
 impl GeneratedFSEntry {
-    pub fn new(area: GeneratedFileArea, path: SealedFilePath) -> Self {
+    pub fn new(area: GeneratedFSArea, path: SealedFilePath) -> Self {
         Self { area, path }
     }
 }

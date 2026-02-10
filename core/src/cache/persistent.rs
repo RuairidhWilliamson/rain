@@ -5,8 +5,9 @@ use indexmap::IndexMap;
 use rain_lang::{
     afs::{
         File,
-        area::FileArea,
-        generated::{dir::GeneratedDir, entry::GeneratedFSEntry, file::GeneratedFile},
+        generated::{
+            area::GeneratedFSArea, dir::GeneratedDir, entry::GeneratedFSEntry, file::GeneratedFile,
+        },
     },
     ir::Rir,
     runner::{
@@ -179,7 +180,7 @@ pub enum PersistValue {
     Boolean(bool),
     Integer(RainInteger),
     String(String),
-    FileArea(FileArea),
+    GeneratedFSArea(GeneratedFSArea),
     GeneratedFile(GeneratedFSEntry),
     GeneratedDir(GeneratedFSEntry),
     Internal,
@@ -207,13 +208,7 @@ impl PersistValue {
                     File::Local(_) => None,
                 }
             }
-            Value::FileArea(file_area) => {
-                if file_area.is_local() {
-                    None
-                } else {
-                    Some(Self::FileArea((**file_area).clone()))
-                }
-            }
+            Value::GeneratedFSArea(file_area) => Some(Self::GeneratedFSArea((**file_area).clone())),
             Value::GeneratedFile(file) => Some(Self::GeneratedFile(file.fsinner().clone())),
             Value::GeneratedDir(dir) => Some(Self::GeneratedDir(dir.fsinner().clone())),
             Value::Internal => Some(Self::Internal),
@@ -235,9 +230,11 @@ impl PersistValue {
                     .collect::<Option<_>>()?,
             )),
             Value::Type(typ) => Some(Self::Type(*typ)),
-            Value::EscapeFile(_) | Value::Closure(_) | Value::LocalFile(_) | Value::LocalDir(_) => {
-                None
-            }
+            Value::EscapeFile(_)
+            | Value::Closure(_)
+            | Value::LocalFile(_)
+            | Value::LocalDir(_)
+            | Value::LocalFSArea(_) => None,
         }
     }
 
@@ -247,7 +244,7 @@ impl PersistValue {
             Self::Boolean(b) => Some(Value::Boolean(b)),
             Self::Integer(rain_integer) => Some(Value::Integer(Arc::new(rain_integer))),
             Self::String(s) => Some(Value::String(Arc::new(s))),
-            Self::FileArea(file_area) => Some(Value::FileArea(Arc::new(file_area))),
+            Self::GeneratedFSArea(file_area) => Some(Value::GeneratedFSArea(Arc::new(file_area))),
             Self::GeneratedFile(fsentry) => Some(Value::GeneratedFile(Arc::new(
                 GeneratedFile::new_checked(config, fsentry)?,
             ))),

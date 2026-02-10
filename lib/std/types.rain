@@ -19,7 +19,9 @@ pub let String = get_type("")
 pub let AnyRecord = get_type({})
 pub let AnyList = get_type([])
 
-pub let Area = concrete_types.area
+pub let GeneratedArea = concrete_types.generated_fs_area
+pub let LocalArea = concrete_types.local_fs_area
+pub let Area = Either(GeneratedArea, LocalArea)
 pub let GeneratedFile = concrete_types.generated_file
 pub let GeneratedDir = concrete_types.generated_dir
 pub let LocalFile = concrete_types.local_file

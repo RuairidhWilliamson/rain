@@ -11,7 +11,7 @@ use rain_ci_common::RunStatus;
 use rain_ci_common::github::InstallationClient as _;
 use rain_ci_common::github::model::CheckRunConclusion;
 use rain_lang::afs::File;
-use rain_lang::afs::area::FileArea;
+use rain_lang::afs::area::FSArea;
 use rain_lang::afs::dir::Dir;
 use rain_lang::afs::generated::dir::GeneratedDir;
 use rain_lang::afs::generated::entry::GeneratedFSEntry;
@@ -316,9 +316,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
             let area = driver
                 .create_overlay_area(std::iter::once(root.fsinner().into()), true, true)
                 .unwrap();
-            let run_complete = server
-                .runner
-                .run(&driver, FileArea::Generated(area), &target);
+            let run_complete = server.runner.run(&driver, FSArea::Generated(area), &target);
             Ok(run_complete)
         }))
     }

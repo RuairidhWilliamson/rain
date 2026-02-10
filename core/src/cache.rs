@@ -14,7 +14,7 @@ use std::{
 use lru::LruCache;
 use poison_panic::MutexExt as _;
 use rain_lang::{
-    afs::{area::FileAreaRef, generated::area::GeneratedFileArea},
+    afs::{area::FileAreaRef, generated::area::GeneratedFSArea},
     runner::cache::{CacheEntry, CacheKey},
 };
 
@@ -131,7 +131,7 @@ impl CacheCore {
         self.storage.len()
     }
 
-    pub fn get_all_generated_areas(&self) -> HashSet<&GeneratedFileArea> {
+    pub fn get_all_generated_areas(&self) -> HashSet<&GeneratedFSArea> {
         let mut out = HashSet::new();
         for (_, entry) in &self.storage {
             for area in entry.value.find_areas() {
@@ -161,7 +161,7 @@ impl CacheCore {
             let Ok(id) = uuid::Uuid::parse_str(&name) else {
                 continue;
             };
-            let area = GeneratedFileArea { id };
+            let area = GeneratedFSArea { id };
             if connected.contains(&area) {
                 log::info!("Not Pruning {area:?}");
                 continue;

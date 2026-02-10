@@ -1,6 +1,6 @@
 use crate::{
     afs::{
-        FSEntryTrait, area::FileAreaRef, entry::FSEntryRef, generated::area::GeneratedFileArea,
+        FSEntryTrait, area::FileAreaRef, entry::FSEntryRef, generated::area::GeneratedFSArea,
         path::SealedFilePath,
     },
     driver::{FSEntryQueryResult, FSTrait},
@@ -26,7 +26,7 @@ impl GeneratedDir {
         }
     }
 
-    pub fn root(area: GeneratedFileArea) -> Self {
+    pub fn root(area: GeneratedFSArea) -> Self {
         Self(GeneratedFSEntry {
             area,
             path: SealedFilePath::root(),

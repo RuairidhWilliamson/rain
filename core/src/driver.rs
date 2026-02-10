@@ -11,12 +11,11 @@ use rain_lang::{
     afs::{
         FSEntryTrait as _, File,
         absolute::AbsolutePathBuf,
-        area::FileArea,
+        area::{FSArea, FileAreaRef},
         dir::Dir,
         entry::{FSEntry, FSEntryRef},
         generated::{
-            area::GeneratedFileArea, dir::GeneratedDir, entry::GeneratedFSEntry,
-            file::GeneratedFile,
+            area::GeneratedFSArea, dir::GeneratedDir, entry::GeneratedFSEntry, file::GeneratedFile,
         },
         path::SealedFilePath,
     },
@@ -62,7 +61,7 @@ impl DriverImpl<'_> {
         }
     }
 
-    fn create_empty_area(&self) -> Result<GeneratedFileArea, RunnerError> {
+    fn create_empty_area(&self) -> Result<GeneratedFSArea, RunnerError> {
         self.create_overlay_area(std::iter::empty(), false, true)
     }
 
@@ -71,8 +70,8 @@ impl DriverImpl<'_> {
         fs_entries: impl Iterator<Item = FSEntryRef<'a>>,
         include_hidden: bool,
         flatten_input_dirs: bool,
-    ) -> Result<GeneratedFileArea, RunnerError> {
-        let area = GeneratedFileArea::new();
+    ) -> Result<GeneratedFSArea, RunnerError> {
+        let area = GeneratedFSArea::new();
         let output_dir = GeneratedDir::root(area.clone());
         let output_dir_path = self.resolve_fs_entry(FSEntryRef::Generated(output_dir.fsinner()));
         if matches!(std::fs::exists(&output_dir_path), Ok(true)) {
@@ -184,7 +183,7 @@ impl DriverTrait for DriverImpl<'_> {
         self.prints.plock().push(message);
     }
 
-    fn extract_zip(&self, file: &File) -> Result<FileArea, RunnerError> {
+    fn extract_zip(&self, file: &File) -> Result<GeneratedFSArea, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.fsinner());
         let area = self.create_empty_area()?;
         let output_dir = GeneratedDir::root(area.clone());
@@ -224,7 +223,7 @@ impl DriverTrait for DriverImpl<'_> {
             let mut out = opts.open(path).map_err(RunnerError::AreaIOError)?;
             std::io::copy(&mut zip_file, &mut out).map_err(RunnerError::AreaIOError)?;
         }
-        Ok(FileArea::Generated(area))
+        Ok(area)
     }
 
     fn extract_gzip(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError> {
@@ -259,7 +258,7 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(file)
     }
 
-    fn extract_tar(&self, file: &File) -> Result<GeneratedFileArea, RunnerError> {
+    fn extract_tar(&self, file: &File) -> Result<GeneratedFSArea, RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.fsinner());
         let area = self.create_empty_area()?;
         let output_dir = GeneratedDir::root(area.clone());
@@ -274,14 +273,14 @@ impl DriverTrait for DriverImpl<'_> {
 
     fn run(
         &self,
-        overlay_area: Option<&FileArea>,
+        overlay_area: Option<FileAreaRef>,
         bin: &Path,
         args: Vec<String>,
         RunOptions { inherit_env, env }: RunOptions,
     ) -> Result<RunStatus, RunnerError> {
         let output_area = if let Some(overlay_area) = overlay_area {
             self.create_overlay_area(
-                std::iter::once(Dir::root(overlay_area.as_area_ref()).fsinner()),
+                std::iter::once(Dir::root(overlay_area).fsinner()),
                 true,
                 true,
             )?
@@ -423,7 +422,7 @@ impl DriverTrait for DriverImpl<'_> {
         &self,
         dirs: &[FSEntryRef],
         flatten_input_dirs: bool,
-    ) -> Result<GeneratedFileArea, RunnerError> {
+    ) -> Result<GeneratedFSArea, RunnerError> {
         self.create_overlay_area(dirs.iter().copied(), true, flatten_input_dirs)
     }
 
@@ -644,7 +643,7 @@ impl DriverTrait for DriverImpl<'_> {
         ))
     }
 
-    fn git_contents(&self, url: &str, commit: &str) -> Result<GeneratedFileArea, RunnerError> {
+    fn git_contents(&self, url: &str, commit: &str) -> Result<GeneratedFSArea, RunnerError> {
         let area = self.create_empty_area()?;
         let dir = GeneratedDir::root(area);
         let commit = Oid::from_str(commit)
@@ -669,7 +668,7 @@ impl DriverTrait for DriverImpl<'_> {
         Ok(dir.fsinner().area.clone())
     }
 
-    fn git_lfs_smudge(&self, _area: &FileArea) -> Result<GeneratedFileArea, RunnerError> {
+    fn git_lfs_smudge(&self, _area: &FSArea) -> Result<GeneratedFSArea, RunnerError> {
         // let dir = Dir::root(area.clone());
         // let path = self.resolve_fs_entry(dir.inner());
         // for entry in ignore::Walk::new(&path) {
