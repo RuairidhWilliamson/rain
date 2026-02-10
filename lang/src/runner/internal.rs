@@ -550,8 +550,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .map_err(|err| self.cx.nid_err(self.nid, RunnerError::AreaIOError(err)))?
         {
             FSEntryQueryResult::File => {
-                // Safety: Checked that the file exists and is a file
-                let file = unsafe { File::new(entry) };
+                let file = File::new_checked(self.runner.driver, entry)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
                 Ok(file.to_value())
             }
             result => Err(self
@@ -1212,8 +1212,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         ));
                     }
                 }
-                // Safety: We just checked this
-                let dst = unsafe { File::new(entry) };
+                let dst = File::new_checked(self.runner.driver, entry)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
                 let src_contents = self
                     .runner
                     .driver
@@ -1260,8 +1260,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         ));
                     }
                 }
-                // Safety: We just checked this
-                let dst = unsafe { LocalFile::new(entry) };
+                let dst = LocalFile::new_checked(self.runner.driver, entry)
+                    .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
                 let src_contents = self
                     .runner
                     .driver

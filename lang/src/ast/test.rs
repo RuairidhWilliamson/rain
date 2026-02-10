@@ -1,13 +1,8 @@
-use std::path::Path;
-
-use crate::afs::{File, local::file::LocalFile};
-
 fn parse_display_script(src: &str) -> String {
-    let file = File::Local(LocalFile::new_local(Path::new(file!())).unwrap());
     let s = match super::parser::parse_module(src) {
         Ok(s) => s,
         Err(err) => {
-            panic!("parse error:\n{}", err.resolve(Some(&file), src));
+            panic!("parse error:\n{}", err.resolve(None, src));
         }
     };
     s.display(src)

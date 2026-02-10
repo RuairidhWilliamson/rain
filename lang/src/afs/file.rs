@@ -5,6 +5,7 @@ use crate::{
         FSEntryTrait,
         area::FileAreaRef,
         entry::{FSEntry, FSEntryRef},
+        error::PathError,
         generated::file::GeneratedFile,
         local::file::LocalFile,
         path::SealedFilePath,
@@ -20,22 +21,11 @@ pub enum File {
 }
 
 impl File {
-    /// # Safety
-    /// Only call this if it is guaranteed the file exists and is actually a file (not a symlink or directory)
-    pub unsafe fn new(entry: FSEntry) -> Self {
+    pub fn new_checked(fs: &impl FSTrait, entry: FSEntry) -> Result<Self, PathError> {
         match entry {
-            // Safety: Caller's responsibility
-            FSEntry::Local(entry) => Self::Local(unsafe { LocalFile::new(entry) }),
-            // Safety: Caller's responsibility
-            FSEntry::Generated(entry) => Self::Generated(unsafe { GeneratedFile::new(entry) }),
-        }
-    }
-
-    pub fn new_checked(fs: &impl FSTrait, entry: FSEntry) -> Option<Self> {
-        match entry {
-            FSEntry::Local(entry) => Some(Self::Local(LocalFile::new_checked(fs, entry)?)),
+            FSEntry::Local(entry) => Ok(Self::Local(LocalFile::new_checked(fs, entry)?)),
             FSEntry::Generated(entry) => {
-                Some(Self::Generated(GeneratedFile::new_checked(fs, entry)?))
+                Ok(Self::Generated(GeneratedFile::new_checked(fs, entry)?))
             }
         }
     }

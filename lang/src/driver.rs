@@ -13,6 +13,7 @@ use crate::{
         entry::FSEntryRef,
         generated::{area::GeneratedFSArea, dir::GeneratedDir, file::GeneratedFile},
     },
+    hash::FileHash,
     runner::{error::RunnerError, internal::InternalFunction},
 };
 
@@ -20,6 +21,7 @@ pub trait FSTrait {
     /// Resolves file path locally returning an absolute path
     fn resolve_fs_entry(&self, file: FSEntryRef) -> PathBuf;
     fn query_fs(&self, entry: FSEntryRef) -> Result<FSEntryQueryResult, std::io::Error>;
+    fn query_file_hash(&self, entry: FSEntryRef) -> Result<FileHash, std::io::Error>;
 }
 
 pub trait DriverTrait: MonitoringTrait + FSTrait {

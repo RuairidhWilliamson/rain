@@ -23,6 +23,7 @@ use rain_lang::{
         DownloadStatus, DriverTrait, EscapeRunStatus, FSEntryQueryResult, FSTrait, FileMetadata,
         MonitoringTrait, RunOptions, RunStatus,
     },
+    hash::FileHash,
     runner::{error::RunnerError, internal::InternalFunction},
 };
 
@@ -141,6 +142,10 @@ impl FSTrait for DriverImpl<'_> {
 
     fn query_fs(&self, entry: FSEntryRef) -> Result<FSEntryQueryResult, std::io::Error> {
         self.config.query_fs(entry)
+    }
+
+    fn query_file_hash(&self, entry: FSEntryRef) -> Result<FileHash, std::io::Error> {
+        self.config.query_file_hash(entry)
     }
 }
 
@@ -486,8 +491,8 @@ impl DriverTrait for DriverImpl<'_> {
                 let p = entry.path();
                 let p = p.strip_prefix(&base_path).unwrap().to_str().unwrap();
                 let p = dir.fsinner().path().join(p).unwrap();
-                // Safety: We know this file exists, we just checked
-                let file = unsafe { File::new(FSEntry::new(dir.area().to_owned_area(), p)) };
+                let file =
+                    File::new_checked(self, FSEntry::new(dir.area().to_owned_area(), p)).unwrap();
                 out.push(file);
             }
         }

@@ -2,6 +2,7 @@ pub mod afs;
 pub mod ast;
 pub mod driver;
 pub mod error;
+pub mod hash;
 pub mod ir;
 pub mod local_span;
 pub mod runner;

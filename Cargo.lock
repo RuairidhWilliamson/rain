@@ -2719,6 +2719,7 @@ dependencies = [
 name = "rain-lang"
 version = "0.11.1"
 dependencies = [
+ "base16",
  "chrono",
  "indexmap",
  "insta",
@@ -2729,6 +2730,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "sha2",
  "target-lexicon",
  "termcolor",
  "thiserror 2.0.17",

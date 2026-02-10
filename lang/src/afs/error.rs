@@ -6,6 +6,7 @@ pub enum PathError {
     Backslash,
     NoParentDirectory,
     NotUnicode,
+    FileNotExist,
     IOError(std::io::Error),
 }
 
@@ -18,6 +19,7 @@ impl Display for PathError {
             Self::Backslash => f.write_str("path cannot contain backslash"),
             Self::NoParentDirectory => f.write_str("no parent directory"),
             Self::NotUnicode => f.write_str("path is not unicode"),
+            Self::FileNotExist => f.write_str("file does not exist"),
             Self::IOError(err) => f.write_fmt(format_args!("io error: {err}")),
         }
     }

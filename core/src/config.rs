@@ -5,8 +5,10 @@ use rain_lang::{
         FSEntryTrait as _, area::FileAreaRef, entry::FSEntryRef, generated::area::GeneratedFSArea,
     },
     driver::{FSEntryQueryResult, FSTrait},
+    hash::FileHash,
 };
 use serde::{Deserialize, Serialize};
+use sha2::Digest as _;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Config {
@@ -101,6 +103,20 @@ impl FSTrait for Config {
             }
             Err(err) => Err(err),
         }
+    }
+
+    fn query_file_hash(&self, entry: FSEntryRef) -> Result<FileHash, std::io::Error> {
+        let path = self.resolve_fs_entry(entry);
+        let mut file = std::fs::File::open(path)?;
+        let mut hasher = sha2::Sha256::new();
+        std::io::copy(&mut file, &mut hasher)?;
+        let hash_result = hasher.finalize();
+        let hash_result = &hash_result[..];
+        Ok(FileHash(
+            hash_result
+                .try_into()
+                .expect("sha256 always returns 32 bytes"),
+        ))
     }
 }
 

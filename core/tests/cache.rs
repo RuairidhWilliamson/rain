@@ -39,7 +39,7 @@ impl CacheTester {
     }
 
     fn run(&mut self, path: impl AsRef<Path>, declaration: &str) -> Value {
-        let file = LocalFile::new_local(path.as_ref()).unwrap();
+        let file = LocalFile::new_local(&self.driver, path.as_ref()).unwrap();
         let path = self.driver.resolve_fs_entry(file.fsinner().into());
         let src = std::fs::read_to_string(&path).unwrap();
         let module = rain_lang::ast::parser::parse_module(&src);

@@ -246,7 +246,7 @@ impl PersistValue {
             Self::String(s) => Some(Value::String(Arc::new(s))),
             Self::GeneratedFSArea(file_area) => Some(Value::GeneratedFSArea(Arc::new(file_area))),
             Self::GeneratedFile(fsentry) => Some(Value::GeneratedFile(Arc::new(
-                GeneratedFile::new_checked(config, fsentry)?,
+                GeneratedFile::new_checked(config, fsentry).ok()?,
             ))),
             Self::GeneratedDir(fsentry) => Some(Value::GeneratedDir(Arc::new(
                 GeneratedDir::new_checked(config, fsentry)?,
@@ -269,7 +269,9 @@ impl PersistValue {
             Self::Module { file, src } => {
                 let ast = rain_lang::ast::parser::parse_module(&src);
                 match rir.insert_module(
-                    Some(File::Generated(GeneratedFile::new_checked(config, file)?)),
+                    Some(File::Generated(
+                        GeneratedFile::new_checked(config, file).ok()?,
+                    )),
                     src,
                     ast,
                 ) {

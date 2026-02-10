@@ -455,8 +455,8 @@ fn run_core(
     ir: &mut Rir,
 ) -> Result<Value, CoreError> {
     let path = root;
-    let file =
-        LocalFile::new_local(path.as_ref()).map_err(|err| CoreError::Other(err.to_string()))?;
+    let file = LocalFile::new_local(driver, path.as_ref())
+        .map_err(|err| CoreError::Other(err.to_string()))?;
     let path = driver.resolve_fs_entry(file.fsinner().into());
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
     let module = rain_core::rain_lang::ast::parser::parse_module(&src);
