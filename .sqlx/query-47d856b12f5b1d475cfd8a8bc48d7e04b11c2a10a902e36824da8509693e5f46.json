@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n    id,\n    host,\n    owner,\n    name\nFROM repos\nWHERE id=$1;\n",
+  "query": "\n            SELECT\n                id,\n                host_api,\n                host_url,\n                owner,\n                name\n            FROM repos\n            WHERE id=$1;\n            ",
   "describe": {
     "columns": [
       {
@@ -10,16 +10,21 @@
       },
       {
         "ordinal": 1,
-        "name": "host",
+        "name": "host_api",
         "type_info": "Text"
       },
       {
         "ordinal": 2,
-        "name": "owner",
+        "name": "host_url",
         "type_info": "Text"
       },
       {
         "ordinal": 3,
+        "name": "owner",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
         "name": "name",
         "type_info": "Text"
       }
@@ -33,8 +38,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "67ec17975490c0ce5b44df529d2f7e946bad0bdcf4664d1e38996d7ca9321998"
+  "hash": "47d856b12f5b1d475cfd8a8bc48d7e04b11c2a10a902e36824da8509693e5f46"
 }

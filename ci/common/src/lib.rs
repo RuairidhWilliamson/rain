@@ -1,5 +1,8 @@
 pub mod github;
 
+use std::str::FromStr as _;
+
+use anyhow::Context as _;
 use chrono::{DateTime, TimeDelta, Utc};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -30,9 +33,10 @@ pub struct Repository {
 
 impl Repository {
     pub fn external_repo_url(&self) -> String {
-        match self.host {
-            RepoHost::Github => format!(
-                "https://github.com/{owner}/{name}",
+        match self.host.api() {
+            RepoHostAPI::Github | RepoHostAPI::Gitlab | RepoHostAPI::Forgejo => format!(
+                "{url}/{owner}/{name}",
+                url = self.host.url(),
                 owner = self.owner,
                 name = self.name,
             ),
@@ -71,15 +75,60 @@ impl Run {
     }
 }
 
-#[derive(Debug, Clone, strum::IntoStaticStr, strum::EnumString, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RepoHost {
     Github,
+    Gitlab,
+    Codeberg,
+    Custom(RepoHostAPI, String),
 }
 
 impl std::fmt::Display for RepoHost {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.into())
+        match self {
+            Self::Github => f.write_str("Github"),
+            Self::Gitlab => f.write_str("Gitlab"),
+            Self::Codeberg => f.write_str("Codeberg"),
+            Self::Custom(_, url) => f.write_str(url),
+        }
     }
+}
+
+impl RepoHost {
+    pub fn new(api: &str, url: &str) -> anyhow::Result<Self> {
+        Ok(match url {
+            "https://github.com" => Self::Github,
+            url => Self::Custom(
+                RepoHostAPI::from_str(api).context("unknown repo host api")?,
+                url.to_owned(),
+            ),
+        })
+    }
+
+    pub fn api(&self) -> RepoHostAPI {
+        match self {
+            Self::Github => RepoHostAPI::Github,
+            Self::Gitlab => RepoHostAPI::Gitlab,
+            Self::Codeberg => RepoHostAPI::Forgejo,
+            Self::Custom(repo_host_api, _) => *repo_host_api,
+        }
+    }
+
+    pub fn url(&self) -> &str {
+        match self {
+            Self::Github => "https://github.com",
+            Self::Gitlab => "https://gitlab.com",
+            Self::Codeberg => "https://codeberg.org",
+            Self::Custom(_, url) => url,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, strum::IntoStaticStr, strum::EnumString, PartialEq, Eq)]
+pub enum RepoHostAPI {
+    Github,
+    Gitlab,
+    Forgejo,
 }
 
 #[derive(Debug, Clone)]

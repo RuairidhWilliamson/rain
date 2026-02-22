@@ -42,11 +42,13 @@ pub mod inner {
             owner: &str,
             name: &str,
         ) -> Result<rain_ci_common::RepositoryId> {
-            let host: &str = host.into();
+            let host_api: &str = host.api().into();
+            let host_url = host.url();
             let mut tx = self.pool.begin().await?;
             if let Some(row) = sqlx::query!(
-                "SELECT id FROM repos WHERE host=$1 AND owner=$2 AND name=$3",
-                host,
+                "SELECT id FROM repos WHERE host_api=$1 AND host_url=$2 AND owner=$3 AND name=$4",
+                host_api,
+                host_url,
                 owner,
                 name
             )
@@ -57,8 +59,9 @@ pub mod inner {
                 return Ok(RepositoryId(row.id));
             }
             let row = sqlx::query!(
-                "INSERT INTO repos (host, owner, name) VALUES ($1, $2, $3) RETURNING id",
-                host,
+                "INSERT INTO repos (host_api, host_url, owner, name) VALUES ($1, $2, $3, $4) RETURNING id",
+                host_api,
+                host_url,
                 owner,
                 name
             )
@@ -104,7 +107,8 @@ pub mod inner {
         async fn get_run(&self, id: &RunId) -> Result<Run> {
             struct QueryRun {
                 repo_id: i64,
-                host: String,
+                host_url: String,
+                host_api: String,
                 owner: String,
                 name: String,
                 commit: String,
@@ -117,9 +121,33 @@ pub mod inner {
                 execution_time_millis: Option<i64>,
                 output: Option<String>,
             }
-            let row = sqlx::query_file_as!(QueryRun, "queries/get_run.sql", id.0)
-                .fetch_one(&self.pool)
-                .await?;
+            let row = sqlx::query_as!(
+                QueryRun,
+                r#"
+                SELECT
+                    repos.id as repo_id,
+                    repos.host_api,
+                    repos.host_url,
+                    repos.owner,
+                    repos.name,
+                    commit,
+                    created_at,
+                    dequeued_at,
+                    rain_version,
+                    target,
+                    finished_at as "finished_at?",
+                    status as "status?",
+                    execution_time_millis as "execution_time_millis?",
+                    output as "output?"
+                FROM runs
+                INNER JOIN repos ON runs.repo=repos.id
+                LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
+                WHERE runs.id=$1;
+                "#,
+                id.0
+            )
+            .fetch_one(&self.pool)
+            .await?;
             Ok(Run {
                 commit: row.commit,
                 created_at: row.created_at.and_utc(),
@@ -143,7 +171,7 @@ pub mod inner {
                     .transpose()?,
                 repository: Repository {
                     id: RepositoryId(row.repo_id),
-                    host: RepoHost::from_str(&row.host).context("unknown repo host")?,
+                    host: RepoHost::new(&row.host_api, &row.host_url)?,
                     owner: row.owner,
                     name: row.name,
                 },

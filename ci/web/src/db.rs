@@ -143,18 +143,65 @@ impl Db {
     }
 
     pub async fn get_run(&self, id: &RunId) -> Result<Run> {
-        let row = sqlx::query_file_as!(QueryRun, "queries/get_run.sql", id.0)
-            .fetch_one(&self.pool)
-            .await?;
+        let row = sqlx::query_as!(
+            QueryRun,
+            r#"
+            SELECT
+                runs.id,
+                repos.id as repo_id,
+                repos.host_api,
+                repos.host_url,
+                repos.owner,
+                repos.name,
+                commit,
+                created_at,
+                dequeued_at,
+                rain_version,
+                target,
+                finished_at as "finished_at?",
+                status as "status?",
+                execution_time_millis as "execution_time_millis?",
+                output as "output?"
+            FROM runs
+            INNER JOIN repos ON runs.repo=repos.id
+            LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
+            WHERE runs.id=$1;
+            "#,
+            id.0
+        )
+        .fetch_one(&self.pool)
+        .await?;
         row.convert()
     }
 
     pub async fn list_runs(&self, page: &Pagination) -> Result<Paginated<(RunId, Run)>> {
         let mut tx = self.pool.begin().await?;
         let per_page = i64::try_from(self.per_page)?;
-        let rows = sqlx::query_file_as!(
+        let rows = sqlx::query_as!(
             QueryRun,
-            "queries/list_runs.sql",
+            r#"
+            SELECT
+                runs.id,
+                commit,
+                created_at,
+                dequeued_at,
+                rain_version,
+                repos.id AS repo_id,
+                repos.host_api,
+                repos.host_url,
+                repos.owner,
+                repos.name,
+                target,
+                finished_at AS "finished_at?",
+                status AS "status?",
+                execution_time_millis AS "execution_time_millis?",
+                output AS "output?"
+            FROM runs
+            INNER JOIN repos ON runs.repo=repos.id
+            LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
+            ORDER BY runs.id DESC
+            OFFSET $1 LIMIT $2;
+            "#,
             page.page_numberz()? * per_page,
             per_page,
         )
@@ -182,9 +229,18 @@ impl Db {
     ) -> Result<Paginated<(RepositoryId, Repository)>> {
         let mut tx = self.pool.begin().await?;
         let per_page = i64::try_from(self.per_page)?;
-        let rows = sqlx::query_file_as!(
+        let rows = sqlx::query_as!(
             QueryRepo,
-            "queries/list_repos.sql",
+            r#"
+            SELECT
+                id,
+                host_url,
+                host_api,
+                owner,
+                name
+            FROM repos
+            OFFSET $1 LIMIT $2;
+            "#,
             page.page_numberz()? * per_page,
             per_page,
         )
@@ -203,7 +259,7 @@ impl Db {
                     RepositoryId(row.id),
                     Repository {
                         id: rain_ci_common::RepositoryId(row.id),
-                        host: RepoHost::from_str(&row.host).context("unknown repo host")?,
+                        host: RepoHost::new(&row.host_api, &row.host_url)?,
                         owner: row.owner,
                         name: row.name,
                     },
@@ -216,13 +272,26 @@ impl Db {
     }
 
     pub async fn get_repo(&self, id: &RepositoryId) -> Result<Repository> {
-        let row = sqlx::query_file_as!(QueryRepo, "queries/get_repo.sql", id.0)
-            .fetch_one(&self.pool)
-            .await?;
+        let row = sqlx::query_as!(
+            QueryRepo,
+            r#"
+            SELECT
+                id,
+                host_api,
+                host_url,
+                owner,
+                name
+            FROM repos
+            WHERE id=$1;
+            "#,
+            id.0
+        )
+        .fetch_one(&self.pool)
+        .await?;
 
         Ok(Repository {
             id: *id,
-            host: RepoHost::from_str(&row.host).context("unknown repo host")?,
+            host: RepoHost::new(&row.host_api, &row.host_url)?,
             owner: row.owner,
             name: row.name,
         })
@@ -261,9 +330,31 @@ impl Db {
         self.get_repo(repo_id).await?;
         let mut tx = self.pool.begin().await?;
         let per_page = i64::try_from(self.per_page)?;
-        let rows = sqlx::query_file_as!(
+        let rows = sqlx::query_as!(
             QueryRun,
-            "queries/list_runs_in_repo.sql",
+            r#"SELECT
+                runs.id,
+                commit,
+                created_at,
+                dequeued_at,
+                rain_version,
+                repos.id as repo_id,
+                repos.host_api,
+                repos.host_url,
+                repos.owner,
+                repos.name,
+                target,
+                finished_at as "finished_at?",
+                status as "status?",
+                execution_time_millis as "execution_time_millis?",
+                output as "output?"
+            FROM runs
+            INNER JOIN repos ON runs.repo=repos.id
+            LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
+            WHERE repos.id=$1
+            ORDER BY runs.id DESC
+            OFFSET $2 LIMIT $3;
+            "#,
             repo_id.0,
             page.page_numberz()? * per_page,
             per_page,
@@ -292,7 +383,8 @@ impl Db {
 struct QueryRun {
     id: i64,
     repo_id: i64,
-    host: String,
+    host_api: String,
+    host_url: String,
     owner: String,
     name: String,
     commit: String,
@@ -332,7 +424,7 @@ impl QueryRun {
                 .transpose()?,
             repository: Repository {
                 id: rain_ci_common::RepositoryId(row.repo_id),
-                host: RepoHost::from_str(&row.host).context("unknown repo host")?,
+                host: RepoHost::new(&row.host_api, &row.host_url)?,
                 owner: row.owner,
                 name: row.name,
             },
@@ -342,7 +434,8 @@ impl QueryRun {
 
 struct QueryRepo {
     id: i64,
-    host: String,
+    host_api: String,
+    host_url: String,
     owner: String,
     name: String,
 }

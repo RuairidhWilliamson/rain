@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n    runs.id,\n    commit,\n    created_at,\n    dequeued_at,\n    rain_version,\n    repos.id as repo_id,\n    repos.host,\n    repos.owner,\n    repos.name,\n    target,\n    finished_at as \"finished_at?\",\n    status as \"status?\",\n    execution_time_millis as \"execution_time_millis?\",\n    output as \"output?\"\nFROM runs\nINNER JOIN repos ON runs.repo=repos.id\nLEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run\nWHERE repos.id=$1\nORDER BY runs.id DESC\nOFFSET $2 LIMIT $3;\n",
+  "query": "SELECT\n                runs.id,\n                commit,\n                created_at,\n                dequeued_at,\n                rain_version,\n                repos.id as repo_id,\n                repos.host_api,\n                repos.host_url,\n                repos.owner,\n                repos.name,\n                target,\n                finished_at as \"finished_at?\",\n                status as \"status?\",\n                execution_time_millis as \"execution_time_millis?\",\n                output as \"output?\"\n            FROM runs\n            INNER JOIN repos ON runs.repo=repos.id\n            LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run\n            WHERE repos.id=$1\n            ORDER BY runs.id DESC\n            OFFSET $2 LIMIT $3;\n            ",
   "describe": {
     "columns": [
       {
@@ -35,41 +35,46 @@
       },
       {
         "ordinal": 6,
-        "name": "host",
+        "name": "host_api",
         "type_info": "Text"
       },
       {
         "ordinal": 7,
-        "name": "owner",
+        "name": "host_url",
         "type_info": "Text"
       },
       {
         "ordinal": 8,
-        "name": "name",
+        "name": "owner",
         "type_info": "Text"
       },
       {
         "ordinal": 9,
-        "name": "target",
+        "name": "name",
         "type_info": "Text"
       },
       {
         "ordinal": 10,
+        "name": "target",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
         "name": "finished_at?",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "status?",
         "type_info": "Text"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "execution_time_millis?",
         "type_info": "Int8"
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "output?",
         "type_info": "Text"
       }
@@ -95,8 +100,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "9faa843577e159a5109a542aaaad9747927de22c52c6b321b3b19de06d8509e0"
+  "hash": "da2f77482974d6537b6893d49e91a0f87db1c4f6456af3948326baaf37c6879f"
 }
