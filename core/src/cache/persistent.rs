@@ -22,7 +22,7 @@ use rain_lang::{
 
 use crate::config::Config;
 
-pub const FORMAT_VERSION: u64 = 3;
+pub const FORMAT_VERSION: u64 = 4;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PersistCacheError {
@@ -42,7 +42,6 @@ pub enum PersistCacheError {
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct PersistCache {
-    pub rain_version: String,
     pub entries: Vec<(PersistCacheKey, PersistCacheEntry)>,
 }
 
@@ -99,10 +98,7 @@ impl PersistCache {
                 Some((k, e))
             })
             .collect();
-        Self {
-            rain_version: env!("CARGO_PKG_VERSION").to_owned(),
-            entries,
-        }
+        Self { entries }
     }
 
     pub fn depersist(
@@ -111,10 +107,6 @@ impl PersistCache {
         stats: &super::CacheStats,
         rir: &mut Rir,
     ) -> super::CacheCore {
-        if self.rain_version != env!("CARGO_PKG_VERSION") {
-            log::warn!("persist cache miss matched rain version");
-            return super::CacheCore::default();
-        }
         let mut lru = lru::LruCache::new(super::CACHE_SIZE);
         for (k, e) in self.entries {
             let Some(k) = k.depersist(config, rir) else {
