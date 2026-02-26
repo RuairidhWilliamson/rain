@@ -121,7 +121,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             name: declaration_name.to_owned(),
         });
         if let Some(key) = &key
-            && let Some(cache_entry) = self.cache.get(key)
+            && let Some(cache_entry) = self.cache.get(key, self.driver)
         {
             cx.propagate_deps(cache_entry.deps);
             return Ok(cache_entry.value);
@@ -388,7 +388,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     closure: closure.clone(),
                     args: arg_values.clone(),
                 };
-                if let Some(entry) = self.cache.get(&cache_key) {
+                if let Some(entry) = self.cache.get(&cache_key, self.driver) {
                     cx.propagate_deps(entry.deps);
                     return Ok(entry.value);
                 }
@@ -450,7 +450,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     func: *f,
                     args: arg_values.iter().map(|(_, v)| v.clone()).collect(),
                 };
-                if let Some(entry) = self.cache.get(&cache_key) {
+                if let Some(entry) = self.cache.get(&cache_key, self.driver) {
                     cx.propagate_deps(entry.deps);
                     return Ok(entry.value);
                 }
@@ -459,11 +459,13 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 log::trace!("internal function call {f:?} {arg_values:?}");
                 let mut deps = DepList::new();
                 let mut cache_hint = true;
-                for (_, a) in &arg_values {
-                    for area in a.find_areas() {
-                        deps.add_dep_file_area(area);
-                    }
-                }
+                // for (_, a) in &arg_values {
+                //     for area in a.find_areas() {
+                //         if area.is_local() {
+                //             deps.push(Dep::LocalDir);
+                //         }
+                //     }
+                // }
                 let internal_cx = internal::InternalCx {
                     func: *f,
                     runner: self,

@@ -481,7 +481,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .module
                     .file()
                     .map_err(|err| self.cx.nid_err(self.nid, err))?;
-                self.deps.add_dep_file_area(file.area());
                 self.deps.push(Dep::CallingModule);
                 let file_path = file
                     .path()
@@ -498,20 +497,17 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let path = expect_type!(self, String, (path_nid, path_value));
                 match parent_value {
                     Value::GeneratedFSArea(area) => {
-                        self.deps.add_dep_file_area(area.as_ref().into());
                         let file_path = SealedFilePath::new(path)
                             .map_err(|err| self.cx.nid_err(*path_nid, err.into()))?;
                         Ok(FSEntry::new((*area).as_ref().clone().into(), file_path))
                     }
                     Value::LocalFSArea(area) => {
-                        self.deps.add_dep_file_area(area.as_ref().into());
                         let file_path = SealedFilePath::new(path)
                             .map_err(|err| self.cx.nid_err(*path_nid, err.into()))?;
                         Ok(FSEntry::new((*area).as_ref().clone().into(), file_path))
                     }
                     Value::GeneratedDir(dir) => {
                         let area = dir.area();
-                        self.deps.add_dep_file_area(area);
                         let base_path = dir.path();
                         let path = base_path
                             .join(path)
@@ -520,7 +516,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     }
                     Value::LocalDir(dir) => {
                         let area = dir.area();
-                        self.deps.add_dep_file_area(area);
                         let base_path = dir.path();
                         let path = base_path
                             .join(path)
@@ -556,6 +551,12 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             FSEntryQueryResult::File => {
                 let file = File::new_checked(self.runner.driver, entry)
                     .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
+                if let File::Local(file) = &file {
+                    self.deps.push(Dep::LocalFile(
+                        file.fsinner().clone(),
+                        file.file_hash().clone(),
+                    ));
+                }
                 Ok(file.to_value())
             }
             result => Err(self
@@ -566,6 +567,9 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn get_dir(mut self) -> ResultValue {
         let entry = self.file_area_resolve_path()?;
+        if entry.as_fs_entry_ref().area().is_local() {
+            self.deps.push(Dep::LocalDir);
+        }
         match self
             .runner
             .driver
@@ -587,7 +591,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         *self.cache_hint = false;
         let f = self.expect_file(single_arg!(self))?;
         let cache_key = CacheKey::Import { file: f.clone() };
-        if let Some(v) = self.runner.cache.get_value(&cache_key) {
+        if let Some(v) = self.runner.cache.get_value(&cache_key, self.runner.driver) {
             return Ok(v);
         }
         let start = Instant::now();
@@ -841,7 +845,9 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             })
             .collect::<Result<Vec<FSEntryRef>, _>>()?;
         for entry in &dirs {
-            self.deps.add_dep_file_area(entry.area());
+            if entry.area().is_local() {
+                self.deps.push(Dep::LocalDir);
+            }
         }
         let merged_area = self
             .runner
@@ -930,7 +936,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         else {
             return Err(self.cx.nid_err(self.nid, RunnerError::IllegalLocalArea));
         };
-        self.deps.push(Dep::LocalArea);
+        self.deps.push(Dep::LocalDir);
         let path = expect_type!(self, String, single_arg!(self));
         let area_path = current_area_path.join(path.as_ref());
         let area_path = AbsolutePathBuf::try_from(area_path.as_path())
@@ -1186,7 +1192,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     fn check_export_to_local(self) -> ResultValue {
-        self.deps.push(Dep::LocalArea);
+        self.deps.push(Dep::LocalDir);
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
                 let src = expect_type!(self, GeneratedFile, (src_nid, src_value));
@@ -1308,7 +1314,9 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         match &self.arg_values[..] {
             [(dir_nid, dir_value)] => {
                 let d = self.expect_dir_or_area((*dir_nid, dir_value))?;
-                self.deps.add_dep_file_area(d.area());
+                if d.area().is_local() {
+                    self.deps.push(Dep::LocalDir);
+                }
                 let files = self
                     .runner
                     .driver
@@ -1323,7 +1331,9 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             [(dir_nid, dir_value), (pattern_nid, pattern_value)] => {
                 let d = self.expect_dir_or_area((*dir_nid, dir_value))?;
                 let pattern = expect_type!(self, String, (pattern_nid, pattern_value));
-                self.deps.add_dep_file_area(d.area());
+                if d.area().is_local() {
+                    self.deps.push(Dep::LocalDir);
+                }
                 let files = self
                     .runner
                     .driver
@@ -1411,7 +1421,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         *self.cache_hint = false;
         self.no_args()?;
         let cache_key = CacheKey::Embed;
-        if let Some(v) = self.runner.cache.get_value(&cache_key) {
+        if let Some(v) = self.runner.cache.get_value(&cache_key, self.runner.driver) {
             return Ok(v);
         }
         let start = Instant::now();

@@ -69,6 +69,10 @@ impl FileAreaRef<'_> {
             FileAreaRef::Generated(area) => FSArea::Generated(area.clone()),
         }
     }
+
+    pub fn is_local(&self) -> bool {
+        matches!(self, Self::Local(_))
+    }
 }
 
 impl<'a> From<&'a LocalFSArea> for FileAreaRef<'a> {

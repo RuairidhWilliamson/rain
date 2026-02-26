@@ -15,6 +15,7 @@ use lru::LruCache;
 use poison_panic::MutexExt as _;
 use rain_lang::{
     afs::{area::FileAreaRef, generated::area::GeneratedFSArea},
+    driver::FSTrait,
     runner::cache::{CacheEntry, CacheKey},
 };
 
@@ -47,10 +48,16 @@ impl Cache {
 }
 
 impl rain_lang::runner::cache::CacheTrait for Cache {
-    fn get(&self, key: &CacheKey) -> Option<CacheEntry> {
+    fn get(&self, key: &CacheKey, fs: &impl FSTrait) -> Option<CacheEntry> {
         let mut guard = self.core.plock();
         let res = guard.storage.get(key).cloned();
         if let Some(entry) = &res {
+            for d in entry.deps.iter() {
+                if !d.is_valid(fs) {
+                    log::trace!("cache get miss because dep is not valid {key:?} {d:?}");
+                    return None;
+                }
+            }
             self.stats.hits.inc();
             log::trace!("cache get hit {key:?} {:?}", entry.deps);
         } else {

@@ -2,19 +2,19 @@ use std::{fmt::Display, time::Duration};
 
 use chrono::{DateTime, Utc};
 
-use crate::{afs::File, runner::dep_list::DepList};
+use crate::{afs::File, driver::FSTrait, runner::dep_list::DepList};
 
 use super::{internal::InternalFunction, value::Value};
 
 pub trait CacheTrait {
-    fn get(&self, key: &CacheKey) -> Option<CacheEntry>;
+    fn get(&self, key: &CacheKey, fs: &impl FSTrait) -> Option<CacheEntry>;
     fn put(&self, key: CacheKey, entry: CacheEntry);
     fn put_if_slow(&self, key: CacheKey, entry: CacheEntry);
     fn inspect_all(&self) -> Vec<String>;
     fn clean(&self);
 
-    fn get_value(&self, key: &CacheKey) -> Option<Value> {
-        self.get(key).map(|e| e.value)
+    fn get_value(&self, key: &CacheKey, fs: &impl FSTrait) -> Option<Value> {
+        self.get(key, fs).map(|e| e.value)
     }
 }
 

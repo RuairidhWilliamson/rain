@@ -134,26 +134,26 @@ fn unchanged_local_file_declaration() {
 
 #[test]
 fn modify_local_root() {
-    let mut cache_tester = CacheTester::new();
+    let mut tester = CacheTester::new();
 
     let mut f = tempfile::NamedTempFile::new().unwrap();
 
     write!(f, "let main = 5").unwrap();
     f.flush().unwrap();
     f.seek(SeekFrom::Start(0)).unwrap();
-    let value = cache_tester.run(&f).exec("main");
+    let value = tester.run(&f).exec("main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(5))));
 
     write!(f, "let main = 6").unwrap();
     f.flush().unwrap();
     f.seek(SeekFrom::Start(0)).unwrap();
-    let value = cache_tester.run(&f).exec("main");
+    let value = tester.run(&f).exec("main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(6))));
 }
 
 #[test]
 fn modify_local_import() {
-    let mut cache_tester = CacheTester::new();
+    let mut tester = CacheTester::new();
 
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("main.rain");
@@ -166,10 +166,46 @@ fn modify_local_import() {
     let child = dir.path().join("child.rain");
     fs::write(&child, "pub let x = 4").unwrap();
 
-    let value = cache_tester.run(&root).exec("main");
+    let value = tester.run(&root).exec("main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(4))));
 
     fs::write(&child, "pub let x = 5").unwrap();
-    let value = cache_tester.run(&root).exec("main");
+    let value = tester.run(&root).exec("main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(5))));
+}
+
+#[test]
+fn unchanged_local_import() {
+    let mut tester = CacheTester::new();
+    let counter_name = Arc::new(String::from("foo"));
+
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("main.rain");
+    fs::write(
+        &root,
+        "
+        let child = internal._import(internal._get_file(\"child.rain\"))
+        let main = child.x()
+        ",
+    )
+    .unwrap();
+    let child = dir.path().join("child.rain");
+    fs::write(
+        &child,
+        "
+        pub let x = fn() {
+            internal._inc_counter(\"foo\")
+            5
+        }
+    ",
+    )
+    .unwrap();
+
+    let value = tester.run(&root).exec("main");
+    assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(5))));
+    assert_eq!(1, tester.driver.get_counter(&counter_name));
+
+    let value = tester.run(&root).exec("main");
+    assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(5))));
+    assert_eq!(1, tester.driver.get_counter(&counter_name));
 }
