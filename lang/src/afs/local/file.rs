@@ -56,6 +56,10 @@ impl LocalFile {
     pub fn fsinner(&self) -> &LocalFSEntry {
         &self.entry
     }
+
+    pub fn file_hash(&self) -> &FileHash {
+        &self.hash
+    }
 }
 
 impl FSEntryTrait for LocalFile {

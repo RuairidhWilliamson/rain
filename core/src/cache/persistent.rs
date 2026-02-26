@@ -8,7 +8,9 @@ use rain_lang::{
         generated::{
             area::GeneratedFSArea, dir::GeneratedDir, entry::GeneratedFSEntry, file::GeneratedFile,
         },
+        local::{entry::LocalFSEntry, file::LocalFile},
     },
+    hash::FileHash,
     ir::Rir,
     runner::{
         cache::{CacheEntry, CacheKey},
@@ -289,6 +291,10 @@ impl PersistValue {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum PersistCacheKey {
+    Declaration {
+        file: PersistFile,
+        name: String,
+    },
     InternalFunction {
         func: InternalFunction,
         args: Vec<PersistValue>,
@@ -301,12 +307,10 @@ pub enum PersistCacheKey {
 impl PersistCacheKey {
     fn persist(key: &CacheKey, rir: &Rir) -> Option<Self> {
         match key {
-            // TODO: It is possible to persist declarations in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
-            // TODO: It is possible to persist embed in the cache if we key it by the rain binary version
-            CacheKey::Declaration { .. }
-            | CacheKey::CallClosure { .. }
-            | CacheKey::Embed
-            | CacheKey::Import { .. } => None,
+            CacheKey::Declaration { file, name } => Some(Self::Declaration {
+                file: PersistFile::persist(file)?,
+                name: name.to_owned(),
+            }),
             CacheKey::InternalFunction { func, args } => Some(Self::InternalFunction {
                 func: *func,
                 args: args
@@ -315,6 +319,9 @@ impl PersistCacheKey {
                     .collect::<Option<_>>()?,
             }),
             CacheKey::Download { url } => Some(Self::Download { url: url.clone() }),
+            // TODO: It is possible to persist declarations in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
+            // TODO: It is possible to persist embed in the cache if we key it by the rain binary version
+            CacheKey::CallClosure { .. } | CacheKey::Embed | CacheKey::Import { .. } => None,
         }
     }
 
@@ -328,6 +335,46 @@ impl PersistCacheKey {
                     .collect::<Option<Vec<Value>>>()?,
             }),
             Self::Download { url } => Some(CacheKey::Download { url }),
+            Self::Declaration { file, name } => Some(CacheKey::Declaration {
+                file: file.depersist(config)?,
+                name,
+            }),
+        }
+    }
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub enum PersistFile {
+    Generated(GeneratedFSEntry),
+    Local(LocalFSEntry, FileHash),
+}
+
+impl PersistFile {
+    #[expect(clippy::unnecessary_wraps)]
+    fn persist(file: &File) -> Option<Self> {
+        match file {
+            File::Generated(file) => Some(Self::Generated(file.fsinner().clone())),
+            File::Local(file) => Some(Self::Local(
+                file.fsinner().clone(),
+                file.file_hash().clone(),
+            )),
+        }
+    }
+
+    fn depersist(self, config: &Config) -> Option<File> {
+        match self {
+            Self::Generated(fsentry) => Some(File::Generated(
+                GeneratedFile::new_checked(config, fsentry).ok()?,
+            )),
+            Self::Local(fsentry, hash) => {
+                let file = LocalFile::new_checked(config, fsentry).ok()?;
+                // If the hash doesn't match anymore we are not going to restore this cached file
+                // This isn't really ideal but it is correct
+                if file.file_hash() != &hash {
+                    return None;
+                }
+                Some(File::Local(file))
+            }
         }
     }
 }

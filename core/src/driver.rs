@@ -42,6 +42,7 @@ pub struct DriverImpl<'a> {
     pub exit_handler: Option<PrintHandler<'a>>,
     pub embed: Option<Cow<'static, str>>,
     pub host_triple: Cow<'static, str>,
+    pub internal_counts: Mutex<HashMap<Arc<String>, usize>>,
 }
 
 pub const fn default_host_triple() -> &'static str {
@@ -59,7 +60,13 @@ impl DriverImpl<'_> {
             exit_handler: None,
             embed: Some(include_str!("../../lib/embed/embed.rain").into()),
             host_triple: default_host_triple().into(),
+            internal_counts: Default::default(),
         }
+    }
+
+    pub fn get_counter(&self, name: &Arc<String>) -> usize {
+        let guard = self.internal_counts.plock();
+        guard.get(name).copied().unwrap_or_default()
     }
 
     fn create_empty_area(&self) -> Result<GeneratedFSArea, RunnerError> {
@@ -150,6 +157,12 @@ impl FSTrait for DriverImpl<'_> {
 }
 
 impl DriverTrait for DriverImpl<'_> {
+    fn increment_counter(&self, name: Arc<String>) {
+        let mut guard = self.internal_counts.plock();
+        let entry = guard.entry(Arc::clone(&name)).or_default();
+        *entry += 1;
+    }
+
     #[cfg(target_family = "unix")]
     fn escape_bin(&self, name: &str) -> Option<AbsolutePathBuf> {
         // Unix separates path values using colons

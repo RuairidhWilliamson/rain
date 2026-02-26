@@ -102,6 +102,7 @@ pub enum InternalFunction {
     CopyDir,
     Config,
     ConcreteTypes,
+    IncCounter,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -172,6 +173,7 @@ impl InternalFunction {
             "_copy_dir" => Some(Self::CopyDir),
             "_config" => Some(Self::Config),
             "_concrete_types" => Some(Self::ConcreteTypes),
+            "_inc_counter" => Some(Self::IncCounter),
             _ => None,
         }
     }
@@ -277,6 +279,7 @@ pub struct InternalCx<'a, 'b, 'c, Driver, Cache> {
     pub runner: &'a mut super::Runner<'c, Driver, Cache>,
     /// The calling function's cx
     /// Deps should not be added to this but to [`deps`]
+    // TODO: Inline cx to avoid missuse
     pub cx: &'a mut Cx<'b>,
     pub nid: NodeId,
     pub call_span: LocalSpan,
@@ -348,6 +351,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::CopyDir => self.copy_dir(),
             InternalFunction::Config => self.config(),
             InternalFunction::ConcreteTypes => self.concrete_types(),
+            InternalFunction::IncCounter => self.inc_counter(),
         }
     }
 
@@ -1727,5 +1731,12 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             Value::Type(RainTypeId::GeneratedFSArea),
         );
         Ok(Value::Record(Arc::new(RainRecord(map))))
+    }
+
+    fn inc_counter(self) -> ResultValue {
+        self.deps.push(Dep::Counter);
+        let name = expect_type!(self, String, single_arg!(self));
+        self.runner.driver.increment_counter(Arc::clone(name));
+        Ok(Value::Unit)
     }
 }

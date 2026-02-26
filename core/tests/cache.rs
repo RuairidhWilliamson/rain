@@ -2,14 +2,15 @@
 
 use std::{
     collections::HashMap,
-    fs::{self},
-    io::{Seek as _, Write as _},
+    fs,
+    io::{Seek as _, SeekFrom, Write as _},
     path::Path,
-    sync::Arc,
+    sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use poison_panic::MutexExt as _;
-use rain_core::cache::persistent::PersistCache;
+use rain_core::cache::{Cache, persistent::PersistCache};
 use rain_lang::{
     afs::{File, local::file::LocalFile},
     driver::FSTrait as _,
@@ -21,7 +22,7 @@ struct CacheTester {
     config: rain_core::config::Config,
     driver: rain_core::driver::DriverImpl<'static>,
     persist_cache: Option<PersistCache>,
-    cache_stats: rain_core::cache::CacheStats,
+    cache_stats: Arc<rain_core::cache::CacheStats>,
 }
 
 impl CacheTester {
@@ -29,7 +30,7 @@ impl CacheTester {
         let config = rain_core::config::Config::new();
         let driver = rain_core::driver::DriverImpl::new(config.clone(), HashMap::new());
         let persist_cache = None;
-        let stats = rain_core::cache::CacheStats::default();
+        let stats = Arc::new(rain_core::cache::CacheStats::default());
         Self {
             config,
             driver,
@@ -38,7 +39,7 @@ impl CacheTester {
         }
     }
 
-    fn run(&mut self, path: impl AsRef<Path>, declaration: &str) -> Value {
+    fn run<'a>(&'a mut self, path: impl AsRef<Path>) -> CacheTesterRun<'a> {
         let file = LocalFile::new_local(&self.driver, path.as_ref()).unwrap();
         let path = self.driver.resolve_fs_entry(file.fsinner().into());
         let src = std::fs::read_to_string(&path).unwrap();
@@ -49,20 +50,86 @@ impl CacheTester {
             &self.cache_stats,
             &mut ir,
         );
-        let cache = rain_core::cache::Cache::new(cache_core);
+        let cache = Cache {
+            execution_time_thresold: Duration::ZERO,
+            core: Arc::new(Mutex::new(cache_core)),
+            stats: self.cache_stats.clone(),
+        };
         let mid = ir
             .insert_module(Some(File::Local(file)), src, module)
             .unwrap();
-        let main = ir.resolve_global_declaration(mid, declaration).unwrap();
-        let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, &self.driver);
-        let value = runner.evaluate_and_call(main, &[]).unwrap();
-        self.persist_cache = Some(PersistCache::persist(
-            &cache.core.plock(),
-            &cache.stats,
-            &ir,
-        ));
-        value
+        CacheTesterRun {
+            tester: self,
+            ir,
+            cache,
+            mid,
+        }
     }
+}
+
+struct CacheTesterRun<'a> {
+    tester: &'a mut CacheTester,
+    ir: rain_lang::ir::Rir,
+    cache: Cache,
+    mid: rain_lang::ir::ModuleId,
+}
+
+impl<'a> CacheTesterRun<'a> {
+    fn exec(&mut self, declaration: &str) -> Value {
+        let declaration = self
+            .ir
+            .resolve_global_declaration(self.mid, declaration)
+            .unwrap();
+        let mut runner =
+            rain_lang::runner::Runner::new(&mut self.ir, &self.cache, &self.tester.driver);
+        runner.evaluate_and_call(declaration, &[]).unwrap()
+    }
+}
+
+impl<'a> Drop for CacheTesterRun<'a> {
+    fn drop(&mut self) {
+        self.tester.persist_cache = Some(PersistCache::persist(
+            &self.cache.core.plock(),
+            &self.cache.stats,
+            &self.ir,
+        ));
+    }
+}
+
+#[test]
+fn unchanged_local_file_declaration() {
+    let mut tester = CacheTester::new();
+
+    let mut f = tempfile::NamedTempFile::new().unwrap();
+    let counter_name = Arc::new(String::from("foo"));
+
+    write!(
+        f,
+        "
+        let main = internal._inc_counter(\"foo\")
+        "
+    )
+    .unwrap();
+    f.flush().unwrap();
+    f.seek(SeekFrom::Start(0)).unwrap();
+
+    {
+        let mut run = tester.run(&f);
+
+        let value = run.exec("main");
+        assert_eq!(value, Value::Unit);
+        assert_eq!(1, run.tester.driver.get_counter(&counter_name));
+
+        // Same run still cached
+        let value = run.exec("main");
+        assert_eq!(value, Value::Unit);
+        assert_eq!(1, run.tester.driver.get_counter(&counter_name));
+    }
+
+    // New run, should still be cached
+    let value = tester.run(&f).exec("main");
+    assert_eq!(value, Value::Unit);
+    assert_eq!(1, tester.driver.get_counter(&counter_name));
 }
 
 #[test]
@@ -71,16 +138,16 @@ fn modify_local_root() {
 
     let mut f = tempfile::NamedTempFile::new().unwrap();
 
-    writeln!(f, "let x = 5\nlet main = x").unwrap();
+    write!(f, "let main = 5").unwrap();
     f.flush().unwrap();
-    f.seek(std::io::SeekFrom::Start(0)).unwrap();
-    let value = cache_tester.run(&f, "main");
+    f.seek(SeekFrom::Start(0)).unwrap();
+    let value = cache_tester.run(&f).exec("main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(5))));
 
-    writeln!(f, "let x = 6\nlet main = x").unwrap();
+    write!(f, "let main = 6").unwrap();
     f.flush().unwrap();
-    f.seek(std::io::SeekFrom::Start(0)).unwrap();
-    let value = cache_tester.run(&f, "main");
+    f.seek(SeekFrom::Start(0)).unwrap();
+    let value = cache_tester.run(&f).exec("main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(6))));
 }
 
@@ -99,10 +166,10 @@ fn modify_local_import() {
     let child = dir.path().join("child.rain");
     fs::write(&child, "pub let x = 4").unwrap();
 
-    let value = cache_tester.run(&root, "main");
+    let value = cache_tester.run(&root).exec("main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(4))));
 
     fs::write(&child, "pub let x = 5").unwrap();
-    let value = cache_tester.run(&root, "main");
+    let value = cache_tester.run(&root).exec("main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(5))));
 }

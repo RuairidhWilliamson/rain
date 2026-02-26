@@ -25,6 +25,7 @@ pub trait FSTrait {
 }
 
 pub trait DriverTrait: MonitoringTrait + FSTrait {
+    fn increment_counter(&self, name: Arc<String>);
     fn print(&self, message: String);
     fn escape_bin(&self, name: &str) -> Option<AbsolutePathBuf>;
     fn extract_zip(&self, file: &File) -> Result<GeneratedFSArea, RunnerError>;

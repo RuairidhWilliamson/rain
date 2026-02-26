@@ -103,7 +103,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
 
     pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> ResultValue {
         let m = &Arc::clone(self.ir.get_module(id.module_id()));
+        let declaration_name = m.get_declaration_name_span(id.local_id()).contents(&m.src);
         let declaration = m.get_declaration(id.local_id());
+        // If calling into another module check the privacy
         if id.module_id() != cx.module.id && declaration.pub_token.is_none() {
             let span = m.get_declaration_name_span(id.local_id());
             return Err(span
@@ -114,8 +116,13 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         let stacktrace = cx.stacktrace.clone();
         let mut callee_cx = Cx::new(m, cx.call_depth + 1, HashMap::new(), stacktrace);
         let start = Instant::now();
-        let key = cache::CacheKey::Declaration { declaration: id };
-        if let Some(cache_entry) = self.cache.get(&key) {
+        let key = m.file.as_ref().map(|file| cache::CacheKey::Declaration {
+            file: file.clone(),
+            name: declaration_name.to_owned(),
+        });
+        if let Some(key) = &key
+            && let Some(cache_entry) = self.cache.get(key)
+        {
             cx.propagate_deps(cache_entry.deps);
             return Ok(cache_entry.value);
         }
@@ -156,16 +163,18 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 value
             }
         };
-        self.cache.put_if_slow(
-            key,
-            CacheEntry {
-                execution_time: start.elapsed(),
-                expires: None,
-                etag: None,
-                deps: callee_cx.deps.clone(),
-                value: result.clone(),
-            },
-        );
+        if let Some(key) = key {
+            self.cache.put_if_slow(
+                key,
+                CacheEntry {
+                    execution_time: start.elapsed(),
+                    expires: None,
+                    etag: None,
+                    deps: callee_cx.deps.clone(),
+                    value: result.clone(),
+                },
+            );
+        }
         cx.propagate_deps(callee_cx.deps);
         Ok(result)
     }

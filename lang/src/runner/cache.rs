@@ -2,7 +2,7 @@ use std::{fmt::Display, time::Duration};
 
 use chrono::{DateTime, Utc};
 
-use crate::{afs::File, ir::DeclarationId, runner::dep_list::DepList};
+use crate::{afs::File, runner::dep_list::DepList};
 
 use super::{internal::InternalFunction, value::Value};
 
@@ -35,7 +35,8 @@ fn display_vec<T: Display>(v: &Vec<T>) -> String {
 pub enum CacheKey {
     Embed,
     Declaration {
-        declaration: DeclarationId,
+        file: File,
+        name: String,
     },
     CallClosure {
         closure: super::value::Closure,
@@ -57,7 +58,9 @@ impl Display for CacheKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Embed => f.write_str("Embed"),
-            Self::Declaration { declaration } => f.write_fmt(format_args!("{declaration}")),
+            Self::Declaration { file, name } => {
+                f.write_fmt(format_args!("Declaration({file}, {name})"))
+            }
             Self::CallClosure { closure, args } => f.write_fmt(format_args!(
                 "Closure({},{:?})({})",
                 closure.module,

@@ -95,6 +95,7 @@ pub fn load_cache_or_default(config: &config::Config) -> (cache::Cache, rain_lan
                 cache::Cache {
                     core: Arc::new(Mutex::new(core)),
                     stats: Arc::new(stats),
+                    ..Default::default()
                 },
                 ir,
             )

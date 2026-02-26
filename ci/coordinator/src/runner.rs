@@ -60,6 +60,7 @@ impl Runner {
         let cache = Cache {
             core: Arc::new(Mutex::new(cache_core)),
             stats: Arc::clone(&self.cache_stats),
+            ..Default::default()
         };
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, driver);
         runner.seal = self.seal;

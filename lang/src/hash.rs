@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 /// SHA256 hash of a file's contents
-#[derive(Hash, Clone, PartialEq, Eq)]
+#[derive(Hash, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileHash(pub [u8; 32]);
 
 impl std::fmt::Debug for FileHash {

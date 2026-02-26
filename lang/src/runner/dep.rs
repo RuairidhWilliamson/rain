@@ -18,16 +18,18 @@ pub enum Dep {
     EnvVar,
     /// This depends on a config
     Config,
+    /// This increments a counter so should not be cached but should not propogate to callers
+    Counter,
 }
 
 impl Dep {
     pub fn is_propogated_in_closure(&self) -> bool {
-        !matches!(self, Self::CallingModule)
+        !matches!(self, Self::CallingModule | Self::Counter)
     }
 
     pub fn is_intra_run_stable(&self) -> bool {
         match self {
-            Self::Uncacheable | Self::CallingModule | Self::Print => false,
+            Self::Uncacheable | Self::CallingModule | Self::Print | Self::Counter => false,
             Self::LocalArea | Self::Escape | Self::Secret | Self::EnvVar | Self::Config => true,
         }
     }

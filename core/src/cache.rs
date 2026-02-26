@@ -19,11 +19,11 @@ use rain_lang::{
 };
 
 const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
-/// Minimum execution time to be stored in the cache
-const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(1);
 
 #[derive(Default, Clone)]
 pub struct Cache {
+    /// Minimum execution time to be stored in the cache
+    pub execution_time_thresold: Duration,
     pub core: Arc<Mutex<CacheCore>>,
     pub stats: Arc<CacheStats>,
 }
@@ -31,6 +31,7 @@ pub struct Cache {
 impl Cache {
     pub fn new(core: CacheCore) -> Self {
         Self {
+            execution_time_thresold: Duration::from_millis(1),
             core: Arc::new(Mutex::new(core)),
             stats: Arc::default(),
         }
@@ -74,7 +75,7 @@ impl rain_lang::runner::cache::CacheTrait for Cache {
     }
 
     fn put_if_slow(&self, key: CacheKey, entry: CacheEntry) {
-        if entry.execution_time < EXECUTION_TIME_THRESHOLD {
+        if entry.execution_time < self.execution_time_thresold {
             log::trace!(
                 "not caching {key:?} because it is too fast {:?}",
                 entry.execution_time,
@@ -195,9 +196,13 @@ pub struct CacheStats {
 }
 
 #[derive(Default)]
-pub struct Counter(pub AtomicUsize);
+pub struct Counter(AtomicUsize);
 
 impl Counter {
+    pub fn get(&self) -> usize {
+        self.0.load(Ordering::Relaxed)
+    }
+
     pub fn inc(&self) {
         self.0.fetch_add(1, Ordering::Relaxed);
     }
