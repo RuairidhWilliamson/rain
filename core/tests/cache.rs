@@ -205,7 +205,25 @@ fn unchanged_local_import() {
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(5))));
     assert_eq!(1, tester.driver.get_counter(&counter_name));
 
+    // Should cache since child.rain did not change
     let value = tester.run(&root).exec("main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(5))));
     assert_eq!(1, tester.driver.get_counter(&counter_name));
+
+    // Change child.rain
+    fs::write(
+        &child,
+        "
+        pub let x = fn() {
+            internal._inc_counter(\"foo\")
+            6
+        }
+    ",
+    )
+    .unwrap();
+
+    // Should not cache since child.rain has changed
+    let value = tester.run(&root).exec("main");
+    assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(6))));
+    assert_eq!(2, tester.driver.get_counter(&counter_name));
 }

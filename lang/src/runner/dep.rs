@@ -54,6 +54,7 @@ impl Dep {
     pub fn is_valid<FS: FSTrait>(&self, fs: &FS) -> bool {
         match self {
             Self::LocalFile(fsentry, hash) => {
+                // OPTIMISE: This is expensive to hash the file everytime
                 let file = LocalFile::new_checked(fs, fsentry.clone());
                 match file {
                     Ok(file) => file.file_hash() == hash,
