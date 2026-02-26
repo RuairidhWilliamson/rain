@@ -91,7 +91,7 @@ pub let test = fn() {
 }
 
 let clippy = fn() {
-	args = ["clippy", "--all-targets", "--", "-Dwarnings"]
+	args = ["clippy", "--all-targets", "--workspace", "--", "-Dwarnings"]
 	std.escape.run(area, cargo, args, cargo_env)
 }
 

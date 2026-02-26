@@ -39,7 +39,7 @@ impl CacheTester {
         }
     }
 
-    fn run<'a>(&'a mut self, path: impl AsRef<Path>) -> CacheTesterRun<'a> {
+    fn run(&mut self, path: impl AsRef<Path>) -> CacheTesterRun<'_> {
         let file = LocalFile::new_local(&self.driver, path.as_ref()).unwrap();
         let path = self.driver.resolve_fs_entry(file.fsinner().into());
         let src = std::fs::read_to_string(&path).unwrap();
@@ -53,7 +53,7 @@ impl CacheTester {
         let cache = Cache {
             execution_time_thresold: Duration::ZERO,
             core: Arc::new(Mutex::new(cache_core)),
-            stats: self.cache_stats.clone(),
+            stats: Arc::clone(&self.cache_stats),
         };
         let mid = ir
             .insert_module(Some(File::Local(file)), src, module)
@@ -74,7 +74,7 @@ struct CacheTesterRun<'a> {
     mid: rain_lang::ir::ModuleId,
 }
 
-impl<'a> CacheTesterRun<'a> {
+impl CacheTesterRun<'_> {
     fn exec(&mut self, declaration: &str) -> Value {
         let declaration = self
             .ir
@@ -86,7 +86,7 @@ impl<'a> CacheTesterRun<'a> {
     }
 }
 
-impl<'a> Drop for CacheTesterRun<'a> {
+impl Drop for CacheTesterRun<'_> {
     fn drop(&mut self) {
         self.tester.persist_cache = Some(PersistCache::persist(
             &self.cache.core.plock(),
