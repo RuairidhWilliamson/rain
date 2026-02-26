@@ -591,7 +591,11 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         *self.cache_hint = false;
         let f = self.expect_file(single_arg!(self))?;
         let cache_key = CacheKey::Import { file: f.clone() };
-        if let Some(v) = self.runner.cache.get_value(&cache_key, self.runner.driver) {
+        if let Some(v) = self.runner.cache.get_value(
+            &cache_key,
+            self.runner.driver,
+            &mut self.runner.local_file_hash_cache,
+        ) {
             return Ok(v);
         }
         let start = Instant::now();
@@ -1421,7 +1425,11 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         *self.cache_hint = false;
         self.no_args()?;
         let cache_key = CacheKey::Embed;
-        if let Some(v) = self.runner.cache.get_value(&cache_key, self.runner.driver) {
+        if let Some(v) = self.runner.cache.get_value(
+            &cache_key,
+            self.runner.driver,
+            &mut self.runner.local_file_hash_cache,
+        ) {
             return Ok(v);
         }
         let start = Instant::now();

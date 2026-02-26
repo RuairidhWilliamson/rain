@@ -16,10 +16,13 @@ use poison_panic::MutexExt as _;
 use rain_lang::{
     afs::{area::FileAreaRef, generated::area::GeneratedFSArea},
     driver::FSTrait,
-    runner::cache::{CacheEntry, CacheKey},
+    runner::{
+        LocalFileHashCache,
+        cache::{CacheEntry, CacheKey, CacheTrait},
+    },
 };
 
-const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1024).expect("cache size must be non zero");
+const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(10240).expect("cache size must be non zero");
 
 #[derive(Default, Clone)]
 pub struct Cache {
@@ -47,13 +50,18 @@ impl Cache {
     }
 }
 
-impl rain_lang::runner::cache::CacheTrait for Cache {
-    fn get(&self, key: &CacheKey, fs: &impl FSTrait) -> Option<CacheEntry> {
+impl CacheTrait for Cache {
+    fn get(
+        &self,
+        key: &CacheKey,
+        fs: &impl FSTrait,
+        lfhc: &mut LocalFileHashCache,
+    ) -> Option<CacheEntry> {
         let mut guard = self.core.plock();
         let res = guard.storage.get(key).cloned();
         if let Some(entry) = &res {
             for d in entry.deps.iter() {
-                if !d.is_valid(fs) {
+                if !d.is_valid(fs, lfhc) {
                     log::trace!("cache get miss because dep is not valid {key:?} {d:?}");
                     return None;
                 }

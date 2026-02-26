@@ -1,7 +1,5 @@
 use crate::{
-    afs::local::{entry::LocalFSEntry, file::LocalFile},
-    driver::FSTrait,
-    hash::FileHash,
+    afs::local::entry::LocalFSEntry, driver::FSTrait, hash::FileHash, runner::LocalFileHashCache,
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -51,16 +49,12 @@ impl Dep {
         matches!(self, Self::LocalFile(..))
     }
 
-    pub fn is_valid<FS: FSTrait>(&self, fs: &FS) -> bool {
+    pub fn is_valid<FS: FSTrait>(&self, fs: &FS, lfhc: &mut LocalFileHashCache) -> bool {
         match self {
-            Self::LocalFile(fsentry, hash) => {
-                // OPTIMISE: This is expensive to hash the file everytime
-                let file = LocalFile::new_checked(fs, fsentry.clone());
-                match file {
-                    Ok(file) => file.file_hash() == hash,
-                    Err(_) => false,
-                }
-            }
+            Self::LocalFile(fsentry, hash) => match lfhc.hash(fsentry.clone(), fs) {
+                Ok(filehash) => filehash == hash,
+                Err(_) => false,
+            },
             _ => true,
         }
     }

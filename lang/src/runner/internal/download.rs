@@ -34,7 +34,11 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 };
                 let call_description = format!("Download {url}");
                 let _call = enter_call(self.runner.driver, call_description);
-                let cache_entry = self.runner.cache.get(&cache_key, self.runner.driver);
+                let cache_entry = self.runner.cache.get(
+                    &cache_key,
+                    self.runner.driver,
+                    &mut self.runner.local_file_hash_cache,
+                );
                 if let Some(cache_entry) = &cache_entry {
                     if let Some(expires) = cache_entry.expires {
                         if expires > Utc::now() || self.runner.offline {

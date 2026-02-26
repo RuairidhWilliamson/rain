@@ -20,11 +20,16 @@ use regex::Regex;
 use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
 
 use crate::{
+    afs::{
+        error::PathError,
+        local::{entry::LocalFSEntry, file::LocalFile},
+    },
     ast::{
         AlternateCondition, BinaryOp, BinaryOperatorKind, DeclareName, FnCall, IfCondition, Node,
         NodeId, Not, SimpleLiteral, SimpleLiteralKind,
     },
-    driver::DriverTrait,
+    driver::{DriverTrait, FSTrait},
+    hash::FileHash,
     ir::{DeclarationId, Rir},
     local_span::LocalSpan,
     runner::{
@@ -45,6 +50,29 @@ pub struct Runner<'a, Driver, Cache> {
     pub offline: bool,
     pub seal: bool,
     pub max_call_depth: usize,
+    pub local_file_hash_cache: LocalFileHashCache,
+}
+
+#[derive(Default)]
+pub struct LocalFileHashCache {
+    hashes: HashMap<LocalFSEntry, FileHash>,
+}
+
+impl LocalFileHashCache {
+    pub fn hash<'a>(
+        &'a mut self,
+        fsentry: LocalFSEntry,
+        fs: &impl FSTrait,
+    ) -> Result<&'a FileHash, PathError> {
+        match self.hashes.entry(fsentry.clone()) {
+            std::collections::hash_map::Entry::Occupied(entry) => Ok(entry.into_mut()),
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                let file = LocalFile::new_checked(fs, fsentry)?;
+                let hash = file.file_hash();
+                Ok(entry.insert(hash.clone()))
+            }
+        }
+    }
 }
 
 impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
@@ -56,6 +84,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             offline: false,
             seal: false,
             max_call_depth: 250,
+            local_file_hash_cache: LocalFileHashCache::default(),
         }
     }
 
@@ -121,7 +150,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             name: declaration_name.to_owned(),
         });
         if let Some(key) = &key
-            && let Some(cache_entry) = self.cache.get(key, self.driver)
+            && let Some(cache_entry) =
+                self.cache
+                    .get(key, self.driver, &mut self.local_file_hash_cache)
         {
             cx.propagate_deps(cache_entry.deps);
             return Ok(cache_entry.value);
@@ -388,7 +419,10 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     closure: closure.clone(),
                     args: arg_values.clone(),
                 };
-                if let Some(entry) = self.cache.get(&cache_key, self.driver) {
+                if let Some(entry) =
+                    self.cache
+                        .get(&cache_key, self.driver, &mut self.local_file_hash_cache)
+                {
                     cx.propagate_deps(entry.deps);
                     return Ok(entry.value);
                 }
@@ -450,7 +484,10 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     func: *f,
                     args: arg_values.iter().map(|(_, v)| v.clone()).collect(),
                 };
-                if let Some(entry) = self.cache.get(&cache_key, self.driver) {
+                if let Some(entry) =
+                    self.cache
+                        .get(&cache_key, self.driver, &mut self.local_file_hash_cache)
+                {
                     cx.propagate_deps(entry.deps);
                     return Ok(entry.value);
                 }
