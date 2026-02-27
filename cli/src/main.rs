@@ -188,6 +188,7 @@ fn run(
     })?;
     let RunResponse {
         output: result,
+        deps,
         elapsed,
     } = run_response;
     if options.report == ReportMode::Basic {
@@ -196,6 +197,9 @@ fn run(
     match result {
         Ok(s) => {
             eprintln!("✔  Success in {elapsed:.1?}");
+            if options.deps {
+                eprintln!("Deps: {:#?}", deps.unique());
+            }
             println!("{s}");
             Ok(())
         }
@@ -297,6 +301,9 @@ struct GlobalOptions {
 
     #[arg(long, global = true)]
     config: Vec<String>,
+
+    #[arg(long, global = true)]
+    deps: bool,
 }
 
 impl GlobalOptions {

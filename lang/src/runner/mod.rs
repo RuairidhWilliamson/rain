@@ -88,10 +88,18 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         }
     }
 
-    pub fn evaluate_and_call(&mut self, id: DeclarationId, args: &[String]) -> ResultValue {
+    pub fn evaluate_and_call(
+        &mut self,
+        id: DeclarationId,
+        args: &[String],
+    ) -> (ResultValue, DepList) {
         let m = Arc::clone(self.ir.get_module(id.module_id()));
         let mut initial_cx = Cx::new(&m, 0, HashMap::new(), Vec::new());
-        let v = self.evaluate_declaration(&mut initial_cx, id)?;
+
+        let v = match self.evaluate_declaration(&mut initial_cx, id) {
+            Ok(it) => it,
+            Err(err) => return (Err(err), initial_cx.deps),
+        };
         match v {
             Value::Closure(closure) => {
                 let m = Arc::clone(self.ir.get_module(closure.module));
@@ -99,18 +107,22 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     unreachable!()
                 };
                 if closure_declare.args.len() != args.len() {
-                    return Err(closure_declare
-                        .rparen_token
-                        .span
-                        .with_module(m.id)
-                        .with_error(
-                            RunnerError::IncorrectArgs {
-                                required: closure_declare.args.len()..=closure_declare.args.len(),
-                                actual: args.len(),
-                            }
-                            .into(),
-                        )
-                        .with_trace(Vec::new()));
+                    return (
+                        Err(closure_declare
+                            .rparen_token
+                            .span
+                            .with_module(m.id)
+                            .with_error(
+                                RunnerError::IncorrectArgs {
+                                    required: closure_declare.args.len()
+                                        ..=closure_declare.args.len(),
+                                    actual: args.len(),
+                                }
+                                .into(),
+                            )
+                            .with_trace(Vec::new())),
+                        initial_cx.deps,
+                    );
                 }
                 let args = closure_declare
                     .args
@@ -124,9 +136,11 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     })
                     .collect();
                 let mut cx = Cx::new(&m, 0, args, vec![]);
-                self.evaluate_node(&mut cx, closure_declare.block)
+                let result = self.evaluate_node(&mut cx, closure_declare.block);
+                initial_cx.deps.merge(cx.deps);
+                (result, initial_cx.deps)
             }
-            _ => Ok(v),
+            _ => (Ok(v), initial_cx.deps),
         }
     }
 

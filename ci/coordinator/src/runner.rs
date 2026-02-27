@@ -65,7 +65,7 @@ impl Runner {
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, driver);
         runner.seal = self.seal;
         info!("Running");
-        let res = runner.evaluate_and_call(main, &[]);
+        let (res, _) = runner.evaluate_and_call(main, &[]);
         let new_persistent_cache =
             PersistCache::persist(&cache.core.plock(), &self.cache_stats, &ir);
         *persistent_cache = Some(new_persistent_cache);

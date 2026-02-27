@@ -82,7 +82,7 @@ impl CacheTesterRun<'_> {
             .unwrap();
         let mut runner =
             rain_lang::runner::Runner::new(&mut self.ir, &self.cache, &self.tester.driver);
-        runner.evaluate_and_call(declaration, &[]).unwrap()
+        runner.evaluate_and_call(declaration, &[]).0.unwrap()
     }
 }
 

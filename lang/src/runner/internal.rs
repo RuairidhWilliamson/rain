@@ -567,9 +567,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn get_dir(mut self) -> ResultValue {
         let entry = self.file_area_resolve_path()?;
-        if entry.as_fs_entry_ref().area().is_local() {
-            self.deps.push(Dep::LocalDir);
-        }
+        // TODO: Determine if this is correct or not
+        // if entry.as_fs_entry_ref().area().is_local() {
+        //     self.deps.push(Dep::LocalDir);
+        // }
         match self
             .runner
             .driver
@@ -940,7 +941,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         else {
             return Err(self.cx.nid_err(self.nid, RunnerError::IllegalLocalArea));
         };
-        self.deps.push(Dep::LocalDir);
+        // TODO: Determine if this dep is required or not
+        // self.deps.push(Dep::LocalDir);
         let path = expect_type!(self, String, single_arg!(self));
         let area_path = current_area_path.join(path.as_ref());
         let area_path = AbsolutePathBuf::try_from(area_path.as_path())

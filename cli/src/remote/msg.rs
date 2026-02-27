@@ -53,7 +53,7 @@ mod private {
 pub mod run {
     use std::{collections::HashMap, path::PathBuf, time::Duration};
 
-    use rain_core::CoreError;
+    use rain_core::{CoreError, rain_lang::runner::dep_list::DepList};
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunRequest {
@@ -90,6 +90,7 @@ pub mod run {
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunResponse {
         pub output: Result<String, CoreError>,
+        pub deps: DepList,
         pub elapsed: Duration,
     }
 }

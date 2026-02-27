@@ -24,7 +24,7 @@ use rain_core::{
         afs::{File, local::file::LocalFile},
         driver::FSTrait as _,
         ir::Rir,
-        runner::{Runner, cache::CacheTrait as _, value::Value},
+        runner::{Runner, cache::CacheTrait as _, dep_list::DepList, value::Value},
     },
 };
 
@@ -290,12 +290,13 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
         let mut ir = self.server.ir.plock();
         let s = Mutex::new(self);
         let start = Instant::now();
-        let result = run_inner(&req, config, cache, &s, &mut ir);
+        let (result, deps) = run_inner(&req, config, cache, &s, &mut ir);
         let s = s.pinto_inner();
         s.send_response(
             req,
             &RunResponse {
                 output: result,
+                deps,
                 elapsed: start.elapsed(),
             },
         )?;
@@ -388,7 +389,7 @@ fn run_inner<C: MsgConnection>(
     cache: &Cache,
     s: &Mutex<&mut ClientHandler<'_, C>>,
     ir: &mut Rir,
-) -> Result<String, CoreError> {
+) -> (Result<String, CoreError>, DepList) {
     let custom_config: HashMap<String, Arc<String>> = req
         .custom_config
         .iter()
@@ -425,18 +426,22 @@ fn run_inner<C: MsgConnection>(
         driver.host_triple = host_override.to_owned().into();
     }
 
-    run_core(req, cache, &driver, ir).map(|v| match v {
-        Value::Unit => String::new(),
-        Value::GeneratedDir(d) if req.resolve => driver
-            .resolve_fs_entry(d.fsinner().into())
-            .display()
-            .to_string(),
-        Value::GeneratedFile(f) if req.resolve => driver
-            .resolve_fs_entry(f.fsinner().into())
-            .display()
-            .to_string(),
-        _ => format!("{v}"),
-    })
+    let (result, deps) = run_core(req, cache, &driver, ir);
+    (
+        result.map(|v| match v {
+            Value::Unit => String::new(),
+            Value::GeneratedDir(d) if req.resolve => driver
+                .resolve_fs_entry(d.fsinner().into())
+                .display()
+                .to_string(),
+            Value::GeneratedFile(f) if req.resolve => driver
+                .resolve_fs_entry(f.fsinner().into())
+                .display()
+                .to_string(),
+            _ => format!("{v}"),
+        }),
+        deps,
+    )
 }
 
 fn run_core(
@@ -453,21 +458,34 @@ fn run_core(
     cache: &Cache,
     driver: &DriverImpl<'_>,
     ir: &mut Rir,
-) -> Result<Value, CoreError> {
+) -> (Result<Value, CoreError>, DepList) {
     let path = root;
-    let file = LocalFile::new_local(driver, path.as_ref())
-        .map_err(|err| CoreError::Other(err.to_string()))?;
+    let file = match LocalFile::new_local(driver, path.as_ref())
+        .map_err(|err| CoreError::Other(err.to_string()))
+    {
+        Ok(it) => it,
+        Err(err) => return (Err(err), DepList::default()),
+    };
     let path = driver.resolve_fs_entry(file.fsinner().into());
-    let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
+    let src = match std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))
+    {
+        Ok(it) => it,
+        Err(err) => return (Err(err), DepList::default()),
+    };
     let module = rain_core::rain_lang::ast::parser::parse_module(&src);
-    let mut mid = ir
+    let mut mid = match ir
         .insert_module(Some(File::Local(file)), src, module)
-        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(ir).into_owned())))?;
+        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(ir).into_owned())))
+    {
+        Ok(it) => it,
+        Err(err) => return (Err(err), DepList::default()),
+    };
     let mut runner = Runner::new(ir, cache, driver);
     runner.offline = *offline;
     runner.seal = *seal;
     let declarations = target.split('.');
     let mut value: Option<Value> = None;
+    let mut deps = DepList::default();
     for declaration in declarations {
         if let Some(v) = value {
             if let Value::Module(deeper_mid) = v {
@@ -493,13 +511,23 @@ fn run_core(
                     .map(std::borrow::ToOwned::to_owned)
                     .collect();
             }
-            return Err(CoreError::UnknownDeclaration(declarations));
+            return (
+                Err(CoreError::UnknownDeclaration(declarations)),
+                DepList::default(),
+            );
         };
-        value = Some(runner.evaluate_and_call(main, args).map_err(|err| {
-            CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned()))
-        })?);
+        let (result, new_deps) = runner.evaluate_and_call(main, args);
+        deps.merge(new_deps);
+        value = Some(
+            match result.map_err(|err| {
+                CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned()))
+            }) {
+                Ok(it) => it,
+                Err(err) => return (Err(err), DepList::default()),
+            },
+        );
     }
-    Ok(value.unwrap())
+    (Ok(value.unwrap()), deps)
 }
 
 fn remove_recursive(path: &Path) -> std::io::Result<u64> {

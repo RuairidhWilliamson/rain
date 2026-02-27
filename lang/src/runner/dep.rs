@@ -2,7 +2,7 @@ use crate::{
     afs::local::entry::LocalFSEntry, driver::FSTrait, hash::FileHash, runner::LocalFileHashCache,
 };
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Dep {
     /// Marks any calls that depend on this to be uncacheable
     Uncacheable,
