@@ -21,10 +21,9 @@ use rain_core::{
     config::Config,
     driver::DriverImpl,
     rain_lang::{
-        afs::{File, local::file::LocalFile},
         driver::FSTrait as _,
         ir::Rir,
-        runner::{Runner, cache::CacheTrait as _, dep_list::DepList, value::Value},
+        runner::{cache::CacheTrait as _, dep_list::DepList, value::Value},
     },
 };
 
@@ -459,75 +458,16 @@ fn run_core(
     driver: &DriverImpl<'_>,
     ir: &mut Rir,
 ) -> (Result<Value, CoreError>, DepList) {
-    let path = root;
-    let file = match LocalFile::new_local(driver, path.as_ref())
-        .map_err(|err| CoreError::Other(err.to_string()))
-    {
-        Ok(it) => it,
-        Err(err) => return (Err(err), DepList::default()),
-    };
-    let path = driver.resolve_fs_entry(file.fsinner().into());
-    let src = match std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))
-    {
-        Ok(it) => it,
-        Err(err) => return (Err(err), DepList::default()),
-    };
-    let module = rain_core::rain_lang::ast::parser::parse_module(&src);
-    let mut mid = match ir
-        .insert_module(Some(File::Local(file)), src, module)
-        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(ir).into_owned())))
-    {
-        Ok(it) => it,
-        Err(err) => return (Err(err), DepList::default()),
-    };
-    let mut runner = Runner::new(ir, cache, driver);
+    let mut runner = rain_core::new_runner(ir, cache, driver);
     runner.offline = *offline;
     runner.seal = *seal;
-    let declarations = target.split('.');
-    let mut value: Option<Value> = None;
-    let mut deps = DepList::default();
-    for declaration in declarations {
-        if let Some(v) = value {
-            if let Value::Module(deeper_mid) = v {
-                mid = deeper_mid;
-            } else {
-                panic!("not a module");
-            }
-        }
-        let Some(main) = runner.ir.resolve_global_declaration(mid, declaration) else {
-            const SUGGESTION_LIMIT: usize = 20;
-            let mut declarations: Vec<String> = ir
-                .get_module(mid)
-                .list_pub_declaration_names()
-                .take(SUGGESTION_LIMIT)
-                .map(std::borrow::ToOwned::to_owned)
-                .collect();
-            if declarations.is_empty() {
-                // If there are no pub fns fallback to private fns
-                declarations = ir
-                    .get_module(mid)
-                    .list_declaration_names()
-                    .take(SUGGESTION_LIMIT)
-                    .map(std::borrow::ToOwned::to_owned)
-                    .collect();
-            }
-            return (
-                Err(CoreError::UnknownDeclaration(declarations)),
-                DepList::default(),
-            );
-        };
-        let (result, new_deps) = runner.evaluate_and_call(main, args);
-        deps.merge(new_deps);
-        value = Some(
-            match result.map_err(|err| {
-                CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned()))
-            }) {
-                Ok(it) => it,
-                Err(err) => return (Err(err), DepList::default()),
-            },
-        );
-    }
-    (Ok(value.unwrap()), deps)
+    let mid = match rain_core::insert_local_module(&mut runner, root) {
+        Ok(mid) => mid,
+        Err(_) => todo!(),
+    };
+    let mut deps = DepList::new();
+    let result = rain_core::evaluate_and_call_chain(&mut runner, mid, &mut deps, target, args);
+    (result, deps)
 }
 
 fn remove_recursive(path: &Path) -> std::io::Result<u64> {

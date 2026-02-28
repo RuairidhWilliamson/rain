@@ -40,8 +40,8 @@ pub enum Error {
     Encode(ciborium::ser::Error<std::io::Error>),
     #[error("decode error: {0}")]
     Decode(ciborium::de::Error<std::io::Error>),
-    #[error("server panic see log: {0}")]
-    ServerPanic(PathBuf),
+    #[error("server panic see log: {0:?}")]
+    ServerPanic(Option<PathBuf>),
 }
 
 impl From<std::io::Error> for Error {
@@ -124,9 +124,11 @@ where
                             match std::fs::hard_link(config.server_stderr_path(), &panic_path) {
                                 Err(err) => {
                                     log::error!("failed to hardlink panic: {err}");
-                                    return Err(Error::ServerPanic(config.server_stderr_path()));
+                                    return Err(Error::ServerPanic(Some(
+                                        config.server_stderr_path(),
+                                    )));
                                 }
-                                Ok(()) => return Err(Error::ServerPanic(panic_path)),
+                                Ok(()) => return Err(Error::ServerPanic(Some(panic_path))),
                             }
                         }
                         ServerMessage::RestartPls(reason) => {
@@ -177,7 +179,10 @@ where
             loop {
                 let msg = rx.recv();
                 match msg {
-                    Ok(ServerMessage::ServerPanic) => todo!(),
+                    Ok(ServerMessage::ServerPanic) => {
+                        log::error!("server panicked");
+                        return Err(Error::ServerPanic(None));
+                    }
                     Ok(ServerMessage::RestartPls(_restart_reason)) => todo!(),
                     Ok(ServerMessage::Intermediate(im)) => {
                         let im: <Req as RequestTrait>::Intermediate =

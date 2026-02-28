@@ -15,9 +15,12 @@ use rain_lang::{
     afs::{File, local::file::LocalFile},
     driver::FSTrait as _,
     error::OwnedResolvedError,
-    runner::value::Value,
+    ir::ModuleId,
+    runner::{cx::Cx, dep_list::DepList, value::Value},
 };
 use serde::{Deserialize, Serialize};
+
+type Runner<'a> = rain_lang::runner::Runner<'a, DriverImpl<'a>, cache::Cache>;
 
 #[expect(clippy::result_unit_err, clippy::print_stderr)]
 pub fn run_stderr(path: impl AsRef<Path>, declaration: &str) -> Result<Value, ()> {
@@ -30,7 +33,7 @@ pub fn run_stderr(path: impl AsRef<Path>, declaration: &str) -> Result<Value, ()
 
 pub fn run(
     path: impl AsRef<Path>,
-    declaration: &str,
+    target: &str,
     cache: &cache::Cache,
     driver: &DriverImpl,
 ) -> Result<Value, CoreError> {
@@ -43,20 +46,134 @@ pub fn run(
     let mid = ir
         .insert_module(Some(File::Local(file)), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&ir).into_owned())))?;
-    let main = ir
-        .resolve_global_declaration(mid, declaration)
+    let declaration = ir
+        .resolve_global_declaration(mid, target)
         .ok_or_else(|| CoreError::Other(String::from("declaration does not exist")))?;
     let mut runner = rain_lang::runner::Runner::new(&mut ir, cache, driver);
-    let (result, _deps) = runner.evaluate_and_call(main, &[]);
+    let (result, _deps) = runner.evaluate_and_call(declaration, &[]);
     let value = result
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;
     Ok(value)
 }
 
+pub fn new_runner<'a>(
+    ir: &'a mut rain_lang::ir::Rir,
+    cache: &'a cache::Cache,
+    driver: &'a DriverImpl<'a>,
+) -> Runner<'a> {
+    rain_lang::runner::Runner::new(ir, cache, driver)
+}
+
+pub fn insert_local_module(
+    runner: &mut Runner,
+    path: impl AsRef<Path>,
+) -> Result<ModuleId, CoreError> {
+    let file = LocalFile::new_local(runner.driver, path.as_ref())
+        .map_err(|err| CoreError::Other(err.to_string()))?;
+    let path = runner.driver.resolve_fs_entry(file.fsinner().into());
+    let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
+    let module = rain_lang::ast::parser::parse_module(&src);
+    let mid = runner
+        .ir
+        .insert_module(Some(File::Local(file)), src, module)
+        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&runner.ir).into_owned())))?;
+    Ok(mid)
+}
+
+pub fn evaluate_and_call_chain<'a>(
+    runner: &mut Runner,
+    mut mid: ModuleId,
+    deps: &mut DepList,
+    targets: &str,
+    args: &[String],
+) -> Result<Value, CoreError> {
+    let initial_module = Arc::clone(runner.ir.get_module(mid));
+    let mut cx = Cx::new(&initial_module, 0, HashMap::new(), Vec::new());
+    let mut v = None;
+    let target_chain: Vec<_> = targets.split('.').collect();
+    for (i, &target) in target_chain.iter().enumerate() {
+        let Some(declaration) = runner.ir.resolve_global_declaration(mid, target) else {
+            let suggestions = suggest_globals(runner, mid);
+            let mut prefix = String::new();
+            if i > 0 {
+                prefix = target_chain[..i].join(".") + ".";
+            }
+            return Err(CoreError::UnknownDeclaration {
+                prefix,
+                unknown: target.to_owned(),
+                suggestions,
+            });
+        };
+        let m = Arc::clone(runner.ir.get_module(mid));
+        let mut initial_cx = Cx::new(&m, 0, HashMap::new(), Vec::new());
+
+        v = Some(
+            runner
+                .evaluate_declaration(&mut initial_cx, declaration)
+                .map_err(|err| {
+                    CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned()))
+                })?,
+        );
+        deps.merge(initial_cx.deps);
+        match v {
+            Some(Value::Module(deeper_mid)) => {
+                mid = deeper_mid;
+            }
+            _ => {
+                break;
+            }
+        }
+    }
+    match v {
+        Some(Value::Closure(closure)) => {
+            let args: Vec<Value> = args
+                .iter()
+                .map(|v| Value::String(Arc::new(v.clone())))
+                .collect();
+            let result = runner.call_closure(&mut cx, &closure, args).map_err(|err| {
+                CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned()))
+            });
+            deps.merge(cx.deps);
+            result
+        }
+        Some(v) => Ok(v),
+        None => todo!(),
+    }
+}
+
+fn suggest_globals(
+    runner: &mut rain_lang::runner::Runner<'_, DriverImpl<'_>, cache::Cache>,
+    mid: ModuleId,
+) -> Vec<String> {
+    const SUGGESTION_LIMIT: usize = 20;
+    let mut suggestions: Vec<String> = runner
+        .ir
+        .get_module(mid)
+        .list_pub_declaration_names()
+        .take(SUGGESTION_LIMIT)
+        .map(std::borrow::ToOwned::to_owned)
+        .collect();
+    if suggestions.is_empty() {
+        // If there are no pub fns fallback to private fns
+        suggestions = runner
+            .ir
+            .get_module(mid)
+            .list_declaration_names()
+            .take(SUGGESTION_LIMIT)
+            .map(std::borrow::ToOwned::to_owned)
+            .collect();
+    }
+    suggestions
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CoreError {
     LangError(Box<OwnedResolvedError>),
-    UnknownDeclaration(Vec<String>),
+    UnknownDeclaration {
+        prefix: String,
+        unknown: String,
+        suggestions: Vec<String>,
+    },
     Other(String),
 }
 
@@ -64,8 +181,12 @@ impl std::fmt::Display for CoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::LangError(owned_resolved_error) => owned_resolved_error.fmt(f),
-            Self::UnknownDeclaration(suggestions) => f.write_fmt(format_args!(
-                "unknown declaration, try one of {suggestions:?}"
+            Self::UnknownDeclaration {
+                prefix,
+                unknown,
+                suggestions,
+            } => f.write_fmt(format_args!(
+                "unknown declaration {unknown} after {prefix}, try one of {suggestions:?}"
             )),
             Self::Other(s) => std::fmt::Display::fmt(&s, f),
         }

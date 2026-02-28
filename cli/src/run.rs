@@ -7,7 +7,7 @@ use crate::remote::{
     msg::run::{RunProgress, RunRequest, RunResponse},
 };
 use rain_core::{CoreError, config::Config};
-use termcolor::{Color, ColorSpec, WriteColor as _};
+use termcolor::WriteColor as _;
 
 pub fn run(
     config: &Config,
@@ -16,7 +16,6 @@ pub fn run(
     options: &crate::GlobalOptions,
     mode: ClientMode,
 ) -> Result<(), ()> {
-    let mut color_stderr = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
     let custom_config = options.parse_config()?;
     let root = options.resolve_entrypoint()?;
     let mut stack = Vec::new();
@@ -74,6 +73,15 @@ pub fn run(
     .map_err(|err| {
         eprintln!("{err}");
     })?;
+    handle_run_response(target, options, run_response)
+}
+
+fn handle_run_response(
+    target: &str,
+    options: &crate::GlobalOptions,
+    run_response: RunResponse,
+) -> Result<(), ()> {
+    let mut color_stderr = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
     let RunResponse {
         output: result,
         mut deps,
@@ -89,20 +97,8 @@ pub fn run(
                 deps.sort_and_unique();
                 eprintln!("{} Deps:", deps.len());
                 for d in deps {
-                    if d.is_inter_run_stable() {
-                        color_stderr
-                            .set_color(ColorSpec::new().set_fg(Some(Color::White)))
-                            .unwrap();
-                    } else if d.is_intra_run_stable() {
-                        color_stderr
-                            .set_color(ColorSpec::new().set_fg(Some(Color::Magenta)))
-                            .unwrap();
-                    } else {
-                        color_stderr
-                            .set_color(ColorSpec::new().set_fg(Some(Color::Red)))
-                            .unwrap();
-                    }
-                    writeln!(color_stderr, "  {d}").unwrap();
+                    d.write_color(&mut color_stderr).expect("write stderr");
+                    eprintln!();
                 }
                 color_stderr.reset().unwrap();
             }
@@ -115,15 +111,21 @@ pub fn run(
                 CoreError::LangError(owned_resolved_error) => {
                     owned_resolved_error
                         .write_color(&mut color_stderr)
-                        .expect("write stdout");
+                        .expect("write stderr");
                 }
-                CoreError::UnknownDeclaration(suggestions) => {
+                CoreError::UnknownDeclaration {
+                    prefix,
+                    unknown,
+                    suggestions,
+                } => {
                     let suggestions: String =
                         suggestions.into_iter().fold(String::new(), |mut acc, s| {
                             let _ = writeln!(acc, "\t{s}");
                             acc
                         });
-                    eprintln!("unknown declaration \"{target}\", try one of:\n{suggestions}");
+                    eprintln!(
+                        "unknown declaration {unknown} in {target:?}, try one of:\n{prefix}\n{suggestions}"
+                    );
                 }
                 CoreError::Other(s) => {
                     eprintln!("{s}");

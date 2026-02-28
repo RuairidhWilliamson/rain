@@ -88,6 +88,42 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         }
     }
 
+    pub fn call_closure(
+        &mut self,
+        cx: &mut Cx,
+        closure: &Closure,
+        args: Vec<Value>,
+    ) -> ResultValue {
+        let m = Arc::clone(self.ir.get_module(closure.module));
+        let Node::Closure(closure_declare) = m.get(closure.node) else {
+            unreachable!()
+        };
+        if closure_declare.args.len() != args.len() {
+            return Err(closure_declare
+                .rparen_token
+                .span
+                .with_module(m.id)
+                .with_error(
+                    RunnerError::IncorrectArgs {
+                        required: closure_declare.args.len()..=closure_declare.args.len(),
+                        actual: args.len(),
+                    }
+                    .into(),
+                )
+                .with_trace(Vec::new()));
+        }
+        let args = closure_declare
+            .args
+            .iter()
+            .zip(args)
+            .map(|(a, v)| (a.name.span.contents(&m.src), v))
+            .collect();
+        let mut callee_cx = cx.callee_no_ste(&m, args, &closure.captures);
+        let result = self.evaluate_node(&mut callee_cx, closure_declare.block);
+        cx.propagate_deps(callee_cx.deps);
+        result
+    }
+
     pub fn evaluate_and_call(
         &mut self,
         id: DeclarationId,

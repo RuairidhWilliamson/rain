@@ -71,6 +71,20 @@ impl<'a> Cx<'a> {
         callee
     }
 
+    #[must_use]
+    pub fn callee_no_ste(
+        &self,
+        module: &'a Arc<IrModule>,
+        args: HashMap<&'a str, Value>,
+        captures: &Arc<HashMap<String, Value>>,
+    ) -> Self {
+        let st = self.stacktrace.clone();
+        let mut callee = Cx::new(module, self.call_depth + 1, args, st);
+        callee.captures.clone_from(&self.captures);
+        callee.captures.push(Arc::clone(captures));
+        callee
+    }
+
     pub fn propagate_deps(&mut self, callee_deps: DepList) {
         self.deps.extend(
             callee_deps

@@ -119,4 +119,6 @@ pub enum RunnerError {
     FromUtf8Error(#[from] FromUtf8Error),
     #[error("declaration is private")]
     PrivateDeclaration,
+    #[error("unknown declaration, try one of {0:?}")]
+    UnknownDeclaration(Vec<String>),
 }

@@ -1,3 +1,5 @@
+use termcolor::WriteColor;
+
 use crate::{
     afs::local::entry::LocalFSEntry, driver::FSTrait, hash::FileHash, runner::LocalFileHashCache,
 };
@@ -60,23 +62,37 @@ impl Dep {
             _ => true,
         }
     }
-}
 
-impl std::fmt::Display for Dep {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    pub fn write_color(&self, writer: &mut impl WriteColor) -> std::io::Result<()> {
+        use termcolor::{Color, ColorSpec};
+
+        let mut color = ColorSpec::new();
+        if self.is_inter_run_stable() {
+            color.set_fg(Some(Color::White));
+        } else if self.is_intra_run_stable() {
+            color.set_fg(Some(Color::Magenta));
+        } else {
+            color.set_fg(Some(Color::Red));
+        };
+        writer.set_color(&color)?;
         match self {
-            Dep::Uncacheable => f.write_str("Uncacheable"),
-            Dep::Escape => f.write_str("Escape"),
-            Dep::Secret => f.write_str("Secret"),
-            Dep::CallingModule => f.write_str("CallingModule"),
-            Dep::Print => f.write_str("Print"),
-            Dep::EnvVar => f.write_str("EnvVar"),
-            Dep::Config => f.write_str("Config"),
-            Dep::Counter => f.write_str("Counter"),
-            Dep::LocalDir => f.write_str("LocalDir"),
-            Dep::LocalFile(local_fsentry, file_hash) => {
-                f.write_fmt(format_args!("LocalFile({local_fsentry}, {file_hash})"))
+            Self::Uncacheable => write!(writer, "Uncacheable")?,
+            Self::Escape => write!(writer, "Escape")?,
+            Self::Secret => write!(writer, "Secret")?,
+            Self::CallingModule => write!(writer, "CallingModule")?,
+            Self::Print => write!(writer, "Print")?,
+            Self::EnvVar => write!(writer, "EnvVar")?,
+            Self::Config => write!(writer, "Config")?,
+            Self::Counter => write!(writer, "Counter")?,
+            Self::LocalDir => write!(writer, "LocalDir")?,
+            Self::LocalFile(local_fsentry, file_hash) => {
+                write!(writer, "LocalFile(")?;
+                local_fsentry.write_color(writer)?;
+                writer.set_color(&color)?;
+                write!(writer, ", {file_hash})")?
             }
         }
+        writer.reset()?;
+        Ok(())
     }
 }
