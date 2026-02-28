@@ -40,16 +40,13 @@ impl Dep {
 
     pub fn is_intra_run_stable(&self) -> bool {
         match self {
-            Self::Uncacheable
-            | Self::CallingModule
-            | Self::Print
-            | Self::Counter
-            | Self::Download => false,
+            Self::Uncacheable | Self::CallingModule | Self::Print | Self::Counter => false,
             Self::LocalDir
             | Self::Escape
             | Self::Secret
             | Self::EnvVar
             | Self::Config
+            | Self::Download
             | Self::LocalFile(..) => true,
         }
     }
