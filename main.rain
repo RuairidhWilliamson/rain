@@ -30,6 +30,7 @@ let ci = fn() {
 	tree_sitter_rain.build()
 	lint()
 	clippy()
+	fmt_check()
 	// sqlx not installed in CI
 	// check_sqlx_prepared()
 	test()
@@ -92,6 +93,11 @@ pub let test = fn() {
 
 let clippy = fn() {
 	args = ["clippy", "--all-targets", "--workspace", "--", "-Dwarnings"]
+	std.escape.run(area, cargo, args, cargo_env)
+}
+
+let fmt_check = fn() {
+	args = ["fmt", "--all", "--check"]
 	std.escape.run(area, cargo, args, cargo_env)
 }
 

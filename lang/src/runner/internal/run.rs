@@ -45,6 +45,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     ))?,
                 };
                 let bin = self.expect_file_path((*file_nid, file_value))?;
+                self.deps.add_based_on_value(args_value);
                 let Value::List(args) = args_value else {
                     return Err(self.cx.nid_err(
                         *args_nid,
@@ -119,6 +120,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             ] => {
                 let dir = self.expect_dir_or_area((*area_nid, area_value))?;
                 let bin = self.expect_file_path((*file_nid, file_value))?;
+                self.deps.add_based_on_value(args_value);
                 let Value::List(args) = args_value else {
                     return Err(self.cx.nid_err(
                         *args_nid,

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::runner::dep::Dep;
+use crate::runner::{dep::Dep, value::Value};
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct DepList {
@@ -43,6 +43,34 @@ impl DepList {
     pub fn sort_and_unique(&mut self) {
         self.inner.sort();
         self.inner.dedup();
+    }
+
+    pub fn add_based_on_value(&mut self, value: &Value) {
+        match value {
+            Value::Unit
+            | Value::Boolean(_)
+            | Value::Integer(_)
+            | Value::String(_)
+            | Value::Module(_)
+            | Value::GeneratedFSArea(_)
+            | Value::GeneratedFile(_)
+            | Value::GeneratedDir(_)
+            | Value::Type(_)
+            | Value::Internal
+            | Value::Closure(_)
+            | Value::InternalFunction(_) => {}
+            Value::LocalFSArea(_) | Value::LocalDir(_) => self.push(Dep::LocalDir),
+            Value::LocalFile(local_file) => self.push(Dep::LocalFile(
+                local_file.fsinner().clone(),
+                local_file.file_hash().clone(),
+            )),
+            Value::EscapeFile(_) => self.push(Dep::Escape),
+            Value::List(list) => list.0.iter().for_each(|v| self.add_based_on_value(v)),
+            Value::Record(record) => record
+                .0
+                .iter()
+                .for_each(|(_, v)| self.add_based_on_value(v)),
+        }
     }
 }
 
