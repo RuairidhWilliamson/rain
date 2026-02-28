@@ -5,6 +5,7 @@ use indexmap::IndexMap;
 
 use crate::driver::{DownloadStatus, DriverTrait};
 use crate::runner::cache::CacheTrait;
+use crate::runner::dep::Dep;
 use crate::runner::dep_list::DepList;
 use crate::runner::{
     ResultValue,
@@ -17,6 +18,7 @@ use super::{InternalCx, enter_call};
 
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
     pub fn download(self) -> ResultValue {
+        self.deps.push(Dep::Download);
         match &self.arg_values[..] {
             [(url_nid, url_value)] => {
                 let start = Instant::now();

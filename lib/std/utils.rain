@@ -30,6 +30,8 @@ pub let download_with_sha256 = fn(url: String, sha256: String) -> File {
 	if actual_sha256 != sha256 {
 		internal._throw("bad sha256 " + actual_sha256)
 	}
+	// Because we have checked the sha256 we can safely ignore the Download dep
+	std.cache.unsafe_clear_deps()
 	download_result.file
 }
 

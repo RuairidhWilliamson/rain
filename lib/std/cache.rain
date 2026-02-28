@@ -1,0 +1,7 @@
+let std = import("std.rain")
+
+// Use with caution
+pub let unsafe_clear_deps = internal._clear_calling_cache_deps
+
+// Adds a never cache marker to this function
+pub let never = internal._set_cache_never

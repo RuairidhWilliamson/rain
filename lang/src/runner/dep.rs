@@ -30,6 +30,7 @@ pub enum Dep {
     LocalDir,
     /// Marks any calls that depend on this to be uncacheable
     Uncacheable,
+    Download,
 }
 
 impl Dep {
@@ -39,7 +40,11 @@ impl Dep {
 
     pub fn is_intra_run_stable(&self) -> bool {
         match self {
-            Self::Uncacheable | Self::CallingModule | Self::Print | Self::Counter => false,
+            Self::Uncacheable
+            | Self::CallingModule
+            | Self::Print
+            | Self::Counter
+            | Self::Download => false,
             Self::LocalDir
             | Self::Escape
             | Self::Secret
@@ -85,6 +90,7 @@ impl Dep {
             Self::Config => write!(writer, "Config")?,
             Self::Counter => write!(writer, "Counter")?,
             Self::LocalDir => write!(writer, "LocalDir")?,
+            Self::Download => write!(writer, "Download")?,
             Self::LocalFile(local_fsentry, file_hash) => {
                 write!(writer, "LocalFile(")?;
                 local_fsentry.write_color(writer)?;

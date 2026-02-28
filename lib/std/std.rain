@@ -1,4 +1,5 @@
 pub let build = import("build.rain")
+pub let cache = import("cache.rain")
 pub let escape = import("escape.rain")
 pub let utils = import("utils.rain")
 pub let assert = import("assert.rain")
