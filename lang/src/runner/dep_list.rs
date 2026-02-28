@@ -16,6 +16,10 @@ impl DepList {
         self.inner.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
     pub fn push(&mut self, dep: Dep) {
         self.inner.push(dep);
     }

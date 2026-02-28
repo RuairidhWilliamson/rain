@@ -73,7 +73,7 @@ impl Dep {
             color.set_fg(Some(Color::Magenta));
         } else {
             color.set_fg(Some(Color::Red));
-        };
+        }
         writer.set_color(&color)?;
         match self {
             Self::Uncacheable => write!(writer, "Uncacheable")?,
@@ -89,7 +89,7 @@ impl Dep {
                 write!(writer, "LocalFile(")?;
                 local_fsentry.write_color(writer)?;
                 writer.set_color(&color)?;
-                write!(writer, ", {file_hash})")?
+                write!(writer, ", {file_hash})")?;
             }
         }
         writer.reset()?;

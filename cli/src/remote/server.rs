@@ -461,11 +461,11 @@ fn run_core(
     let mut runner = rain_core::new_runner(ir, cache, driver);
     runner.offline = *offline;
     runner.seal = *seal;
+    let mut deps = DepList::new();
     let mid = match rain_core::insert_local_module(&mut runner, root) {
         Ok(mid) => mid,
-        Err(_) => todo!(),
+        Err(err) => return (Err(err), deps),
     };
-    let mut deps = DepList::new();
     let result = rain_core::evaluate_and_call_chain(&mut runner, mid, &mut deps, target, args);
     (result, deps)
 }

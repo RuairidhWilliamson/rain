@@ -100,7 +100,7 @@ fn handle_run_response(
                     d.write_color(&mut color_stderr).expect("write stderr");
                     eprintln!();
                 }
-                color_stderr.reset().unwrap();
+                color_stderr.reset().expect("write stderr");
             }
             println!("{s}");
             Ok(())

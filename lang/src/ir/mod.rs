@@ -18,6 +18,26 @@ impl Rir {
         Self::default()
     }
 
+    pub fn suggest_declarations(&self, mid: ModuleId) -> Vec<&str> {
+        const SUGGESTION_LIMIT: usize = 20;
+        let module = self.get_module(mid);
+        let mut suggestions: Vec<&str> = module
+            .declarations()
+            .filter(|declare| declare.pub_token.is_some())
+            .flat_map(|declare| declare.assignment.names(&module.src))
+            .take(SUGGESTION_LIMIT)
+            .collect();
+        if suggestions.is_empty() {
+            // If there are no pub fns fallback to private fns
+            suggestions = module
+                .declarations()
+                .flat_map(|declare| declare.assignment.names(&module.src))
+                .take(SUGGESTION_LIMIT)
+                .collect();
+        }
+        suggestions
+    }
+
     pub fn insert_module(
         &mut self,
         file: Option<File>,
@@ -135,17 +155,8 @@ impl IrModule {
             })
     }
 
-    pub fn list_declaration_names(&self) -> impl Iterator<Item = &str> {
-        self.inner()
-            .declarations()
-            .flat_map(|let_declare| let_declare.assignment.names(&self.src))
-    }
-
-    pub fn list_pub_declaration_names(&self) -> impl Iterator<Item = &str> {
-        self.inner()
-            .declarations()
-            .filter(|let_declare| let_declare.pub_token.is_some())
-            .flat_map(|let_declare| let_declare.assignment.names(&self.src))
+    pub fn declarations(&self) -> impl Iterator<Item = &Declare> {
+        self.inner().declarations()
     }
 }
 

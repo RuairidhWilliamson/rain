@@ -551,12 +551,12 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             FSEntryQueryResult::File => {
                 let file = File::new_checked(self.runner.driver, entry)
                     .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
-                if let File::Local(file) = &file {
-                    self.deps.push(Dep::LocalFile(
-                        file.fsinner().clone(),
-                        file.file_hash().clone(),
-                    ));
-                }
+                // if let File::Local(file) = &file {
+                //     self.deps.push(Dep::LocalFile(
+                //         file.fsinner().clone(),
+                //         file.file_hash().clone(),
+                //     ));
+                // }
                 Ok(file.to_value())
             }
             result => Err(self

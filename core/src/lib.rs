@@ -76,11 +76,11 @@ pub fn insert_local_module(
     let mid = runner
         .ir
         .insert_module(Some(File::Local(file)), src, module)
-        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&runner.ir).into_owned())))?;
+        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;
     Ok(mid)
 }
 
-pub fn evaluate_and_call_chain<'a>(
+pub fn evaluate_and_call_chain(
     runner: &mut Runner,
     mut mid: ModuleId,
     deps: &mut DepList,
@@ -93,7 +93,12 @@ pub fn evaluate_and_call_chain<'a>(
     let target_chain: Vec<_> = targets.split('.').collect();
     for (i, &target) in target_chain.iter().enumerate() {
         let Some(declaration) = runner.ir.resolve_global_declaration(mid, target) else {
-            let suggestions = suggest_globals(runner, mid);
+            let suggestions: Vec<String> = runner
+                .ir
+                .suggest_declarations(mid)
+                .into_iter()
+                .map(std::borrow::ToOwned::to_owned)
+                .collect();
             let mut prefix = String::new();
             if i > 0 {
                 prefix = target_chain[..i].join(".") + ".";
@@ -139,31 +144,6 @@ pub fn evaluate_and_call_chain<'a>(
         Some(v) => Ok(v),
         None => todo!(),
     }
-}
-
-fn suggest_globals(
-    runner: &mut rain_lang::runner::Runner<'_, DriverImpl<'_>, cache::Cache>,
-    mid: ModuleId,
-) -> Vec<String> {
-    const SUGGESTION_LIMIT: usize = 20;
-    let mut suggestions: Vec<String> = runner
-        .ir
-        .get_module(mid)
-        .list_pub_declaration_names()
-        .take(SUGGESTION_LIMIT)
-        .map(std::borrow::ToOwned::to_owned)
-        .collect();
-    if suggestions.is_empty() {
-        // If there are no pub fns fallback to private fns
-        suggestions = runner
-            .ir
-            .get_module(mid)
-            .list_declaration_names()
-            .take(SUGGESTION_LIMIT)
-            .map(std::borrow::ToOwned::to_owned)
-            .collect();
-    }
-    suggestions
 }
 
 #[derive(Debug, Serialize, Deserialize)]
