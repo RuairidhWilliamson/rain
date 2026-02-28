@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct AbsolutePathBuf(pub PathBuf);
 
 impl TryFrom<&Path> for AbsolutePathBuf {

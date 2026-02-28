@@ -12,6 +12,10 @@ impl DepList {
         Self { inner: Vec::new() }
     }
 
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
     pub fn push(&mut self, dep: Dep) {
         self.inner.push(dep);
     }
@@ -34,6 +38,11 @@ impl DepList {
 
     pub fn unique(&self) -> HashSet<Dep> {
         self.iter().cloned().collect()
+    }
+
+    pub fn sort_and_unique(&mut self) {
+        self.inner.sort();
+        self.inner.dedup();
     }
 }
 

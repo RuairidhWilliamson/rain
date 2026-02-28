@@ -4,7 +4,9 @@ use super::error::PathError;
 ///
 /// Must start with /
 /// Path segments are separated by /
-#[derive(Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Hash, PartialOrd, Ord, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub struct SealedFilePath(String);
 
 impl SealedFilePath {

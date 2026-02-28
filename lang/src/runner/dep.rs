@@ -2,10 +2,12 @@ use crate::{
     afs::local::entry::LocalFSEntry, driver::FSTrait, hash::FileHash, runner::LocalFileHashCache,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum Dep {
-    /// Marks any calls that depend on this to be uncacheable
-    Uncacheable,
+    /// Depends on a local file, if the file is not present with the same hash the cache entry is not valid
+    LocalFile(LocalFSEntry, FileHash),
     /// Marks any calls that depend on this to depend on the escaped environment
     Escape,
     /// Marks any calls that depend on this to depend on the secret
@@ -24,8 +26,8 @@ pub enum Dep {
     /// Marks any calls that depend on this to depend on a local directory
     // TODO: Specify the local area/dir
     LocalDir,
-    /// Depends on a local file, if the file is not present with the same hash the cache entry is not valid
-    LocalFile(LocalFSEntry, FileHash),
+    /// Marks any calls that depend on this to be uncacheable
+    Uncacheable,
 }
 
 impl Dep {
@@ -56,6 +58,25 @@ impl Dep {
                 Err(_) => false,
             },
             _ => true,
+        }
+    }
+}
+
+impl std::fmt::Display for Dep {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Dep::Uncacheable => f.write_str("Uncacheable"),
+            Dep::Escape => f.write_str("Escape"),
+            Dep::Secret => f.write_str("Secret"),
+            Dep::CallingModule => f.write_str("CallingModule"),
+            Dep::Print => f.write_str("Print"),
+            Dep::EnvVar => f.write_str("EnvVar"),
+            Dep::Config => f.write_str("Config"),
+            Dep::Counter => f.write_str("Counter"),
+            Dep::LocalDir => f.write_str("LocalDir"),
+            Dep::LocalFile(local_fsentry, file_hash) => {
+                f.write_fmt(format_args!("LocalFile({local_fsentry}, {file_hash})"))
+            }
         }
     }
 }

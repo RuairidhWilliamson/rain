@@ -27,6 +27,7 @@ use remote::{
         shutdown::ShutdownRequest,
     },
 };
+use termcolor::{Color, ColorSpec, WriteColor as _};
 
 fn main() -> ExitCode {
     if fallible_main().is_ok() {
@@ -129,6 +130,7 @@ fn run(
     options: &GlobalOptions,
     mode: ClientMode,
 ) -> Result<(), ()> {
+    let mut color_stderr = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
     let custom_config = options.parse_config()?;
     let root = options.resolve_entrypoint()?;
     let mut stack = Vec::new();
@@ -188,7 +190,7 @@ fn run(
     })?;
     let RunResponse {
         output: result,
-        deps,
+        mut deps,
         elapsed,
     } = run_response;
     if options.report == ReportMode::Basic {
@@ -198,7 +200,24 @@ fn run(
         Ok(s) => {
             eprintln!("✔  Success in {elapsed:.1?}");
             if options.deps {
-                eprintln!("Deps: {:#?}", deps.unique());
+                deps.sort_and_unique();
+                eprintln!("{} Deps:", deps.len());
+                for d in deps {
+                    if d.is_inter_run_stable() {
+                        color_stderr
+                            .set_color(ColorSpec::new().set_fg(Some(Color::White)))
+                            .unwrap();
+                    } else if d.is_intra_run_stable() {
+                        color_stderr
+                            .set_color(ColorSpec::new().set_fg(Some(Color::Magenta)))
+                            .unwrap();
+                    } else {
+                        color_stderr
+                            .set_color(ColorSpec::new().set_fg(Some(Color::Red)))
+                            .unwrap();
+                    }
+                    writeln!(color_stderr, "  {d}").unwrap();
+                }
             }
             println!("{s}");
             Ok(())
@@ -207,10 +226,8 @@ fn run(
             eprintln!("❗ Error in {elapsed:.1?}");
             match s {
                 CoreError::LangError(owned_resolved_error) => {
-                    let mut stderr =
-                        termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
                     owned_resolved_error
-                        .write_color(&mut stderr)
+                        .write_color(&mut color_stderr)
                         .expect("write stdout");
                 }
                 CoreError::UnknownDeclaration(suggestions) => {
