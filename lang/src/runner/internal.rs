@@ -355,6 +355,12 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
+    fn add_deps_from_args(&mut self) {
+        for (_, a) in &self.arg_values {
+            self.deps.add_based_on_value(a);
+        }
+    }
+
     fn no_args(&self) -> Result<()> {
         if self.arg_values.is_empty() {
             Ok(())
@@ -551,12 +557,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             FSEntryQueryResult::File => {
                 let file = File::new_checked(self.runner.driver, entry)
                     .map_err(|err| self.cx.nid_err(self.nid, RunnerError::PathError(err)))?;
-                // if let File::Local(file) = &file {
-                //     self.deps.push(Dep::LocalFile(
-                //         file.fsinner().clone(),
-                //         file.file_hash().clone(),
-                //     ));
-                // }
                 Ok(file.to_value())
             }
             result => Err(self
@@ -567,10 +567,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn get_dir(mut self) -> ResultValue {
         let entry = self.file_area_resolve_path()?;
-        // TODO: Determine if this is correct or not
-        // if entry.as_fs_entry_ref().area().is_local() {
-        //     self.deps.push(Dep::LocalDir);
-        // }
         match self
             .runner
             .driver
@@ -588,7 +584,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    fn import(self) -> ResultValue {
+    fn import(mut self) -> ResultValue {
+        self.add_deps_from_args();
         *self.cache_hint = false;
         let f = self.expect_file(single_arg!(self))?;
         let cache_key = CacheKey::Import { file: f.clone() };
@@ -637,7 +634,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .to_value())
     }
 
-    fn extract_zip(self) -> ResultValue {
+    fn extract_zip(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
         let area = self
             .runner
@@ -647,7 +645,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(area.to_value())
     }
 
-    fn extract_gzip(self) -> ResultValue {
+    fn extract_gzip(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let (file, name) = two_args!(self);
         let file = self.expect_file(file)?;
         let name = expect_type!(self, String, name);
@@ -659,7 +658,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::GeneratedFile(Arc::new(area)))
     }
 
-    fn extract_xz(self) -> ResultValue {
+    fn extract_xz(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let (file, name) = two_args!(self);
         let file = self.expect_file(file)?;
         let name = expect_type!(self, String, name);
@@ -671,7 +671,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::GeneratedFile(Arc::new(area)))
     }
 
-    fn extract_tar(self) -> ResultValue {
+    fn extract_tar(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
         let area = self
             .runner
@@ -697,7 +698,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Unit)
     }
 
-    fn get_area(self) -> ResultValue {
+    fn get_area(mut self) -> ResultValue {
+        self.add_deps_from_args();
         *self.cache_hint = false;
         let f = self.expect_file(single_arg!(self))?;
         Ok(f.area().to_owned_area().to_value())
@@ -715,7 +717,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .with_trace(self.cx.stacktrace.clone()))
     }
 
-    fn sha256(self) -> ResultValue {
+    fn sha256(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
 
         Ok(Value::String(Arc::new(
@@ -726,7 +729,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )))
     }
 
-    fn sha512(self) -> ResultValue {
+    fn sha512(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
 
         Ok(Value::String(Arc::new(
@@ -823,7 +827,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(json_to_rain(parsed))
     }
 
-    fn create_area(self) -> ResultValue {
+    fn create_area(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let ((dirs_nid, dirs_value), flatten_input_dirs) = two_args!(self);
         let dirs = expect_type!(self, List, (dirs_nid, dirs_value));
         let flatten_input_dirs = expect_type!(self, Boolean, flatten_input_dirs);
@@ -862,7 +867,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(merged_area.to_value())
     }
 
-    fn create_write_area(self) -> ResultValue {
+    fn create_write_area(mut self) -> ResultValue {
+        self.add_deps_from_args();
         // TODO: This probably could be cached but it has some weird behaviour
         self.deps.push(Dep::Uncacheable);
         let (dirs_nid, dirs_value) = single_arg!(self);
@@ -897,7 +903,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(merged_area.to_value())
     }
 
-    fn read_file(self) -> ResultValue {
+    fn read_file(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
         Ok(Value::String(Arc::new(
             self.runner
@@ -907,7 +914,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )))
     }
 
-    fn create_file(self) -> ResultValue {
+    fn create_file(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let (contents, name, executable) = three_args!(self);
         let contents = expect_type!(self, String, contents);
         let name = expect_type!(self, String, name);
@@ -1036,7 +1044,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     #[expect(clippy::too_many_lines)]
-    fn export_to_local(self) -> ResultValue {
+    fn export_to_local(mut self) -> ResultValue {
+        self.add_deps_from_args();
         self.deps.push(Dep::Uncacheable);
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
@@ -1197,8 +1206,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    fn check_export_to_local(self) -> ResultValue {
-        self.deps.push(Dep::LocalDir);
+    fn check_export_to_local(mut self) -> ResultValue {
+        self.add_deps_from_args();
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
                 let src = expect_type!(self, GeneratedFile, (src_nid, src_value));
@@ -1301,7 +1310,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    fn file_metadata(self) -> ResultValue {
+    fn file_metadata(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
         let metadata = self
             .runner
@@ -1316,13 +1326,11 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Record(Arc::new(RainRecord(record))))
     }
 
-    fn glob(self) -> ResultValue {
+    fn glob(mut self) -> ResultValue {
+        self.add_deps_from_args();
         match &self.arg_values[..] {
             [(dir_nid, dir_value)] => {
                 let d = self.expect_dir_or_area((*dir_nid, dir_value))?;
-                if d.area().is_local() {
-                    self.deps.push(Dep::LocalDir);
-                }
                 let files = self
                     .runner
                     .driver
@@ -1337,9 +1345,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             [(dir_nid, dir_value), (pattern_nid, pattern_value)] => {
                 let d = self.expect_dir_or_area((*dir_nid, dir_value))?;
                 let pattern = expect_type!(self, String, (pattern_nid, pattern_value));
-                if d.area().is_local() {
-                    self.deps.push(Dep::LocalDir);
-                }
                 let files = self
                     .runner
                     .driver
@@ -1460,7 +1465,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(v)
     }
 
-    fn create_tar(self) -> ResultValue {
+    fn create_tar(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let (dir, name) = two_args!(self);
         let dir = self.expect_dir_or_area(dir)?;
         let name = expect_type!(self, String, name);
@@ -1472,7 +1478,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )))
     }
 
-    fn compress_gzip(self) -> ResultValue {
+    fn compress_gzip(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let (file, name) = two_args!(self);
         let file = self.expect_file(file)?;
         let name = expect_type!(self, String, name);
@@ -1596,7 +1603,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    fn copy_file(self) -> ResultValue {
+    fn copy_file(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let (file, name, executable) = three_args!(self);
         let file = self.expect_file(file)?;
         let name = expect_type!(self, String, name);
@@ -1655,7 +1663,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         ))))
     }
 
-    fn compress_zstd(self) -> ResultValue {
+    fn compress_zstd(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let (file, name, level) = three_args!(self);
         let file = self.expect_file(file)?;
         let name = expect_type!(self, String, name);
@@ -1682,7 +1691,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )))
     }
 
-    fn extract_zstd(self) -> ResultValue {
+    fn extract_zstd(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let (file, name) = two_args!(self);
         let file = self.expect_file(file)?;
         let name = expect_type!(self, String, name);
@@ -1694,7 +1704,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::GeneratedFile(Arc::new(area)))
     }
 
-    fn file_name(self) -> ResultValue {
+    fn file_name(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let file = single_arg!(self);
         let file = self.expect_file(file)?;
         let Some(name) = file.path().last() else {
@@ -1706,7 +1717,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::String(Arc::new(name.to_string())))
     }
 
-    fn copy_dir(self) -> ResultValue {
+    fn copy_dir(mut self) -> ResultValue {
+        self.add_deps_from_args();
         let (dir, name) = two_args!(self);
         let dir = self.expect_dir_or_area(dir)?;
         let name = expect_type!(self, String, name);

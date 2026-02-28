@@ -50,6 +50,8 @@ pub enum Error {
     SerdeJson(#[from] serde_json::Error),
     #[error("cache: {0}")]
     PersistentCache(#[from] PersistCacheError),
+    #[error("client disconnected")]
+    ClientDisconnected,
 }
 
 impl From<std::io::Error> for Error {
@@ -170,12 +172,11 @@ impl InternalMsgConnection {
 
 impl MsgConnection for InternalMsgConnection {
     fn send(&mut self, request: ServerMessage) -> Result<(), Error> {
-        self.tx.send(request).unwrap();
-        Ok(())
+        self.tx.send(request).map_err(|_| Error::ClientDisconnected)
     }
 
     fn receive(&mut self) -> Result<RequestWrapper, Error> {
-        Ok(self.rx.recv().unwrap())
+        self.rx.recv().map_err(|_| Error::ClientDisconnected)
     }
 }
 
@@ -266,7 +267,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
                 let entries = self.server.cache.inspect_all();
                 self.send_response(
                     req,
-                    &super::msg::inspect::InspectResponse {
+                    &super::msg::cache_inspect::CacheInspectResponse {
                         cache_size,
                         entries,
                     },
@@ -389,58 +390,41 @@ fn run_inner<C: MsgConnection>(
     s: &Mutex<&mut ClientHandler<'_, C>>,
     ir: &mut Rir,
 ) -> (Result<String, CoreError>, DepList) {
-    let custom_config: HashMap<String, Arc<String>> = req
+    let mut driver = DriverImpl::new(config);
+    driver.custom_config = req
         .custom_config
         .iter()
         .map(|(k, v)| (k.clone(), Arc::new(v.clone())))
         .collect();
-    let mut driver = DriverImpl {
-        print_handler: Some(Box::new(|m| {
-            let send_result = s
-                .plock()
-                .send_intermediate(req, &RunProgress::Print(m.to_owned()));
-            if let Err(err) = send_result {
-                log::error!("send intermediate print: {err}");
-            }
-        })),
-        enter_handler: Some(Box::new(|m| {
-            let send_result = s
-                .plock()
-                .send_intermediate(req, &RunProgress::EnterCall(m.to_owned()));
-            if let Err(err) = send_result {
-                log::error!("send intermediate enter call: {err}");
-            }
-        })),
-        exit_handler: Some(Box::new(|m| {
-            let send_result = s
-                .plock()
-                .send_intermediate(req, &RunProgress::ExitCall(m.to_owned()));
-            if let Err(err) = send_result {
-                log::error!("send intermediate exit call: {err}");
-            }
-        })),
-        ..DriverImpl::new(config, custom_config)
-    };
+    driver.print_handler = Some(Box::new(|m| {
+        let send_result = s
+            .plock()
+            .send_intermediate(req, &RunProgress::Print(m.to_owned()));
+        if let Err(err) = send_result {
+            log::error!("send intermediate print: {err}");
+        }
+    }));
+    driver.enter_handler = Some(Box::new(|m| {
+        let send_result = s
+            .plock()
+            .send_intermediate(req, &RunProgress::EnterCall(m.to_owned()));
+        if let Err(err) = send_result {
+            log::error!("send intermediate enter call: {err}");
+        }
+    }));
+    driver.exit_handler = Some(Box::new(|m| {
+        let send_result = s
+            .plock()
+            .send_intermediate(req, &RunProgress::ExitCall(m.to_owned()));
+        if let Err(err) = send_result {
+            log::error!("send intermediate exit call: {err}");
+        }
+    }));
     if let Some(host_override) = &req.host_override {
         driver.host_triple = host_override.to_owned().into();
     }
 
-    let (result, deps) = run_core(req, cache, &driver, ir);
-    (
-        result.map(|v| match v {
-            Value::Unit => String::new(),
-            Value::GeneratedDir(d) if req.resolve => driver
-                .resolve_fs_entry(d.fsinner().into())
-                .display()
-                .to_string(),
-            Value::GeneratedFile(f) if req.resolve => driver
-                .resolve_fs_entry(f.fsinner().into())
-                .display()
-                .to_string(),
-            _ => format!("{v}"),
-        }),
-        deps,
-    )
+    run_core(req, cache, &driver, ir)
 }
 
 fn run_core(
@@ -448,7 +432,7 @@ fn run_core(
         root,
         target,
         args,
-        resolve: _,
+        resolve,
         offline,
         seal,
         host_override: _,
@@ -457,7 +441,7 @@ fn run_core(
     cache: &Cache,
     driver: &DriverImpl<'_>,
     ir: &mut Rir,
-) -> (Result<Value, CoreError>, DepList) {
+) -> (Result<String, CoreError>, DepList) {
     let mut runner = rain_core::new_runner(ir, cache, driver);
     runner.offline = *offline;
     runner.seal = *seal;
@@ -467,7 +451,21 @@ fn run_core(
         Err(err) => return (Err(err), deps),
     };
     let result = rain_core::evaluate_and_call_chain(&mut runner, mid, &mut deps, target, args);
-    (result, deps)
+    (
+        result.map(|v| match v {
+            Value::Unit => String::new(),
+            Value::GeneratedDir(d) if *resolve => driver
+                .resolve_fs_entry(d.fsinner().into())
+                .display()
+                .to_string(),
+            Value::GeneratedFile(f) if *resolve => driver
+                .resolve_fs_entry(f.fsinner().into())
+                .display()
+                .to_string(),
+            _ => format!("{v}"),
+        }),
+        deps,
+    )
 }
 
 fn remove_recursive(path: &Path) -> std::io::Result<u64> {

@@ -20,7 +20,8 @@ use crate::runner::{
 use super::{InternalCx, enter_call};
 
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
-    pub fn run(self) -> ResultValue {
+    pub fn run(mut self) -> ResultValue {
+        self.add_deps_from_args();
         match &self.arg_values[..] {
             [
                 (area_nid, area_value),
@@ -107,7 +108,8 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    pub fn escape_run(self) -> ResultValue {
+    pub fn escape_run(mut self) -> ResultValue {
+        self.add_deps_from_args();
         self.deps.push(Dep::Escape);
         self.check_escape_mode()?;
         match &self.arg_values[..] {

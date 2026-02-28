@@ -35,7 +35,7 @@ pub enum RestartReason {
 pub enum Request {
     Run(run::RunRequest),
     Info(info::InfoRequest),
-    Inspect(inspect::InspectRequest),
+    Inspect(cache_inspect::CacheInspectRequest),
     Shutdown(shutdown::ShutdownRequest),
     Clean(clean::CleanRequest),
     Prune(prune::PruneRequest),
@@ -128,25 +128,25 @@ pub mod info {
     }
 }
 
-pub mod inspect {
+pub mod cache_inspect {
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
-    pub struct InspectRequest;
+    pub struct CacheInspectRequest;
 
-    impl From<InspectRequest> for super::Request {
-        fn from(req: InspectRequest) -> Self {
+    impl From<CacheInspectRequest> for super::Request {
+        fn from(req: CacheInspectRequest) -> Self {
             Self::Inspect(req)
         }
     }
 
-    impl super::private::Sealed for InspectRequest {}
+    impl super::private::Sealed for CacheInspectRequest {}
 
-    impl super::RequestTrait for InspectRequest {
+    impl super::RequestTrait for CacheInspectRequest {
         type Intermediate = ();
-        type Response = InspectResponse;
+        type Response = CacheInspectResponse;
     }
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
-    pub struct InspectResponse {
+    pub struct CacheInspectResponse {
         pub cache_size: usize,
         pub entries: Vec<String>,
     }

@@ -24,7 +24,7 @@ type Runner<'a> = rain_lang::runner::Runner<'a, DriverImpl<'a>, cache::Cache>;
 
 #[expect(clippy::result_unit_err, clippy::print_stderr)]
 pub fn run_stderr(path: impl AsRef<Path>, declaration: &str) -> Result<Value, ()> {
-    let driver = DriverImpl::new(config::Config::default(), HashMap::new());
+    let driver = DriverImpl::new(config::Config::default());
     let cache = cache::Cache::default();
     run(path, declaration, &cache, &driver).map_err(|err| {
         eprintln!("{err}");

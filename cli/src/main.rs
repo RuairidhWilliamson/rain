@@ -1,30 +1,18 @@
 #![allow(clippy::print_stderr, clippy::print_stdout, clippy::exit)]
 
+mod commands;
 mod exe;
 mod remote;
 mod run;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::{
-    ffi::OsStr,
-    io::{Write as _, stdin},
-    process::ExitCode,
-};
+use std::{ffi::OsStr, process::ExitCode};
 
 use clap::{Parser, Subcommand};
 use env_logger::Env;
 use rain_core::config::Config;
-use remote::{
-    client::{ClientMode, make_request_or_start},
-    msg::{
-        clean::CleanRequest,
-        info::InfoRequest,
-        inspect::{InspectRequest, InspectResponse},
-        prune::{PruneRequest, Pruned},
-        shutdown::ShutdownRequest,
-    },
-};
+use remote::client::ClientMode;
 
 fn main() -> ExitCode {
     if fallible_main().is_ok() {
@@ -43,11 +31,6 @@ fn fallible_main() -> Result<(), ()> {
         });
     }
     env_logger::init_from_env(Env::new().filter("RAIN_LOG"));
-    rain_ctl_command(&config)
-}
-
-#[expect(clippy::unwrap_used)]
-fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     ctrlc::set_handler(|| {
         println!("\nCTRL+C pressed");
         std::process::exit(1);
@@ -55,117 +38,7 @@ fn rain_ctl_command(config: &Config) -> Result<(), ()> {
     .expect("init signal handler");
     let cli = Cli::parse();
     let mode = ClientMode::BackgroundThread;
-    match cli.command {
-        RainCtlCommand::Init => {
-            let mut f = std::fs::File::create_new("main.rain").unwrap();
-            write!(f, include_str!("template_main.rain")).unwrap();
-            f.flush().unwrap();
-            Ok(())
-        }
-        RainCtlCommand::Check => run::run(config, "check", vec![], &cli.options, mode),
-        RainCtlCommand::Build => run::run(config, "build", vec![], &cli.options, mode),
-        RainCtlCommand::Exec { target, args } => run::run(
-            config,
-            &target.unwrap_or_default(),
-            args,
-            &cli.options,
-            mode,
-        ),
-        RainCtlCommand::Info => {
-            let info =
-                make_request_or_start(config, InfoRequest, |()| {}, mode).map_err(|err| {
-                    eprintln!("{err}");
-                })?;
-            println!("{info:#?}");
-            Ok(())
-        }
-        RainCtlCommand::Shutdown => {
-            make_request_or_start(config, ShutdownRequest, |()| {}, mode).map_err(|err| {
-                eprintln!("{err}");
-            })?;
-            eprintln!("Server shutdown");
-            Ok(())
-        }
-        RainCtlCommand::Config => {
-            eprintln!("{config:#?}");
-            Ok(())
-        }
-        RainCtlCommand::Cache => {
-            let InspectResponse {
-                cache_size,
-                entries,
-            } = make_request_or_start(config, InspectRequest, |()| {}, mode).map_err(|err| {
-                eprintln!("{err}");
-            })?;
-            eprintln!("Cache size is {cache_size}");
-            for e in entries {
-                eprintln!("{e}");
-            }
-            Ok(())
-        }
-        RainCtlCommand::Resolve { path } => {
-            let lines: Box<dyn Iterator<Item = String>> = if let Some(p) = path {
-                Box::new(std::iter::once(p))
-            } else {
-                Box::new(stdin().lines().map(|s| s.expect("read stdin")))
-            };
-            for line in lines {
-                let path = config.base_generated_dir.join(line);
-                println!("{}", path.display());
-            }
-            Ok(())
-        }
-        RainCtlCommand::Clean => clean(config, mode),
-        RainCtlCommand::Prune => prune(config, mode),
-    }
-}
-
-fn clean(config: &Config, mode: ClientMode) -> Result<(), ()> {
-    println!("Will delete:");
-    for p in config.clean_directories() {
-        println!("  {}", p.display());
-    }
-    if inquire::Confirm::new("Delete all these directories recursively?")
-        .prompt_skippable()
-        .map_err(|err| {
-            eprintln!("{err}");
-        })?
-        == Some(true)
-    {
-        let resp = make_request_or_start(config, CleanRequest, |()| {}, mode).map_err(|err| {
-            eprintln!("{err}");
-        })?;
-        if resp.0.is_empty() {
-            println!("Nothing to clean");
-        } else {
-            println!("Cleaned");
-            for (p, s) in resp.0 {
-                println!(
-                    "  {:8} {}",
-                    humansize::format_size(s, humansize::BINARY),
-                    p.display(),
-                );
-            }
-        }
-    } else {
-        println!("Did nothing");
-    }
-    Ok(())
-}
-
-fn prune(config: &Config, mode: ClientMode) -> Result<(), ()> {
-    let Pruned { size, errors } = make_request_or_start(config, PruneRequest, |()| {}, mode)
-        .map_err(|err| {
-            eprintln!("{err}");
-        })?;
-    println!(
-        "Pruned {:8}",
-        humansize::format_size(size, humansize::BINARY)
-    );
-    if errors > 0 {
-        println!("{errors} Errors");
-    }
-    Ok(())
+    cli.main(&config, mode)
 }
 
 #[derive(Debug, Clone, Parser)]
@@ -272,4 +145,34 @@ enum ReportMode {
     Basic,
     Verbose,
     None,
+}
+
+impl Cli {
+    fn main(self, config: &Config, client_mode: ClientMode) -> Result<(), ()> {
+        match self.command {
+            RainCtlCommand::Init => commands::init_template(),
+            RainCtlCommand::Check => run::run(config, "check", vec![], &self.options, client_mode),
+            RainCtlCommand::Build => run::run(config, "build", vec![], &self.options, client_mode),
+            RainCtlCommand::Exec { target, args } => run::run(
+                config,
+                &target.unwrap_or_default(),
+                args,
+                &self.options,
+                client_mode,
+            ),
+            RainCtlCommand::Info => commands::info(config, client_mode),
+            RainCtlCommand::Shutdown => commands::shutdown(config, client_mode),
+            RainCtlCommand::Config => {
+                commands::inspect_config(config);
+                Ok(())
+            }
+            RainCtlCommand::Cache => commands::inspect_cache(config, client_mode),
+            RainCtlCommand::Resolve { path } => {
+                commands::resolve(config, path);
+                Ok(())
+            }
+            RainCtlCommand::Clean => commands::clean(config, client_mode),
+            RainCtlCommand::Prune => commands::prune(config, client_mode),
+        }
+    }
 }

@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
 use rain_core::{CoreError, cache::Cache, config::Config, driver::DriverImpl};
 
 fn run_error(path: &str) -> CoreError {
-    let driver = DriverImpl::new(Config::default(), HashMap::new());
+    let driver = DriverImpl::new(Config::default());
     let cache = Cache::default();
     let mut err =
         rain_core::run(path, "main", &cache, &driver).expect_err("run should produce an error");

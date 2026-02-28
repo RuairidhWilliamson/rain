@@ -123,9 +123,13 @@ fn handle_run_response(
                             let _ = writeln!(acc, "\t{s}");
                             acc
                         });
-                    eprintln!(
-                        "unknown declaration {unknown} in {target:?}, try one of:\n{prefix}\n{suggestions}"
-                    );
+                    if target.is_empty() {
+                        eprintln!("no declaration specified, try one of:\n{suggestions}");
+                    } else {
+                        eprintln!(
+                            "unknown declaration {unknown} in {target:?}, try one of:\n{prefix}\n{suggestions}"
+                        );
+                    }
                 }
                 CoreError::Other(s) => {
                     eprintln!("{s}");

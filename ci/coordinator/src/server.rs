@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::{convert::Infallible, sync::Arc};
 
 use anyhow::{Context as _, Result, anyhow};
@@ -269,8 +268,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         #[expect(clippy::unwrap_used)]
         let (root, lfs_entries) = tokio::task::spawn_blocking(move || {
             let config = rain_core::config::Config::new();
-            let custom_config = HashMap::new();
-            let driver = rain_core::driver::DriverImpl::new(config, custom_config);
+            let driver = rain_core::driver::DriverImpl::new(config);
             let download_area = driver.create_area(&[], true).unwrap();
             let download_entry =
                 GeneratedFSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
@@ -309,10 +307,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         log::info!("Prepare run complete");
         #[expect(clippy::unwrap_used)]
         Ok(tokio::task::spawn_blocking(move || {
-            let driver = rain_core::driver::DriverImpl::new(
-                rain_core::config::Config::new(),
-                HashMap::new(),
-            );
+            let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
             let area = driver
                 .create_overlay_area(std::iter::once(root.fsinner().into()), true, true)
                 .unwrap();

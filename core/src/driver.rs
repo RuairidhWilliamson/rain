@@ -50,10 +50,10 @@ pub const fn default_host_triple() -> &'static str {
 }
 
 impl DriverImpl<'_> {
-    pub fn new(config: Config, custom_config: HashMap<String, Arc<String>>) -> Self {
+    pub fn new(config: Config) -> Self {
         Self {
             config,
-            custom_config,
+            custom_config: HashMap::default(),
             prints: Mutex::default(),
             print_handler: None,
             enter_handler: None,
