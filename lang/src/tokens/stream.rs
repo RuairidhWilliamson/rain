@@ -1,6 +1,7 @@
-use crate::local_span::{ErrorLocalSpan, LocalSpan};
-
-use super::{StringLiteralPrefix, Token, TokenError, TokenLocalSpan};
+use crate::{
+    local_span::{ErrorLocalSpan, LocalSpan},
+    tokens::{StringLiteralPrefix, Token, TokenError, TokenLocalSpan},
+};
 
 pub struct TokenStream<'a> {
     source: &'a str,

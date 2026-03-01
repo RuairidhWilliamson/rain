@@ -5,13 +5,12 @@ use crate::{
     ir::{IrModule, ModuleId},
     local_span::LocalSpan,
     runner::{
+        dep::Dep,
         dep_list::DepList,
         error::{ErrorTrace, RunnerError, Throwing},
         value::Value,
     },
 };
-
-use super::dep::Dep;
 
 pub struct Cx<'a> {
     pub module: &'a Arc<IrModule>,

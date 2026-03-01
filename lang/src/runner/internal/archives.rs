@@ -22,7 +22,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .runner
             .driver
             .extract_zip(&f)
-            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+            .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
         Ok(area.to_value())
     }
 
@@ -35,7 +35,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .runner
             .driver
             .extract_gzip(&file, name)
-            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+            .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
         Ok(Value::GeneratedFile(Arc::new(area)))
     }
 
@@ -48,7 +48,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .runner
             .driver
             .extract_xz(&file, name)
-            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+            .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
         Ok(Value::GeneratedFile(Arc::new(area)))
     }
 
@@ -59,7 +59,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .runner
             .driver
             .extract_tar(&f)
-            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+            .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
         Ok(area.to_value())
     }
 
@@ -72,13 +72,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
         let level: u8 = (&level.0).try_into().map_err(|err| {
             log::error!("compress zstd invalid level: {err}");
-            self.cx.nid_err(
+            self.caller_cx.nid_err(
                 self.nid,
                 RunnerError::Makeshift("level must be in the range 0 - 22".into()),
             )
         })?;
         if level > 22 {
-            return Err(self.cx.nid_err(
+            return Err(self.caller_cx.nid_err(
                 self.nid,
                 RunnerError::Makeshift("level must be in the range 0 - 22".into()),
             ));
@@ -87,7 +87,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             self.runner
                 .driver
                 .compress_zstd(&file, name, level)
-                .map_err(|err| self.cx.nid_err(self.nid, err))?,
+                .map_err(|err| self.caller_cx.nid_err(self.nid, err))?,
         )))
     }
 
@@ -100,7 +100,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .runner
             .driver
             .extract_zstd(&file, name)
-            .map_err(|err| self.cx.nid_err(self.nid, err))?;
+            .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
         Ok(Value::GeneratedFile(Arc::new(area)))
     }
 
@@ -113,7 +113,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             self.runner
                 .driver
                 .create_tar(&dir, name)
-                .map_err(|err| self.cx.nid_err(self.nid, err))?,
+                .map_err(|err| self.caller_cx.nid_err(self.nid, err))?,
         )))
     }
 
@@ -126,7 +126,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             self.runner
                 .driver
                 .compress_gzip(&file, name)
-                .map_err(|err| self.cx.nid_err(self.nid, err))?,
+                .map_err(|err| self.caller_cx.nid_err(self.nid, err))?,
         )))
     }
 }

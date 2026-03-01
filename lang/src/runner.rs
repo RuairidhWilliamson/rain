@@ -549,7 +549,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 let internal_cx = internal::InternalCx {
                     func: *f,
                     runner: self,
-                    cx,
+                    caller_cx: cx,
                     nid,
                     arg_values,
                     call_span,
@@ -737,10 +737,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             (Value::Type(left), BinaryOperatorKind::NotEquals, Value::Type(right)) => {
                 Ok(Value::Boolean(left != right))
             }
-            _ => Err(cx.err(
-                op.op_span,
-                RunnerError::Makeshift("binary op invalid for given types".into()),
-            )),
+            _ => Err(cx.err(op.op_span, RunnerError::InvalidBinaryOp)),
         }
     }
 
@@ -784,10 +781,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 };
                 Ok(value)
             }
-            _ => Err(cx.err(
-                op.op_span,
-                RunnerError::Makeshift("dot operator right side is not ident".into()),
-            )),
+            _ => Err(cx.err(op.op_span, RunnerError::InvalidDot)),
         }
     }
 

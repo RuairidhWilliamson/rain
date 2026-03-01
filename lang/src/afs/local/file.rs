@@ -3,13 +3,11 @@ use std::path::Path;
 use crate::{
     afs::{
         FSEntryTrait, absolute::AbsolutePathBuf, area::FileAreaRef, entry::FSEntryRef,
-        error::PathError, path::SealedFilePath,
+        error::PathError, local::entry::LocalFSEntry, path::SealedFilePath,
     },
     driver::FSTrait,
     hash::FileHash,
 };
-
-use super::entry::LocalFSEntry;
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct LocalFile {

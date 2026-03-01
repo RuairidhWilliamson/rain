@@ -4,7 +4,7 @@ services:
   web:
     build:
       context: ../
-      dockerfile: ci/web/Containerfile
+      dockerfile: ci/images/Containerfile
     environment:
       - RUST_LOG=info
       - ADDR=0.0.0.0:3000

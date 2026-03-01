@@ -1,8 +1,9 @@
 use std::fmt::{Result, Write};
 
-use crate::{ast::AstNode, local_span::LocalSpan};
-
-use super::{NodeId, NodeList};
+use crate::{
+    ast::{AstNode, NodeId, NodeList},
+    local_span::LocalSpan,
+};
 
 pub struct AstFormatter<'a> {
     src: &'a str,

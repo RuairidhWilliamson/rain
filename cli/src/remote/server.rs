@@ -27,10 +27,9 @@ use rain_core::{
     },
 };
 
-use crate::remote::msg::{RequestWrapper, RestartReason, prune::Pruned};
-
-use super::msg::{
-    Request, RequestTrait, ServerMessage,
+use crate::remote::msg::{
+    Request, RequestTrait, RequestWrapper, RestartReason, ServerMessage,
+    prune::Pruned,
     run::{RunProgress, RunResponse},
 };
 

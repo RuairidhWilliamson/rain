@@ -17,9 +17,8 @@ use crate::{
     },
     ast::NodeId,
     ir::ModuleId,
+    runner::internal::InternalFunction,
 };
-
-use super::internal::InternalFunction;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Value {

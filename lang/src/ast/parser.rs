@@ -1,17 +1,14 @@
 use crate::{
     ast::{
-        ArgTypeSpec, DeclareNameListElement, DeclareNamedDestructure, SimpleLiteralKind,
+        AlternateCondition, ArgTypeSpec, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure,
+        Declare, DeclareName, DeclareNameListElement, DeclareNameSingle, DeclareNamedDestructure,
+        FnCall, FnDeclareArg, Ident, IfCondition, IntegerLiteral, List, ListElement, Module,
+        ModuleRoot, Node, NodeId, NodeList, Not, Record, RecordField, SimpleLiteralKind,
+        StringLiteral,
         error::{ParseError, ParseResult},
     },
     local_span::ErrorLocalSpan,
     tokens::{Token, TokenLocalSpan, peek::PeekTokenStream},
-};
-
-use super::{
-    AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure, Declare,
-    DeclareName, DeclareNameSingle, FnCall, FnDeclareArg, Ident, IfCondition, IntegerLiteral, List,
-    ListElement, Module, ModuleRoot, Node, NodeId, NodeList, Not, Record, RecordField,
-    StringLiteral,
 };
 
 pub fn parse_module(source: &str) -> ParseResult<Module> {

@@ -1,12 +1,13 @@
 use crate::{
     afs::{
-        FSEntryTrait, area::FileAreaRef, entry::FSEntryRef, local::area::LocalFSArea,
+        FSEntryTrait,
+        area::FileAreaRef,
+        entry::FSEntryRef,
+        local::{area::LocalFSArea, entry::LocalFSEntry},
         path::SealedFilePath,
     },
     driver::{FSEntryQueryResult, FSTrait},
 };
-
-use super::entry::LocalFSEntry;
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct LocalDir(LocalFSEntry);

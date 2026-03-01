@@ -6,11 +6,12 @@ use crate::{
     driver::FSEntryQueryResult,
     error::{ResolvedError, ResolvedSpan},
     ir::Rir,
-    runner::cx::StacktraceEntry,
+    runner::{
+        cx::StacktraceEntry,
+        value::{RainInteger, RainTypeId},
+    },
     span::ErrorSpan,
 };
-
-use super::value::{RainInteger, RainTypeId};
 
 #[derive(Debug)]
 pub struct ErrorTrace<E: std::error::Error> {
@@ -121,4 +122,10 @@ pub enum RunnerError {
     PrivateDeclaration,
     #[error("unknown declaration, try one of {0:?}")]
     UnknownDeclaration(Vec<String>),
+    #[error("no embed defined")]
+    NoEmbed,
+    #[error("invalid binary operator usage")]
+    InvalidBinaryOp,
+    #[error("invalid dot usage")]
+    InvalidDot,
 }

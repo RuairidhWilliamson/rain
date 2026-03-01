@@ -1,11 +1,10 @@
 use crate::{
     afs::{
-        FSEntryTrait, area::FileAreaRef, entry::FSEntryRef, error::PathError, path::SealedFilePath,
+        FSEntryTrait, area::FileAreaRef, entry::FSEntryRef, error::PathError,
+        generated::entry::GeneratedFSEntry, path::SealedFilePath,
     },
     driver::{FSEntryQueryResult, FSTrait},
 };
-
-use super::entry::GeneratedFSEntry;
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct GeneratedFile(GeneratedFSEntry);

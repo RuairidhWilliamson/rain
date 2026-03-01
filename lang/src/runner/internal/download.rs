@@ -3,18 +3,18 @@ use std::{sync::Arc, time::Instant};
 use chrono::Utc;
 use indexmap::IndexMap;
 
-use crate::driver::{DownloadStatus, DriverTrait};
-use crate::runner::cache::CacheTrait;
-use crate::runner::dep::Dep;
-use crate::runner::dep_list::DepList;
-use crate::runner::{
-    ResultValue,
-    cache::{CacheEntry, CacheKey},
-    error::RunnerError,
-    value::{RainInteger, RainRecord, RainTypeId, Value},
+use crate::{
+    driver::{DownloadStatus, DriverTrait},
+    runner::{
+        ResultValue,
+        cache::{CacheEntry, CacheKey, CacheTrait},
+        dep::Dep,
+        dep_list::DepList,
+        error::RunnerError,
+        internal::{InternalCx, enter_call},
+        value::{RainInteger, RainRecord, RainTypeId, Value},
+    },
 };
-
-use super::{InternalCx, enter_call};
 
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
     pub fn download(self) -> ResultValue {
@@ -23,7 +23,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             [(url_nid, url_value)] => {
                 let start = Instant::now();
                 let Value::String(url) = url_value else {
-                    return Err(self.cx.nid_err(
+                    return Err(self.caller_cx.nid_err(
                         *url_nid,
                         RunnerError::ExpectedType {
                             actual: url_value.rain_type_id(),
@@ -53,7 +53,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     }
                 }
                 if self.runner.offline {
-                    return Err(self.cx.nid_err(
+                    return Err(self.caller_cx.nid_err(
                         self.nid,
                         RunnerError::Makeshift(
                             "offline mode: cannot download item is not in cache".into(),
@@ -71,7 +71,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .runner
                     .driver
                     .download(url, "download", etag)
-                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                    .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
                 if !ok && status_code == Some(304) {
                     // Etag matched we can use our cached value!
                     if let Some(mut cache_entry) = cache_entry {

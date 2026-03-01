@@ -8,7 +8,11 @@ use crate::{
     afs::area::FileAreaRef,
     ast::NodeId,
     driver::{DriverTrait, RunOptions},
-    runner::{cache::CacheTrait, dep::Dep},
+    runner::{
+        cache::CacheTrait,
+        dep::Dep,
+        internal::{InternalCx, enter_call},
+    },
 };
 
 use crate::runner::{
@@ -16,8 +20,6 @@ use crate::runner::{
     error::RunnerError,
     value::{RainInteger, RainRecord, RainTypeId, Value},
 };
-
-use super::{InternalCx, enter_call};
 
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
     pub fn run(mut self) -> ResultValue {
@@ -33,7 +35,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     Value::Unit => None,
                     Value::GeneratedFSArea(area) => Some(area.as_ref().into()),
                     Value::LocalFSArea(area) => Some(area.as_ref().into()),
-                    _ => Err(self.cx.nid_err(
+                    _ => Err(self.caller_cx.nid_err(
                         *area_nid,
                         RunnerError::ExpectedType {
                             actual: area_value.rain_type_id(),
@@ -47,7 +49,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 };
                 let bin = self.expect_file_path((*file_nid, file_value))?;
                 let Value::List(args) = args_value else {
-                    return Err(self.cx.nid_err(
+                    return Err(self.caller_cx.nid_err(
                         *args_nid,
                         RunnerError::ExpectedType {
                             actual: args_value.rain_type_id(),
@@ -61,7 +63,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .map(|value| self.stringify_arg(*args_nid, value))
                     .collect::<Result<Vec<String>>>()?;
                 let Value::Record(env) = env_value else {
-                    return Err(self.cx.nid_err(
+                    return Err(self.caller_cx.nid_err(
                         *env_nid,
                         RunnerError::ExpectedType {
                             actual: env_value.rain_type_id(),
@@ -92,7 +94,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                             env,
                         },
                     )
-                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                    .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
                 let mut m = IndexMap::new();
                 m.insert("success".to_owned(), Value::Boolean(status.success));
                 m.insert(
@@ -122,7 +124,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let dir = self.expect_dir_or_area((*area_nid, area_value))?;
                 let bin = self.expect_file_path((*file_nid, file_value))?;
                 let Value::List(args) = args_value else {
-                    return Err(self.cx.nid_err(
+                    return Err(self.caller_cx.nid_err(
                         *args_nid,
                         RunnerError::ExpectedType {
                             actual: args_value.rain_type_id(),
@@ -136,7 +138,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .map(|value| self.stringify_arg(*args_nid, value))
                     .collect::<Result<Vec<String>>>()?;
                 let Value::Record(env) = env_value else {
-                    return Err(self.cx.nid_err(
+                    return Err(self.caller_cx.nid_err(
                         *env_nid,
                         RunnerError::ExpectedType {
                             actual: env_value.rain_type_id(),
@@ -166,7 +168,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                             env,
                         },
                     )
-                    .map_err(|err| self.cx.nid_err(self.nid, err))?;
+                    .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
                 let mut m = IndexMap::new();
                 m.insert("success".to_owned(), Value::Boolean(status.success));
                 m.insert(

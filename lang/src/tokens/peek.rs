@@ -3,9 +3,8 @@ use std::{collections::VecDeque, mem::MaybeUninit};
 use crate::{
     ast::error::{ParseError, ParseResult},
     local_span::{ErrorLocalSpan, LocalSpan},
+    tokens::{Token, TokenError, TokenLocalSpan, stream::TokenStream},
 };
-
-use super::{Token, TokenError, TokenLocalSpan, stream::TokenStream};
 
 pub struct PeekTokenStream<'a> {
     stream: TokenStream<'a>,

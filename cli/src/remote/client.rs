@@ -9,11 +9,9 @@ use std::{
 use rain_core::config::Config;
 
 use crate::remote::{
-    msg::{RequestHeader, RequestWrapper},
+    msg::{Request, RequestHeader, RequestTrait, RequestWrapper, RestartReason, ServerMessage},
     server::InternalMsgConnection,
 };
-
-use super::msg::{Request, RequestTrait, RestartReason, ServerMessage};
 
 const MAX_RESTARTS: usize = 1;
 

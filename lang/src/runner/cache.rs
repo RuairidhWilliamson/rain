@@ -5,10 +5,8 @@ use chrono::{DateTime, Utc};
 use crate::{
     afs::File,
     driver::FSTrait,
-    runner::{LocalFileHashCache, dep_list::DepList},
+    runner::{LocalFileHashCache, dep_list::DepList, internal::InternalFunction, value::Value},
 };
-
-use super::{internal::InternalFunction, value::Value};
 
 pub trait CacheTrait {
     fn get(

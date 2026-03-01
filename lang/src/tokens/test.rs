@@ -2,10 +2,8 @@ use quickcheck::TestResult;
 
 use crate::{
     local_span::{ErrorLocalSpan, LocalSpan},
-    tokens::Token,
+    tokens::{Token, TokenError, stream::TokenStream},
 };
-
-use super::{TokenError, stream::TokenStream};
 
 macro_rules! assert_tokens {
     ($s:expr) => {
