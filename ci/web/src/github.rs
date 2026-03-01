@@ -53,11 +53,7 @@ impl Client {
     }
 
     pub fn authorize_url(&self) -> (Url, CsrfToken) {
-        let (auth_url, csrf_token) = self
-            .oauth_client
-            .authorize_url(CsrfToken::new_random)
-            // .add_scope(Scope::new("user:email".to_string()))
-            .url();
+        let (auth_url, csrf_token) = self.oauth_client.authorize_url(CsrfToken::new_random).url();
         (auth_url, csrf_token)
     }
 

@@ -11,6 +11,8 @@ use crate::{
     session::SessionId,
 };
 
+const SESSION_EXPIRY: Days = Days::new(7);
+
 pub struct DbConfig {
     pub host: String,
     pub name: String,
@@ -54,11 +56,13 @@ impl Db {
 
     pub async fn create_session(&self) -> Result<SessionId> {
         let session_id = SessionId(uuid::Uuid::new_v4());
-        let expires_at = (Utc::now() + Days::new(1)).naive_utc();
+        let created_at = Utc::now().naive_utc();
+        let expires_at = created_at + SESSION_EXPIRY;
         sqlx::query!(
-            "INSERT INTO sessions (id, expires_at) VALUES ($1, $2)",
+            "INSERT INTO sessions (id, expires_at, created_at) VALUES ($1, $2, $3)",
             session_id.0,
             expires_at,
+            created_at,
         )
         .execute(&self.pool)
         .await?;
@@ -67,9 +71,11 @@ impl Db {
 
     pub async fn load_or_create_session(&self, id: &SessionId) -> Result<Option<SessionId>> {
         let mut tx = self.pool.begin().await?;
+        let creation_deadline = Utc::now().naive_utc() - SESSION_EXPIRY;
         if sqlx::query!(
-            "SELECT id FROM sessions WHERE id=$1 AND expires_at > CURRENT_TIMESTAMP",
+            "SELECT id FROM sessions WHERE id=$1 AND expires_at > CURRENT_TIMESTAMP AND created_at < $2",
             id.0,
+            creation_deadline,
         )
         .fetch_optional(&mut *tx)
         .await?
@@ -78,11 +84,13 @@ impl Db {
             return Ok(None);
         }
         let session_id = SessionId(uuid::Uuid::new_v4());
-        let expires_at = (Utc::now() + Days::new(1)).naive_utc();
+        let created_at = Utc::now().naive_utc();
+        let expires_at = created_at + SESSION_EXPIRY;
         sqlx::query!(
-            "INSERT INTO sessions (id, expires_at) VALUES ($1, $2)",
+            "INSERT INTO sessions (id, expires_at, created_at) VALUES ($1, $2, $3)",
             session_id.0,
             expires_at,
+            created_at,
         )
         .execute(&mut *tx)
         .await?;
