@@ -1,7 +1,0 @@
-FROM scratch
-WORKDIR /usr/rain
-COPY rain-ci-migrator /usr/local/cargo/bin/rain-ci-migrator
-COPY migrations migrations
-ENV MIGRATIONS_DIR=migrations
-ENTRYPOINT ["rain-ci-migrator"]
-

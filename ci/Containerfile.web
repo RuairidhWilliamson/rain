@@ -1,5 +1,0 @@
-FROM scratch
-WORKDIR /usr/rain
-COPY rain-ci-web /bin/rain-ci-web
-ENV RUST_LOG=info
-ENTRYPOINT ["rain-ci-web"]
