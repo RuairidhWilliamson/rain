@@ -197,7 +197,6 @@ pub struct InternalCx<'a, 'b, 'c, Driver, Cache> {
     pub runner: &'a mut super::Runner<'c, Driver, Cache>,
     /// The calling function's cx
     /// Deps should not be added to this but to [`deps`]
-    // TODO: Inline cx to avoid missuse
     pub caller_cx: &'a mut Cx<'b>,
     pub nid: NodeId,
     pub call_span: LocalSpan,

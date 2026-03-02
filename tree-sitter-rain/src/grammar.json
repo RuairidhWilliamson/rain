@@ -19,10 +19,6 @@
       }
     },
     "declaration": {
-      "type": "SYMBOL",
-      "name": "let_declare"
-    },
-    "let_declare": {
       "type": "SEQ",
       "members": [
         {

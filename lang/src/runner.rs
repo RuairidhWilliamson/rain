@@ -101,7 +101,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         if closure_declare.args.len() != args.len() {
             return Err(closure_declare
                 .rparen_token
-                .span
                 .with_module(m.id)
                 .with_error(
                     RunnerError::IncorrectArgs {
@@ -116,7 +115,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             .args
             .iter()
             .zip(args)
-            .map(|(a, v)| (a.name.span.contents(&m.src), v))
+            .map(|(a, v)| (a.name.contents(&m.src), v))
             .collect();
         let mut callee_cx = cx.callee_no_ste(&m, args, &closure.captures);
         let result = self.evaluate_node(&mut callee_cx, closure_declare.block);
@@ -146,7 +145,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     return (
                         Err(closure_declare
                             .rparen_token
-                            .span
                             .with_module(m.id)
                             .with_error(
                                 RunnerError::IncorrectArgs {
@@ -164,12 +162,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     .args
                     .iter()
                     .zip(args)
-                    .map(|(a, v)| {
-                        (
-                            a.name.span.contents(&m.src),
-                            Value::String(Arc::new(v.clone())),
-                        )
-                    })
+                    .map(|(a, v)| (a.name.contents(&m.src), Value::String(Arc::new(v.clone()))))
                     .collect();
                 let mut cx = Cx::new(&m, 0, args, vec![]);
                 let result = self.evaluate_node(&mut cx, closure_declare.block);
@@ -290,7 +283,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 let v = self.evaluate_node(cx, assignment.expr)?;
                 match &assignment.name {
                     DeclareName::Single(declare_name_single) => {
-                        let name = declare_name_single.name.span.contents(&cx.module.src);
+                        let name = declare_name_single.name.contents(&cx.module.src);
                         // TODO: Type check
                         cx.locals.insert(name, v);
                         Ok(Value::Unit)
@@ -314,7 +307,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             }
             Node::BinaryOp(binary_op) => self.evaluate_binary_op(cx, binary_op),
             Node::Ident(tls) => self
-                .resolve_ident(cx, tls.0.span.contents(&cx.module.src))?
+                .resolve_ident(cx, tls.0.contents(&cx.module.src))?
                 .ok_or_else(|| cx.err(tls.0, RunnerError::UnknownIdent)),
             Node::SimpleLiteral(SimpleLiteral {
                 kind: SimpleLiteralKind::True,
@@ -329,29 +322,29 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 ..
             }) => Ok(Value::Internal),
             Node::SimpleLiteral(SimpleLiteral {
-                tls,
+                span,
                 kind: SimpleLiteralKind::Import,
-            }) => self.import_sugar(cx, nid, tls.span),
+            }) => self.import_sugar(cx, nid, *span),
             Node::SimpleLiteral(SimpleLiteral {
-                tls,
+                span,
                 kind: SimpleLiteralKind::Stdlib,
-            }) => self.stdlib_sugar(cx, nid, tls.span),
+            }) => self.stdlib_sugar(cx, nid, *span),
             Node::SimpleLiteral(SimpleLiteral {
-                tls,
+                span,
                 kind: SimpleLiteralKind::ThisFile,
-            }) => self.this_file_sugar(cx, nid, tls.span),
-            Node::StringLiteral(lit) => match lit.prefix() {
+            }) => self.this_file_sugar(cx, nid, *span),
+            Node::StringLiteral(lit) => match lit.prefix {
                 Some(crate::tokens::StringLiteralPrefix::Format) => {
                     log::info!("{lit:?}");
-                    let contents = lit.content_span().contents(&cx.module.src);
+                    let contents = lit.contents.contents(&cx.module.src);
                     todo!("format strings not implemented: {contents}")
                 }
                 Some(crate::tokens::StringLiteralPrefix::Raw) => {
-                    let contents = lit.content_span().contents(&cx.module.src);
+                    let contents = lit.contents.contents(&cx.module.src);
                     Ok(Value::String(Arc::new(contents.to_string())))
                 }
                 None => {
-                    let contents = lit.content_span().contents(&cx.module.src);
+                    let contents = lit.contents.contents(&cx.module.src);
                     Ok(Value::String(Arc::new(EscapeReplacer::replace_all(
                         contents,
                     ))))
@@ -368,7 +361,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 let mut builder = IndexMap::new();
                 for e in &record.fields {
                     builder.insert(
-                        e.key.span.contents(&cx.module.src).to_owned(),
+                        e.key.contents(&cx.module.src).to_owned(),
                         self.evaluate_node(cx, e.value)?,
                     );
                 }
@@ -433,7 +426,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             .iter()
             .map(|a| Ok((*a, self.evaluate_node(cx, *a)?)))
             .collect::<Result<_, _>>()?;
-        let call_span = fn_call.lparen_token.span + fn_call.rparen_token.span;
+        let call_span = fn_call.lparen_token + fn_call.rparen_token;
         self.call_function(cx, nid, v, call_span, arg_values)
     }
 
@@ -481,7 +474,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     .args
                     .iter()
                     .zip(arg_values.clone())
-                    .map(|(a, v)| (a.name.span.contents(&m.src), v))
+                    .map(|(a, v)| (a.name.contents(&m.src), v))
                     .collect();
                 let mut callee_cx = cx.callee(
                     m,
@@ -775,9 +768,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     fn evaluate_dot_operator(&mut self, cx: &mut Cx, op: &BinaryOp, left: &Value) -> ResultValue {
         match cx.module.get(op.right) {
             Node::Ident(tls) => {
-                let name = tls.0.span.contents(&cx.module.src);
-                let Some(value) = self.evaluate_named_index(cx, left, tls.0.span, name)? else {
-                    return Err(cx.err(tls.0.span, RunnerError::IndexKeyNotFound(name.to_owned())));
+                let name = tls.0.contents(&cx.module.src);
+                let Some(value) = self.evaluate_named_index(cx, left, tls.0, name)? else {
+                    return Err(cx.err(tls.0, RunnerError::IndexKeyNotFound(name.to_owned())));
                 };
                 Ok(value)
             }

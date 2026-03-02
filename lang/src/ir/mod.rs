@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     afs::File,
-    ast::{ArgTypeSpec, Declare, Module, ModuleRoot, Node, NodeId, error::ParseError},
+    ast::{TypeSpec, Declare, Module, ModuleRoot, Node, NodeId, error::ParseError},
     local_span::{ErrorLocalSpan, LocalSpan},
     runner::error::RunnerError,
     span::ErrorSpan,
@@ -122,7 +122,7 @@ impl IrModule {
         d
     }
 
-    pub fn get_declaration_type_spec(&self, id: LocalDeclarationId) -> &Option<ArgTypeSpec> {
+    pub fn get_declaration_type_spec(&self, id: LocalDeclarationId) -> &Option<TypeSpec> {
         match self.inner().module_root().declarations.get(id.0) {
             Some(let_declare) => match let_declare.assignment.type_specs().nth(id.1) {
                 Some(type_spec) => type_spec,

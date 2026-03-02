@@ -33,7 +33,7 @@ fn print_help() {
 }
 
 fn inner(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
-    let module = rain_lang::ast::parser::parse_module(src)?;
+    let module = rain_lang::ast::ts_parser::parse_module(src)?;
     let out = module.display(src);
     println!("{out}");
     Ok(())

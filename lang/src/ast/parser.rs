@@ -1,10 +1,10 @@
 use crate::{
     ast::{
-        AlternateCondition, ArgTypeSpec, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure,
-        Declare, DeclareName, DeclareNameListElement, DeclareNameSingle, DeclareNamedDestructure,
-        FnCall, FnDeclareArg, Ident, IfCondition, IntegerLiteral, List, ListElement, Module,
-        ModuleRoot, Node, NodeId, NodeList, Not, Record, RecordField, SimpleLiteralKind,
-        StringLiteral,
+        AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure, Declare,
+        DeclareName, DeclareNameListElement, DeclareNameSingle, DeclareNamedDestructure, FnCall,
+        FnDeclareArg, Ident, IfCondition, IntegerLiteral, List, ListElement, Module, ModuleRoot,
+        Node, NodeId, NodeList, Not, Record, RecordField, SimpleLiteralKind, StringLiteral,
+        TypeSpec,
         error::{ParseError, ParseResult},
     },
     local_span::ErrorLocalSpan,
@@ -17,19 +17,10 @@ pub fn parse_module(source: &str) -> ParseResult<Module> {
     let nodes = parser.complete()?;
     // Check that tree sitter can parse this too
     if cfg!(debug_assertions) {
-        let tree = parse_module_tree_sitter(source);
-        debug_assert!(!tree.root_node().has_error());
+        let tree = super::ts_parser::parse_module(source);
+        tree.unwrap();
     }
     Ok(Module { root, nodes })
-}
-
-pub fn parse_module_tree_sitter(source: &str) -> tree_sitter::Tree {
-    let mut parser = tree_sitter::Parser::new();
-    let language = tree_sitter_rain::LANGUAGE;
-    parser
-        .set_language(&language.into())
-        .expect("error loading Rain parser");
-    parser.parse(source, None).expect("no language")
 }
 
 struct ModuleParser<'src> {
@@ -91,9 +82,12 @@ impl<'src> ModuleParser<'src> {
     fn parse_let_declare(&mut self) -> ParseResult<Declare> {
         let token = self.stream.expect_parse_next(&[Token::Pub, Token::Let])?;
         let (pub_token, let_token) = if token.token == Token::Pub {
-            (Some(token), self.stream.expect_parse_next(&[Token::Let])?)
+            (
+                Some(token.span),
+                self.stream.expect_parse_next(&[Token::Let])?.span,
+            )
         } else {
-            (None, token)
+            (None, token.span)
         };
 
         let assignment = self.parse_assignment()?;
@@ -105,7 +99,7 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_fn_declare(&mut self, fn_token: TokenLocalSpan) -> ParseResult<NodeId> {
-        let lparen_token = self.stream.expect_parse_next(&[Token::LParen])?;
+        let lparen_token = self.stream.expect_parse_next(&[Token::LParen])?.span;
         let mut args = Vec::new();
         loop {
             let t = self.stream.expect_peek(&[Token::RParen, Token::Ident])?;
@@ -115,7 +109,7 @@ impl<'src> ModuleParser<'src> {
                 _ => unreachable!("parse fn declare rparen"),
             }
             self.stream.parse_next()?;
-            let name = t;
+            let name = t.span;
             let mut t = self
                 .stream
                 .expect_peek(&[Token::RParen, Token::Comma, Token::Colon])?;
@@ -124,7 +118,7 @@ impl<'src> ModuleParser<'src> {
                 let expr = self.parse_expr()?;
                 args.push(FnDeclareArg {
                     name,
-                    type_spec: Some(ArgTypeSpec {
+                    type_spec: Some(TypeSpec {
                         colon_token: t,
                         type_expr: expr,
                     }),
@@ -147,7 +141,7 @@ impl<'src> ModuleParser<'src> {
             }
         }
 
-        let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?;
+        let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?.span;
         let mut return_type = None;
         if let Some(peek) = self.stream.peek()?
             && peek.token == Token::ReturnType
@@ -158,13 +152,13 @@ impl<'src> ModuleParser<'src> {
             debug_assert_eq!(arrow.token, Token::ReturnType);
             let expr = self.parse_expr()?;
             return_type = Some(super::ClosureReturnTypeSpec {
-                return_type_arrow: arrow,
+                return_type_arrow: arrow.span,
                 type_expr: expr,
             });
         }
         let block = self.parse_block()?;
         Ok(self.push(Closure {
-            fn_token,
+            fn_token: fn_token.span,
             lparen_token,
             args,
             rparen_token,
@@ -174,7 +168,7 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_block(&mut self) -> ParseResult<NodeId> {
-        let lbrace_token = self.stream.expect_parse_next(&[Token::LBrace])?;
+        let lbrace_token = self.stream.expect_parse_next(&[Token::LBrace])?.span;
         let mut statements = Vec::new();
         let mut expecting_statement = true;
         while let Some(peek) = self.stream.peek()? {
@@ -195,7 +189,7 @@ impl<'src> ModuleParser<'src> {
                 }
             }
         }
-        let rbrace_token = self.stream.expect_parse_next(&[Token::RBrace])?;
+        let rbrace_token = self.stream.expect_parse_next(&[Token::RBrace])?.span;
         Ok(self.push(Block {
             lbrace_token,
             statements,
@@ -219,11 +213,11 @@ impl<'src> ModuleParser<'src> {
             .expect_parse_next(&[Token::Ident, Token::LBrace])?;
         let name = match token.token {
             Token::Ident => {
-                let name = token;
+                let name = token.span;
                 let peek = self.stream.expect_peek(&[Token::Colon, Token::Assign])?;
                 let type_spec = if peek.token == Token::Colon {
                     let colon_token = self.stream.expect_parse_next(&[Token::Colon])?;
-                    Some(ArgTypeSpec {
+                    Some(TypeSpec {
                         colon_token,
                         type_expr: self.parse_expr()?,
                     })
@@ -233,7 +227,7 @@ impl<'src> ModuleParser<'src> {
                 DeclareName::Single(DeclareNameSingle { name, type_spec })
             }
             Token::LBrace => {
-                let lbrace = token;
+                let lbrace = token.span;
                 let mut elements = Vec::new();
                 loop {
                     self.stream.skip_if_newline_or_comment()?;
@@ -243,13 +237,13 @@ impl<'src> ModuleParser<'src> {
                     if peek.token == Token::RBrace {
                         break;
                     }
-                    let name = self.stream.expect_parse_next(&[Token::Ident])?;
+                    let name = self.stream.expect_parse_next(&[Token::Ident])?.span;
                     let peek =
                         self.stream
                             .expect_peek(&[Token::Colon, Token::Comma, Token::RBrace])?;
                     let type_spec = if peek.token == Token::Colon {
                         let colon_token = self.stream.expect_parse_next(&[Token::Colon])?;
-                        Some(ArgTypeSpec {
+                        Some(TypeSpec {
                             colon_token,
                             type_expr: self.parse_expr()?,
                         })
@@ -267,7 +261,7 @@ impl<'src> ModuleParser<'src> {
                             break;
                         }
                         Token::Comma => {
-                            let comma = Some(self.stream.expect_parse_next(&[Token::Comma])?);
+                            let comma = Some(self.stream.expect_parse_next(&[Token::Comma])?.span);
                             elements.push(DeclareNameListElement {
                                 name,
                                 type_spec,
@@ -277,7 +271,7 @@ impl<'src> ModuleParser<'src> {
                         _ => unreachable!(),
                     }
                 }
-                let rbrace = self.stream.expect_parse_next(&[Token::RBrace])?;
+                let rbrace = self.stream.expect_parse_next(&[Token::RBrace])?.span;
                 DeclareName::NamedDestructure(DeclareNamedDestructure {
                     lbrace,
                     elements,
@@ -286,7 +280,7 @@ impl<'src> ModuleParser<'src> {
             }
             _ => unreachable!(),
         };
-        let equals_token = self.stream.expect_parse_next(&[Token::Assign])?;
+        let equals_token = self.stream.expect_parse_next(&[Token::Assign])?.span;
         let expr = self.parse_expr()?;
         Ok(Assignment {
             name,
@@ -326,15 +320,28 @@ impl<'src> ModuleParser<'src> {
         };
         let expr = match t.token {
             Token::Fn => self.parse_fn_declare(t)?,
-            Token::Ident => self.push(Ident(t)),
+            Token::Ident => self.push(Ident(t.span)),
             Token::Number => self.push(IntegerLiteral(t)),
-            Token::DoubleQuoteLiteral(_) => self.push(StringLiteral(t)),
-            Token::True => self.push(SimpleLiteralKind::True.with(t)),
-            Token::False => self.push(SimpleLiteralKind::False.with(t)),
-            Token::Internal => self.push(SimpleLiteralKind::Internal.with(t)),
-            Token::Import => self.push(SimpleLiteralKind::Import.with(t)),
-            Token::Stdlib => self.push(SimpleLiteralKind::Stdlib.with(t)),
-            Token::ThisFile => self.push(SimpleLiteralKind::ThisFile.with(t)),
+            Token::DoubleQuoteLiteral(prefix) => self.push(StringLiteral {
+                prefix,
+                contents: if prefix.is_some() {
+                    let mut s = t.span;
+                    s.start += 2;
+                    s.end -= 1;
+                    s
+                } else {
+                    let mut s = t.span;
+                    s.start += 1;
+                    s.end -= 1;
+                    s
+                },
+            }),
+            Token::True => self.push(SimpleLiteralKind::True.with(t.span)),
+            Token::False => self.push(SimpleLiteralKind::False.with(t.span)),
+            Token::Internal => self.push(SimpleLiteralKind::Internal.with(t.span)),
+            Token::Import => self.push(SimpleLiteralKind::Import.with(t.span)),
+            Token::Stdlib => self.push(SimpleLiteralKind::Stdlib.with(t.span)),
+            Token::ThisFile => self.push(SimpleLiteralKind::ThisFile.with(t.span)),
             Token::LParen => {
                 let expr = self.parse_expr()?;
                 self.stream.expect_parse_next(&[Token::RParen])?;
@@ -454,7 +461,7 @@ impl<'src> ModuleParser<'src> {
     }
 
     fn parse_fn_call(&mut self, lhs: NodeId) -> ParseResult<NodeId> {
-        let lparen_token = self.stream.expect_parse_next(&[Token::LParen])?;
+        let lparen_token = self.stream.expect_parse_next(&[Token::LParen])?.span;
         let mut args = Vec::new();
         loop {
             let Some(t) = self.stream.peek()? else {
@@ -474,7 +481,7 @@ impl<'src> ModuleParser<'src> {
                 _ => break,
             }
         }
-        let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?;
+        let rparen_token = self.stream.expect_parse_next(&[Token::RParen])?.span;
         Ok(self.push(FnCall {
             callee: lhs,
             lparen_token,
@@ -494,7 +501,7 @@ impl<'src> ModuleParser<'src> {
             if peek.token == Token::RBrace {
                 break;
             }
-            let key = self.stream.expect_parse_next(&[Token::Ident])?;
+            let key = self.stream.expect_parse_next(&[Token::Ident])?.span;
             let equals = self.stream.expect_parse_next(&[Token::Assign])?.span;
             let value = self.parse_expr()?;
             let mut comma = None;

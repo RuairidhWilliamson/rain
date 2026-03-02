@@ -15,7 +15,7 @@ ModuleRoot(
       print
      )
      StringLiteral(
-      "Hello world"
+      Hello world
      )
     )
    )

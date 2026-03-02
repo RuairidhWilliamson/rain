@@ -1,0 +1,3 @@
+let main = fn() {
+	foo: String = 5
+}

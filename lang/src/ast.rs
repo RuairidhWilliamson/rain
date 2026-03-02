@@ -4,6 +4,7 @@ mod test;
 mod display;
 pub mod error;
 pub mod parser;
+pub mod ts_parser;
 
 use std::fmt::Debug;
 
@@ -159,8 +160,8 @@ impl AstNode for ModuleRoot {
 
 #[derive(Debug)]
 pub struct Declare {
-    pub pub_token: Option<TokenLocalSpan>,
-    pub let_token: TokenLocalSpan,
+    pub pub_token: Option<LocalSpan>,
+    pub let_token: LocalSpan,
     pub assignment: Assignment,
 }
 
@@ -185,7 +186,7 @@ impl AstNode for DeclareName {
         let mut b = f.node("Name");
         match &self {
             Self::Single(single_name) => {
-                b.child_contents(single_name.name.span);
+                b.child_contents(single_name.name);
                 if let Some(t) = &single_name.type_spec {
                     b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
                 }
@@ -196,7 +197,7 @@ impl AstNode for DeclareName {
                     for e in &destructure.elements {
                         b.child_fn(|f| {
                             let mut b = f.node("NamedDestructureElement");
-                            b.child_contents(e.name.span);
+                            b.child_contents(e.name);
                             if let Some(t) = &e.type_spec {
                                 b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
                             }
@@ -213,43 +214,43 @@ impl AstNode for DeclareName {
 
 #[derive(Debug)]
 pub struct DeclareNameSingle {
-    pub name: TokenLocalSpan,
-    pub type_spec: Option<ArgTypeSpec>,
+    pub name: LocalSpan,
+    pub type_spec: Option<TypeSpec>,
 }
 
 impl DeclareNameSingle {
     fn span(&self, list: &NodeList) -> LocalSpan {
         if let Some(type_spec) = &self.type_spec {
-            self.name.span + list.span(type_spec.type_expr)
+            self.name + list.span(type_spec.type_expr)
         } else {
-            self.name.span
+            self.name
         }
     }
 }
 
 #[derive(Debug)]
 pub struct DeclareNamedDestructure {
-    pub lbrace: TokenLocalSpan,
+    pub lbrace: LocalSpan,
     pub elements: Vec<DeclareNameListElement>,
-    pub rbrace: TokenLocalSpan,
+    pub rbrace: LocalSpan,
 }
 
 impl DeclareNamedDestructure {
     fn span(&self, _list: &NodeList) -> LocalSpan {
-        self.lbrace.span + self.rbrace.span
+        self.lbrace + self.rbrace
     }
 }
 
 #[derive(Debug)]
 pub struct DeclareNameListElement {
-    pub name: TokenLocalSpan,
-    pub type_spec: Option<ArgTypeSpec>,
-    pub comma: Option<TokenLocalSpan>,
+    pub name: LocalSpan,
+    pub type_spec: Option<TypeSpec>,
+    pub comma: Option<LocalSpan>,
 }
 
 impl Assignment {
-    pub fn type_specs(&self) -> impl Iterator<Item = &Option<ArgTypeSpec>> {
-        let iter: Box<dyn Iterator<Item = &Option<ArgTypeSpec>>> = match &self.name {
+    pub fn type_specs(&self) -> impl Iterator<Item = &Option<TypeSpec>> {
+        let iter: Box<dyn Iterator<Item = &Option<TypeSpec>>> = match &self.name {
             DeclareName::Single(declare_name_single) => {
                 Box::new(std::iter::once(&declare_name_single.type_spec))
             }
@@ -266,14 +267,11 @@ impl Assignment {
     pub fn name_spans(&self) -> impl Iterator<Item = LocalSpan> {
         let iter: Box<dyn Iterator<Item = LocalSpan>> = match &self.name {
             DeclareName::Single(declare_name_single) => {
-                Box::new(std::iter::once(declare_name_single.name.span))
+                Box::new(std::iter::once(declare_name_single.name))
             }
-            DeclareName::NamedDestructure(declare_named_destructure) => Box::new(
-                declare_named_destructure
-                    .elements
-                    .iter()
-                    .map(|e| e.name.span),
-            ),
+            DeclareName::NamedDestructure(declare_named_destructure) => {
+                Box::new(declare_named_destructure.elements.iter().map(|e| e.name))
+            }
         };
         iter
     }
@@ -285,24 +283,24 @@ impl Assignment {
 
 impl AstNode for Declare {
     fn span(&self, list: &NodeList) -> LocalSpan {
-        let first = if let Some(t) = &self.pub_token {
-            t.span
+        let first = if let Some(span) = self.pub_token {
+            span
         } else {
-            self.let_token.span
+            self.let_token
         };
         first + self.assignment.span(list)
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
         let mut b = f.node("LetDeclare");
-        if let Some(t) = &self.pub_token {
-            b.child_contents(t.span);
+        if let Some(span) = self.pub_token {
+            b.child_contents(span);
         } else {
             b.child_str("private");
         }
         match &self.assignment.name {
             DeclareName::Single(single_name) => {
-                b.child_contents(single_name.name.span);
+                b.child_contents(single_name.name);
                 if let Some(t) = &single_name.type_spec {
                     b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
                 }
@@ -313,7 +311,7 @@ impl AstNode for Declare {
                     for e in &destructure.elements {
                         b.child_fn(|f| {
                             let mut b = f.node("NamedDestructureElement");
-                            b.child_contents(e.name.span);
+                            b.child_contents(e.name);
                             if let Some(t) = &e.type_spec {
                                 b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
                             }
@@ -330,29 +328,29 @@ impl AstNode for Declare {
 
 #[derive(Debug)]
 pub struct Closure {
-    pub fn_token: TokenLocalSpan,
-    pub lparen_token: TokenLocalSpan,
+    pub fn_token: LocalSpan,
+    pub lparen_token: LocalSpan,
     pub args: Vec<FnDeclareArg>,
-    pub rparen_token: TokenLocalSpan,
+    pub rparen_token: LocalSpan,
     pub return_type: Option<ClosureReturnTypeSpec>,
     pub block: NodeId,
 }
 
 #[derive(Debug)]
 pub struct FnDeclareArg {
-    pub name: TokenLocalSpan,
-    pub type_spec: Option<ArgTypeSpec>,
+    pub name: LocalSpan,
+    pub type_spec: Option<TypeSpec>,
 }
 
 #[derive(Debug)]
-pub struct ArgTypeSpec {
+pub struct TypeSpec {
     pub colon_token: TokenLocalSpan,
     pub type_expr: NodeId,
 }
 
 #[derive(Debug)]
 pub struct ClosureReturnTypeSpec {
-    pub return_type_arrow: TokenLocalSpan,
+    pub return_type_arrow: LocalSpan,
     pub type_expr: NodeId,
 }
 
@@ -364,7 +362,7 @@ impl From<Closure> for Node {
 
 impl AstNode for Closure {
     fn span(&self, list: &NodeList) -> LocalSpan {
-        self.fn_token.span + list.span(self.block)
+        self.fn_token + list.span(self.block)
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
@@ -372,7 +370,7 @@ impl AstNode for Closure {
         b.child_fn(|f| {
             let mut b = f.node("Args");
             for arg in &self.args {
-                b.child_contents(arg.name.span);
+                b.child_contents(arg.name);
                 if let Some(t) = &arg.type_spec {
                     b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
                 }
@@ -391,9 +389,9 @@ impl AstNode for Closure {
 
 #[derive(Debug)]
 pub struct Block {
-    pub lbrace_token: TokenLocalSpan,
+    pub lbrace_token: LocalSpan,
     pub statements: Vec<NodeId>,
-    pub rbrace_token: TokenLocalSpan,
+    pub rbrace_token: LocalSpan,
 }
 
 impl From<Block> for Node {
@@ -404,7 +402,7 @@ impl From<Block> for Node {
 
 impl AstNode for Block {
     fn span(&self, _list: &NodeList) -> LocalSpan {
-        self.lbrace_token.span + self.rbrace_token.span
+        self.lbrace_token + self.rbrace_token
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
@@ -413,25 +411,9 @@ impl AstNode for Block {
 }
 
 #[derive(Debug)]
-pub struct StringLiteral(pub TokenLocalSpan);
-
-impl StringLiteral {
-    pub fn prefix(&self) -> Option<StringLiteralPrefix> {
-        let Token::DoubleQuoteLiteral(prefix) = self.0.token else {
-            unreachable!("double_quote_literal")
-        };
-        prefix
-    }
-
-    pub fn content_span(&self) -> LocalSpan {
-        let mut s = self.0.span;
-        if self.prefix().is_some() {
-            s.start += 1;
-        }
-        s.start += 1;
-        s.end -= 1;
-        s
-    }
+pub struct StringLiteral {
+    pub prefix: Option<StringLiteralPrefix>,
+    pub contents: LocalSpan,
 }
 
 impl From<StringLiteral> for Node {
@@ -442,11 +424,13 @@ impl From<StringLiteral> for Node {
 
 impl AstNode for StringLiteral {
     fn span(&self, _list: &NodeList) -> LocalSpan {
-        self.0.span
+        self.contents
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        f.node("StringLiteral").child_contents(self.0.span).finish()
+        f.node("StringLiteral")
+            .child_contents(self.contents)
+            .finish()
     }
 }
 
@@ -503,9 +487,9 @@ impl AstNode for Not {
 #[derive(Debug)]
 pub struct FnCall {
     pub callee: NodeId,
-    pub lparen_token: TokenLocalSpan,
+    pub lparen_token: LocalSpan,
     pub args: Vec<NodeId>,
-    pub rparen_token: TokenLocalSpan,
+    pub rparen_token: LocalSpan,
 }
 
 impl From<FnCall> for Node {
@@ -516,7 +500,7 @@ impl From<FnCall> for Node {
 
 impl AstNode for FnCall {
     fn span(&self, list: &NodeList) -> LocalSpan {
-        list.span(self.callee) + self.rparen_token.span
+        list.span(self.callee) + self.rparen_token
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
@@ -573,7 +557,7 @@ impl AstNode for IfCondition {
 #[derive(Debug)]
 pub struct Assignment {
     pub name: DeclareName,
-    pub equals_token: TokenLocalSpan,
+    pub equals_token: LocalSpan,
     pub expr: NodeId,
 }
 
@@ -657,7 +641,7 @@ impl AstNode for IntegerLiteral {
 
 #[derive(Debug)]
 pub struct SimpleLiteral {
-    pub tls: TokenLocalSpan,
+    pub span: LocalSpan,
     pub kind: SimpleLiteralKind,
 }
 
@@ -669,7 +653,7 @@ impl From<SimpleLiteral> for Node {
 
 impl AstNode for SimpleLiteral {
     fn span(&self, _list: &NodeList) -> LocalSpan {
-        self.tls.span
+        self.span
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
@@ -696,13 +680,13 @@ pub enum SimpleLiteralKind {
 }
 
 impl SimpleLiteralKind {
-    pub fn with(self, tls: TokenLocalSpan) -> SimpleLiteral {
-        SimpleLiteral { tls, kind: self }
+    pub fn with(self, span: LocalSpan) -> SimpleLiteral {
+        SimpleLiteral { span, kind: self }
     }
 }
 
 #[derive(Debug)]
-pub struct Ident(pub TokenLocalSpan);
+pub struct Ident(pub LocalSpan);
 
 impl From<Ident> for Node {
     fn from(inner: Ident) -> Self {
@@ -712,11 +696,11 @@ impl From<Ident> for Node {
 
 impl AstNode for Ident {
     fn span(&self, _list: &NodeList) -> LocalSpan {
-        self.0.span
+        self.0
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        f.node("Ident").child_contents(self.0.span).finish()
+        f.node("Ident").child_contents(self.0).finish()
     }
 }
 
@@ -749,7 +733,7 @@ impl AstNode for Record {
 
 #[derive(Debug)]
 pub struct RecordField {
-    pub key: TokenLocalSpan,
+    pub key: LocalSpan,
     pub equals: LocalSpan,
     pub value: NodeId,
     pub comma: Option<LocalSpan>,
@@ -757,12 +741,12 @@ pub struct RecordField {
 
 impl AstNode for RecordField {
     fn span(&self, list: &NodeList) -> LocalSpan {
-        self.key.span + self.comma.unwrap_or_else(|| list.span(self.value))
+        self.key + self.comma.unwrap_or_else(|| list.span(self.value))
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
         f.node("RecordEntry")
-            .child_contents(self.key.span)
+            .child_contents(self.key)
             .child(self.value)
             .finish()
     }

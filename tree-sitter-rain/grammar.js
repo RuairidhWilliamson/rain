@@ -9,9 +9,7 @@ export default grammar({
   rules: {
     source_file: ($) => repeat(choice($.line_comment, $.declaration)),
 
-    declaration: ($) => $.let_declare,
-
-    let_declare: ($) => seq(optional("pub"), "let", $.assignment),
+    declaration: ($) => seq(optional("pub"), "let", $.assignment),
     assignment: ($) => seq($.declare_name, "=", $.expr),
     declare_name: ($) =>
       choice($.declare_single_name, $.declare_named_destructure),

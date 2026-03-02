@@ -1,6 +1,6 @@
 ---
 source: lang/src/ast/parser.rs
-expression: "parse_display_expr(\"{a: 1, b: 2, c: \\\"ajlsdkf\\\"}\")"
+expression: "parse_display_expr(\"{a = 1, b = 2, c = \\\"ajlsdkf\\\"}\")"
 ---
 Record(
  RecordEntry(
@@ -18,7 +18,7 @@ Record(
  RecordEntry(
   c
   StringLiteral(
-   "ajlsdkf"
+   ajlsdkf
   )
  )
 )

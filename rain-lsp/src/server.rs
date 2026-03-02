@@ -150,7 +150,7 @@ impl Server {
     fn handle_did_open(&mut self, message: Notification<DidOpenTextDocumentParams>) {
         let params = message.params.unwrap();
         let src = params.text_document.text;
-        let tree = rain_lang::ast::parser::parse_module_tree_sitter(&src);
+        let tree = rain_lang::ast::ts_parser::parse(&src);
         let text_document = TextDocument {
             uri: params.text_document.uri,
             version: (params.text_document.version),
@@ -170,7 +170,7 @@ impl Server {
             .get_mut(&params.text_document.uri.to_string())
             .unwrap();
         let change = params.content_changes.pop().unwrap();
-        let tree = rain_lang::ast::parser::parse_module_tree_sitter(&change.text);
+        let tree = rain_lang::ast::ts_parser::parse(&change.text);
         *text_document = TextDocument {
             uri: params.text_document.uri,
             version: params.text_document.version,
