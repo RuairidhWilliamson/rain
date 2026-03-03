@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     afs::File,
-    ast::{TypeSpec, Declare, Module, ModuleRoot, Node, NodeId, error::ParseError},
+    ast::{Declare, Module, ModuleRoot, Node, NodeId, TypeSpec, error::ParseError},
     local_span::{ErrorLocalSpan, LocalSpan},
     runner::error::RunnerError,
     span::ErrorSpan,

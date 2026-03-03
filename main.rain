@@ -39,9 +39,9 @@ let ci = fn() {
 pub let check = fn() {
 	tree_sitter_rain.build()
 	lint()
+	check_sqlx_prepared()
 	clippy()
 	fmt_check()
-	check_sqlx_prepared()
 	test()
 }
 
