@@ -10,7 +10,7 @@ use std::fmt::Debug;
 
 use crate::{
     local_span::LocalSpan,
-    tokens::{StringLiteralPrefix, Token, TokenLocalSpan},
+    tokens::{StringLiteralPrefix, Token},
 };
 
 trait AstNode {
@@ -344,7 +344,7 @@ pub struct FnDeclareArg {
 
 #[derive(Debug)]
 pub struct TypeSpec {
-    pub colon_token: TokenLocalSpan,
+    pub colon_token: LocalSpan,
     pub type_expr: NodeId,
 }
 
@@ -619,7 +619,7 @@ impl BinaryOperatorKind {
 }
 
 #[derive(Debug)]
-pub struct IntegerLiteral(pub TokenLocalSpan);
+pub struct IntegerLiteral(pub LocalSpan);
 
 impl From<IntegerLiteral> for Node {
     fn from(inner: IntegerLiteral) -> Self {
@@ -629,13 +629,11 @@ impl From<IntegerLiteral> for Node {
 
 impl AstNode for IntegerLiteral {
     fn span(&self, _list: &NodeList) -> LocalSpan {
-        self.0.span
+        self.0
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
-        f.node("IntegerLiteral")
-            .child_contents(self.0.span)
-            .finish()
+        f.node("IntegerLiteral").child_contents(self.0).finish()
     }
 }
 

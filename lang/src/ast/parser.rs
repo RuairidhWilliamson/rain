@@ -119,7 +119,7 @@ impl<'src> ModuleParser<'src> {
                 args.push(FnDeclareArg {
                     name,
                     type_spec: Some(TypeSpec {
-                        colon_token: t,
+                        colon_token: t.span,
                         type_expr: expr,
                     }),
                 });
@@ -216,7 +216,7 @@ impl<'src> ModuleParser<'src> {
                 let name = token.span;
                 let peek = self.stream.expect_peek(&[Token::Colon, Token::Assign])?;
                 let type_spec = if peek.token == Token::Colon {
-                    let colon_token = self.stream.expect_parse_next(&[Token::Colon])?;
+                    let colon_token = self.stream.expect_parse_next(&[Token::Colon])?.span;
                     Some(TypeSpec {
                         colon_token,
                         type_expr: self.parse_expr()?,
@@ -242,7 +242,7 @@ impl<'src> ModuleParser<'src> {
                         self.stream
                             .expect_peek(&[Token::Colon, Token::Comma, Token::RBrace])?;
                     let type_spec = if peek.token == Token::Colon {
-                        let colon_token = self.stream.expect_parse_next(&[Token::Colon])?;
+                        let colon_token = self.stream.expect_parse_next(&[Token::Colon])?.span;
                         Some(TypeSpec {
                             colon_token,
                             type_expr: self.parse_expr()?,
@@ -321,7 +321,7 @@ impl<'src> ModuleParser<'src> {
         let expr = match t.token {
             Token::Fn => self.parse_fn_declare(t)?,
             Token::Ident => self.push(Ident(t.span)),
-            Token::Number => self.push(IntegerLiteral(t)),
+            Token::Number => self.push(IntegerLiteral(t.span)),
             Token::DoubleQuoteLiteral(prefix) => self.push(StringLiteral {
                 prefix,
                 contents: if prefix.is_some() {

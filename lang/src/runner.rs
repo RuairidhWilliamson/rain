@@ -352,7 +352,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             },
             Node::IntegerLiteral(tls) => Ok(Value::Integer(Arc::new(RainInteger(
                 tls.0
-                    .span
                     .contents(&cx.module.src)
                     .parse::<num_bigint::BigInt>()
                     .map_err(|_| cx.err(tls.0, RunnerError::InvalidIntegerLiteral))?,
