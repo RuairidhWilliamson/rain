@@ -229,7 +229,7 @@ fn parse_expr(mut walker: Walker) -> Result<NodeId, Error> {
                 walker.next();
                 match walker.kind() {
                     "expr" => args.push(parse_expr(walker.child()?)?),
-                    "," => continue,
+                    "," => {}
                     ")" => break,
                     _ => unreachable!(),
                 }
@@ -255,60 +255,7 @@ fn parse_expr(mut walker: Walker) -> Result<NodeId, Error> {
             prefix: Some(crate::tokens::StringLiteralPrefix::Format),
             contents: walker.span(),
         })),
-        "fn_declare_expr" => {
-            let mut walker = walker.child()?;
-            let fn_token = walker.span_expect("fn");
-            walker.next();
-            let mut arg_walker = walker.child()?;
-            let lparen_token = arg_walker.span_expect("(");
-            arg_walker.next();
-            let mut args = Vec::new();
-            loop {
-                match arg_walker.kind() {
-                    "fn_declare_arg" => {
-                        let element_walker = arg_walker.child()?;
-                        let name = element_walker.span_expect("identifier");
-                        drop(element_walker);
-                        arg_walker.next();
-                        args.push(FnDeclareArg {
-                            name,
-                            type_spec: None,
-                        });
-                    }
-                    "," => {
-                        arg_walker.next();
-                    }
-                    ")" => break,
-                    kind => unreachable!("{kind}"),
-                }
-            }
-            let rparen_token = arg_walker.span_expect(")");
-            drop(arg_walker);
-            walker.next();
-            let return_type = if walker.kind() == "->" {
-                let return_type_arrow = walker.span_expect("->");
-                walker.next();
-                let expr = parse_expr(walker.child()?.child()?)?;
-                walker.next();
-                Some(ClosureReturnTypeSpec {
-                    return_type_arrow,
-                    type_expr: expr,
-                })
-            } else {
-                None
-            };
-            let block = parse_block(walker.child()?)?;
-            let block = walker.nodes.push(block);
-
-            Ok(walker.nodes.push(Closure {
-                fn_token,
-                lparen_token,
-                args,
-                rparen_token,
-                return_type,
-                block,
-            }))
-        }
+        "fn_declare_expr" => parse_closure(walker.child()?),
         "namespace" => {
             let mut walker = walker.child()?;
             let left = parse_expr(walker.child()?)?;
@@ -340,91 +287,8 @@ fn parse_expr(mut walker: Walker) -> Result<NodeId, Error> {
                 _ => unreachable!(),
             }
         }
-        "list_literal" => {
-            let mut walker = walker.child()?;
-            let lsqbracket = walker.span_expect("[");
-            walker.next();
-            let mut elements = Vec::new();
-            loop {
-                match walker.kind() {
-                    "expr" => {
-                        let expr = parse_expr(walker.child()?)?;
-                        let comma = if walker.maybe_next() && walker.kind() == "comma" {
-                            let comma = Some(walker.span());
-                            walker.next();
-                            comma
-                        } else {
-                            None
-                        };
-                        elements.push(ListElement { value: expr, comma });
-                    }
-                    "]" => {
-                        break;
-                    }
-                    "," => {
-                        walker.next();
-                    }
-                    "line_comment" => {
-                        walker.next();
-                    }
-                    kind => unreachable!("{kind}"),
-                }
-            }
-            let rsqbracket = walker.span_expect("]");
-            Ok(walker.nodes.push(List {
-                lsqbracket,
-                elements,
-                rsqbracket,
-            }))
-        }
-        "record_literal" => {
-            let mut walker = walker.child()?;
-            let lbrace = walker.span_expect("{");
-            walker.next();
-            let mut fields = Vec::new();
-            loop {
-                match walker.kind() {
-                    "record_element" => {
-                        let mut element_walker = walker.child()?;
-                        let key = element_walker.span_expect("identifier");
-                        element_walker.next();
-                        let equals = element_walker.span_expect("=");
-                        element_walker.next();
-                        let expr = parse_expr(element_walker.child()?)?;
-                        drop(element_walker);
-                        let comma = if walker.maybe_next() && walker.kind() == "comma" {
-                            let comma = Some(walker.span());
-                            walker.next();
-                            comma
-                        } else {
-                            None
-                        };
-                        fields.push(RecordField {
-                            key,
-                            equals,
-                            value: expr,
-                            comma,
-                        });
-                    }
-                    "}" => {
-                        break;
-                    }
-                    "," => {
-                        walker.next();
-                    }
-                    "line_comment" => {
-                        walker.next();
-                    }
-                    kind => unreachable!("{kind}"),
-                }
-            }
-            let rbrace = walker.span_expect("}");
-            Ok(walker.nodes.push(Record {
-                lbrace,
-                fields,
-                rbrace,
-            }))
-        }
+        "list_literal" => parse_list_literal(walker.child()?),
+        "record_literal" => parse_record_literal(walker.child()?),
         "number_literal" => Ok(walker.nodes.push(IntegerLiteral(walker.span()))),
         "if_condition" => {
             let mut walker = walker.child()?;
@@ -437,46 +301,180 @@ fn parse_expr(mut walker: Walker) -> Result<NodeId, Error> {
             let inner = parse_expr(walker.child()?)?;
             Ok(walker.nodes.push(Not { exclamation, inner }))
         }
-        "binary_expr" => {
-            let mut walker = walker.child()?;
-            let left = parse_expr(walker.child()?)?;
-            walker.next();
-            let op = match walker.kind() {
-                "*" => BinaryOperatorKind::Multiplication,
-                "/" => BinaryOperatorKind::Division,
-                "+" => BinaryOperatorKind::Addition,
-                "-" => BinaryOperatorKind::Subtraction,
-                "==" => BinaryOperatorKind::Equals,
-                "!=" => BinaryOperatorKind::NotEquals,
-                "||" => BinaryOperatorKind::LogicalOr,
-                "&&" => BinaryOperatorKind::LogicalAnd,
-                "%" => BinaryOperatorKind::Modulo,
-                "^" => BinaryOperatorKind::Pow,
-                "&" => BinaryOperatorKind::BitwiseAnd,
-                "|" => BinaryOperatorKind::BitwiseOr,
-                "<" => BinaryOperatorKind::LessThan,
-                ">" => BinaryOperatorKind::GreaterThan,
-                "<=" => BinaryOperatorKind::LessThanEquals,
-                ">=" => BinaryOperatorKind::GreaterThanEquals,
-                kind => unreachable!("binary op: {kind}"),
-            };
-            let op_span = walker.span();
-            walker.next();
-            let right = parse_expr(walker.child()?)?;
-            let binary_op = BinaryOp {
-                left,
-                op,
-                op_span,
-                right,
-            };
-            Ok(walker.nodes.push(binary_op))
-        }
+        "binary_expr" => parse_binary_expr(walker.child()?),
         "(" => {
             walker.next();
             parse_expr(walker.child()?)
         }
         kind => unreachable!("expr: {kind}"),
     }
+}
+
+fn parse_binary_expr(mut walker: Walker<'_, '_>) -> Result<NodeId, Error> {
+    let left = parse_expr(walker.child()?)?;
+    walker.next();
+    let op = match walker.kind() {
+        "*" => BinaryOperatorKind::Multiplication,
+        "/" => BinaryOperatorKind::Division,
+        "+" => BinaryOperatorKind::Addition,
+        "-" => BinaryOperatorKind::Subtraction,
+        "==" => BinaryOperatorKind::Equals,
+        "!=" => BinaryOperatorKind::NotEquals,
+        "||" => BinaryOperatorKind::LogicalOr,
+        "&&" => BinaryOperatorKind::LogicalAnd,
+        "%" => BinaryOperatorKind::Modulo,
+        "^" => BinaryOperatorKind::Pow,
+        "&" => BinaryOperatorKind::BitwiseAnd,
+        "|" => BinaryOperatorKind::BitwiseOr,
+        "<" => BinaryOperatorKind::LessThan,
+        ">" => BinaryOperatorKind::GreaterThan,
+        "<=" => BinaryOperatorKind::LessThanEquals,
+        ">=" => BinaryOperatorKind::GreaterThanEquals,
+        kind => unreachable!("binary op: {kind}"),
+    };
+    let op_span = walker.span();
+    walker.next();
+    let right = parse_expr(walker.child()?)?;
+    let binary_op = BinaryOp {
+        left,
+        op,
+        op_span,
+        right,
+    };
+    Ok(walker.nodes.push(binary_op))
+}
+
+fn parse_record_literal(mut walker: Walker<'_, '_>) -> Result<NodeId, Error> {
+    let lbrace = walker.span_expect("{");
+    walker.next();
+    let mut fields = Vec::new();
+    loop {
+        match walker.kind() {
+            "record_element" => {
+                let mut element_walker = walker.child()?;
+                let key = element_walker.span_expect("identifier");
+                element_walker.next();
+                let equals = element_walker.span_expect("=");
+                element_walker.next();
+                let expr = parse_expr(element_walker.child()?)?;
+                drop(element_walker);
+                let comma = if walker.maybe_next() && walker.kind() == "comma" {
+                    let comma = Some(walker.span());
+                    walker.next();
+                    comma
+                } else {
+                    None
+                };
+                fields.push(RecordField {
+                    key,
+                    equals,
+                    value: expr,
+                    comma,
+                });
+            }
+            "}" => {
+                break;
+            }
+            "," | "line_comment" => {
+                walker.next();
+            }
+            kind => unreachable!("{kind}"),
+        }
+    }
+    let rbrace = walker.span_expect("}");
+    Ok(walker.nodes.push(Record {
+        lbrace,
+        fields,
+        rbrace,
+    }))
+}
+
+fn parse_list_literal(mut walker: Walker<'_, '_>) -> Result<NodeId, Error> {
+    let lsqbracket = walker.span_expect("[");
+    walker.next();
+    let mut elements = Vec::new();
+    loop {
+        match walker.kind() {
+            "expr" => {
+                let expr = parse_expr(walker.child()?)?;
+                let comma = if walker.maybe_next() && walker.kind() == "comma" {
+                    let comma = Some(walker.span());
+                    walker.next();
+                    comma
+                } else {
+                    None
+                };
+                elements.push(ListElement { value: expr, comma });
+            }
+            "]" => {
+                break;
+            }
+            "," | "line_comment" => {
+                walker.next();
+            }
+            kind => unreachable!("{kind}"),
+        }
+    }
+    let rsqbracket = walker.span_expect("]");
+    Ok(walker.nodes.push(List {
+        lsqbracket,
+        elements,
+        rsqbracket,
+    }))
+}
+
+fn parse_closure(mut walker: Walker<'_, '_>) -> Result<NodeId, Error> {
+    let fn_token = walker.span_expect("fn");
+    walker.next();
+    let mut arg_walker = walker.child()?;
+    let lparen_token = arg_walker.span_expect("(");
+    arg_walker.next();
+    let mut args = Vec::new();
+    loop {
+        match arg_walker.kind() {
+            "fn_declare_arg" => {
+                let element_walker = arg_walker.child()?;
+                let name = element_walker.span_expect("identifier");
+                drop(element_walker);
+                arg_walker.next();
+                args.push(FnDeclareArg {
+                    name,
+                    type_spec: None,
+                });
+            }
+            "," => {
+                arg_walker.next();
+            }
+            ")" => break,
+            kind => unreachable!("{kind}"),
+        }
+    }
+    let rparen_token = arg_walker.span_expect(")");
+    drop(arg_walker);
+    walker.next();
+    let return_type = if walker.kind() == "->" {
+        let return_type_arrow = walker.span_expect("->");
+        walker.next();
+        let expr = parse_expr(walker.child()?.child()?)?;
+        walker.next();
+        Some(ClosureReturnTypeSpec {
+            return_type_arrow,
+            type_expr: expr,
+        })
+    } else {
+        None
+    };
+    let block = parse_block(walker.child()?)?;
+    let block = walker.nodes.push(block);
+
+    Ok(walker.nodes.push(Closure {
+        fn_token,
+        lparen_token,
+        args,
+        rparen_token,
+        return_type,
+        block,
+    }))
 }
 
 fn parse_if_condition(walker: &mut Walker) -> Result<NodeId, Error> {

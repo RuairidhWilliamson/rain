@@ -18,7 +18,7 @@ pub fn parse_module(source: &str) -> ParseResult<Module> {
     // Check that tree sitter can parse this too
     if cfg!(debug_assertions) {
         let tree = super::ts_parser::parse_module(source);
-        tree.unwrap();
+        debug_assert!(tree.is_ok());
     }
     Ok(Module { root, nodes })
 }
@@ -322,20 +322,16 @@ impl<'src> ModuleParser<'src> {
             Token::Fn => self.parse_fn_declare(t)?,
             Token::Ident => self.push(Ident(t.span)),
             Token::Number => self.push(IntegerLiteral(t.span)),
-            Token::DoubleQuoteLiteral(prefix) => self.push(StringLiteral {
-                prefix,
-                contents: if prefix.is_some() {
-                    let mut s = t.span;
-                    s.start += 2;
-                    s.end -= 1;
-                    s
+            Token::DoubleQuoteLiteral(prefix) => {
+                let mut contents = t.span;
+                if prefix.is_some() {
+                    contents.start += 2;
                 } else {
-                    let mut s = t.span;
-                    s.start += 1;
-                    s.end -= 1;
-                    s
-                },
-            }),
+                    contents.start += 1;
+                }
+                contents.end -= 1;
+                self.push(StringLiteral { prefix, contents })
+            }
             Token::True => self.push(SimpleLiteralKind::True.with(t.span)),
             Token::False => self.push(SimpleLiteralKind::False.with(t.span)),
             Token::Internal => self.push(SimpleLiteralKind::Internal.with(t.span)),
