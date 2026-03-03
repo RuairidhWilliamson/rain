@@ -2,7 +2,10 @@
 
 use std::process::ExitCode;
 
-use rain_lang::{ast::error::ParseError, local_span::ErrorLocalSpan};
+use rain_lang::{
+    ast::error::ParseError,
+    local_span::{ErrorLocalSpan, LocalSpan},
+};
 
 fn main() -> ExitCode {
     let Some(src_path) = std::env::args().nth(1) else {
@@ -33,7 +36,8 @@ fn print_help() {
 }
 
 fn inner(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
-    let module = rain_lang::ast::ts_parser::parse_module(src)?;
+    let module = rain_lang::ast::ts_parser::parse_module(src)
+        .map_err(|_| LocalSpan::byte(0).with_error(ParseError::TreeSitter))?;
     let out = module.display(src);
     println!("{out}");
     Ok(())

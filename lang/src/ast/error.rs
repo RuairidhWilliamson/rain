@@ -13,6 +13,7 @@ pub enum ParseError {
     UnmatchedPair(Token),
     ExpectedExpression,
     InputNotFullyConsumed,
+    TreeSitter,
 }
 
 impl From<TokenError> for ParseError {
@@ -48,6 +49,7 @@ impl std::fmt::Display for ParseError {
             }
             Self::ExpectedExpression => f.write_str("bad syntax: expected expression"),
             Self::InputNotFullyConsumed => f.write_str("bad syntax: input not fully consumed"),
+            Self::TreeSitter => f.write_str("tree sitter parse error"),
         }
     }
 }
