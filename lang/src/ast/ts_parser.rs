@@ -5,15 +5,15 @@ use crate::{
         AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure,
         ClosureReturnTypeSpec, Declare, DeclareName, DeclareNameListElement, DeclareNameSingle,
         DeclareNamedDestructure, FnCall, FnDeclareArg, Ident, IfCondition, IntegerLiteral, List,
-        ListElement, Module, ModuleRoot, NodeId, NodeList, Record, RecordField, SimpleLiteralKind,
-        StringLiteral, TypeSpec, error::ParseError,
+        ListElement, Module, ModuleRoot, NodeId, NodeList, Not, Record, RecordField,
+        SimpleLiteralKind, StringLiteral, TypeSpec, error::ParseError,
     },
     local_span::{ErrorLocalSpan, LocalSpan},
 };
 
 struct Walker<'a, 'cursor> {
     cursor: &'a mut TreeCursor<'cursor>,
-    node_list: &'a mut NodeList,
+    nodes: &'a mut NodeList,
 }
 
 impl<'a, 'cursor> Walker<'a, 'cursor> {
@@ -23,16 +23,15 @@ impl<'a, 'cursor> Walker<'a, 'cursor> {
             "cannot get child of {}",
             cursor.node().kind()
         );
-        Self { cursor, node_list }
+        Self {
+            cursor,
+            nodes: node_list,
+        }
     }
 
     fn kind(&self) -> &'static str {
         self.cursor.node().kind()
     }
-
-    // fn node(&self) -> tree_sitter::Node<'cursor> {
-    //     self.cursor.node()
-    // }
 
     fn next(&mut self) {
         assert!(self.cursor.goto_next_sibling());
@@ -57,7 +56,7 @@ impl<'a, 'cursor> Walker<'a, 'cursor> {
     where
         'current: 'child,
     {
-        Walker::new(self.cursor, self.node_list)
+        Walker::new(self.cursor, self.nodes)
     }
 }
 
@@ -79,17 +78,18 @@ pub fn parse(source: &str) -> tree_sitter::Tree {
 pub fn parse_module(source: &str) -> Result<Module, ErrorLocalSpan<ParseError>> {
     let tree = parse(source);
     let mut cursor = tree.walk();
-    assert!(cursor.goto_first_child());
     let mut nodes = NodeList::new();
     let mut declarations = Vec::new();
-    while cursor.goto_next_sibling() {
-        let node = cursor.node();
-        match node.kind() {
-            "declaration" => {
-                declarations.push(parse_declaration(Walker::new(&mut cursor, &mut nodes)));
+    if cursor.goto_first_child() {
+        while cursor.goto_next_sibling() {
+            let node = cursor.node();
+            match node.kind() {
+                "declaration" => {
+                    declarations.push(parse_declaration(Walker::new(&mut cursor, &mut nodes)));
+                }
+                "line_comment" => {}
+                _ => unreachable!(),
             }
-            "line_comment" => {}
-            _ => unreachable!(),
         }
     }
     Ok(Module {
@@ -224,17 +224,15 @@ fn parse_expr(mut walker: Walker) -> NodeId {
                 }
             }
             let rparen_token = walker.span_expect(")");
-            walker.node_list.push(FnCall {
+            walker.nodes.push(FnCall {
                 callee,
                 lparen_token,
                 args,
                 rparen_token,
             })
         }
-        "identifier" => walker
-            .node_list
-            .push(Ident(walker.span_expect("identifier"))),
-        "string_literal" => walker.node_list.push(StringLiteral {
+        "identifier" => walker.nodes.push(Ident(walker.span_expect("identifier"))),
+        "string_literal" => walker.nodes.push(StringLiteral {
             prefix: None,
             contents: walker.span(),
         }),
@@ -281,9 +279,9 @@ fn parse_expr(mut walker: Walker) -> NodeId {
                 None
             };
             let block = parse_block(walker.child());
-            let block = walker.node_list.push(block);
+            let block = walker.nodes.push(block);
 
-            walker.node_list.push(Closure {
+            walker.nodes.push(Closure {
                 fn_token,
                 lparen_token,
                 args,
@@ -298,29 +296,27 @@ fn parse_expr(mut walker: Walker) -> NodeId {
             walker.next();
             let op_span = walker.span_expect(".");
             walker.next();
-            let right = walker
-                .node_list
-                .push(Ident(walker.span_expect("identifier")));
+            let right = walker.nodes.push(Ident(walker.span_expect("identifier")));
             let binary_op = BinaryOp {
                 left,
                 op: BinaryOperatorKind::Dot,
                 op_span,
                 right,
             };
-            walker.node_list.push(binary_op)
+            walker.nodes.push(binary_op)
         }
         "internal" => {
             let internal = SimpleLiteralKind::Internal.with(walker.span_expect("internal"));
-            walker.node_list.push(internal)
+            walker.nodes.push(internal)
         }
         "bool_literal" => {
             let walker = walker.child();
             match walker.kind() {
                 "true" => walker
-                    .node_list
+                    .nodes
                     .push(SimpleLiteralKind::True.with(walker.span())),
                 "false" => walker
-                    .node_list
+                    .nodes
                     .push(SimpleLiteralKind::False.with(walker.span())),
                 _ => unreachable!(),
             }
@@ -353,7 +349,7 @@ fn parse_expr(mut walker: Walker) -> NodeId {
                 }
             }
             let rsqbracket = walker.span_expect("]");
-            walker.node_list.push(List {
+            walker.nodes.push(List {
                 lsqbracket,
                 elements,
                 rsqbracket,
@@ -398,13 +394,24 @@ fn parse_expr(mut walker: Walker) -> NodeId {
                 }
             }
             let rbrace = walker.span_expect("}");
-            walker.node_list.push(Record {
+            walker.nodes.push(Record {
                 lbrace,
                 fields,
                 rbrace,
             })
         }
-        "number_literal" => walker.node_list.push(IntegerLiteral(walker.span())),
+        "number_literal" => walker.nodes.push(IntegerLiteral(walker.span())),
+        "if_condition" => {
+            let mut walker = walker.child();
+            parse_if_condition(&mut walker)
+        }
+        "unary_expr" => {
+            let mut walker = walker.child();
+            let exclamation = walker.span_expect("!");
+            walker.next();
+            let inner = parse_expr(walker.child());
+            walker.nodes.push(Not { exclamation, inner })
+        }
         "binary_expr" => {
             let mut walker = walker.child();
             let left = parse_expr(walker.child());
@@ -416,6 +423,8 @@ fn parse_expr(mut walker: Walker) -> NodeId {
                 "-" => BinaryOperatorKind::Subtraction,
                 "==" => BinaryOperatorKind::Equals,
                 "!=" => BinaryOperatorKind::NotEquals,
+                "||" => BinaryOperatorKind::LogicalOr,
+                "&&" => BinaryOperatorKind::LogicalAnd,
                 kind => todo!("binary op: {kind}"),
             };
             let op_span = walker.span();
@@ -427,11 +436,7 @@ fn parse_expr(mut walker: Walker) -> NodeId {
                 op_span,
                 right,
             };
-            walker.node_list.push(binary_op)
-        }
-        "if_condition" => {
-            let mut walker = walker.child();
-            parse_if_condition(&mut walker)
+            walker.nodes.push(binary_op)
         }
         kind => todo!("expr: {kind}"),
     }
@@ -443,7 +448,7 @@ fn parse_if_condition(walker: &mut Walker) -> NodeId {
     let condition = parse_expr(walker.child());
     walker.next();
     let then_block = parse_block(walker.child());
-    let then_block = walker.node_list.push(then_block);
+    let then_block = walker.nodes.push(then_block);
     let alternate = if walker.maybe_next() && walker.kind() == "else" {
         // let else_span = walker.span();
         walker.next();
@@ -453,12 +458,12 @@ fn parse_if_condition(walker: &mut Walker) -> NodeId {
             )))
         } else {
             let block = parse_block(walker.child());
-            Some(AlternateCondition::ElseBlock(walker.node_list.push(block)))
+            Some(AlternateCondition::ElseBlock(walker.nodes.push(block)))
         }
     } else {
         None
     };
-    walker.node_list.push(IfCondition {
+    walker.nodes.push(IfCondition {
         condition,
         then_block,
         alternate,
@@ -488,7 +493,7 @@ fn parse_statement(mut walker: Walker) -> Option<NodeId> {
     match walker.kind() {
         "assignment" => {
             let assignment = parse_assignment(walker.child());
-            Some(walker.node_list.push(assignment))
+            Some(walker.nodes.push(assignment))
         }
         "expr" => Some(parse_expr(walker.child())),
         "line_comment" => None,

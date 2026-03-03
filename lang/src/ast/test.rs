@@ -134,6 +134,12 @@ fn destructure_two_items() {
 }
 
 #[test]
+fn empty_source() {
+    let src = "";
+    insta::assert_snapshot!(parse_display_script(src));
+}
+
+#[test]
 fn comment_no_text() {
     let src = "//\0";
 
