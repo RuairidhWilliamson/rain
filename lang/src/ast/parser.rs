@@ -72,9 +72,10 @@ impl<'src> ModuleParser<'src> {
         }
         // Consume trailing new line
         if let Some(t) = self.stream.peek()?
-            && let Token::NewLine | Token::Comment = t.token {
-                self.stream.parse_next()?;
-            }
+            && let Token::NewLine | Token::Comment = t.token
+        {
+            self.stream.parse_next()?;
+        }
         Ok(ModuleRoot { declarations })
     }
 
@@ -198,10 +199,12 @@ impl<'src> ModuleParser<'src> {
 
     fn parse_statement(&mut self) -> ParseResult<NodeId> {
         if let Some([first, second]) = self.stream.peek_many()?
-            && first.token == Token::Ident && second.token == Token::Assign {
-                let assignment = self.parse_assignment()?;
-                return Ok(self.push(assignment));
-            }
+            && first.token == Token::Ident
+            && second.token == Token::Assign
+        {
+            let assignment = self.parse_assignment()?;
+            return Ok(self.push(assignment));
+        }
         self.parse_expr()
     }
 
@@ -381,16 +384,17 @@ impl<'src> ModuleParser<'src> {
                 if let Some(prefix) = prefixes.last()
                     && let Some((prefix_precedence, _)) =
                         get_token_precedence_associativity(prefix.token)
-                        && let Some((_, precedence)) = check_op(self.stream.peek()?, min_precedence)
-                            && prefix_precedence > precedence {
-                                debug_assert_eq!(prefix.token, Token::Excalmation);
-                                rhs = self.push(Not {
-                                    exclamation: prefix.span,
-                                    inner: rhs,
-                                });
-                                prefixes.pop();
-                                continue;
-                            }
+                    && let Some((_, precedence)) = check_op(self.stream.peek()?, min_precedence)
+                    && prefix_precedence > precedence
+                {
+                    debug_assert_eq!(prefix.token, Token::Excalmation);
+                    rhs = self.push(Not {
+                        exclamation: prefix.span,
+                        inner: rhs,
+                    });
+                    prefixes.pop();
+                    continue;
+                }
                 break;
             }
             while let Some((_, next_op_precedence)) = check_op(self.stream.peek()?, precedence) {
@@ -423,10 +427,11 @@ impl<'src> ModuleParser<'src> {
         let then_block = self.parse_block()?;
         let mut alternate = None;
         if let Some(peek) = self.stream.peek()?
-            && peek.token == Token::Else {
-                let _ = self.stream.parse_next()?;
-                alternate = Some(self.parse_alternate()?);
-            }
+            && peek.token == Token::Else
+        {
+            let _ = self.stream.parse_next()?;
+            alternate = Some(self.parse_alternate()?);
+        }
         Ok(self.push(IfCondition {
             condition,
             then_block,
@@ -494,9 +499,10 @@ impl<'src> ModuleParser<'src> {
             let value = self.parse_expr()?;
             let mut comma = None;
             if let Some(tls) = self.stream.peek()?
-                && tls.token == Token::Comma {
-                    comma = Some(self.stream.expect_parse_next(&[Token::Comma])?.span);
-                }
+                && tls.token == Token::Comma
+            {
+                comma = Some(self.stream.expect_parse_next(&[Token::Comma])?.span);
+            }
             fields.push(RecordField {
                 key,
                 equals,

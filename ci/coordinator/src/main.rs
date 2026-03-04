@@ -116,10 +116,10 @@ async fn main() -> Result<()> {
             && !allowed_ipnets
                 .iter()
                 .any(|ipnet| ipnet.contains(&addr.ip()))
-            {
-                warn!("connection {addr:?} did not match allowed ipnets");
-                continue;
-            }
+        {
+            warn!("connection {addr:?} did not match allowed ipnets");
+            continue;
+        }
         let server = Arc::clone(&server);
         join_set.spawn(async move {
             let result = Builder::new(TokioExecutor::new())
