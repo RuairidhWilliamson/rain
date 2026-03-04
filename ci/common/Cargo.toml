@@ -10,13 +10,13 @@ publish.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 git-lfs-rs.workspace = true
-http = "1"
-ipnet = { version = "2.11.0", features = ["serde"] }
-jsonwebtoken = { version = "10.0.0", default-features = false , features = ["use_pem", "rust_crypto"] }
-reqwest = { version = "0.13.1", features = ["rustls", "charset", "http2", "json"], default-features = false }
+http.workspace = true
+ipnet.workspace = true
+jsonwebtoken = { version = "10.0", default-features = false , features = ["use_pem", "rust_crypto"] }
+reqwest = { version = "0.13", features = ["rustls", "charset", "http2", "json"], default-features = false }
 serde_json.workspace = true
 serde.workspace = true
-strum = { version = "0.28.0", features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
 tokio.workspace = true
 
 [dev-dependencies]

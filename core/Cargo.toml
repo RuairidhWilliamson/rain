@@ -10,30 +10,30 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-base16 = "0.2.1"
+base16.workspace = true
 chrono.workspace = true
 ciborium.workspace = true
-dirs = "6.0.0"
-flate2 = "1.1.0"
-git2 = "0.20.2"
-ignore = "0.4.23"
+dirs = "6.0"
+flate2 = "1.1"
+git2 = "0.20"
+ignore = "0.4"
 indexmap.workspace = true
 libc.workspace = true
-liblzma = "0.4.1"
+liblzma = "0.4"
 log.workspace = true
-lru = "0.16.0"
-num-bigint = "0.4.6"
+lru = "0.16"
+num-bigint = "0.4"
 poison_panic.path = "../poison_panic"
 rain-lang.path = "../lang"
 serde.workspace = true
 sha2.workspace = true
-tar = "0.4.44"
+tar = "0.4"
 thiserror.workspace = true
 toml.workspace = true
 ureq.workspace = true
 uuid.workspace = true
-zip = { version = "8.0.0", features = ["deflate"], default-features = false }
-zstd = "0.13.3"
+zip = { version = "8.0", features = ["deflate"], default-features = false }
+zstd = "0.13"
 
 [dev-dependencies]
 insta.workspace = true
