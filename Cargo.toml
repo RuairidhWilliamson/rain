@@ -22,7 +22,7 @@ panic = "abort"
 [workspace.package]
 version = "0.12.0"
 edition = "2024"
-rust-version = "1.87"
+rust-version = "1.88"
 authors = ["Ruairidh Williamson"]
 publish = false
 
