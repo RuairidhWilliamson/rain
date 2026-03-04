@@ -112,15 +112,14 @@ async fn main() -> Result<()> {
     let mut join_set = JoinSet::new();
     loop {
         let (stream, addr) = listener.accept().await?;
-        if let Some(allowed_ipnets) = allowed_ipnets {
-            if !allowed_ipnets
+        if let Some(allowed_ipnets) = allowed_ipnets
+            && !allowed_ipnets
                 .iter()
                 .any(|ipnet| ipnet.contains(&addr.ip()))
             {
                 warn!("connection {addr:?} did not match allowed ipnets");
                 continue;
             }
-        }
         let server = Arc::clone(&server);
         join_set.spawn(async move {
             let result = Builder::new(TokioExecutor::new())

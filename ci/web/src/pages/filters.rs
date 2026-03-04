@@ -1,3 +1,5 @@
+#![allow(clippy::unused_self)]
+
 use askama::{Template, filters::Safe};
 use chrono::Utc;
 
