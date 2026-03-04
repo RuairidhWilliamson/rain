@@ -16,7 +16,7 @@ jsonwebtoken = { version = "10.0.0", default-features = false , features = ["use
 reqwest = { version = "0.13.1", features = ["rustls", "charset", "http2", "json"], default-features = false }
 serde_json.workspace = true
 serde.workspace = true
-strum = { version = "0.27.2", features = ["derive"] }
+strum = { version = "0.28.0", features = ["derive"] }
 tokio.workspace = true
 
 [dev-dependencies]
