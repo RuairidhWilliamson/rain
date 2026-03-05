@@ -9,7 +9,7 @@ publish.workspace = true
 [dependencies]
 anyhow.workspace = true
 askama = { version = "0.15.1", features = ["serde_json"] }
-axum-extra = { version = "0.12.1", features = ["typed-header"] }
+axum-extra = { version = "0.12.2", features = ["typed-header"] }
 axum = { version = "0.8.6", features = ["macros"] }
 chrono.workspace = true
 constant_time_eq = "0.4.2"

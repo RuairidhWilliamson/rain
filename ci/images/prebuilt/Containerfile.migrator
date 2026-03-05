@@ -1,9 +1,9 @@
 FROM alpine AS migrations
 
 ADD \
-  --checksum=sha256:79afe838c0fcb2259639205331f0519394247449e2a62ece7449402e94b9ebcd \
+  --checksum=sha256:4e4bb7bc91059be2e4a68569c066da821094e5b6b2e7f20a7d29bb43f6103e2c \
   --chmod=550 \
-  https://storage.googleapis.com/rain-e870e063/releases/0.12.0/rain-ci-migrations \
+  https://storage.googleapis.com/rain-e870e063/releases/0.12.2/rain-ci-migrations \
   migrations.tar
 
 RUN mkdir -p migrations && tar -xf migrations.tar -C migrations
@@ -12,9 +12,9 @@ FROM scratch
 
 WORKDIR /usr/rain
 ADD \
-  --checksum=sha256:d72c60128edcfae2874ed8c6d7031e731f6d813b7f051d63f775a828f3cc4ccf \
+  --checksum=sha256:92bcf5f9ef1116ffa2aef031c6f5d9146d7cb22574d73184000c135fdd554fca \
   --chmod=550 \
-  https://storage.googleapis.com/rain-e870e063/releases/0.12.0/rain-ci-migrator \
+  https://storage.googleapis.com/rain-e870e063/releases/0.12.2/rain-ci-migrator \
   /bin/rain-ci-migrator
 
 COPY --from=migrations migrations migrations
