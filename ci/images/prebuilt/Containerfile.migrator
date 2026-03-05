@@ -3,7 +3,7 @@ FROM alpine AS migrations
 ADD \
   --checksum=sha256:79afe838c0fcb2259639205331f0519394247449e2a62ece7449402e94b9ebcd \
   --chmod=550 \
-  https://storage.googleapis.com/rain-e870e063/releases/0.12.1/rain-ci-migrations \
+  https://storage.googleapis.com/rain-e870e063/releases/0.12.0/rain-ci-migrations \
   migrations.tar
 
 RUN mkdir -p migrations && tar -xf migrations.tar -C migrations
@@ -14,7 +14,7 @@ WORKDIR /usr/rain
 ADD \
   --checksum=sha256:d72c60128edcfae2874ed8c6d7031e731f6d813b7f051d63f775a828f3cc4ccf \
   --chmod=550 \
-  https://storage.googleapis.com/rain-e870e063/releases/0.12.1/rain-ci-migrator \
+  https://storage.googleapis.com/rain-e870e063/releases/0.12.0/rain-ci-migrator \
   /bin/rain-ci-migrator
 
 COPY --from=migrations migrations migrations
