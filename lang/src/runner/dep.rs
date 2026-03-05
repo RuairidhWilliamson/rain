@@ -31,16 +31,32 @@ pub enum Dep {
     /// Marks any calls that depend on this to be uncacheable
     Uncacheable,
     Download,
+    MutateDeps,
 }
 
 impl Dep {
     pub fn is_propogated_in_closure(&self) -> bool {
-        !matches!(self, Self::CallingModule | Self::Counter)
+        match self {
+            Self::CallingModule | Self::Counter | Self::MutateDeps => false,
+            Self::LocalFile(..)
+            | Self::Escape
+            | Self::Secret
+            | Self::Print
+            | Self::EnvVar
+            | Self::Config
+            | Self::LocalDir
+            | Self::Uncacheable
+            | Self::Download => true,
+        }
     }
 
     pub fn is_intra_run_stable(&self) -> bool {
         match self {
-            Self::Uncacheable | Self::CallingModule | Self::Print | Self::Counter => false,
+            Self::Uncacheable
+            | Self::CallingModule
+            | Self::Print
+            | Self::Counter
+            | Self::MutateDeps => false,
             Self::LocalDir
             | Self::Escape
             | Self::Secret
@@ -82,6 +98,7 @@ impl Dep {
             Self::Escape => write!(writer, "Escape")?,
             Self::Secret => write!(writer, "Secret")?,
             Self::CallingModule => write!(writer, "CallingModule")?,
+            Self::MutateDeps => write!(writer, "MutateDeps")?,
             Self::Print => write!(writer, "Print")?,
             Self::EnvVar => write!(writer, "EnvVar")?,
             Self::Config => write!(writer, "Config")?,

@@ -767,12 +767,15 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     fn set_cache_never(self) -> ResultValue {
         self.no_args()?;
         self.deps.push(Dep::Uncacheable);
+        self.deps.push(Dep::MutateDeps);
         Ok(Value::Unit)
     }
 
     fn clear_calling_cache_deps(self) -> ResultValue {
         self.no_args()?;
+        log::debug!("cleared deps {:?}", self.caller_cx.deps);
         self.caller_cx.deps.clear();
+        self.deps.push(Dep::MutateDeps);
         Ok(Value::Unit)
     }
 

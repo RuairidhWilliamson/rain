@@ -17,6 +17,8 @@ pub let download_stdlib = fn(version: String) {
 	if expected != actual {
 		internal._throw("checksum does not match '" + expected + "' != '" + actual + "'")
 	}
+	// We assume stdlib is stable and does not change, really we should use a lock file
+	internal._clear_calling_cache_deps()
 	stdlib_area = internal._extract_tar(internal._extract_gzip(download_result.file, "temp.tar"))
 	load_stdlib(stdlib_area)
 }
