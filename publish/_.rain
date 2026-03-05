@@ -55,7 +55,7 @@ pub let publish_tree_sitter_rain_crate = fn(version: String) {
 	print("Published crate tree-sitter-rain ", version)
 }
 
-pub let build = fn(version: String) -> Dir {
+pub let build = fn(version: String) {
 	check_version(version)
 
 	cli_linux_amd64 = std.fs.rename_file(main.build_cli_release("x86_64-unknown-linux-gnu"), "rain-linux-amd64")
