@@ -48,7 +48,7 @@ pub let upload_dir_with_sha256 = fn(src: DirLike, dst: String) {
 	upload(create_sha256sum_file(src), dst + "/sha256sum")
 }
 
-pub let create_sha256sum_file = fn(dir: DirLike) -> File {
+pub let create_sha256sum_file = fn(src: DirLike) -> File {
 	std.fs.list_files(src)
 	std.fs.fold("", _, fn(acc: String, f: File) -> String {
 		acc + std.fs.sha256(f) + "  " + st.fs.name(f) + "\n"
