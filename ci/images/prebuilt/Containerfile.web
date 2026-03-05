@@ -3,7 +3,7 @@ WORKDIR /usr/rain
 ADD \
   --checksum=sha256:000ef25b70a376612dcca3f8880027ce2cb6d8698144b36ccc20c6b25c50be2c \
   --chmod=550 \
-  https://storage.googleapis.com/rain-e870e063/releases/0.12.0/rain-ci-web \
+  https://storage.googleapis.com/rain-e870e063/releases/0.12.1/rain-ci-web \
   /bin/rain-ci-web
 ENV RUST_LOG=info
 ENTRYPOINT ["rain-ci-web"]
