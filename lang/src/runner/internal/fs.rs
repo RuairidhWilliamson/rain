@@ -151,24 +151,29 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
 
-        Ok(Value::String(Arc::new(
-            self.runner
+        let hash = match &f {
+            File::Generated(..) => self
+                .runner
                 .driver
                 .sha256(&f)
                 .map_err(|err| self.caller_cx.nid_err(self.nid, err))?,
-        )))
+            // Local files already know their hash
+            File::Local(local_file) => local_file.file_hash().0,
+        };
+        Ok(Value::String(Arc::new(base16::encode_lower(&hash))))
     }
 
     pub fn sha512(mut self) -> ResultValue {
         self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
 
-        Ok(Value::String(Arc::new(
-            self.runner
+        Ok(Value::String(Arc::new(base16::encode_lower(
+            &self
+                .runner
                 .driver
                 .sha512(&f)
                 .map_err(|err| self.caller_cx.nid_err(self.nid, err))?,
-        )))
+        ))))
     }
 
     pub fn create_area(mut self) -> ResultValue {

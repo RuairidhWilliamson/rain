@@ -418,22 +418,22 @@ impl DriverTrait for DriverImpl<'_> {
         })
     }
 
-    fn sha256(&self, file: &File) -> Result<String, RunnerError> {
+    fn sha256(&self, file: &File) -> Result<[u8; 32], RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.fsinner());
         let mut file = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut hasher = sha2::Sha256::new();
         std::io::copy(&mut file, &mut hasher).map_err(RunnerError::AreaIOError)?;
         let hash_result = hasher.finalize();
-        Ok(base16::encode_lower(&hash_result))
+        Ok(hash_result.into())
     }
 
-    fn sha512(&self, file: &File) -> Result<String, RunnerError> {
+    fn sha512(&self, file: &File) -> Result<[u8; 64], RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.fsinner());
         let mut file = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut hasher = sha2::Sha512::new();
         std::io::copy(&mut file, &mut hasher).map_err(RunnerError::AreaIOError)?;
         let hash_result = hasher.finalize();
-        Ok(base16::encode_lower(&hash_result))
+        Ok(hash_result.into())
     }
 
     fn create_area(

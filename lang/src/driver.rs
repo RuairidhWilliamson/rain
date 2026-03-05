@@ -52,8 +52,8 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
         outname: &str,
         etag: Option<&[u8]>,
     ) -> Result<DownloadStatus, RunnerError>;
-    fn sha256(&self, file: &File) -> Result<String, RunnerError>;
-    fn sha512(&self, file: &File) -> Result<String, RunnerError>;
+    fn sha256(&self, file: &File) -> Result<[u8; 32], RunnerError>;
+    fn sha512(&self, file: &File) -> Result<[u8; 64], RunnerError>;
     fn create_area(
         &self,
         dirs: &[FSEntryRef],
