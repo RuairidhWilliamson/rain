@@ -642,4 +642,30 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             _ => self.incorrect_args(1..=2),
         }
     }
+
+    pub fn file_name(mut self) -> ResultValue {
+        self.add_deps_from_args();
+        let file = single_arg!(self);
+        let file = self.expect_file(file)?;
+        let Some(name) = file.path().last() else {
+            return Err(self.caller_cx.nid_err(
+                self.nid,
+                RunnerError::Makeshift("file doesn't have a name".into()),
+            ));
+        };
+        Ok(Value::String(Arc::new(name.to_string())))
+    }
+
+    pub fn copy_dir(mut self) -> ResultValue {
+        self.add_deps_from_args();
+        let (dir, name) = two_args!(self);
+        let dir = self.expect_dir_or_area(dir)?;
+        let name = expect_type!(self, String, name);
+        let out = self
+            .runner
+            .driver
+            .copy_dir(&dir, name, true)
+            .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
+        Ok(Value::GeneratedDir(Arc::new(out)))
+    }
 }

@@ -1,0 +1,9 @@
+FROM alpine
+WORKDIR /usr/rain
+ADD \
+  --checksum=sha256:{{SHA256}} \
+  --chmod=550 \
+  https://storage.googleapis.com/rain-e870e063/releases/{{VERSION}}/rain-ci-web \
+  /bin/rain-ci-web
+ENV RUST_LOG=info
+ENTRYPOINT ["rain-ci-web"]

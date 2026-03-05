@@ -1,6 +1,6 @@
 pub let area = internal._get_area(this_file)
 pub let std = load_stdlib()
-let publish_mod = import("publish.rain")
+let publish_mod = import("publish/_.rain")
 let test_mod = import("test.rain")
 let hermetic = import("hermetic.rain")
 let tree_sitter_rain = import("tree-sitter-rain/_.rain")
@@ -49,8 +49,12 @@ let build = fn() {
 	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", true, "", "dev", std.utils.host_info().triple, [], {})
 }
 
-pub let build_release = fn(target_triple: String) -> File {
+pub let build_cli_release = fn(target_triple: String) -> File {
 	std.build.rust.escape.cargo_build(area, "rain", target_triple, true)
+}
+
+pub let build_lsp_release = fn(target_triple: String) -> File {
+	std.build.rust.escape.cargo_build(area, "rain-lsp", target_triple, true)
 }
 
 let run = fn() {

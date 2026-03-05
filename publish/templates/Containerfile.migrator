@@ -1,0 +1,24 @@
+FROM alpine AS migrations
+
+ADD \
+  --checksum=sha256:{{MIGRATIONS_SHA256}} \
+  --chmod=550 \
+  https://storage.googleapis.com/rain-e870e063/releases/{{VERSION}}/rain-ci-migrations \
+  migrations.tar
+
+RUN mkdir -p migrations && tar -xf migrations.tar -C migrations
+
+FROM scratch
+
+WORKDIR /usr/rain
+ADD \
+  --checksum=sha256:{{SHA256}} \
+  --chmod=550 \
+  https://storage.googleapis.com/rain-e870e063/releases/{{VERSION}}/rain-ci-migrator \
+  /bin/rain-ci-migrator
+
+COPY --from=migrations migrations migrations
+
+ENV MIGRATIONS_DIR=migrations
+ENTRYPOINT ["rain-ci-migrator"]
+

@@ -1,0 +1,28 @@
+FROM alpine AS blender-install
+ARG BLENDER_VERSION=4.5.3
+ARG BLENDER_SHORT_VERSION=4.5
+ADD \
+  --checksum=sha256:975c58fcb244273838534bba771e64ad87739216b0f9b39a888531a49a72d845 \
+  https://mirrors.ocf.berkeley.edu/blender/release/Blender$BLENDER_SHORT_VERSION/blender-$BLENDER_VERSION-linux-x64.tar.xz \
+  blender.tar.xz
+RUN tar -xf blender.tar.xz -C / && mv /blender-$BLENDER_VERSION-linux-x64 /blender
+
+FROM docker.io/rust:1.93-slim
+WORKDIR /usr/rain
+RUN rustup component add rustfmt clippy
+RUN \
+  apt-get -qqy update && \
+  apt-get -qqy install libgit2-dev pkg-config libssl-dev curl xz-utils libasound2-dev clang nodejs python3-numpy libxxf86vm1 libxfixes3 libxi6 libx11-6 libxkbcommon0 libgl1 libxrender1 libsm6 && \
+  apt-get remove -y --auto-remove
+
+COPY --from=blender-install /blender /blender
+ENV PATH="${PATH}:/blender"
+
+ADD \
+  --checksum=sha256:{{SHA256}} \
+  --chmod=550 \
+  https://storage.googleapis.com/rain-e870e063/releases/{{VERSION}}/rain-ci-coordinator \
+  /bin/rain-ci-coordinator
+
+ENV RUST_LOG=info
+ENTRYPOINT ["rain-ci-coordinator"]

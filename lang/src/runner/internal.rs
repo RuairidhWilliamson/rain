@@ -20,7 +20,7 @@ use indexmap::IndexMap;
 use num_bigint::BigInt;
 
 use crate::{
-    afs::{Dir, FSEntryTrait as _, File, absolute::AbsolutePathBuf, area::FSArea},
+    afs::{Dir, File, absolute::AbsolutePathBuf, area::FSArea},
     ast::NodeId,
     driver::DriverTrait,
     local_span::LocalSpan,
@@ -91,6 +91,7 @@ pub enum InternalFunction {
     Sha512,
     SplitString,
     StringContains,
+    StringReplaceAll,
     Stringify,
     Throw,
     Unit,
@@ -162,6 +163,7 @@ impl InternalFunction {
             "_sha512" => Some(Self::Sha512),
             "_split_string" => Some(Self::SplitString),
             "_string_contains" => Some(Self::StringContains),
+            "_string_replace_all" => Some(Self::StringReplaceAll),
             "_stringify" => Some(Self::Stringify),
             "_throw" => Some(Self::Throw),
             "_unit" => Some(Self::Unit),
@@ -237,6 +239,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::Index => self.index(),
             InternalFunction::HostInfo => self.host_info(),
             InternalFunction::StringContains => self.string_contains(),
+            InternalFunction::StringReplaceAll => self.string_replace_all(),
             InternalFunction::ExportToLocal => self.export_to_local(),
             InternalFunction::CheckExportToLocal => self.check_export_to_local(),
             InternalFunction::FileMetadata => self.file_metadata(),
@@ -644,6 +647,16 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Boolean(haystack.contains(&**needle)))
     }
 
+    fn string_replace_all(self) -> ResultValue {
+        let (haystack, needle, replacement) = three_args!(self);
+        let haystack = expect_type!(self, String, haystack);
+        let needle = expect_type!(self, String, needle);
+        let replacement = expect_type!(self, String, replacement);
+        Ok(Value::String(Arc::new(
+            haystack.replace(&**needle, replacement),
+        )))
+    }
+
     fn stringify_impl(&self, nid: NodeId, v: &Value) -> Result<String> {
         match v {
             Value::String(s) => Ok(s.as_ref().clone()),
@@ -920,32 +933,6 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 .map(|k| Value::String(Arc::new(k.clone())))
                 .collect(),
         ))))
-    }
-
-    fn file_name(mut self) -> ResultValue {
-        self.add_deps_from_args();
-        let file = single_arg!(self);
-        let file = self.expect_file(file)?;
-        let Some(name) = file.path().last() else {
-            return Err(self.caller_cx.nid_err(
-                self.nid,
-                RunnerError::Makeshift("file doesn't have a name".into()),
-            ));
-        };
-        Ok(Value::String(Arc::new(name.to_string())))
-    }
-
-    fn copy_dir(mut self) -> ResultValue {
-        self.add_deps_from_args();
-        let (dir, name) = two_args!(self);
-        let dir = self.expect_dir_or_area(dir)?;
-        let name = expect_type!(self, String, name);
-        let out = self
-            .runner
-            .driver
-            .copy_dir(&dir, name, true)
-            .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
-        Ok(Value::GeneratedDir(Arc::new(out)))
     }
 
     fn config(self) -> ResultValue {

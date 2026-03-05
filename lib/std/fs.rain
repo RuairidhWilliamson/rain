@@ -2,6 +2,7 @@ let std = import("std.rain")
 
 let {String, Integer, List, File, Dir, DirLike, Bool, Any, Area} = std.types
 
+pub let write_file = create_file
 pub let create_file = fn(contents: String, name: String) -> File {
 	internal._create_file(contents, name, false)
 }
@@ -63,4 +64,16 @@ pub let create_area2 = fn(fs_entries: List(Any)) -> Area {
 pub let copy_dir = rename_dir
 pub let rename_dir = fn(dir: Dir, name: String) -> Dir {
 	internal._copy_dir(dir, name)
+}
+
+pub let name = fn(file: File) -> String {
+	internal._file_name(file)
+}
+
+pub let list_files = fn(dir: DirLike) -> List(File) {
+	internal._glob(dir, "*")
+}
+
+pub let recursive_list_files = fn(dir: DirLike) -> List(File) {
+	internal._glob(dir, "**/*")
 }

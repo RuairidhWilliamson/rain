@@ -1,0 +1,30 @@
+let main = import("main.rain")
+let std = main.std
+let area = std.fs.area(this_file)
+
+let {Record, String, File, Dir} = std.types
+
+let render = fn(template: File, vars: Record(String)) -> File {
+	std.fs.read_file(template)
+	std.list.fold(_, std.record.keys(vars), fn(contents, name) {
+		value = std.string.to_string(std.utils.index(vars, name))
+		std.string.replace(contents, "{{" + name + "}}", value)
+	})
+	std.fs.create_file(_, std.fs.name(template))
+}
+
+pub let pkgbuild = fn(version: String, binary: File) -> File {
+	render(std.fs.file(area, "publish/templates/PKGBUILD"), { VERSION = version, SHA256 = std.fs.sha256(binary) })
+}
+
+pub let containerfile_web = fn(version: String, binary: File) -> File {
+	render(std.fs.file(area, "publish/templates/Containerfile.web"), { VERSION = version, SHA256 = std.fs.sha256(binary) })
+}
+
+pub let containerfile_migrator = fn(version: String, binary: File, migrations: File) -> File {
+	render(std.fs.file(area, "publish/templates/Containerfile.migrator"), { VERSION = version, SHA256 = std.fs.sha256(binary), MIGRATIONS_SHA256 = std.fs.sha256(migrations) })
+}
+
+pub let containerfile_coordinator = fn(version: String, binary: File) -> File {
+	render(std.fs.file(area, "publish/templates/Containerfile.coordinator"), { VERSION = version, SHA256 = std.fs.sha256(binary) })
+}

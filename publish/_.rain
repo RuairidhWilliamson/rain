@@ -1,0 +1,95 @@
+let main = import("main.rain")
+let std = main.std
+let templates = import("publish/templates.rain")
+let gcloud = import("publish/gcloud.rain")
+
+let {run, unit, _throw, parse_toml} = std.utils
+let {print} = std
+let {File, Dir, String} = std.types
+
+let area = std.fs.area(this_file)
+let bucket = "rain-e870e063"
+let webhook_url = internal._get_secret("RAIN_PUBLISH_WEBHOOK")
+
+let check_version = fn(version: String) {
+	std.fs.read_file(std.fs.file(area, "Cargo.toml"))
+	cargo_workspace_version = parse_toml(_).workspace.package.version
+	if cargo_workspace_version != version {
+		_throw("cargo workspace version does not match " + cargo_workspace_version +  " != " + version)
+	}
+	std.fs.read_file(std.fs.file(area, "Cargo.lock"))
+	std.list.foreach(parse_toml(_).package, fn(package) {
+		if package.name == "rain" && package.version != version {
+			_throw("cargo lock package version does not match " + package.version +  " != " + version)
+		}
+	})
+}
+
+let compress_lib = fn() {
+	lib_dir = std.fs.dir(area, "lib/std")
+	filename = "stdlib.tar.gz"
+	std.compression.compress_tar_gz(lib_dir, filename)
+}
+
+let webhook = fn(url: String, contents: String) {
+	std.escape.run(area, std.escape.bin("xhs"), ["POST", url, "content=" + contents, "--ignore-stdin"], {})
+	unit
+}
+
+pub let publish_tree_sitter_rain_crate = fn(version: String) {
+	main.tree_sitter_rain.build()
+	cargo = std.escape.bin("cargo")
+	check_version(version)
+	tree_sitter_rain_dir = std.fs.dir(area, "tree-sitter-rain")
+	std.escape.run(tree_sitter_rain_dir, cargo, ["package", "--index", "sparse+https://storage.googleapis.com/" + bucket + "/crates/index/"], main.cargo_env)
+	crate = std.fs.file(area, "target/package/tmp-registry/tree-sitter-rain-" + version + ".crate")
+	new_index = std.fs.file(area, "target/package/tmp-registry/index/tr/ee/tree-sitter-rain")
+	download = std.utils.download("https://storage.googleapis.com/" + bucket + "/crates/index/tr/ee/tree-sitter-rain")
+	if download.ok {
+		index = std.fs.create_file(std.fs.read_file(download.file) + "\n" + std.fs.read_file(new_index), "tree-sitter-rain")
+	} else {
+		index = new_index
+	}
+	gcloud.upload(crate, "gs://" + bucket + "/crates/download/tree-sitter-rain/" + version)
+	gcloud.upload_overwrite(index, "gs://" + bucket + "/crates/index/tr/ee/tree-sitter-rain")
+	print("Published crate tree-sitter-rain ", version)
+}
+
+pub let build = fn(version: String) -> Dir {
+	check_version(version)
+
+	cli_linux_amd64 = std.fs.rename_file(main.build_cli_release("x86_64-unknown-linux-gnu"), "rain-linux-amd64")
+	cli_windows_amd64 = std.fs.rename_file(main.build_cli_release("x86_64-pc-windows-gnu"), "rain-windows-amd64.exe")
+	lsp_linux_amd64 = std.fs.rename_file(main.build_lsp_release("x86_64-unknown-linux-gnu"), "rain-lsp-linux-amd64")
+	lsp_windows_amd64 = std.fs.rename_file(main.build_lsp_release("x86_64-pc-windows-gnu"), "rain-lsp-windows-amd64.exe")
+	ci_web = main.ci_mod.build_ci_web()
+	ci_migrator = main.ci_mod.build_ci_migrator()
+	ci_migrations = main.ci_mod.build_ci_migrations()
+	ci_coordinator = main.ci_mod.build_ci_coordinator()
+	std.fs.create_area([
+		cli_linux_amd64,
+		cli_windows_amd64,
+		lsp_linux_amd64,
+		lsp_windows_amd64,
+		ci_web,
+		ci_migrator,
+		ci_migrations,
+		ci_coordinator,
+		templates.pkgbuild(version, cli_linux_amd64),
+		templates.containerfile_web(version, ci_web),
+		templates.containerfile_migrator(version, ci_migrator, ci_migrations),
+		templates.containerfile_coordinator(version, ci_coordinator),
+		compress_lib(),
+	])
+}
+
+pub let publish = fn(version: String) {
+	check_version(version)
+
+	prefix = "gs://" + bucket + "/releases/" + version
+	gcloud.upload_dir_with_sha256(build(version), prefix)
+	windows_url = "https://storage.googleapis.com/" + bucket + "/releases/" + version + "/rain-windows-amd64.exe"
+	linux_url = "https://storage.googleapis.com/" + bucket + "/releases/" + version + "/rain-linux-amd64"
+	webhook(webhook_url, "Rain " + version + "\n" + windows_url + "\n" + linux_url)
+	print("Published ", version)
+}

@@ -13,3 +13,7 @@ pub let contains = fn(haystack: String, needle: String) -> Bool {
 pub let to_string = fn(value: Any) -> String {
 	internal._stringify(value)
 }
+
+pub let replace = fn(haystack: String, needle: String, replacement: String) -> String {
+	internal._string_replace_all(haystack, needle, replacement)
+}

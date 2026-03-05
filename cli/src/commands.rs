@@ -16,7 +16,7 @@ use crate::remote::{
 pub fn init_template() -> Result<(), ()> {
     let mut f = std::fs::File::create_new("main.rain")
         .map_err(|err| eprintln!("could not create main.rain: {err}"))?;
-    write!(f, include_str!("template_main.rain"))
+    write!(f, "let std = stdlib({:?})", env!("CARGO_PKG_VERSION"))
         .map_err(|err| eprintln!("could not write main.rain: {err}"))?;
     f.flush()
         .map_err(|err| eprintln!("could not flush main.rain: {err}"))?;

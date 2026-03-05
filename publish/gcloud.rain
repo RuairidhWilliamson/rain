@@ -1,0 +1,57 @@
+let main = import("main.rain")
+let std = main.std
+
+let {run, unit, _throw, parse_toml} = std.utils
+let {print} = std
+let {File, Dir, String} = std.types
+
+let gcloud = std.escape.bin("gcloud")
+
+let upload = fn(src: File, dst: String) {
+	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--no-clobber"], {})
+	print("Stdout:", run_result.stdout)
+	print("Stderr:", run_result.stderr)
+	if !run_result.success {
+		_throw("gcloud upload failed")
+	}
+}
+
+let upload_recursive = fn(src: Dir, dst: String) {
+	run_result = run(unit, gcloud, ["storage", "cp", src, dst, "--recursive"], {})
+	print("Stdout:", run_result.stdout)
+	print("Stderr:", run_result.stderr)
+	if !run_result.success {
+		_throw("gcloud upload failed")
+	}
+}
+
+let upload_overwrite = fn(src: File, dst: String) {
+	run_result = run(unit, gcloud, ["storage", "cp", src, dst], {})
+	print("Stdout:", run_result.stdout)
+	print("Stderr:", run_result.stderr)
+	if !run_result.success {
+		_throw("gcloud upload failed")
+	}
+}
+
+let upload_with_sha256 = fn(src: File, dst: String) {
+	sha256sum = std.fs.create_file(std.fs.sha256(src), std.fs.name(src) + ".sha256")
+	upload(src, dst)
+	upload(sha256sum, dst + ".sha256")
+}
+
+let upload_dir_with_sha256 = fn(src: Dir, dst: String) {
+	std.fs.list_files(src)
+	std.list.foreach(_, fn(f: File) {
+		upload_with_sha256(f, dst + "/" + std.fs.name(f))
+	})
+	upload(create_sha256sum_file(src), dst + "/sha256sum")
+}
+
+let create_sha256sum_file = fn(dir: Dir) -> File {
+	std.fs.list_files(src)
+	std.fs.fold("", _, fn(acc: String, f: File) -> String {
+		acc + std.fs.sha256(f) + "  " + st.fs.name(f) + "\n"
+	})
+	std.fs.create_file(_, "sha256sum")
+}

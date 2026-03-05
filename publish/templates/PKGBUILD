@@ -1,0 +1,24 @@
+pkgname=rain-build
+pkgver={{VERSION}}
+pkgrel=1
+pkgdesc="Rain language and build system"
+arch=(x86_64)
+depends=(
+	'gcc-libs'
+	'glibc'
+	'libgit2'
+	'libssh2'
+	'llhttp'
+	'openssl'
+	'pcre2'
+	'xz'
+	'zlib'
+)
+url="https://github.com/RuairidhWilliamson/rain"
+source=("${pkgname}-${pkgver}::https://storage.googleapis.com/rain-e870e063/releases/${pkgver}/rain-linux-amd64")
+sha256sums=("{{SHA256}}")
+options=('!debug')
+
+package() {
+	install -Dm755 "$srcdir/$pkgname-$pkgver" "$pkgdir/usr/bin/rain"
+}
