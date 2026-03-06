@@ -13,10 +13,8 @@ pub let build_ci_migrator = fn() -> File {
 	std.build.rust.escape.cargo_build(main.area, "rain-ci-migrator", "x86_64-unknown-linux-musl", true)
 }
 
-let migrations_dir = std.fs.relative_dir("migrations")
-
 pub let build_ci_migrations = fn() -> File {
-	std.compression.compress_tar_gz(migrations_dir, "migrations.tar.gz")
+	std.compression.compress_tar_gz(std.fs.dir(main.area, "ci/migrations"), "rain-ci-migrations.tar.gz")
 }
 
 pub let build_ci_coordinator = fn() -> File {

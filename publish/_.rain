@@ -7,17 +7,16 @@ let {run, unit, _throw, parse_toml} = std.utils
 let {print} = std
 let {File, Dir, String} = std.types
 
-let area = std.fs.area(this_file)
 let bucket = "rain-e870e063"
 let webhook_url = internal._get_secret("RAIN_PUBLISH_WEBHOOK")
 
 let check_version = fn(version: String) {
-	std.fs.read_file(std.fs.file(area, "Cargo.toml"))
+	std.fs.read_file(std.fs.file(main.area, "Cargo.toml"))
 	cargo_workspace_version = parse_toml(_).workspace.package.version
 	if cargo_workspace_version != version {
 		_throw("cargo workspace version does not match " + cargo_workspace_version +  " != " + version)
 	}
-	std.fs.read_file(std.fs.file(area, "Cargo.lock"))
+	std.fs.read_file(std.fs.file(main.area, "Cargo.lock"))
 	std.list.foreach(parse_toml(_).package, fn(package) {
 		if package.name == "rain" && package.version != version {
 			_throw("cargo lock package version does not match " + package.version +  " != " + version)
@@ -26,13 +25,13 @@ let check_version = fn(version: String) {
 }
 
 let compress_lib = fn() {
-	lib_dir = std.fs.dir(area, "lib/std")
+	lib_dir = std.fs.dir(main.area, "lib/std")
 	filename = "stdlib.tar.gz"
 	std.compression.compress_tar_gz(lib_dir, filename)
 }
 
 let webhook = fn(url: String, contents: String) {
-	std.escape.run(area, std.escape.bin("xhs"), ["POST", url, "content=" + contents, "--ignore-stdin"], {})
+	std.escape.run(main.area, std.escape.bin("xhs"), ["POST", url, "content=" + contents, "--ignore-stdin"], {})
 	unit
 }
 
@@ -40,10 +39,10 @@ pub let publish_tree_sitter_rain_crate = fn(version: String) {
 	main.tree_sitter_rain.build()
 	cargo = std.escape.bin("cargo")
 	check_version(version)
-	tree_sitter_rain_dir = std.fs.dir(area, "tree-sitter-rain")
+	tree_sitter_rain_dir = std.fs.dir(main.area, "tree-sitter-rain")
 	std.escape.run(tree_sitter_rain_dir, cargo, ["package", "--index", "sparse+https://storage.googleapis.com/" + bucket + "/crates/index/"], main.cargo_env)
-	crate = std.fs.file(area, "target/package/tmp-registry/tree-sitter-rain-" + version + ".crate")
-	new_index = std.fs.file(area, "target/package/tmp-registry/index/tr/ee/tree-sitter-rain")
+	crate = std.fs.file(main.area, "target/package/tmp-registry/tree-sitter-rain-" + version + ".crate")
+	new_index = std.fs.file(main.area, "target/package/tmp-registry/index/tr/ee/tree-sitter-rain")
 	download = std.utils.download("https://storage.googleapis.com/" + bucket + "/crates/index/tr/ee/tree-sitter-rain")
 	if download.ok {
 		index = std.fs.create_file(std.fs.read_file(download.file) + "\n" + std.fs.read_file(new_index), "tree-sitter-rain")

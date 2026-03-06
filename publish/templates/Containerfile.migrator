@@ -3,10 +3,10 @@ FROM alpine AS migrations
 ADD \
   --checksum=sha256:{{MIGRATIONS_SHA256}} \
   --chmod=550 \
-  https://storage.googleapis.com/rain-e870e063/releases/{{VERSION}}/rain-ci-migrations \
-  migrations.tar
+  https://storage.googleapis.com/rain-e870e063/releases/{{VERSION}}/rain-ci-migrations.tar.gz \
+  migrations.tar.gz
 
-RUN mkdir -p migrations && tar -xf migrations.tar -C migrations
+RUN mkdir -p migrations && tar -xf migrations.tar.gz -C migrations
 
 FROM scratch
 
