@@ -73,7 +73,7 @@ impl Db {
         let mut tx = self.pool.begin().await?;
         let creation_deadline = Utc::now().naive_utc() - SESSION_EXPIRY;
         if sqlx::query!(
-            "SELECT id FROM sessions WHERE id=$1 AND expires_at > CURRENT_TIMESTAMP AND created_at < $2",
+            "SELECT id FROM sessions WHERE id=$1 AND expires_at > CURRENT_TIMESTAMP AND created_at > $2",
             id.0,
             creation_deadline,
         )
