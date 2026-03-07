@@ -25,8 +25,8 @@ use crate::{
         local::{entry::LocalFSEntry, file::LocalFile},
     },
     ast::{
-        AlternateCondition, BinaryOp, BinaryOperatorKind, DeclareName, FnCall, IfCondition, Node,
-        NodeId, Not, SimpleLiteral, SimpleLiteralKind,
+        AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, DeclareName, FnCall,
+        IfCondition, Node, NodeId, Not, SimpleLiteral, SimpleLiteralKind,
     },
     driver::{DriverTrait, FSTrait},
     hash::FileHash,
@@ -123,56 +123,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         result
     }
 
-    pub fn evaluate_and_call(
-        &mut self,
-        id: DeclarationId,
-        args: &[String],
-    ) -> (ResultValue, DepList) {
-        let m = Arc::clone(self.ir.get_module(id.module_id()));
-        let mut initial_cx = Cx::new(&m, 0, HashMap::new(), Vec::new());
-
-        let v = match self.evaluate_declaration(&mut initial_cx, id) {
-            Ok(it) => it,
-            Err(err) => return (Err(err), initial_cx.deps),
-        };
-        match v {
-            Value::Closure(closure) => {
-                let m = Arc::clone(self.ir.get_module(closure.module));
-                let Node::Closure(closure_declare) = m.get(closure.node) else {
-                    unreachable!()
-                };
-                if closure_declare.args.len() != args.len() {
-                    return (
-                        Err(closure_declare
-                            .rparen_token
-                            .with_module(m.id)
-                            .with_error(
-                                RunnerError::IncorrectArgs {
-                                    required: closure_declare.args.len()
-                                        ..=closure_declare.args.len(),
-                                    actual: args.len(),
-                                }
-                                .into(),
-                            )
-                            .with_trace(Vec::new())),
-                        initial_cx.deps,
-                    );
-                }
-                let args = closure_declare
-                    .args
-                    .iter()
-                    .zip(args)
-                    .map(|(a, v)| (a.name.contents(&m.src), Value::String(Arc::new(v.clone()))))
-                    .collect();
-                let mut cx = Cx::new(&m, 0, args, vec![]);
-                let result = self.evaluate_node(&mut cx, closure_declare.block);
-                initial_cx.deps.merge(cx.deps);
-                (result, initial_cx.deps)
-            }
-            _ => (Ok(v), initial_cx.deps),
-        }
-    }
-
     pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> ResultValue {
         let m = &Arc::clone(self.ir.get_module(id.module_id()));
         let declaration_name = m.get_declaration_name_span(id.local_id()).contents(&m.src);
@@ -205,14 +155,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         let result = match &declaration.assignment.name {
             DeclareName::Single(single) => {
                 if let Some(type_spec) = &single.type_spec {
-                    let type_spec_value =
-                        self.evaluate_node(&mut callee_cx, type_spec.type_expr)?;
-                    self.evaluate_type_check(
-                        &mut callee_cx,
-                        &result,
-                        type_spec.type_expr,
-                        &type_spec_value,
-                    )?;
+                    self.evaluate_type_check(&mut callee_cx, &result, type_spec.type_expr)?;
                 }
                 result
             }
@@ -226,14 +169,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     ));
                 };
                 if let Some(type_spec) = m.get_declaration_type_spec(id.local_id()).as_ref() {
-                    let type_spec_value =
-                        self.evaluate_node(&mut callee_cx, type_spec.type_expr)?;
-                    self.evaluate_type_check(
-                        &mut callee_cx,
-                        &value,
-                        type_spec.type_expr,
-                        &type_spec_value,
-                    )?;
+                    self.evaluate_type_check(&mut callee_cx, &value, type_spec.type_expr)?;
                 }
                 value
             }
@@ -254,23 +190,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         Ok(result)
     }
 
-    #[expect(clippy::too_many_lines)]
     fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> ResultValue {
         match cx.module.get(nid) {
-            Node::Closure(_) => {
-                let mut captures = HashMap::<String, Value>::new();
-                for (k, v) in &cx.args {
-                    captures.insert(k.to_string(), v.clone());
-                }
-                for (k, v) in &cx.locals {
-                    captures.insert(k.to_string(), v.clone());
-                }
-                Ok(Value::Closure(Closure {
-                    captures: Arc::new(captures),
-                    module: cx.module.id,
-                    node: nid,
-                }))
-            }
+            Node::Closure(_) => Ok(evaluate_closure_definition(cx, nid)),
             Node::Block(block) => {
                 for nid in &block.statements {
                     let v = self.evaluate_node(cx, *nid)?;
@@ -280,32 +202,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             }
             Node::IfCondition(if_condition) => self.evaluate_if_condition(cx, if_condition),
             Node::FnCall(fn_call) => self.evaluate_fn_call(cx, nid, fn_call),
-            Node::Assignment(assignment) => {
-                let v = self.evaluate_node(cx, assignment.expr)?;
-                match &assignment.name {
-                    DeclareName::Single(declare_name_single) => {
-                        let name = declare_name_single.name.contents(&cx.module.src);
-                        // TODO: Type check
-                        cx.locals.insert(name, v);
-                        Ok(Value::Unit)
-                    }
-                    DeclareName::NamedDestructure(_) => {
-                        for name_span in assignment.name_spans() {
-                            let name = name_span.contents(&cx.module.src);
-                            let Some(value) = self.evaluate_named_index(cx, &v, name_span, name)?
-                            else {
-                                return Err(cx.nid_err(
-                                    assignment.expr,
-                                    RunnerError::IndexKeyNotFound(name.to_owned()),
-                                ));
-                            };
-                            // TODO: Type check
-                            cx.locals.insert(name, value);
-                        }
-                        Ok(Value::Unit)
-                    }
-                }
-            }
+            Node::Assignment(assignment) => self.evaluate_assignment(cx, assignment),
             Node::BinaryOp(binary_op) => self.evaluate_binary_op(cx, binary_op),
             Node::Ident(tls) => self
                 .resolve_ident(cx, tls.0.contents(&cx.module.src))?
@@ -386,6 +283,38 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         },
                     )),
                 }
+            }
+        }
+    }
+
+    fn evaluate_assignment(&mut self, cx: &mut Cx, assignment: &Assignment) -> ResultValue {
+        let v = self.evaluate_node(cx, assignment.expr)?;
+        match &assignment.name {
+            DeclareName::Single(declare_name_single) => {
+                let name = declare_name_single.name.contents(&cx.module.src);
+                if let Some(type_spec) = &declare_name_single.type_spec {
+                    self.evaluate_type_check(cx, &v, type_spec.type_expr)?;
+                }
+                cx.locals.insert(name, v);
+                Ok(Value::Unit)
+            }
+            DeclareName::NamedDestructure(declare_name_destructure) => {
+                for name_element in &declare_name_destructure.elements {
+                    let name = name_element.name.contents(&cx.module.src);
+                    let Some(value) = self.evaluate_named_index(cx, &v, name_element.name, name)?
+                    else {
+                        return Err(cx.nid_err(
+                            assignment.expr,
+                            RunnerError::IndexKeyNotFound(name.to_owned()),
+                        ));
+                    };
+
+                    if let Some(type_spec) = &name_element.type_spec {
+                        self.evaluate_type_check(cx, &v, type_spec.type_expr)?;
+                    }
+                    cx.locals.insert(name, value);
+                }
+                Ok(Value::Unit)
             }
         }
     }
@@ -489,14 +418,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 );
                 for (a, v) in closure_declare.args.iter().zip(arg_values.iter()) {
                     if let Some(type_spec) = &a.type_spec {
-                        let type_spec_value =
-                            self.evaluate_node(&mut callee_cx, type_spec.type_expr)?;
-                        self.evaluate_type_check(
-                            &mut callee_cx,
-                            v,
-                            type_spec.type_expr,
-                            &type_spec_value,
-                        )?;
+                        self.evaluate_type_check(&mut callee_cx, v, type_spec.type_expr)?;
                     }
                 }
                 let result = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
@@ -512,14 +434,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 );
                 cx.propagate_deps(callee_cx.deps.clone());
                 if let Some(type_spec) = &closure_declare.return_type {
-                    let type_spec_value =
-                        self.evaluate_node(&mut callee_cx, type_spec.type_expr)?;
-                    self.evaluate_type_check(
-                        &mut callee_cx,
-                        &result,
-                        type_spec.type_expr,
-                        &type_spec_value,
-                    )?;
+                    self.evaluate_type_check(&mut callee_cx, &result, type_spec.type_expr)?;
                 }
 
                 Ok(result)
@@ -598,16 +513,16 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         cx: &mut Cx<'_>,
         v: &Value,
         type_spec_nid: NodeId,
-        type_spec_value: &Value,
     ) -> Result<(), ErrorTrace<Throwing>> {
+        let type_spec_value = self.evaluate_node(cx, type_spec_nid)?;
         match type_spec_value {
             Value::Type(expected_type) => {
-                if v.rain_type_id() != *expected_type {
+                if v.rain_type_id() != expected_type {
                     return Err(cx.nid_err(
                         type_spec_nid,
                         RunnerError::ExpectedType {
                             actual: v.rain_type_id(),
-                            expected: std::borrow::Cow::Owned(vec![*expected_type]),
+                            expected: std::borrow::Cow::Owned(vec![expected_type]),
                         },
                     ));
                 }
@@ -617,7 +532,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 let result = self.call_function(
                     cx,
                     type_spec_nid,
-                    type_spec_value,
+                    &type_spec_value,
                     cx.module.span(type_spec_nid),
                     vec![(type_spec_nid, v.clone())],
                 )?;
@@ -880,6 +795,21 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             Vec::new(),
         )
     }
+}
+
+fn evaluate_closure_definition(cx: &mut Cx, nid: NodeId) -> Value {
+    let mut captures = HashMap::<String, Value>::new();
+    for (k, v) in &cx.args {
+        captures.insert(k.to_string(), v.clone());
+    }
+    for (k, v) in &cx.locals {
+        captures.insert(k.to_string(), v.clone());
+    }
+    Value::Closure(Closure {
+        captures: Arc::new(captures),
+        module: cx.module.id,
+        node: nid,
+    })
 }
 
 struct EscapeReplacer;

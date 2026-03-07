@@ -1,10 +1,10 @@
 use std::fmt::Write as _;
 
+use crate::GlobalOptions;
 use crate::remote::{
     client::{ClientMode, make_request_or_start},
     msg::run::{RunRequest, RunResponse},
 };
-use crate::{GlobalOptions, ReportMode};
 use rain_core::{CoreError, config::Config};
 use termcolor::WriteColor as _;
 
@@ -50,9 +50,6 @@ fn handle_run_response(
         mut deps,
         elapsed,
     } = run_response;
-    if options.report == ReportMode::Basic {
-        eprint!("\r{:120}\r", "");
-    }
     match result {
         Ok(s) => {
             eprintln!("✔  Success in {elapsed:.1?}");

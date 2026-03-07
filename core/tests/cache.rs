@@ -13,7 +13,10 @@ use rain_core::cache::{Cache, persistent::PersistCache};
 use rain_lang::{
     afs::{File, local::file::LocalFile},
     driver::FSTrait as _,
-    runner::value::{RainInteger, Value},
+    runner::{
+        dep_list::DepList,
+        value::{RainInteger, Value},
+    },
 };
 use test_log::test;
 
@@ -74,14 +77,11 @@ struct CacheTesterRun<'a> {
 }
 
 impl CacheTesterRun<'_> {
-    fn exec(&mut self, declaration: &str) -> Value {
-        let declaration = self
-            .ir
-            .resolve_global_declaration(self.mid, declaration)
-            .unwrap();
+    fn exec(&mut self, target: &str) -> Value {
         let mut runner =
             rain_lang::runner::Runner::new(&mut self.ir, &self.cache, &self.tester.driver);
-        runner.evaluate_and_call(declaration, &[]).0.unwrap()
+        let mut deps = DepList::new();
+        rain_core::evaluate_and_call_chain(&mut runner, self.mid, &mut deps, target, &[]).unwrap()
     }
 }
 

@@ -46,14 +46,9 @@ pub fn run(
     let mid = ir
         .insert_module(Some(File::Local(file)), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&ir).into_owned())))?;
-    let declaration = ir
-        .resolve_global_declaration(mid, target)
-        .ok_or_else(|| CoreError::Other(String::from("declaration does not exist")))?;
     let mut runner = rain_lang::runner::Runner::new(&mut ir, cache, driver);
-    let (result, _deps) = runner.evaluate_and_call(declaration, &[]);
-    let value = result
-        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;
-    Ok(value)
+    let mut deps = DepList::new();
+    evaluate_and_call_chain(&mut runner, mid, &mut deps, target, &[])
 }
 
 pub fn new_runner<'a>(

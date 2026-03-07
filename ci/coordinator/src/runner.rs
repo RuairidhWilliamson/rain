@@ -10,6 +10,7 @@ use rain_core::{
 use rain_lang::{
     afs::{File, area::FSArea, entry::FSEntry, path::SealedFilePath},
     driver::DriverTrait as _,
+    runner::dep_list::DepList,
 };
 
 #[derive(Clone)]
@@ -51,7 +52,6 @@ impl Runner {
                 };
             }
         };
-        let main = ir.resolve_global_declaration(mid, target).unwrap();
         let mut persistent_cache = self.persistent_cache.plock();
         let cache_core = persistent_cache
             .take()
@@ -65,7 +65,8 @@ impl Runner {
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, driver);
         runner.seal = self.seal;
         info!("Running");
-        let (res, _) = runner.evaluate_and_call(main, &[]);
+        let mut deps = DepList::new();
+        let res = rain_core::evaluate_and_call_chain(&mut runner, mid, &mut deps, target, &[]);
         let new_persistent_cache =
             PersistCache::persist(&cache.core.plock(), &self.cache_stats, &ir);
         *persistent_cache = Some(new_persistent_cache);
@@ -80,7 +81,6 @@ impl Runner {
             }
             Err(err) => {
                 error!("{err:?}");
-                let err = err.resolve_ir(&ir);
                 error!("\n{err}");
                 RunComplete {
                     success: false,

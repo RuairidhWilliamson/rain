@@ -91,7 +91,7 @@ impl Reporter for Tree {
         match progress {
             RunProgress::Print(s) => eprintln!("{s}"),
             RunProgress::EnterCall(s) => {
-                if self.stack.len() < self.depth {
+                if self.stack.len() <= self.depth {
                     for _ in 0..self.stack.len() {
                         eprint!(" ");
                     }
