@@ -21,10 +21,11 @@ use rain_lang::{
     },
     driver::{
         DownloadStatus, DriverTrait, EscapeRunStatus, FSEntryQueryResult, FSTrait, FileMetadata,
-        MonitoringTrait, RunOptions, RunStatus,
+        RunOptions, RunStatus,
+        monitoring::{Call, MonitoringTrait},
     },
     hash::FileHash,
-    runner::{error::RunnerError, internal::InternalFunction},
+    runner::error::RunnerError,
 };
 
 use sha2::Digest as _;
@@ -32,14 +33,15 @@ use sha2::Digest as _;
 use crate::config::Config;
 
 pub type PrintHandler<'a> = Box<dyn Fn(&str) + 'a + Send>;
+pub type CallHandler<'a> = Box<dyn Fn(&Call) + 'a + Send>;
 
 pub struct DriverImpl<'a> {
     pub config: Config,
     pub custom_config: HashMap<String, Arc<String>>,
     pub prints: Mutex<Vec<String>>,
     pub print_handler: Option<PrintHandler<'a>>,
-    pub enter_handler: Option<PrintHandler<'a>>,
-    pub exit_handler: Option<PrintHandler<'a>>,
+    pub enter_handler: Option<CallHandler<'a>>,
+    pub exit_handler: Option<CallHandler<'a>>,
     pub embed: Option<Cow<'static, str>>,
     pub host_triple: Cow<'static, str>,
     pub internal_counts: Mutex<HashMap<Arc<String>, usize>>,
@@ -787,27 +789,15 @@ impl DriverTrait for DriverImpl<'_> {
 }
 
 impl MonitoringTrait for DriverImpl<'_> {
-    fn enter_call(&self, s: &str) {
+    fn enter_call(&self, s: &Call) {
         if let Some(ph) = &self.enter_handler {
             ph(s);
         }
     }
 
-    fn exit_call(&self, s: &str) {
+    fn exit_call(&self, s: &Call) {
         if let Some(ph) = &self.exit_handler {
             ph(s);
-        }
-    }
-
-    fn enter_internal_call(&self, f: &InternalFunction) {
-        if let Some(ph) = &self.enter_handler {
-            ph(&format!("internal.{f:?}"));
-        }
-    }
-
-    fn exit_internal_call(&self, f: &InternalFunction) {
-        if let Some(ph) = &self.exit_handler {
-            ph(&format!("internal.{f:?}"));
         }
     }
 }

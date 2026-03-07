@@ -7,7 +7,7 @@ use indexmap::IndexMap;
 use crate::{
     afs::area::FileAreaRef,
     ast::NodeId,
-    driver::{DriverTrait, RunOptions},
+    driver::{DriverTrait, RunOptions, monitoring::Call},
     runner::{cache::CacheTrait, dep::Dep, internal::InternalCx},
 };
 
@@ -74,10 +74,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .collect::<Result<HashMap<String, String>>>()?;
 
                 let display_args = args.join(" ");
-                let _call = self
-                    .runner
-                    .driver
-                    .call_guard(format!("Run {} {display_args}", bin.display()));
+                let _call = self.runner.driver.call_guard(Call::Custom(format!(
+                    "Run {} {display_args}",
+                    bin.display()
+                )));
                 let status = self
                     .runner
                     .driver
@@ -148,10 +148,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .map(|(key, value)| self.stringify_env(*env_nid, key, value))
                     .collect::<Result<HashMap<String, String>>>()?;
                 let display_args = args.join(" ");
-                let _call = self
-                    .runner
-                    .driver
-                    .call_guard(format!("Run {} {display_args}", bin.display()));
+                let _call = self.runner.driver.call_guard(Call::Custom(format!(
+                    "Run {} {display_args}",
+                    bin.display()
+                )));
                 let status = self
                     .runner
                     .driver

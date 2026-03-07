@@ -53,7 +53,10 @@ mod private {
 pub mod run {
     use std::{collections::HashMap, path::PathBuf, time::Duration};
 
-    use rain_core::{CoreError, rain_lang::runner::dep_list::DepList};
+    use rain_core::{
+        CoreError,
+        rain_lang::{driver::monitoring::Call, runner::dep_list::DepList},
+    };
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunRequest {
@@ -83,8 +86,8 @@ pub mod run {
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub enum RunProgress {
         Print(String),
-        EnterCall(String),
-        ExitCall(String),
+        EnterCall(Call),
+        ExitCall(Call),
     }
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]

@@ -1,3 +1,5 @@
+pub mod monitoring;
+
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -14,7 +16,7 @@ use crate::{
         generated::{area::GeneratedFSArea, dir::GeneratedDir, file::GeneratedFile},
     },
     hash::FileHash,
-    runner::{error::RunnerError, internal::InternalFunction},
+    runner::error::RunnerError,
 };
 
 pub trait FSTrait {
@@ -24,7 +26,7 @@ pub trait FSTrait {
     fn query_file_hash(&self, entry: FSEntryRef) -> Result<FileHash, std::io::Error>;
 }
 
-pub trait DriverTrait: MonitoringTrait + FSTrait {
+pub trait DriverTrait: monitoring::MonitoringTrait + FSTrait {
     fn increment_counter(&self, name: Arc<String>);
     fn print(&self, message: String);
     fn escape_bin(&self, name: &str) -> Option<AbsolutePathBuf>;
@@ -98,33 +100,6 @@ pub trait DriverTrait: MonitoringTrait + FSTrait {
     ) -> Result<GeneratedFile, RunnerError>;
     fn extract_zstd(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError>;
     fn config(&self, name: &str) -> Option<Arc<String>>;
-}
-
-pub trait MonitoringTrait {
-    fn enter_call(&self, _s: &str) {}
-    fn exit_call(&self, _s: &str) {}
-    fn enter_internal_call(&self, _f: &InternalFunction) {}
-    fn exit_internal_call(&self, _f: &InternalFunction) {}
-
-    #[must_use]
-    fn call_guard(&self, s: String) -> Call<'_>
-    where
-        Self: Sized,
-    {
-        self.enter_call(&s);
-        Call { driver: self, s }
-    }
-}
-
-pub struct Call<'a> {
-    driver: &'a dyn MonitoringTrait,
-    s: String,
-}
-
-impl Drop for Call<'_> {
-    fn drop(&mut self) {
-        self.driver.exit_call(&self.s);
-    }
 }
 
 pub struct RunOptions {

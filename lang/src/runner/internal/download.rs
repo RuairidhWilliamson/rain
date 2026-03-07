@@ -4,7 +4,7 @@ use chrono::Utc;
 use indexmap::IndexMap;
 
 use crate::{
-    driver::{DownloadStatus, DriverTrait},
+    driver::{DownloadStatus, DriverTrait, monitoring::Call},
     runner::{
         ResultValue,
         cache::{CacheEntry, CacheKey, CacheTrait},
@@ -34,8 +34,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let cache_key = CacheKey::Download {
                     url: url.to_string(),
                 };
-                let call_description = format!("Download {url}");
-                let _call = self.runner.driver.call_guard(call_description);
+                let _call = self
+                    .runner
+                    .driver
+                    .call_guard(Call::Custom(format!("Download {url}")));
                 let cache_entry = self.runner.cache.get(
                     &cache_key,
                     self.runner.driver,

@@ -1,5 +1,7 @@
 use std::io::{Write as _, stderr};
 
+use rain_core::rain_lang::driver::monitoring::Call;
+
 use crate::{GlobalOptions, ReportMode, remote::msg::run::RunProgress};
 
 pub trait Reporter {
@@ -30,16 +32,10 @@ impl Reporter for Basic {
     fn update(&mut self, progress: RunProgress) {
         match progress {
             RunProgress::Print(s) => eprintln!("{s}"),
-            RunProgress::EnterCall(s) => {
-                if !s.starts_with("internal.") {
-                    self.stack.push(s);
-                }
+            RunProgress::EnterCall(Call::Custom(s)) => {
+                eprintln!("{s}");
             }
-            RunProgress::ExitCall(s) => {
-                if !s.starts_with("internal.") {
-                    self.stack.pop();
-                }
-            }
+            _ => {}
         }
         if let Some(last) = self.stack.last() {
             eprintln!("{last}");
@@ -50,7 +46,7 @@ impl Reporter for Basic {
 
 #[derive(Default)]
 pub struct Verbose {
-    stack: Vec<String>,
+    stack: Vec<Call>,
 }
 
 impl Reporter for Verbose {
@@ -65,7 +61,7 @@ impl Reporter for Verbose {
             }
         }
         if let Some(last) = self.stack.last() {
-            eprintln!("{last}");
+            eprintln!("{last:?}");
         }
         let _ = stderr().flush();
     }
@@ -73,7 +69,7 @@ impl Reporter for Verbose {
 
 #[derive(Default)]
 pub struct Tree {
-    stack: Vec<String>,
+    stack: Vec<Call>,
     depth: usize,
 }
 
@@ -95,7 +91,7 @@ impl Reporter for Tree {
                     for _ in 0..self.stack.len() {
                         eprint!(" ");
                     }
-                    eprintln!("{s}");
+                    eprintln!("{s:?}");
                 }
                 self.stack.push(s);
             }

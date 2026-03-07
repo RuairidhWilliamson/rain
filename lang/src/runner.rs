@@ -28,7 +28,7 @@ use crate::{
         AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, DeclareName, FnCall,
         IfCondition, Node, NodeId, Not, SimpleLiteral, SimpleLiteralKind,
     },
-    driver::{DriverTrait, FSTrait},
+    driver::{DriverTrait, FSTrait, monitoring::Call},
     hash::FileHash,
     ir::{DeclarationId, Rir},
     local_span::LocalSpan,
@@ -150,7 +150,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             cx.propagate_deps(cache_entry.deps);
             return Ok(cache_entry.value);
         }
-        let _call = self.driver.call_guard(declaration_name.to_string());
+        let _call = self
+            .driver
+            .call_guard(Call::Declaration(declaration_name.to_string()));
         let result = self.evaluate_node(&mut callee_cx, declaration.assignment.expr)?;
         let result = match &declaration.assignment.name {
             DeclareName::Single(single) => {
@@ -399,7 +401,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     return Ok(entry.value);
                 }
                 // TODO: Work out a more helpful name than anonymous
-                let _call = self.driver.call_guard(String::from("anonymous"));
+                let _call = self.driver.call_guard(Call::Closure);
                 let start = Instant::now();
                 let args = closure_declare
                     .args
@@ -452,7 +454,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     return Ok(entry.value);
                 }
                 let start = Instant::now();
-                self.driver.enter_internal_call(f);
+                let _call = self.driver.call_guard(Call::Internal(*f));
                 log::trace!("internal function call {f:?} {arg_values:?}");
                 let mut deps = DepList::new();
                 let mut cache_hint = true;
@@ -467,7 +469,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     cache_hint: &mut cache_hint,
                 };
                 let result = internal_cx.call_internal_function();
-                self.driver.exit_internal_call(f);
                 let result = result?;
                 if cache_hint {
                     self.cache.put(
