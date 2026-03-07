@@ -17,6 +17,7 @@ const DEPTH_LIMIT: u32 = 50;
 pub enum Error {
     TreeSitter,
     DepthLimit,
+    ParseErrors(Vec<(LocalSpan, String)>),
 }
 
 struct Walker<'a, 'cursor> {
@@ -89,7 +90,13 @@ pub fn parse_module(source: &str) -> Result<Module, Error> {
     let mut nodes = NodeList::new();
     let mut declarations = Vec::new();
     if cursor.node().has_error() {
-        return Err(Error::TreeSitter);
+        let parse_errors: Vec<(LocalSpan, String)> = tree_errors(&tree)
+            .map(|node| {
+                let span = LocalSpan::new(node.start_byte(), node.end_byte());
+                (span, node.to_sexp())
+            })
+            .collect();
+        return Err(Error::ParseErrors(parse_errors));
     }
     if cursor.goto_first_child() {
         while cursor.goto_next_sibling() {
@@ -106,6 +113,18 @@ pub fn parse_module(source: &str) -> Result<Module, Error> {
     Ok(Module {
         root: ModuleRoot { declarations },
         nodes,
+    })
+}
+
+fn tree_errors(tree: &tree_sitter::Tree) -> impl Iterator<Item = tree_sitter::Node<'_>> {
+    let mut cursor = tree.root_node().walk();
+    (0..tree.root_node().descendant_count()).filter_map(move |i| {
+        cursor.goto_descendant(i);
+        if cursor.node().is_error() && cursor.node().child_count() == 1 {
+            Some(cursor.node())
+        } else {
+            None
+        }
     })
 }
 

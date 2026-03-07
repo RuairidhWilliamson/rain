@@ -617,6 +617,7 @@ impl BinaryOperatorKind {
             Token::LessEq => Some(Self::LessThanEquals),
             Token::RAngle => Some(Self::GreaterThan),
             Token::GreaterEq => Some(Self::GreaterThanEquals),
+            Token::Caret => Some(Self::Pow),
             _ => None,
         }
     }

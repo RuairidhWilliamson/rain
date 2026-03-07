@@ -14,6 +14,7 @@ pub enum ParseError {
     ExpectedExpression,
     InputNotFullyConsumed,
     TreeSitter,
+    InvalidBinaryOperator,
 }
 
 impl From<TokenError> for ParseError {
@@ -50,6 +51,7 @@ impl std::fmt::Display for ParseError {
             Self::ExpectedExpression => f.write_str("bad syntax: expected expression"),
             Self::InputNotFullyConsumed => f.write_str("bad syntax: input not fully consumed"),
             Self::TreeSitter => f.write_str("tree sitter parse error"),
+            Self::InvalidBinaryOperator => f.write_str("invalid binary operator"),
         }
     }
 }

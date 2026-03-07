@@ -12,14 +12,19 @@ use crate::{
 };
 
 pub fn parse_module(source: &str) -> ParseResult<Module> {
-    let mut parser = ModuleParser::new(source);
-    let root = parser.parse_module_root()?;
-    let nodes = parser.complete()?;
+    let module = parse_module_inner(source)?;
     // Check that tree sitter can parse this too
     if cfg!(debug_assertions) {
         let tree = super::ts_parser::parse_module(source);
         debug_assert!(tree.is_ok());
     }
+    Ok(module)
+}
+
+pub fn parse_module_inner(source: &str) -> ParseResult<Module> {
+    let mut parser = ModuleParser::new(source);
+    let root = parser.parse_module_root()?;
+    let nodes = parser.complete()?;
     Ok(Module { root, nodes })
 }
 
@@ -409,7 +414,7 @@ impl<'src> ModuleParser<'src> {
                 });
             }
             let Some(op) = BinaryOperatorKind::new_from_token(t.token) else {
-                unreachable!("parse_expr_ops")
+                return Err(t.span.with_error(ParseError::InvalidBinaryOperator));
             };
             lhs = self.push(BinaryOp {
                 left: lhs,
