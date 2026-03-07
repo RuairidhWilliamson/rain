@@ -3,6 +3,7 @@
 mod commands;
 mod exe;
 mod remote;
+mod reporter;
 mod run;
 
 use std::collections::HashMap;
@@ -46,27 +47,38 @@ struct GlobalOptions {
     /// Disable performing actions that require an internet connection and try to use cache more often
     #[arg(long, global = true, env = "RAIN_OFFLINE")]
     offline: bool,
+
     /// Override the host to a custom triple
     #[arg(long, global = true, env = "RAIN_HOST")]
     host: Option<String>,
+
     /// Resolve returned file paths before printing them to stdout
     #[arg(long, global = true)]
     resolve: bool,
+
     /// Disable escape commands (not a security sandbox)
     #[arg(long, global = true, env = "RAIN_SEAL")]
     seal: bool,
+
     /// The reporting mode to use
     #[arg(long, global = true, default_value = "basic")]
     report: ReportMode,
+
     /// The path to the rain source file entrypoint, if not specified will auto resolve main.rain
     #[arg(long, global = true)]
     entrypoint: Option<PathBuf>,
 
+    /// Sets custom config
     #[arg(long, global = true)]
     config: Vec<String>,
 
+    /// Show the deps for the executed
     #[arg(long, global = true)]
     deps: bool,
+
+    /// Sets the maximum report tree depth
+    #[arg(long, default_value_t = 2, global = true)]
+    tree_depth: usize,
 }
 
 impl GlobalOptions {
@@ -144,6 +156,7 @@ enum ReportMode {
     #[default]
     Basic,
     Verbose,
+    Tree,
     None,
 }
 

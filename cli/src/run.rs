@@ -1,11 +1,10 @@
 use std::fmt::Write as _;
-use std::io::{Write as _, stderr};
 
-use crate::ReportMode;
 use crate::remote::{
     client::{ClientMode, make_request_or_start},
-    msg::run::{RunProgress, RunRequest, RunResponse},
+    msg::run::{RunRequest, RunResponse},
 };
+use crate::{GlobalOptions, ReportMode};
 use rain_core::{CoreError, config::Config};
 use termcolor::WriteColor as _;
 
@@ -13,12 +12,12 @@ pub fn run(
     config: &Config,
     target: &str,
     args: Vec<String>,
-    options: &crate::GlobalOptions,
+    options: &GlobalOptions,
     mode: ClientMode,
 ) -> Result<(), ()> {
     let custom_config = options.parse_config()?;
     let root = options.resolve_entrypoint()?;
-    let mut stack = Vec::new();
+    let mut reporter = crate::reporter::new_reporter(options);
     let run_response = make_request_or_start(
         config,
         RunRequest {
@@ -31,43 +30,7 @@ pub fn run(
             host_override: options.host.clone(),
             custom_config,
         },
-        |im| match options.report {
-            ReportMode::Basic => {
-                match im {
-                    RunProgress::Print(s) => eprintln!("{s}"),
-                    RunProgress::EnterCall(s) => {
-                        if !s.starts_with("internal.") {
-                            stack.push(s);
-                        }
-                    }
-                    RunProgress::ExitCall(s) => {
-                        if !s.starts_with("internal.") {
-                            stack.pop();
-                        }
-                    }
-                }
-                if let Some(last) = stack.last() {
-                    eprintln!("{last}");
-                }
-                let _ = stderr().flush();
-            }
-            ReportMode::Verbose => {
-                match im {
-                    RunProgress::Print(s) => eprintln!("{s}"),
-                    RunProgress::EnterCall(s) => {
-                        stack.push(s);
-                    }
-                    RunProgress::ExitCall(_) => {
-                        stack.pop();
-                    }
-                }
-                if let Some(last) = stack.last() {
-                    eprintln!("{last}");
-                }
-                let _ = stderr().flush();
-            }
-            ReportMode::None => {}
-        },
+        |progress| reporter.update(progress),
         mode,
     )
     .map_err(|err| {
@@ -78,7 +41,7 @@ pub fn run(
 
 fn handle_run_response(
     target: &str,
-    options: &crate::GlobalOptions,
+    options: &GlobalOptions,
     run_response: RunResponse,
 ) -> Result<(), ()> {
     let mut color_stderr = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);

@@ -105,6 +105,26 @@ pub trait MonitoringTrait {
     fn exit_call(&self, _s: &str) {}
     fn enter_internal_call(&self, _f: &InternalFunction) {}
     fn exit_internal_call(&self, _f: &InternalFunction) {}
+
+    #[must_use]
+    fn call_guard(&self, s: String) -> Call<'_>
+    where
+        Self: Sized,
+    {
+        self.enter_call(&s);
+        Call { driver: self, s }
+    }
+}
+
+pub struct Call<'a> {
+    driver: &'a dyn MonitoringTrait,
+    s: String,
+}
+
+impl Drop for Call<'_> {
+    fn drop(&mut self) {
+        self.driver.exit_call(&self.s);
+    }
 }
 
 pub struct RunOptions {

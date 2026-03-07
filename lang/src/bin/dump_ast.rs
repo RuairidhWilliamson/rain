@@ -1,4 +1,4 @@
-#![expect(clippy::print_stdout)]
+#![expect(clippy::print_stdout, clippy::print_stderr)]
 
 use std::process::ExitCode;
 
@@ -42,7 +42,7 @@ fn inner(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
             LocalSpan::byte(0).with_error(ParseError::TreeSitter)
         }
         rain_lang::ast::ts_parser::Error::ParseErrors(items) => {
-            let (span, err) = items.first().unwrap();
+            let (span, err) = items.first().expect("first error");
             eprintln!("{err}");
             span.with_error(ParseError::TreeSitter)
         }

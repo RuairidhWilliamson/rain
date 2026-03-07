@@ -177,23 +177,6 @@ impl InternalFunction {
     }
 }
 
-struct Call<'a> {
-    driver: &'a dyn DriverTrait,
-    s: String,
-}
-
-impl Drop for Call<'_> {
-    fn drop(&mut self) {
-        self.driver.exit_call(&self.s);
-    }
-}
-
-#[must_use]
-fn enter_call(driver: &dyn DriverTrait, s: String) -> Call<'_> {
-    driver.enter_call(&s);
-    Call { driver, s }
-}
-
 pub struct InternalCx<'a, 'b, 'c, Driver, Cache> {
     pub func: InternalFunction,
     pub runner: &'a mut super::Runner<'c, Driver, Cache>,

@@ -11,7 +11,7 @@ use crate::{
         dep::Dep,
         dep_list::DepList,
         error::RunnerError,
-        internal::{InternalCx, enter_call},
+        internal::InternalCx,
         value::{RainInteger, RainRecord, RainTypeId, Value},
     },
 };
@@ -35,7 +35,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     url: url.to_string(),
                 };
                 let call_description = format!("Download {url}");
-                let _call = enter_call(self.runner.driver, call_description);
+                let _call = self.runner.driver.call_guard(call_description);
                 let cache_entry = self.runner.cache.get(
                     &cache_key,
                     self.runner.driver,
