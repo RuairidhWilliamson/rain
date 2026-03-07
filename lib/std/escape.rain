@@ -24,7 +24,9 @@ pub let run = fn(area, bin, args, env) {
 	if !run_result.success {
 		print("Stdout:", run_result.stdout)
 		print("Stderr:", run_result.stderr)
-		_throw("run " + stringify(bin) + " failed")
+		std.list.map(args, stringify)
+		std.list.join(_, " ")
+		_throw("run failed " + stringify(bin) + " " + _)
 	}
 	run_result
 }

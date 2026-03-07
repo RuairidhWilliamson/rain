@@ -1,6 +1,6 @@
 let std = import("std.rain")
 let {unit} = std.utils
-let {Any, List, Bool, Integer} = std.types
+let {Any, List, Bool, Integer, String} = std.types
 
 pub let fold = internal._fold
 
@@ -55,4 +55,14 @@ pub let foreach = fn(list: List(Any), func) {
 
 pub let concat = fn(a: List(Any), b: List(Any)) -> List(Any) {
 	a + b
+}
+
+pub let join = fn(list: List(String), separator: String) -> String {
+	fold("", list, fn(acc: String, x: String) {
+		if acc != "" {
+			acc = acc + separator
+		}
+		acc = acc + x
+		acc
+	})
 }
