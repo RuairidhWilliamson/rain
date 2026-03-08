@@ -5,7 +5,7 @@ members = [
   "cli",
   "ruipc",
   "poison_panic",
-  "rain-lsp",
+  "lsp",
   "ci/coordinator",
   "ci/web",
   "ci/migrator",
