@@ -21,13 +21,12 @@ use num_bigint::BigInt;
 
 use crate::{
     afs::{Dir, File, absolute::AbsolutePathBuf, area::FSArea},
-    ast::NodeId,
+    ast::{Module, NodeId},
     driver::DriverTrait,
     local_span::LocalSpan,
     runner::{
         Result, ResultValue,
-        cache::CacheTrait,
-        cache::{CacheEntry, CacheKey},
+        cache::{CacheEntry, CacheKey, CacheTrait},
         cx::Cx,
         dep::Dep,
         dep_list::DepList,
@@ -399,7 +398,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             self.caller_cx
                 .nid_err(self.nid, RunnerError::ImportIOError(err))
         })?;
-        let module = crate::ast::parser::parse_module(&src);
+        let module = Module::parse(&src);
         let id = self
             .runner
             .ir
@@ -723,7 +722,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let Some(src) = self.runner.driver.embed_src() else {
             return Err(self.caller_cx.nid_err(self.nid, RunnerError::NoEmbed));
         };
-        let module = crate::ast::parser::parse_module(src.as_ref());
+        let module = Module::parse(src.as_ref());
         let id = self
             .runner
             .ir

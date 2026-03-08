@@ -9,6 +9,7 @@ use rain_core::{
 };
 use rain_lang::{
     afs::{File, area::FSArea, entry::FSEntry, path::SealedFilePath},
+    ast::Module,
     driver::DriverTrait as _,
     runner::dep_list::DepList,
 };
@@ -39,7 +40,7 @@ impl Runner {
         info!("Root entry {root_entry}");
         let root = File::new_checked(driver, root_entry).unwrap();
         let src = driver.read_file(&root).unwrap();
-        let module = rain_lang::ast::parser::parse_module(&src);
+        let module = Module::parse(&src);
         let mut ir = rain_lang::ir::Rir::new();
         let mid = match ir.insert_module(Some(root), src, module) {
             Ok(mid) => mid,

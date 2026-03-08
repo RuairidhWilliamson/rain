@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use rain_lang::runner::value::Value;
+use test_log::test;
 
 fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
     rain_core::run_stderr(path, "main")
@@ -46,4 +47,5 @@ tests! {
     any_type,
     record_type_check,
     generated_vs_local,
+    trailing_commas,
 }

@@ -1,0 +1,5 @@
+let Integer = internal._get_type(0)
+
+let main = fn() {
+	{x: Integer, y: Integer} = {x = 4, y = "6"}
+}

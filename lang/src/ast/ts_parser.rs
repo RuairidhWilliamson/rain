@@ -13,9 +13,52 @@ use crate::{
 
 const DEPTH_LIMIT: u32 = 50;
 
+pub fn parse(source: &str) -> tree_sitter::Tree {
+    let mut parser = tree_sitter::Parser::new();
+    let language = tree_sitter_rain::LANGUAGE;
+    parser
+        .set_language(&language.into())
+        .expect("error loading Rain parser");
+    parser.parse(source, None).expect("no language")
+}
+
+pub fn parse_module(source: &str) -> Result<Module, Error> {
+    let tree = parse(source);
+    let mut cursor = tree.walk();
+    let mut nodes = NodeList::new();
+    let mut declarations = Vec::new();
+    if cursor.node().has_error() {
+        let parse_errors: Vec<(LocalSpan, String)> = tree_errors(&tree)
+            .map(|node| {
+                let span = LocalSpan::new(node.start_byte(), node.end_byte());
+                (span, node.to_sexp())
+            })
+            .collect();
+        return Err(Error::ParseErrors(parse_errors));
+    }
+    if cursor.goto_first_child() {
+        loop {
+            let node = cursor.node();
+            match node.kind() {
+                "declaration" => {
+                    declarations.push(parse_declaration(Walker::new(&mut cursor, &mut nodes)?)?);
+                }
+                "line_comment" => {}
+                kind => unreachable!("{kind}"),
+            }
+            if !cursor.goto_next_sibling() {
+                break;
+            }
+        }
+    }
+    Ok(Module {
+        root: ModuleRoot { declarations },
+        nodes,
+    })
+}
+
 #[derive(Debug)]
 pub enum Error {
-    TreeSitter,
     DepthLimit,
     ParseErrors(Vec<(LocalSpan, String)>),
 }
@@ -75,52 +118,12 @@ impl Drop for Walker<'_, '_> {
     }
 }
 
-pub fn parse(source: &str) -> tree_sitter::Tree {
-    let mut parser = tree_sitter::Parser::new();
-    let language = tree_sitter_rain::LANGUAGE;
-    parser
-        .set_language(&language.into())
-        .expect("error loading Rain parser");
-    parser.parse(source, None).expect("no language")
-}
-
-pub fn parse_module(source: &str) -> Result<Module, Error> {
-    let tree = parse(source);
-    let mut cursor = tree.walk();
-    let mut nodes = NodeList::new();
-    let mut declarations = Vec::new();
-    if cursor.node().has_error() {
-        let parse_errors: Vec<(LocalSpan, String)> = tree_errors(&tree)
-            .map(|node| {
-                let span = LocalSpan::new(node.start_byte(), node.end_byte());
-                (span, node.to_sexp())
-            })
-            .collect();
-        return Err(Error::ParseErrors(parse_errors));
-    }
-    if cursor.goto_first_child() {
-        while cursor.goto_next_sibling() {
-            let node = cursor.node();
-            match node.kind() {
-                "declaration" => {
-                    declarations.push(parse_declaration(Walker::new(&mut cursor, &mut nodes)?)?);
-                }
-                "line_comment" => {}
-                kind => unreachable!("{kind}"),
-            }
-        }
-    }
-    Ok(Module {
-        root: ModuleRoot { declarations },
-        nodes,
-    })
-}
-
 fn tree_errors(tree: &tree_sitter::Tree) -> impl Iterator<Item = tree_sitter::Node<'_>> {
-    let mut cursor = tree.root_node().walk();
+    let mut cursor = tree.walk();
     (0..tree.root_node().descendant_count()).filter_map(move |i| {
         cursor.goto_descendant(i);
-        if cursor.node().is_error() && cursor.node().child_count() == 1 {
+        // TODO: Has errors is annyoing here since we get the entire tree of nodes
+        if cursor.node().has_error() && cursor.node().child_count() == 1 {
             Some(cursor.node())
         } else {
             None
@@ -166,18 +169,7 @@ fn parse_declare_name(mut walker: Walker) -> Result<DeclareName, Error> {
         "declare_single_name" => {
             let mut declare_single_walker = walker.child()?;
             let name = declare_single_walker.span_expect("identifier");
-            let type_spec =
-                if declare_single_walker.maybe_next() && declare_single_walker.kind() == ":" {
-                    let colon_token = declare_single_walker.span_expect(":");
-                    declare_single_walker.next();
-                    let type_expr = parse_expr(declare_single_walker.child()?.child()?)?;
-                    Some(TypeSpec {
-                        colon_token,
-                        type_expr,
-                    })
-                } else {
-                    None
-                };
+            let type_spec = parse_colon_type_spec(&mut declare_single_walker)?;
             Ok(DeclareName::Single(DeclareNameSingle { name, type_spec }))
         }
         "declare_named_destructure" => {
@@ -235,46 +227,55 @@ fn parse_declare_name(mut walker: Walker) -> Result<DeclareName, Error> {
     }
 }
 
+fn parse_colon_type_spec(
+    declare_single_walker: &mut Walker<'_, '_>,
+) -> Result<Option<TypeSpec>, Error> {
+    let type_spec = if declare_single_walker.maybe_next() && declare_single_walker.kind() == ":" {
+        let colon_token = declare_single_walker.span_expect(":");
+        declare_single_walker.next();
+        let type_expr = parse_expr(declare_single_walker.child()?.child()?)?;
+        Some(TypeSpec {
+            colon_token,
+            type_expr,
+        })
+    } else {
+        None
+    };
+    Ok(type_spec)
+}
+
 fn parse_expr(mut walker: Walker) -> Result<NodeId, Error> {
     match walker.kind() {
-        "fn_call" => {
-            let mut walker = walker.child()?;
-            let callee = parse_expr(walker.child()?)?;
-            walker.next();
-            let mut walker = walker.child()?;
-            let lparen_token = walker.span_expect("(");
-            let mut args = Vec::new();
-            loop {
-                walker.next();
-                match walker.kind() {
-                    "expr" => args.push(parse_expr(walker.child()?)?),
-                    "," => {}
-                    ")" => break,
-                    _ => unreachable!(),
-                }
-            }
-            let rparen_token = walker.span_expect(")");
-            Ok(walker.nodes.push(FnCall {
-                callee,
-                lparen_token,
-                args,
-                rparen_token,
+        "fn_call" => parse_fn_call(&mut walker),
+        "identifier" => Ok(walker.nodes.push(Ident(walker.span_expect("identifier")))),
+        "string_literal" => {
+            let mut span = walker.span();
+            span.start += 1;
+            span.end -= 1;
+            Ok(walker.nodes.push(StringLiteral {
+                prefix: None,
+                contents: span,
             }))
         }
-        "identifier" => Ok(walker.nodes.push(Ident(walker.span_expect("identifier")))),
-        "string_literal" => Ok(walker.nodes.push(StringLiteral {
-            prefix: None,
-            contents: walker.span(),
-        })),
-        "raw_string_literal" => Ok(walker.nodes.push(StringLiteral {
-            prefix: Some(crate::tokens::StringLiteralPrefix::Raw),
-            contents: walker.span(),
-        })),
-        "format_string_literal" => Ok(walker.nodes.push(StringLiteral {
-            prefix: Some(crate::tokens::StringLiteralPrefix::Format),
-            contents: walker.span(),
-        })),
-        "fn_declare_expr" => parse_closure(walker.child()?),
+        "raw_string_literal" => {
+            let mut span = walker.span();
+            span.start += 2;
+            span.end -= 1;
+            Ok(walker.nodes.push(StringLiteral {
+                prefix: Some(crate::tokens::StringLiteralPrefix::Raw),
+                contents: span,
+            }))
+        }
+        "format_string_literal" => {
+            let mut span = walker.span();
+            span.start += 2;
+            span.end -= 1;
+            Ok(walker.nodes.push(StringLiteral {
+                prefix: Some(crate::tokens::StringLiteralPrefix::Format),
+                contents: span,
+            }))
+        }
+        "fn_declare_expr" => parse_closure_declare(walker.child()?),
         "namespace" => {
             let mut walker = walker.child()?;
             let left = parse_expr(walker.child()?)?;
@@ -290,10 +291,7 @@ fn parse_expr(mut walker: Walker) -> Result<NodeId, Error> {
             };
             Ok(walker.nodes.push(binary_op))
         }
-        "internal" => {
-            let internal = SimpleLiteralKind::Internal.with(walker.span_expect("internal"));
-            Ok(walker.nodes.push(internal))
-        }
+        "builtin" => Ok(parse_builtin(&mut walker.child()?)),
         "bool_literal" => {
             let walker = walker.child()?;
             match walker.kind() {
@@ -327,6 +325,53 @@ fn parse_expr(mut walker: Walker) -> Result<NodeId, Error> {
         }
         kind => unreachable!("expr: {kind}"),
     }
+}
+
+fn parse_builtin(walker: &mut Walker<'_, '_>) -> NodeId {
+    match walker.kind() {
+        "internal" => {
+            let internal = SimpleLiteralKind::Internal.with(walker.span_expect("internal"));
+            walker.nodes.push(internal)
+        }
+        "import" => {
+            let import = SimpleLiteralKind::Import.with(walker.span_expect("import"));
+            walker.nodes.push(import)
+        }
+        "stdlib" => {
+            let stdlib = SimpleLiteralKind::Stdlib.with(walker.span_expect("stdlib"));
+            walker.nodes.push(stdlib)
+        }
+        "this_file" => {
+            let this_file = SimpleLiteralKind::ThisFile.with(walker.span_expect("this_file"));
+            walker.nodes.push(this_file)
+        }
+        kind => unreachable!("builtin: {kind}"),
+    }
+}
+
+fn parse_fn_call(walker: &mut Walker<'_, '_>) -> Result<NodeId, Error> {
+    let mut walker = walker.child()?;
+    let callee = parse_expr(walker.child()?)?;
+    walker.next();
+    let mut walker = walker.child()?;
+    let lparen_token = walker.span_expect("(");
+    let mut args = Vec::new();
+    loop {
+        walker.next();
+        match walker.kind() {
+            "expr" => args.push(parse_expr(walker.child()?)?),
+            "," => {}
+            ")" => break,
+            _ => unreachable!(),
+        }
+    }
+    let rparen_token = walker.span_expect(")");
+    Ok(walker.nodes.push(FnCall {
+        callee,
+        lparen_token,
+        args,
+        rparen_token,
+    }))
 }
 
 fn parse_binary_expr(mut walker: Walker<'_, '_>) -> Result<NodeId, Error> {
@@ -442,7 +487,7 @@ fn parse_list_literal(mut walker: Walker<'_, '_>) -> Result<NodeId, Error> {
     }))
 }
 
-fn parse_closure(mut walker: Walker<'_, '_>) -> Result<NodeId, Error> {
+fn parse_closure_declare(mut walker: Walker<'_, '_>) -> Result<NodeId, Error> {
     let fn_token = walker.span_expect("fn");
     walker.next();
     let mut arg_walker = walker.child()?;
@@ -452,14 +497,12 @@ fn parse_closure(mut walker: Walker<'_, '_>) -> Result<NodeId, Error> {
     loop {
         match arg_walker.kind() {
             "fn_declare_arg" => {
-                let element_walker = arg_walker.child()?;
+                let mut element_walker = arg_walker.child()?;
                 let name = element_walker.span_expect("identifier");
+                let type_spec = parse_colon_type_spec(&mut element_walker)?;
                 drop(element_walker);
                 arg_walker.next();
-                args.push(FnDeclareArg {
-                    name,
-                    type_spec: None,
-                });
+                args.push(FnDeclareArg { name, type_spec });
             }
             "," => {
                 arg_walker.next();
@@ -528,9 +571,18 @@ fn parse_block(mut walker: Walker) -> Result<Block, Error> {
     let lbrace_token = walker.span_expect("{");
     walker.next();
     let mut statements = Vec::new();
-    while walker.kind() != "}" {
-        if let Some(s) = parse_statement(walker.child()?)? {
-            statements.push(s);
+    loop {
+        match walker.kind() {
+            "}" => break,
+            "statement" => {
+                if let Some(s) = parse_statement(walker.child()?)? {
+                    statements.push(s);
+                }
+            }
+            "\n" => {}
+            kind => {
+                unreachable!("block: {kind}")
+            }
         }
         walker.next();
     }

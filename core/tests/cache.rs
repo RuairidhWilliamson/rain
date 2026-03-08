@@ -12,6 +12,7 @@ use poison_panic::MutexExt as _;
 use rain_core::cache::{Cache, persistent::PersistCache};
 use rain_lang::{
     afs::{File, local::file::LocalFile},
+    ast::Module,
     driver::FSTrait as _,
     runner::{
         dep_list::DepList,
@@ -45,7 +46,7 @@ impl CacheTester {
         let file = LocalFile::new_local(&self.driver, path.as_ref()).unwrap();
         let path = self.driver.resolve_fs_entry(file.fsinner().into());
         let src = std::fs::read_to_string(&path).unwrap();
-        let module = rain_lang::ast::parser::parse_module(&src);
+        let module = Module::parse(&src);
         let mut ir = rain_lang::ir::Rir::new();
         let cache_core = self.persist_cache.take().unwrap_or_default().depersist(
             &self.config,

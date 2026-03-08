@@ -13,6 +13,7 @@ pub use rain_lang;
 use driver::DriverImpl;
 use rain_lang::{
     afs::{File, local::file::LocalFile},
+    ast::Module,
     driver::FSTrait as _,
     error::OwnedResolvedError,
     ir::ModuleId,
@@ -41,7 +42,7 @@ pub fn run(
         .map_err(|err| CoreError::Other(err.to_string()))?;
     let path = driver.resolve_fs_entry(file.fsinner().into());
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
-    let module = rain_lang::ast::parser::parse_module(&src);
+    let module = Module::parse(&src);
     let mut ir = rain_lang::ir::Rir::new();
     let mid = ir
         .insert_module(Some(File::Local(file)), src, module)
@@ -67,7 +68,7 @@ pub fn insert_local_module(
         .map_err(|err| CoreError::Other(err.to_string()))?;
     let path = runner.driver.resolve_fs_entry(file.fsinner().into());
     let src = std::fs::read_to_string(&path).map_err(|err| CoreError::Other(err.to_string()))?;
-    let module = rain_lang::ast::parser::parse_module(&src);
+    let module = Module::parse(&src);
     let mid = runner
         .ir
         .insert_module(Some(File::Local(file)), src, module)

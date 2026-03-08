@@ -1,0 +1,9 @@
+---
+source: core/tests/errors.rs
+expression: "run_error(concat! (\"tests/errors/\", stringify! (destructures), \".rain\"))"
+---
+<hidden>:4:18
+| 
+| let main = fn() {
+| 	{x: Integer, y: Integer} = {x = 4, y = "6"}
+  	                ^^^^^^^ unrecoverable error: type mismatch, expected [Integer] actual String

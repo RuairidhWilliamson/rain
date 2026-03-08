@@ -1,0 +1,10 @@
+---
+source: lang/src/ast/test.rs
+expression: "parse_display_expr(\"fn () {}\")"
+---
+AnonymousFnDeclare(
+ Args(
+ )
+ Block(
+ )
+)

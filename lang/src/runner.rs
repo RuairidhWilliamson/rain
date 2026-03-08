@@ -312,7 +312,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     };
 
                     if let Some(type_spec) = &name_element.type_spec {
-                        self.evaluate_type_check(cx, &v, type_spec.type_expr)?;
+                        self.evaluate_type_check(cx, &value, type_spec.type_expr)?;
                     }
                     cx.locals.insert(name, value);
                 }
@@ -649,7 +649,10 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             (Value::Type(left), BinaryOperatorKind::NotEquals, Value::Type(right)) => {
                 Ok(Value::Boolean(left != right))
             }
-            _ => Err(cx.err(op.op_span, RunnerError::InvalidBinaryOp)),
+            (left, _, right) => {
+                log::error!("invalid binary op usage {left:?} {op:?} {right:?}");
+                Err(cx.err(op.op_span, RunnerError::InvalidBinaryOp))
+            }
         }
     }
 

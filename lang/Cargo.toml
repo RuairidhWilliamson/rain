@@ -31,3 +31,4 @@ uuid.workspace = true
 insta.workspace = true
 quickcheck_macros.workspace = true
 quickcheck.workspace = true
+test-log.workspace = true

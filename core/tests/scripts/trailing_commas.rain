@@ -1,0 +1,10 @@
+let main = fn() {
+	my_list = [1, 2, 3,]
+	my_record = {a = 4, b = 5, c = 6,}
+	my_sum = foo(7, 8, 9,)
+	my_sum
+}
+
+let foo = fn(a, b, c,) {
+	a + b + c
+}

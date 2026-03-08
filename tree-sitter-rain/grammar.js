@@ -36,13 +36,21 @@ export default grammar({
       seq(
         "(",
         optional(seq($.fn_declare_arg, repeat(seq(",", $.fn_declare_arg)))),
+        optional(","),
         ")",
       ),
     fn_declare_arg: ($) =>
       seq($.identifier, optional(seq(":", $.type_constraint))),
     type_constraint: ($) => $.expr,
 
-    block: ($) => seq("{", repeat($.statement), "}"),
+    block: ($) =>
+      seq(
+        "{",
+        optional("\n"),
+        optional(seq($.statement, repeat(seq("\n", $.statement)))),
+        optional("\n"),
+        "}",
+      ),
 
     statement: ($) => choice($.assignment, $.expr, $.line_comment),
 
@@ -54,7 +62,7 @@ export default grammar({
         $.if_condition,
         $.list_literal,
         $.record_literal,
-        $.internal,
+        $.builtin,
         $.raw_string_literal,
         $.format_string_literal,
         $.string_literal,
@@ -77,8 +85,16 @@ export default grammar({
         prec.left(20, seq($.expr, "&&", $.expr)),
         prec.left(10, seq($.expr, "||", $.expr)),
       ),
+    fn_call: ($) => prec(70, seq($.expr, $.arg_list)),
+    arg_list: ($) =>
+      seq(
+        "(",
+        optional(seq($.expr, repeat(seq(",", $.expr)))),
+        optional(","),
+        ")",
+      ),
 
-    namespace: ($) => seq($.expr, ".", $.identifier),
+    namespace: ($) => prec(80, seq($.expr, ".", $.identifier)),
 
     if_condition: ($) =>
       seq(
@@ -107,11 +123,7 @@ export default grammar({
         "}",
       ),
     record_element: ($) => seq($.identifier, "=", $.expr),
-    fn_call: ($) => prec(9, seq($.expr, $.arg_list)),
-    arg_list: ($) =>
-      seq("(", optional(seq($.expr, repeat(seq(",", $.expr)))), ")"),
 
-    internal: () => "internal",
     string_literal: () =>
       seq(
         '"',
@@ -131,6 +143,7 @@ export default grammar({
     raw_string_literal: () => /r"[^"]*"/,
     number_literal: () => /\d+/,
     bool_literal: () => choice("true", "false"),
+    builtin: () => choice("internal", "import", "stdlib", "this_file"),
 
     identifier: () => /[a-zA-Z_\P{ASCII}][a-zA-Z0-9_\P{ASCII}]*/u,
     line_comment: () => /\/\/.*/,

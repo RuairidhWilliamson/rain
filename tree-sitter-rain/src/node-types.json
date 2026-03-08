@@ -69,6 +69,11 @@
     "fields": {}
   },
   {
+    "type": "builtin",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "declaration",
     "named": true,
     "fields": {},
@@ -157,6 +162,10 @@
           "named": true
         },
         {
+          "type": "builtin",
+          "named": true
+        },
+        {
           "type": "expr",
           "named": true
         },
@@ -178,10 +187,6 @@
         },
         {
           "type": "if_condition",
-          "named": true
-        },
-        {
-          "type": "internal",
           "named": true
         },
         {
@@ -470,6 +475,10 @@
     }
   },
   {
+    "type": "\n",
+    "named": false
+  },
+  {
     "type": "!",
     "named": false
   },
@@ -602,8 +611,12 @@
     "named": false
   },
   {
+    "type": "import",
+    "named": false
+  },
+  {
     "type": "internal",
-    "named": true
+    "named": false
   },
   {
     "type": "let",
@@ -634,7 +647,15 @@
     "named": true
   },
   {
+    "type": "stdlib",
+    "named": false
+  },
+  {
     "type": "t",
+    "named": false
+  },
+  {
+    "type": "this_file",
     "named": false
   },
   {

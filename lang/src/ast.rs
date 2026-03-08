@@ -25,6 +25,33 @@ pub struct Module {
 }
 
 impl Module {
+    pub fn parse(source: &str) -> error::ParseResult<Self> {
+        let ts_result = ts_parser::parse_module(source);
+        match ts_result {
+            Ok(module) => Ok(module),
+            Err(ts_parser::Error::DepthLimit) => {
+                // Use the errors from the internal parser as they are better at the moment
+                parser::parse_module_inner(source)?;
+                // Fallback to a simple tree sitter error
+                Err(LocalSpan::byte(0).with_error(error::ParseError::TreeSitterDepthLimit))
+            }
+            Err(ts_parser::Error::ParseErrors(errs)) => {
+                // Use the errors from the internal parser as they are better at the moment
+                parser::parse_module_inner(source)?;
+                match &errs[..] {
+                    [.., (span, _err)] => {
+                        // Fallback to a simple tree sitter error
+                        Err(span.with_error(error::ParseError::TreeSitter))
+                    }
+                    [] => {
+                        // Fallback to a simple tree sitter error
+                        Err(LocalSpan::byte(0).with_error(error::ParseError::TreeSitter))
+                    }
+                }
+            }
+        }
+    }
+
     pub fn display(&self, src: &str) -> String {
         self.nodes.display(src, &self.root)
     }

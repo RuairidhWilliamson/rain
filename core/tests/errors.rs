@@ -48,4 +48,5 @@ tests! {
     record_type_check,
     private_declaration,
     throw,
+    destructures,
 }

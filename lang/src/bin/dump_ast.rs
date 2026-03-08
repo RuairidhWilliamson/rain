@@ -37,9 +37,8 @@ fn print_help() {
 
 fn inner(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
     let module = rain_lang::ast::ts_parser::parse_module(src).map_err(|err| match err {
-        rain_lang::ast::ts_parser::Error::TreeSitter
-        | rain_lang::ast::ts_parser::Error::DepthLimit => {
-            LocalSpan::byte(0).with_error(ParseError::TreeSitter)
+        rain_lang::ast::ts_parser::Error::DepthLimit => {
+            LocalSpan::byte(0).with_error(ParseError::TreeSitterDepthLimit)
         }
         rain_lang::ast::ts_parser::Error::ParseErrors(items) => {
             let (span, err) = items.first().expect("first error");

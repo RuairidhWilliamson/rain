@@ -1,0 +1,18 @@
+---
+source: lang/src/ast/test.rs
+expression: "parse_display_expr(\"{\\na = b, \\n// comment \\n c = 4\\n}\")"
+---
+Record(
+ RecordEntry(
+  a
+  Ident(
+   b
+  )
+ )
+ RecordEntry(
+  c
+  IntegerLiteral(
+   4
+  )
+ )
+)

@@ -2764,6 +2764,7 @@ dependencies = [
  "sha2",
  "target-lexicon",
  "termcolor",
+ "test-log",
  "thiserror 2.0.18",
  "toml",
  "tree-sitter",

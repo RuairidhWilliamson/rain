@@ -10,6 +10,7 @@ use rain_lang::{
         },
         local::{entry::LocalFSEntry, file::LocalFile},
     },
+    ast::Module,
     hash::FileHash,
     ir::Rir,
     runner::{
@@ -261,7 +262,7 @@ impl PersistValue {
                     .collect::<Option<IndexMap<String, Value>>>()?,
             )))),
             Self::Module { file, src } => {
-                let ast = rain_lang::ast::parser::parse_module(&src);
+                let ast = Module::parse(&src);
                 match rir.insert_module(
                     Some(File::Generated(
                         GeneratedFile::new_checked(config, file).ok()?,
