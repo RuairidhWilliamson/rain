@@ -182,7 +182,7 @@ pub enum PersistValue {
     InternalFunction(InternalFunction),
     List(Vec<Self>),
     Record(IndexMap<String, Self>),
-    Module { file: GeneratedFSEntry, src: String },
+    Module { file: PersistFile, src: String },
     Type(RainTypeId),
 }
 
@@ -195,13 +195,10 @@ impl PersistValue {
             Value::String(s) => Some(Self::String((**s).clone())),
             Value::Module(mid) => {
                 let module = rir.get_module(*mid);
-                match module.file.as_ref()? {
-                    File::Generated(generated_file) => Some(Self::Module {
-                        file: generated_file.fsinner().clone(),
-                        src: module.src.clone().into_owned(),
-                    }),
-                    File::Local(_) => None,
-                }
+                Some(Self::Module {
+                    file: PersistFile::persist(module.file.as_ref()?)?,
+                    src: module.src.clone().into_owned(),
+                })
             }
             Value::GeneratedFSArea(file_area) => Some(Self::GeneratedFSArea((**file_area).clone())),
             Value::GeneratedFile(file) => Some(Self::GeneratedFile(file.fsinner().clone())),
@@ -262,14 +259,12 @@ impl PersistValue {
                     .collect::<Option<IndexMap<String, Value>>>()?,
             )))),
             Self::Module { file, src } => {
+                let file = file.depersist(config)?;
+                if let Some(mid) = rir.get_by_file(&file) {
+                    return Some(Value::Module(mid));
+                }
                 let ast = Module::parse(&src);
-                match rir.insert_module(
-                    Some(File::Generated(
-                        GeneratedFile::new_checked(config, file).ok()?,
-                    )),
-                    src,
-                    ast,
-                ) {
+                match rir.insert_module(Some(file), src, ast) {
                     Ok(mid) => Some(Value::Module(mid)),
                     Err(err) => {
                         log::error!("error loading cached module: {err:?}");

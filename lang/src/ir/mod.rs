@@ -38,6 +38,13 @@ impl Rir {
         suggestions
     }
 
+    pub fn get_by_file(&self, file: &File) -> Option<ModuleId> {
+        self.modules
+            .iter()
+            .find(|m| m.file.as_ref().is_some_and(|f| f == file))
+            .map(|m| m.id)
+    }
+
     pub fn insert_module(
         &mut self,
         file: Option<File>,
