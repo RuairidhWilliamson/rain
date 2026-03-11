@@ -2,6 +2,7 @@
 source: core/tests/errors.rs
 expression: "run_error(concat!\n(\"tests/errors/\", stringify! (fail_let_type_check), \".rain\"))"
 ---
+<hidden>:1:12
 <hidden>:7:8
 | let Integer = internal._get_type(0)
 | 

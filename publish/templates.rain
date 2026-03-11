@@ -13,8 +13,12 @@ let render = fn(template: File, vars: Record(String)) -> File {
 	std.fs.create_file(_, std.fs.name(template))
 }
 
-pub let pkgbuild = fn(version: String, binary: File) -> File {
-	render(std.fs.file(area, "publish/templates/PKGBUILD"), { VERSION = version, SHA256 = std.fs.sha256(binary) })
+pub let cli_pkgbuild = fn(version: String, binary: File) -> File {
+	render(std.fs.file(area, "publish/templates/cli/PKGBUILD"), { VERSION = version, SHA256 = std.fs.sha256(binary) })
+}
+
+pub let lsp_pkgbuild = fn(version: String, binary: File) -> File {
+	render(std.fs.file(area, "publish/templates/lsp/PKGBUILD"), { VERSION = version, SHA256 = std.fs.sha256(binary) })
 }
 
 pub let containerfile_web = fn(version: String, binary: File) -> File {

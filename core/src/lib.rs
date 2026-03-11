@@ -86,6 +86,7 @@ pub fn evaluate_and_call_chain(
     let initial_module = Arc::clone(runner.ir.get_module(mid));
     let mut cx = Cx::new(&initial_module, 0, HashMap::new(), Vec::new());
     let mut v = None;
+    let mut mid_nid = None;
     let target_chain: Vec<_> = targets.split('.').collect();
     for (i, &target) in target_chain.iter().enumerate() {
         let Some(declaration) = runner.ir.resolve_global_declaration(mid, target) else {
@@ -106,6 +107,9 @@ pub fn evaluate_and_call_chain(
             });
         };
         let m = Arc::clone(runner.ir.get_module(mid));
+        let nid = m.get_declaration(declaration.local_id()).assignment.expr;
+        mid_nid = Some((mid, nid));
+
         let mut initial_cx = Cx::new(&m, 0, HashMap::new(), Vec::new());
 
         v = Some(
@@ -131,9 +135,20 @@ pub fn evaluate_and_call_chain(
                 .iter()
                 .map(|v| Value::String(Arc::new(v.clone())))
                 .collect();
-            let result = runner.call_closure(&mut cx, &closure, args).map_err(|err| {
-                CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned()))
-            });
+            let Some((mid, nid)) = mid_nid else {
+                unreachable!()
+            };
+            let result = runner
+                .call_closure(
+                    &mut cx,
+                    nid,
+                    runner.ir.get_module(mid).span(nid),
+                    &closure,
+                    args,
+                )
+                .map_err(|err| {
+                    CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned()))
+                });
             deps.merge(cx.deps);
             result
         }

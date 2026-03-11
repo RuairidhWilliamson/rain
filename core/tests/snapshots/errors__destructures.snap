@@ -2,6 +2,7 @@
 source: core/tests/errors.rs
 expression: "run_error(concat! (\"tests/errors/\", stringify! (destructures), \".rain\"))"
 ---
+<hidden>:3:12
 <hidden>:4:18
 | 
 | let main = fn() {

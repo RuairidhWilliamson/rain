@@ -1,4 +1,3 @@
-let area = internal._get_area(this_file)
 let main = import("main.rain")
 let std = main.std
 
@@ -12,7 +11,7 @@ pub let tree_sitter_cli = fn() {
 }()
 
 pub let build = fn() {
-	tree_sitter_rain_dir = std.fs.dir(area, "tree-sitter-rain")
+	tree_sitter_rain_dir = std.fs.dir(main.area, "tree-sitter-rain")
 	std.escape.run(tree_sitter_rain_dir, tree_sitter_cli, ["generate", "--abi", "14"], {})
 	std.escape.run(tree_sitter_rain_dir, tree_sitter_cli, ["build", "--wasm"], {})
 	std.utils.unit

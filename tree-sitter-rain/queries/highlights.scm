@@ -1,4 +1,4 @@
-(internal) @variable.builtin
+(builtin) @variable.builtin
 (raw_string_literal) @string
 (format_string_literal) @string
 (string_literal) @string

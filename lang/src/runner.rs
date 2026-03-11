@@ -91,36 +91,80 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     pub fn call_closure(
         &mut self,
         cx: &mut Cx,
+        nid: NodeId,
+        call_span: LocalSpan,
         closure: &Closure,
-        args: Vec<Value>,
+        arg_values: Vec<Value>,
     ) -> ResultValue {
-        let m = Arc::clone(self.ir.get_module(closure.module));
+        let m = &Arc::clone(self.ir.get_module(closure.module));
         let Node::Closure(closure_declare) = m.get(closure.node) else {
             unreachable!()
         };
-        if closure_declare.args.len() != args.len() {
-            return Err(closure_declare
-                .rparen_token
-                .with_module(m.id)
-                .with_error(
-                    RunnerError::IncorrectArgs {
-                        required: closure_declare.args.len()..=closure_declare.args.len(),
-                        actual: args.len(),
-                    }
-                    .into(),
-                )
-                .with_trace(Vec::new()));
+        if closure_declare.args.len() != arg_values.len() {
+            return Err(cx.err(
+                call_span,
+                RunnerError::IncorrectArgs {
+                    required: closure_declare.args.len()..=closure_declare.args.len(),
+                    actual: arg_values.len(),
+                },
+            ));
         }
+        let cache_key = CacheKey::CallClosure {
+            closure: closure.clone(),
+            args: arg_values.clone(),
+        };
+        if let Some(entry) =
+            self.cache
+                .get(&cache_key, self.driver, &mut self.local_file_hash_cache)
+        {
+            cx.propagate_deps(entry.deps);
+            return Ok(entry.value);
+        }
+        // TODO: Work out a more helpful name than anonymous
+        let _call = self.driver.call_guard(Call::Closure);
+        let start = Instant::now();
         let args = closure_declare
             .args
             .iter()
-            .zip(args)
+            .zip(arg_values)
             .map(|(a, v)| (a.name.contents(&m.src), v))
             .collect();
-        let mut callee_cx = cx.callee_no_ste(&m, args, &closure.captures);
-        let result = self.evaluate_node(&mut callee_cx, closure_declare.block);
-        cx.propagate_deps(callee_cx.deps);
-        result
+        let mut callee_cx = cx.callee(
+            m,
+            args,
+            &closure.captures,
+            StacktraceEntry {
+                m: cx.module.id,
+                n: nid,
+            },
+        );
+        for a in &closure_declare.args {
+            if let Some(type_spec) = &a.type_spec {
+                let v = callee_cx
+                    .args
+                    .get(a.name.contents(&m.src))
+                    .expect("we just put this here")
+                    .clone();
+                self.evaluate_type_check(&mut callee_cx, &v, type_spec.type_expr)?;
+            }
+        }
+        let result = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
+        self.cache.put_if_slow(
+            cache_key,
+            CacheEntry {
+                execution_time: start.elapsed(),
+                expires: None,
+                etag: None,
+                deps: callee_cx.deps.clone(),
+                value: result.clone(),
+            },
+        );
+        cx.propagate_deps(callee_cx.deps.clone());
+        if let Some(type_spec) = &closure_declare.return_type {
+            self.evaluate_type_check(&mut callee_cx, &result, type_spec.type_expr)?;
+        }
+
+        Ok(result)
     }
 
     pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> ResultValue {
@@ -361,7 +405,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         self.call_function(cx, nid, v, call_span, arg_values)
     }
 
-    #[expect(clippy::too_many_lines)]
     fn call_function(
         &mut self,
         cx: &mut Cx,
@@ -376,70 +419,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         match &function_value {
             Value::Closure(closure) => {
                 let arg_values: Vec<_> = arg_values.into_iter().map(|(_, v)| v).collect();
-                let m = &Arc::clone(self.ir.get_module(closure.module));
-                let Node::Closure(closure_declare) = m.get(closure.node) else {
-                    unreachable!()
-                };
-                if closure_declare.args.len() != arg_values.len() {
-                    return Err(cx.err(
-                        call_span,
-                        RunnerError::IncorrectArgs {
-                            required: closure_declare.args.len()..=closure_declare.args.len(),
-                            actual: arg_values.len(),
-                        },
-                    ));
-                }
-                let cache_key = CacheKey::CallClosure {
-                    closure: closure.clone(),
-                    args: arg_values.clone(),
-                };
-                if let Some(entry) =
-                    self.cache
-                        .get(&cache_key, self.driver, &mut self.local_file_hash_cache)
-                {
-                    cx.propagate_deps(entry.deps);
-                    return Ok(entry.value);
-                }
-                // TODO: Work out a more helpful name than anonymous
-                let _call = self.driver.call_guard(Call::Closure);
-                let start = Instant::now();
-                let args = closure_declare
-                    .args
-                    .iter()
-                    .zip(arg_values.clone())
-                    .map(|(a, v)| (a.name.contents(&m.src), v))
-                    .collect();
-                let mut callee_cx = cx.callee(
-                    m,
-                    args,
-                    &closure.captures,
-                    StacktraceEntry {
-                        m: cx.module.id,
-                        n: nid,
-                    },
-                );
-                for (a, v) in closure_declare.args.iter().zip(arg_values.iter()) {
-                    if let Some(type_spec) = &a.type_spec {
-                        self.evaluate_type_check(&mut callee_cx, v, type_spec.type_expr)?;
-                    }
-                }
-                let result = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
-                self.cache.put_if_slow(
-                    cache_key,
-                    CacheEntry {
-                        execution_time: start.elapsed(),
-                        expires: None,
-                        etag: None,
-                        deps: callee_cx.deps.clone(),
-                        value: result.clone(),
-                    },
-                );
-                cx.propagate_deps(callee_cx.deps.clone());
-                if let Some(type_spec) = &closure_declare.return_type {
-                    self.evaluate_type_check(&mut callee_cx, &result, type_spec.type_expr)?;
-                }
-
-                Ok(result)
+                self.call_closure(cx, nid, call_span, closure, arg_values)
             }
             Value::InternalFunction(f) => {
                 let cache_key = CacheKey::InternalFunction {
