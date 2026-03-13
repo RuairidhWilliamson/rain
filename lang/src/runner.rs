@@ -205,7 +205,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 }
                 result
             }
-            DeclareName::NamedDestructure(_) => {
+            DeclareName::NamedDestructure(_) | DeclareName::SequenceDestructure(_) => {
                 let span = m.get_declaration_name_span(id.local_id());
                 let name = span.contents(&m.src);
                 let Some(value) = self.evaluate_named_index(cx, &result, span, name)? else {
@@ -348,6 +348,24 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 for name_element in &declare_name_destructure.elements {
                     let name = name_element.name.contents(&cx.module.src);
                     let Some(value) = self.evaluate_named_index(cx, &v, name_element.name, name)?
+                    else {
+                        return Err(cx.nid_err(
+                            assignment.expr,
+                            RunnerError::IndexKeyNotFound(name.to_owned()),
+                        ));
+                    };
+
+                    if let Some(type_spec) = &name_element.type_spec {
+                        self.evaluate_type_check(cx, &value, type_spec.type_expr)?;
+                    }
+                    cx.locals.insert(name, value);
+                }
+                Ok(Value::Unit)
+            }
+            DeclareName::SequenceDestructure(declare_name_destructure) => {
+                for (index, name_element) in declare_name_destructure.elements.iter().enumerate() {
+                    let name = name_element.name.contents(&cx.module.src);
+                    let Some(value) = Self::evaluate_index(cx, &v, name_element.name, index)?
                     else {
                         return Err(cx.nid_err(
                             assignment.expr,
@@ -662,6 +680,24 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         RainTypeId::Internal,
                         RainTypeId::Record,
                     ]),
+                },
+            )),
+        }
+    }
+
+    fn evaluate_index(
+        cx: &mut Cx,
+        value: &Value,
+        span: LocalSpan,
+        index: usize,
+    ) -> Result<Option<Value>> {
+        match value {
+            Value::List(list) => Ok(list.0.get(index).cloned()),
+            _ => Err(cx.err(
+                span,
+                RunnerError::ExpectedType {
+                    actual: value.rain_type_id(),
+                    expected: std::borrow::Cow::Borrowed(&[RainTypeId::List]),
                 },
             )),
         }

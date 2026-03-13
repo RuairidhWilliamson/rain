@@ -4,9 +4,9 @@ use crate::{
     ast::{
         AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure,
         ClosureReturnTypeSpec, Declare, DeclareName, DeclareNameListElement, DeclareNameSingle,
-        DeclareNamedDestructure, FnCall, FnDeclareArg, Ident, IfCondition, IntegerLiteral, List,
-        ListElement, Module, ModuleRoot, NodeId, NodeList, Not, Record, RecordField,
-        SimpleLiteralKind, StringLiteral, TypeSpec,
+        DeclareNamedDestructure, DeclareSequenceDestructure, FnCall, FnDeclareArg, Ident,
+        IfCondition, IntegerLiteral, List, ListElement, Module, ModuleRoot, NodeId, NodeList, Not,
+        Record, RecordField, SimpleLiteralKind, StringLiteral, TypeSpec,
     },
     local_span::LocalSpan,
 };
@@ -172,59 +172,112 @@ fn parse_declare_name(mut walker: Walker) -> Result<DeclareName, Error> {
             let type_spec = parse_colon_type_spec(&mut declare_single_walker)?;
             Ok(DeclareName::Single(DeclareNameSingle { name, type_spec }))
         }
-        "declare_named_destructure" => {
-            let mut walker = walker.child()?;
-            let lbrace = walker.span_expect("{");
-            walker.next();
-            let mut elements = Vec::new();
-            loop {
-                match walker.kind() {
-                    "line_comment" | "," => {
-                        walker.next();
-                    }
-                    "declare_single_name" => {
-                        let mut declare_single_walker = walker.child()?;
-                        let name = declare_single_walker.span_expect("identifier");
-                        let type_spec = if declare_single_walker.maybe_next()
-                            && declare_single_walker.kind() == ":"
-                        {
-                            let colon_token = declare_single_walker.span_expect(":");
-                            declare_single_walker.next();
-                            let type_expr = parse_expr(declare_single_walker.child()?.child()?)?;
-                            Some(TypeSpec {
-                                colon_token,
-                                type_expr,
-                            })
-                        } else {
-                            None
-                        };
-                        drop(declare_single_walker);
-                        let comma = if walker.maybe_next() && walker.kind() == "comma" {
-                            let comma = Some(walker.span());
-                            walker.next();
-                            comma
-                        } else {
-                            None
-                        };
-                        elements.push(DeclareNameListElement {
-                            name,
-                            type_spec,
-                            comma,
-                        });
-                    }
-                    "}" => break,
-                    kind => unreachable!("{kind}"),
-                }
-            }
-            let rbrace = walker.span_expect("}");
-            Ok(DeclareName::NamedDestructure(DeclareNamedDestructure {
-                lbrace,
-                elements,
-                rbrace,
-            }))
-        }
+        "declare_named_destructure" => parse_named_destructure(walker.child()?),
+        "declare_sequence_destructure" => parse_declare_sequence_destructure(walker.child()?),
         _ => unreachable!(),
     }
+}
+
+fn parse_named_destructure(mut walker: Walker<'_, '_>) -> Result<DeclareName, Error> {
+    let lbrace = walker.span_expect("{");
+    walker.next();
+    let mut elements = Vec::new();
+    loop {
+        match walker.kind() {
+            "line_comment" | "," => {
+                walker.next();
+            }
+            "declare_single_name" => {
+                let mut declare_single_walker = walker.child()?;
+                let name = declare_single_walker.span_expect("identifier");
+                let type_spec =
+                    if declare_single_walker.maybe_next() && declare_single_walker.kind() == ":" {
+                        let colon_token = declare_single_walker.span_expect(":");
+                        declare_single_walker.next();
+                        let type_expr = parse_expr(declare_single_walker.child()?.child()?)?;
+                        Some(TypeSpec {
+                            colon_token,
+                            type_expr,
+                        })
+                    } else {
+                        None
+                    };
+                drop(declare_single_walker);
+                let comma = if walker.maybe_next() && walker.kind() == "comma" {
+                    let comma = Some(walker.span());
+                    walker.next();
+                    comma
+                } else {
+                    None
+                };
+                elements.push(DeclareNameListElement {
+                    name,
+                    type_spec,
+                    comma,
+                });
+            }
+            "}" => break,
+            kind => unreachable!("{kind}"),
+        }
+    }
+    let rbrace = walker.span_expect("}");
+    Ok(DeclareName::NamedDestructure(DeclareNamedDestructure {
+        lbrace,
+        elements,
+        rbrace,
+    }))
+}
+
+fn parse_declare_sequence_destructure(mut walker: Walker<'_, '_>) -> Result<DeclareName, Error> {
+    let lsqbracket = walker.span_expect("[");
+    walker.next();
+    let mut elements = Vec::new();
+    loop {
+        match walker.kind() {
+            "line_comment" | "," => {
+                walker.next();
+            }
+            "declare_single_name" => {
+                let mut declare_single_walker = walker.child()?;
+                let name = declare_single_walker.span_expect("identifier");
+                let type_spec =
+                    if declare_single_walker.maybe_next() && declare_single_walker.kind() == ":" {
+                        let colon_token = declare_single_walker.span_expect(":");
+                        declare_single_walker.next();
+                        let type_expr = parse_expr(declare_single_walker.child()?.child()?)?;
+                        Some(TypeSpec {
+                            colon_token,
+                            type_expr,
+                        })
+                    } else {
+                        None
+                    };
+                drop(declare_single_walker);
+                let comma = if walker.maybe_next() && walker.kind() == "comma" {
+                    let comma = Some(walker.span());
+                    walker.next();
+                    comma
+                } else {
+                    None
+                };
+                elements.push(DeclareNameListElement {
+                    name,
+                    type_spec,
+                    comma,
+                });
+            }
+            "]" => break,
+            kind => unreachable!("{kind}"),
+        }
+    }
+    let rsqbracket = walker.span_expect("]");
+    Ok(DeclareName::SequenceDestructure(
+        DeclareSequenceDestructure {
+            lsqbracket,
+            elements,
+            rsqbracket,
+        },
+    ))
 }
 
 fn parse_colon_type_spec(

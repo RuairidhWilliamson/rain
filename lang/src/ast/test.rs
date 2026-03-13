@@ -141,6 +141,12 @@ fn destructure_two_items() {
 }
 
 #[test]
+fn destructure_list() {
+    let src = "let [a: Integer, b] = [4, 6]";
+    insta::assert_snapshot!(parse_display_script(src));
+}
+
+#[test]
 fn empty_source() {
     let src = "";
     insta::assert_snapshot!(parse_display_script(src));

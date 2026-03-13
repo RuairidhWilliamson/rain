@@ -5,3 +5,4 @@ let main = fn() {
 let Integer = internal._get_type(0)
 
 let {a, b: Integer} = {a = "4", b = 10}
+let [c, d: Integer] = [10, 11]

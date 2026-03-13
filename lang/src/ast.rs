@@ -196,7 +196,7 @@ pub struct Declare {
 pub enum DeclareName {
     Single(DeclareNameSingle),
     NamedDestructure(DeclareNamedDestructure),
-    // TODO: Add SequenceDestructure,
+    SequenceDestructure(DeclareSequenceDestructure),
 }
 
 impl AstNode for DeclareName {
@@ -205,6 +205,9 @@ impl AstNode for DeclareName {
             Self::Single(declare_name_single) => declare_name_single.span(list),
             Self::NamedDestructure(declare_named_destructure) => {
                 declare_named_destructure.span(list)
+            }
+            Self::SequenceDestructure(declare_sequence_destructure) => {
+                declare_sequence_destructure.span(list)
             }
         }
     }
@@ -219,6 +222,22 @@ impl AstNode for DeclareName {
                 }
             }
             Self::NamedDestructure(destructure) => {
+                b.child_fn(|f| {
+                    let mut b = f.node("NamedDestructure");
+                    for e in &destructure.elements {
+                        b.child_fn(|f| {
+                            let mut b = f.node("NamedDestructureElement");
+                            b.child_contents(e.name);
+                            if let Some(t) = &e.type_spec {
+                                b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
+                            }
+                            b.finish()
+                        });
+                    }
+                    b.finish()
+                });
+            }
+            Self::SequenceDestructure(destructure) => {
                 b.child_fn(|f| {
                     let mut b = f.node("NamedDestructure");
                     for e in &destructure.elements {
@@ -269,6 +288,19 @@ impl DeclareNamedDestructure {
 }
 
 #[derive(Debug)]
+pub struct DeclareSequenceDestructure {
+    pub lsqbracket: LocalSpan,
+    pub elements: Vec<DeclareNameListElement>,
+    pub rsqbracket: LocalSpan,
+}
+
+impl DeclareSequenceDestructure {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.lsqbracket + self.rsqbracket
+    }
+}
+
+#[derive(Debug)]
 pub struct DeclareNameListElement {
     pub name: LocalSpan,
     pub type_spec: Option<TypeSpec>,
@@ -287,6 +319,12 @@ impl Assignment {
                     .iter()
                     .map(|e| &e.type_spec),
             ),
+            DeclareName::SequenceDestructure(declare_sequence_destructure) => Box::new(
+                declare_sequence_destructure
+                    .elements
+                    .iter()
+                    .map(|e| &e.type_spec),
+            ),
         };
         iter
     }
@@ -298,6 +336,9 @@ impl Assignment {
             }
             DeclareName::NamedDestructure(declare_named_destructure) => {
                 Box::new(declare_named_destructure.elements.iter().map(|e| e.name))
+            }
+            DeclareName::SequenceDestructure(declare_sequence_destructure) => {
+                Box::new(declare_sequence_destructure.elements.iter().map(|e| e.name))
             }
         };
         iter
@@ -338,6 +379,22 @@ impl AstNode for Declare {
                     for e in &destructure.elements {
                         b.child_fn(|f| {
                             let mut b = f.node("NamedDestructureElement");
+                            b.child_contents(e.name);
+                            if let Some(t) = &e.type_spec {
+                                b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
+                            }
+                            b.finish()
+                        });
+                    }
+                    b.finish()
+                });
+            }
+            DeclareName::SequenceDestructure(destructure) => {
+                b.child_fn(|f| {
+                    let mut b = f.node("SequenceDestructure");
+                    for e in &destructure.elements {
+                        b.child_fn(|f| {
+                            let mut b = f.node("SequenceDestructureElement");
                             b.child_contents(e.name);
                             if let Some(t) = &e.type_spec {
                                 b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());

@@ -101,6 +101,10 @@
           "named": true
         },
         {
+          "type": "declare_sequence_destructure",
+          "named": true
+        },
+        {
           "type": "declare_single_name",
           "named": true
         }
@@ -109,6 +113,25 @@
   },
   {
     "type": "declare_named_destructure",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "declare_single_name",
+          "named": true
+        },
+        {
+          "type": "line_comment",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "declare_sequence_destructure",
     "named": true,
     "fields": {},
     "children": {
