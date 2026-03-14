@@ -89,6 +89,7 @@ pub async fn repos(
 pub async fn repo(
     auth: AdminUser,
     Path(id): Path<RepositoryId>,
+    Query(page): Query<Pagination>,
     State(db): State<Db>,
 ) -> Result<Html<String>, AppError> {
     #[derive(Template)]
@@ -109,7 +110,7 @@ pub async fn repo(
                 .resolve(&db)
                 .await?,
             repo_id: id,
-            paged_runs: ResolvedRun::list_in_repo(&db, &Pagination { page: None }, id)
+            paged_runs: ResolvedRun::list_in_repo(&db, &page, id)
                 .await
                 .context("list repos")?,
         }

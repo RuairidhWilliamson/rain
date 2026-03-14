@@ -406,10 +406,12 @@ impl ResolvedRun {
         .fetch_all(&mut *tx)
         .await?;
 
-        let count_row =
-            sqlx::query!("SELECT COUNT(*) FROM runs INNER JOIN repos ON runs.repo=repos.id")
-                .fetch_one(&mut *tx)
-                .await?;
+        let count_row = sqlx::query!(
+            "SELECT COUNT(*) FROM runs INNER JOIN repos ON runs.repo=repos.id WHERE repo=$1",
+            repo.0
+        )
+        .fetch_one(&mut *tx)
+        .await?;
 
         tx.rollback().await?;
 
