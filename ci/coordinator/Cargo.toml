@@ -19,8 +19,8 @@ env_logger.workspace = true
 envy.workspace = true
 git-lfs-rs.workspace = true
 hex = "0.4"
-http.workspace = true
 http-body-util = "0.1"
+http.workspace = true
 hyper = "1.8"
 hyper-util = { version = "0.1", features = ["full"] }
 ipnet.workspace = true

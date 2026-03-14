@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id FROM repos WHERE host_api=$1 AND host_url=$2 AND owner=$3 AND name=$4",
+  "query": "SELECT id FROM repos WHERE host=$1 AND owner=$2 and name=$3",
   "describe": {
     "columns": [
       {
@@ -11,8 +11,7 @@
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Text",
+        "Int8",
         "Text",
         "Text"
       ]
@@ -21,5 +20,5 @@
       false
     ]
   },
-  "hash": "e7aaf5556f3f1eac018c3cd9a62df42a5b6315cd351e0fe103eadec6bde90cf1"
+  "hash": "705d75aa108fa78363c2124e17cca2604f3aa0d53476774c252ae691fa2270f4"
 }

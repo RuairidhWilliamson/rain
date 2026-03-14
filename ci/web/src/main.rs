@@ -2,7 +2,6 @@ mod auth;
 mod db;
 mod github;
 mod pages;
-mod pagination;
 mod session;
 
 use std::{convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
@@ -15,11 +14,17 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
 };
+use chrono::Utc;
 use jsonwebtoken::EncodingKey;
 use log::info;
 use oauth2::ClientSecret;
 use rain_ci_common::{
-    RepoHost, RepositoryId,
+    db::{
+        Db, DbConfig, Resource as _,
+        repository::{Repository, RepositoryId},
+        repository_host::{RepoHostKind, RepositoryHost},
+        run::Run,
+    },
     github::{Client as _, InstallationClient as _},
 };
 use secrecy::{ExposeSecret as _, SecretString};
@@ -57,7 +62,7 @@ async fn main() -> Result<()> {
     let config = envy::from_env::<Config>()?;
     let version = env!("CARGO_PKG_VERSION");
     info!("version = {version}");
-    let db = db::Db::new(db::DbConfig {
+    let db = Db::new(DbConfig {
         host: config.db_host.clone(),
         name: config.db_name.clone(),
         user: config.db_user.clone(),
@@ -126,7 +131,7 @@ struct RepoCreateRun {
 async fn repo_create_run(
     _auth: AdminUser,
     Path(repo_id): Path<RepositoryId>,
-    State(db): State<db::Db>,
+    State(db): State<Db>,
     State(github_app): State<Arc<rain_ci_common::github::implementation::AppClient>>,
     Form(data): Form<RepoCreateRun>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -134,12 +139,24 @@ async fn repo_create_run(
     // FIXME: Using the first installation is stupid
     let installation = installations.first().context("first installation")?;
     let installation_client = github_app.auth_installation(installation.id).await?;
-    let db_repo = db.get_repo(&repo_id).await?;
-    assert_eq!(db_repo.host, RepoHost::Github);
+    let db_repo = Repository::get(&db, repo_id).await?.resource;
+    let db_host = RepositoryHost::get(&db, db_repo.host).await?.resource;
+    assert_eq!(db_host.kind, RepoHostKind::Github);
     let commit = installation_client
         .get_commit(&db_repo.owner, &db_repo.name, &data.commit)
         .await?;
-    let run_id = db.create_run(&repo_id, &commit.sha, &data.target).await?;
+    let run_id = Run {
+        repository: repo_id,
+        commit: commit.sha,
+        created_at: Utc::now(),
+        dequeued_at: None,
+        finished: None,
+        target: data.target,
+        rain_version: None,
+    }
+    .create(&db)
+    .await?;
+    db::request_run(&db, run_id).await?;
     Ok(Redirect::to(&format!("/run/{run_id}")))
 }
 
@@ -161,7 +178,7 @@ async fn style_asset() -> impl IntoResponse {
 struct AppState {
     github_oauth_client: github::Client,
     github_client: Arc<rain_ci_common::github::implementation::AppClient>,
-    db: db::Db,
+    db: Db,
     config: Arc<Config>,
 }
 
@@ -207,19 +224,19 @@ struct AuthUser {
 
 impl<S> FromRequestParts<S> for AuthUser
 where
-    db::Db: FromRef<S>,
+    Db: FromRef<S>,
     S: Send + Sync,
 {
     type Rejection = AuthRedirect;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let store = db::Db::from_ref(state);
+        let store = Db::from_ref(state);
 
         let Some(session): Option<&session::Session> = parts.extensions.get() else {
             unreachable!("get session extension");
         };
-        let user = store
-            .get_user(&session.id)
+
+        let user = db::get_user(&store, session.id)
             .await
             .map_err(|err| {
                 log::error!("get user: {err:#}");
@@ -233,7 +250,7 @@ where
 
 impl<S> OptionalFromRequestParts<S> for AuthUser
 where
-    db::Db: FromRef<S>,
+    Db: FromRef<S>,
     S: Send + Sync,
 {
     type Rejection = Infallible;
@@ -255,21 +272,20 @@ struct AdminUser {
 
 impl<S> FromRequestParts<S> for AdminUser
 where
-    db::Db: FromRef<S>,
+    Db: FromRef<S>,
     Arc<Config>: FromRef<S>,
     S: Send + Sync,
 {
     type Rejection = StatusCode;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let store = db::Db::from_ref(state);
+        let store = Db::from_ref(state);
         let config = Arc::<Config>::from_ref(state);
 
         let Some(session): Option<&session::Session> = parts.extensions.get() else {
             unreachable!("get session extension");
         };
-        let user = store
-            .get_user(&session.id)
+        let user = db::get_user(&store, session.id)
             .await
             .map_err(|err| {
                 log::error!("get user: {err:#}");
@@ -287,7 +303,7 @@ where
 
 impl<S> OptionalFromRequestParts<S> for AdminUser
 where
-    db::Db: FromRef<S>,
+    Db: FromRef<S>,
     Arc<Config>: FromRef<S>,
     S: Send + Sync,
 {

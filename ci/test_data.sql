@@ -1,5 +1,6 @@
-INSERT INTO repos (host, owner, name) VALUES ('Github', 'RuairidhWilliamson', 'test');
-INSERT INTO repos (host, owner, name) VALUES ('Github', 'RuairidhWilliamson', 'rain');
+INSERT INTO repo_hosts (kind, url) VALUES ('Github', 'https://github.com');
+INSERT INTO repos (host, owner, name) VALUES (1, 'RuairidhWilliamson', 'test');
+INSERT INTO repos (host, owner, name) VALUES (1, 'RuairidhWilliamson', 'rain');
 
 INSERT INTO runs (created_at, repo, commit, target) VALUES ('now', 1, 'abcdefg', 'ci');
 

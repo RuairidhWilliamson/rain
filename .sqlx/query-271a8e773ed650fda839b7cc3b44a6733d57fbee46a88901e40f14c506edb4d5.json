@@ -1,0 +1,82 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    id,\n                    repo as repo_id,\n                    commit,\n                    created_at,\n                    dequeued_at,\n                    rain_version,\n                    target,\n                    finished_at as \"finished_at?\",\n                    status as \"status?\",\n                    execution_time_millis as \"execution_time_millis?\",\n                    output as \"output?\"\n                FROM runs\n                LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run\n                WHERE runs.id=$1;\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "repo_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "commit",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 4,
+        "name": "dequeued_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 5,
+        "name": "rain_version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "target",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "finished_at?",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 8,
+        "name": "status?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "execution_time_millis?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "output?",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "271a8e773ed650fda839b7cc3b44a6733d57fbee46a88901e40f14c506edb4d5"
+}

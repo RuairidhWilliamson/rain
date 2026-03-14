@@ -12,7 +12,7 @@ use crate::{
         local::{entry::LocalFSEntry, file::LocalFile},
         path::SealedFilePath,
     },
-    driver::{DriverTrait, FSEntryQueryResult},
+    driver::{CreateAreaOptions, DriverTrait, FSEntryQueryResult, PathConflicts},
     runner::{
         Result, ResultValue,
         cache::CacheTrait,
@@ -178,9 +178,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     pub fn create_area(mut self) -> ResultValue {
         self.add_deps_from_args();
-        let ((dirs_nid, dirs_value), flatten_input_dirs) = two_args!(self);
+        let ((dirs_nid, dirs_value), flatten_input_dirs, overwrite_conflicts) = three_args!(self);
         let dirs = expect_type!(self, List, (dirs_nid, dirs_value));
         let flatten_input_dirs = expect_type!(self, Boolean, flatten_input_dirs);
+        let overwrite_conflicts = expect_type!(self, Boolean, overwrite_conflicts);
         let dirs: Vec<FSEntryRef> = dirs
             .0
             .iter()
@@ -211,7 +212,18 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let merged_area = self
             .runner
             .driver
-            .create_area(&dirs, *flatten_input_dirs)
+            .create_area(
+                &dirs,
+                &CreateAreaOptions {
+                    flatten_input_dirs: *flatten_input_dirs,
+                    conflicts: if *overwrite_conflicts {
+                        PathConflicts::Overwrite
+                    } else {
+                        PathConflicts::Throw
+                    },
+                    ..Default::default()
+                },
+            )
             .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
         Ok(merged_area.to_value())
     }
@@ -247,7 +259,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let merged_area = self
             .runner
             .driver
-            .create_area(&dirs, true)
+            .create_area(
+                &dirs,
+                &CreateAreaOptions {
+                    flatten_input_dirs: true,
+                    ..Default::default()
+                },
+            )
             .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
         Ok(merged_area.to_value())
     }

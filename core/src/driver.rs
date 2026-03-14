@@ -20,8 +20,8 @@ use rain_lang::{
         path::SealedFilePath,
     },
     driver::{
-        DownloadStatus, DriverTrait, EscapeRunStatus, FSEntryQueryResult, FSTrait, FileMetadata,
-        RunOptions, RunStatus,
+        CreateAreaOptions, DownloadStatus, DriverTrait, EscapeRunStatus, FSEntryQueryResult,
+        FSTrait, FileMetadata, PathConflicts, RunOptions, RunStatus,
         monitoring::{Call, MonitoringTrait},
     },
     hash::FileHash,
@@ -72,14 +72,13 @@ impl DriverImpl<'_> {
     }
 
     fn create_empty_area(&self) -> Result<GeneratedFSArea, RunnerError> {
-        self.create_overlay_area(std::iter::empty(), false, true)
+        self.create_overlay_area(std::iter::empty(), &CreateAreaOptions::default())
     }
 
     pub fn create_overlay_area<'a>(
         &self,
         fs_entries: impl Iterator<Item = FSEntryRef<'a>>,
-        include_hidden: bool,
-        flatten_input_dirs: bool,
+        options: &CreateAreaOptions,
     ) -> Result<GeneratedFSArea, RunnerError> {
         let area = GeneratedFSArea::new();
         let output_dir = GeneratedDir::root(area.clone());
@@ -100,11 +99,21 @@ impl DriverImpl<'_> {
                     .file_name()
                     .ok_or_else(|| RunnerError::Makeshift("strip prefix failed".into()))?;
                 let dest_path = output_dir_path.join(rel_dest);
+                match options.conflicts {
+                    PathConflicts::Throw => {
+                        if std::fs::exists(&dest_path).map_err(|err| {
+                            RunnerError::MakeshiftIO("check file exists".into(), err)
+                        })? {
+                            return Err(RunnerError::ConflictingFileNames(PathBuf::from(rel_dest)));
+                        }
+                    }
+                    PathConflicts::Overwrite => {}
+                }
                 std::fs::copy(path, dest_path)
                     .map_err(|err| RunnerError::MakeshiftIO("copy file".into(), err))?;
             } else if metadata.is_dir() {
                 let walker = ignore::WalkBuilder::new(&path)
-                    .hidden(!include_hidden)
+                    .hidden(!options.include_hidden)
                     .build();
                 let dir_name = path
                     .file_name()
@@ -121,16 +130,28 @@ impl DriverImpl<'_> {
                             .path()
                             .strip_prefix(&path)
                             .map_err(|_| RunnerError::Makeshift("strip prefix failed".into()))?;
-                        let dest_entry = if flatten_input_dirs {
+                        let dest_path = if options.flatten_input_dirs {
                             output_dir_path.join(rel_dest)
                         } else {
                             output_dir_path.join(dir_name).join(rel_dest)
                         };
-                        std::fs::create_dir_all(dest_entry.parent().ok_or_else(|| {
+                        std::fs::create_dir_all(dest_path.parent().ok_or_else(|| {
                             RunnerError::Makeshift("parent does not exist".into())
                         })?)
                         .map_err(|err| RunnerError::MakeshiftIO("create parent dir".into(), err))?;
-                        std::fs::copy(entry.path(), dest_entry)
+                        match options.conflicts {
+                            PathConflicts::Throw => {
+                                if std::fs::exists(&dest_path).map_err(|err| {
+                                    RunnerError::MakeshiftIO("check file exists".into(), err)
+                                })? {
+                                    return Err(RunnerError::ConflictingFileNames(PathBuf::from(
+                                        rel_dest,
+                                    )));
+                                }
+                            }
+                            PathConflicts::Overwrite => {}
+                        }
+                        std::fs::copy(entry.path(), dest_path)
                             .map_err(|err| RunnerError::MakeshiftIO("copy file".into(), err))?;
                     }
                 }
@@ -301,8 +322,11 @@ impl DriverTrait for DriverImpl<'_> {
         let output_area = if let Some(overlay_area) = overlay_area {
             self.create_overlay_area(
                 std::iter::once(Dir::root(overlay_area).fsinner()),
-                true,
-                true,
+                &CreateAreaOptions {
+                    include_hidden: true,
+                    flatten_input_dirs: true,
+                    ..Default::default()
+                },
             )?
         } else {
             self.create_empty_area()?
@@ -441,9 +465,9 @@ impl DriverTrait for DriverImpl<'_> {
     fn create_area(
         &self,
         dirs: &[FSEntryRef],
-        flatten_input_dirs: bool,
+        options: &CreateAreaOptions,
     ) -> Result<GeneratedFSArea, RunnerError> {
-        self.create_overlay_area(dirs.iter().copied(), true, flatten_input_dirs)
+        self.create_overlay_area(dirs.iter().copied(), options)
     }
 
     fn read_file(&self, file: &File) -> Result<String, std::io::Error> {

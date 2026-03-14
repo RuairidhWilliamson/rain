@@ -59,7 +59,7 @@ pub trait DriverTrait: monitoring::MonitoringTrait + FSTrait {
     fn create_area(
         &self,
         dirs: &[FSEntryRef],
-        flatten_input_dirs: bool,
+        options: &CreateAreaOptions,
     ) -> Result<GeneratedFSArea, RunnerError>;
     fn read_file(&self, file: &File) -> Result<String, std::io::Error>;
     fn create_file(
@@ -150,4 +150,18 @@ impl std::fmt::Display for FSEntryQueryResult {
 
 pub struct FileMetadata {
     pub size: u64,
+}
+
+#[derive(Default)]
+pub struct CreateAreaOptions {
+    pub include_hidden: bool,
+    pub flatten_input_dirs: bool,
+    pub conflicts: PathConflicts,
+}
+
+#[derive(Default)]
+pub enum PathConflicts {
+    #[default]
+    Throw,
+    Overwrite,
 }

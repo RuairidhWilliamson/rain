@@ -1,0 +1,84 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                runs.id,\n                commit,\n                created_at,\n                dequeued_at,\n                rain_version,\n                repo AS repo_id,\n                target,\n                finished_at AS \"finished_at?\",\n                status AS \"status?\",\n                execution_time_millis AS \"execution_time_millis?\",\n                output AS \"output?\"\n            FROM runs\n            LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run\n            WHERE repo=$1\n            ORDER BY runs.id DESC\n            OFFSET $2 LIMIT $3;\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "commit",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 3,
+        "name": "dequeued_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 4,
+        "name": "rain_version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "repo_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "target",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "finished_at?",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 8,
+        "name": "status?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "execution_time_millis?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "output?",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "df6cb03ce84d21ae8f8581434bb4391443c30f14a815a1f6a20f5e2fc9c2e369"
+}

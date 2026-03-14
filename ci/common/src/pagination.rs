@@ -1,5 +1,7 @@
 use std::num::NonZero;
 
+use anyhow::Result;
+
 #[derive(serde::Deserialize)]
 pub struct Pagination {
     /// The page number starting at 1
@@ -7,8 +9,15 @@ pub struct Pagination {
 }
 
 impl Pagination {
+    pub fn per_page(&self) -> u64 {
+        // A hard coded constant for now
+        25
+    }
+}
+
+impl Pagination {
     /// Get the page number zero indexed
-    pub fn page_numberz(&self) -> anyhow::Result<i64> {
+    pub fn page_numberz(&self) -> Result<i64> {
         match self.page {
             Some(x) => Ok(i64::try_from(x.get())? - 1),
             None => Ok(0),

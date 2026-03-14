@@ -5,8 +5,9 @@ use axum::{
     routing::get,
 };
 use oauth2::{AuthorizationCode, CsrfToken, TokenResponse as _};
+use rain_ci_common::db::Db;
 
-use crate::{AppError, AppState, User, db, github, session};
+use crate::{AppError, AppState, User, github, session};
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -21,11 +22,11 @@ async fn default_auth() -> impl IntoResponse {
 
 async fn github_auth(
     State(client): State<github::Client>,
-    State(db): State<db::Db>,
+    State(db): State<Db>,
     Extension(session): Extension<session::Session>,
 ) -> Result<impl IntoResponse, AppError> {
     let (auth_url, csrf_token) = client.authorize_url();
-    db.set_session_csrf(&session.id, csrf_token).await?;
+    crate::db::set_session_csrf(&db, &session.id, csrf_token).await?;
     Ok(Redirect::to(auth_url.as_ref()))
 }
 
@@ -38,15 +39,15 @@ struct AuthRequest {
 async fn authorized(
     Query(query): Query<AuthRequest>,
     State(client): State<github::Client>,
-    State(db): State<db::Db>,
+    State(db): State<Db>,
     Extension(session): Extension<session::Session>,
 ) -> Result<impl IntoResponse, AppError> {
-    db.check_session_csrf(&session.id, query.state)
+    crate::db::check_session_csrf(&db, &session.id, query.state)
         .await
         .map_err(|err| anyhow::format_err!("csrf check failed: {err:#}"))?;
     let token = client.exchange_code(query.code).await?;
     let user = client.get_user_details(token.access_token()).await?;
-    db.auth_user_session(&session.id, User(user))
+    crate::db::auth_user_session(&db, &session.id, User(user))
         .await
         .map_err(|err| anyhow::format_err!("auth user session: {err:#}"))?;
     Ok(Redirect::to("/"))

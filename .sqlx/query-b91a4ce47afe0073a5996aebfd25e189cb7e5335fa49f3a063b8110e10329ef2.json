@@ -1,31 +1,31 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                host_api,\n                host_url,\n                owner,\n                name\n            FROM repos\n            WHERE id=$1;\n            ",
+  "query": "SELECT kind, url, app_id, app_key, webhook_secret FROM repo_hosts WHERE id=$1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
-        "type_info": "Int8"
+        "name": "kind",
+        "type_info": "Text"
       },
       {
         "ordinal": 1,
-        "name": "host_api",
+        "name": "url",
         "type_info": "Text"
       },
       {
         "ordinal": 2,
-        "name": "host_url",
+        "name": "app_id",
         "type_info": "Text"
       },
       {
         "ordinal": 3,
-        "name": "owner",
+        "name": "app_key",
         "type_info": "Text"
       },
       {
         "ordinal": 4,
-        "name": "name",
+        "name": "webhook_secret",
         "type_info": "Text"
       }
     ],
@@ -37,10 +37,10 @@
     "nullable": [
       false,
       false,
-      false,
-      false,
-      false
+      true,
+      true,
+      true
     ]
   },
-  "hash": "47d856b12f5b1d475cfd8a8bc48d7e04b11c2a10a902e36824da8509693e5f46"
+  "hash": "b91a4ce47afe0073a5996aebfd25e189cb7e5335fa49f3a063b8110e10329ef2"
 }

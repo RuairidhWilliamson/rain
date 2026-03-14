@@ -6,29 +6,30 @@
     <th>State</th>
     <th>Time</th>
   </tr>
-  {% for (run_id, run) in paged_runs.elements %}
+  {% for WithId{id: run_id, resource: run} in paged_runs.elements %}
   <tr>
-    <td><a href="/repo/{{run.repository.id}}">{{ run.repository.owner }}/{{ run.repository.name }}</a></td>
+    <td><a href="/repo/{{run.repository.id}}">{{ run.repository.resource.owner }}/{{ run.repository.resource.name }}</a>
+    </td>
     <td><a href="{{ run.commit_url() }}"><abbr title="{{ run.commit }}">{{ run.commit | truncate(5) }}</abbr></a></td>
     <td>{{ run.created_at | timestamp }}</td>
     <td>
       {% match run.finished %}
       {% when Some with (finished) %}
       {% match finished.status %}
-      {% when rain_ci_common::RunStatus::Success %}
+      {% when rain_ci_common::db::run::RunStatus::Success %}
       <span class="state-icon state-success" title="{{ finished.status }}"></span>
-      {% when rain_ci_common::RunStatus::Failure %}
+      {% when rain_ci_common::db::run::RunStatus::Failure %}
       <span class="state-icon state-failure" title="{{ finished.status }}"></span>
-      {% when rain_ci_common::RunStatus::SystemFailure %}
+      {% when rain_ci_common::db::run::RunStatus::SystemFailure %}
       <span class="state-icon state-system-failure" title="{{ finished.status }}"></span>
       {% endmatch %}
       {% when None %}
       {% match run.state() %}
-      {% when rain_ci_common::RunState::Queued %}
+      {% when rain_ci_common::db::run::RunState::Queued %}
       <span class="state-icon state-queued" title="{{ run.state() }}"></span>
-      {% when rain_ci_common::RunState::InProgress %}
+      {% when rain_ci_common::db::run::RunState::InProgress %}
       <span class="state-icon state-in-progress" title="{{ run.state() }}"></span>
-      {% when rain_ci_common::RunState::Finished %}
+      {% when rain_ci_common::db::run::RunState::Finished %}
       {% endmatch %}
       {% endmatch %}
     </td>

@@ -10,12 +10,12 @@
     <th>Owner</th>
     <th>Name</th>
   </tr>
-  {% for (repo_id, repo) in paged_repos.elements %}
+  {% for WithId{id, resource: repo} in paged_repos.elements %}
   <tr>
     <td>{{ repo.host }}</td>
     <td>{{ repo.owner }}</td>
     <td>{{ repo.name }}</td>
-    <td><a href="/repo/{{repo_id}}">View</a></td>
+    <td><a href="/repo/{{id}}">View</a></td>
   </tr>
   {% endfor %}
 </table>

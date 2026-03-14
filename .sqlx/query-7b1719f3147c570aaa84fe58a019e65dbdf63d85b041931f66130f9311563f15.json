@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                host_url,\n                host_api,\n                owner,\n                name\n            FROM repos\n            OFFSET $1 LIMIT $2;\n            ",
+  "query": "\n            SELECT\n                id,\n                host,\n                owner,\n                name\n            FROM repos\n            OFFSET $1 LIMIT $2;\n            ",
   "describe": {
     "columns": [
       {
@@ -10,21 +10,16 @@
       },
       {
         "ordinal": 1,
-        "name": "host_url",
-        "type_info": "Text"
+        "name": "host",
+        "type_info": "Int8"
       },
       {
         "ordinal": 2,
-        "name": "host_api",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 3,
         "name": "owner",
         "type_info": "Text"
       },
       {
-        "ordinal": 4,
+        "ordinal": 3,
         "name": "name",
         "type_info": "Text"
       }
@@ -39,9 +34,8 @@
       false,
       false,
       false,
-      false,
       false
     ]
   },
-  "hash": "29260ab64eb88d0d871853832c96dde9e2e8e47187f5b20fbb5a2f8dc7d07661"
+  "hash": "7b1719f3147c570aaa84fe58a019e65dbdf63d85b041931f66130f9311563f15"
 }

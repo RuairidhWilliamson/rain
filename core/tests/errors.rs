@@ -49,4 +49,5 @@ tests! {
     private_declaration,
     throw,
     destructures,
+    conflicting_overlay_files,
 }

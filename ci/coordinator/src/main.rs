@@ -1,10 +1,6 @@
 mod runner;
 mod server;
 
-mod storage;
-#[cfg(test)]
-mod tests;
-
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
 use anyhow::{Context as _, Result};
@@ -15,22 +11,19 @@ use hyper_util::{
     server::conn::auto::Builder,
 };
 use ipnet::IpNet;
-use jsonwebtoken::EncodingKey;
 use log::{error, info, warn};
-use rain_ci_common::RunId;
+use rain_ci_common::db::{
+    Db,
+    run::{FinishedRun, Run, RunId},
+};
 use runner::Runner;
 use secrecy::{ExposeSecret as _, SecretString};
 use sqlx::postgres::PgListener;
 use tokio::{sync::mpsc::Sender, task::JoinSet};
 
-use crate::storage::StorageTrait as _;
-
 #[derive(Debug, serde::Deserialize)]
 struct Config {
     addr: SocketAddr,
-    github_app_id: rain_ci_common::github::model::AppId,
-    github_app_key_file: PathBuf,
-    github_webhook_secret: String,
     target_url: url::Url,
     seal: bool,
     db_host: String,
@@ -64,23 +57,6 @@ async fn main() -> Result<()> {
     let version = env!("CARGO_PKG_VERSION");
     info!("version = {version}");
 
-    let key_raw = secrecy::SecretSlice::from(
-        tokio::fs::read(&config.github_app_key_file)
-            .await
-            .context("read github app key")?,
-    );
-    let key =
-        EncodingKey::from_rsa_pem(key_raw.expose_secret()).context("decode github app key")?;
-
-    let github_client = rain_ci_common::github::implementation::AppClient::new(
-        rain_ci_common::github::implementation::AppAuth {
-            app_id: config.github_app_id,
-            key,
-        },
-    );
-
-    // let ipnets = [IpNet::from(IpAddr::V4(Ipv4Addr::LOCALHOST))];
-    // let mut allowed_ipnets = Some(&ipnets);
     let allowed_ipnets: Option<&[IpNet]> = None;
     let listener = tokio::net::TcpListener::bind(config.addr).await?;
     let db_password = load_password(&config).await?;
@@ -96,15 +72,21 @@ async fn main() -> Result<()> {
     let (tx, rx) = tokio::sync::mpsc::channel(10);
     start_pg_notify_worker(&pool, &tx);
 
-    let storage = storage::inner::Storage::new(pool);
-    cleanup_old_runs(&storage).await?;
+    let db = Db::new(rain_ci_common::db::DbConfig {
+        host: config.db_host,
+        name: config.db_name,
+        user: config.db_user,
+        password: config.db_password,
+        password_file: config.db_password_file,
+    })
+    .await
+    .context("connect db")?;
+    cleanup_old_runs(&db).await?;
 
     let server = Arc::new(server::Server {
         runner: Runner::new(config.seal),
-        github_webhook_secret: config.github_webhook_secret,
         target_url: config.target_url,
-        github_client,
-        storage,
+        db,
         tx,
     });
     server.start_server_run_request_worker(rx);
@@ -139,22 +121,22 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn cleanup_old_runs(storage: &storage::inner::Storage) -> Result<()> {
+async fn cleanup_old_runs(db: &Db) -> Result<()> {
     let ids = sqlx::query!("SELECT id FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run WHERE dequeued_at IS NOT NULL AND run IS NULL")
-        .fetch_all(&storage.pool)
+        .fetch_all(&db.pool)
         .await?;
     for row in ids {
-        storage
-            .finished_run(
-                &rain_ci_common::RunId(row.id),
-                rain_ci_common::FinishedRun {
-                    finished_at: chrono::Utc::now(),
-                    status: rain_ci_common::RunStatus::SystemFailure,
-                    execution_time: chrono::TimeDelta::zero(),
-                    output: String::from("run was cleaned up on coordinator startup"),
-                },
-            )
-            .await?;
+        Run::finished(
+            db,
+            RunId(row.id),
+            FinishedRun {
+                finished_at: chrono::Utc::now(),
+                status: rain_ci_common::db::run::RunStatus::SystemFailure,
+                execution_time: chrono::TimeDelta::zero(),
+                output: String::from("run was cleaned up on coordinator startup"),
+            },
+        )
+        .await?;
     }
     Ok(())
 }

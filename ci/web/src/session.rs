@@ -5,6 +5,7 @@ use axum::{
     response::IntoResponse,
 };
 use axum_extra::{TypedHeader, headers};
+use rain_ci_common::db::Db;
 
 const SESSION_COOKIE_NAME: &str = "SESSION";
 
@@ -25,7 +26,7 @@ pub struct Session {
 
 pub async fn session_middleware(
     cookie: Option<TypedHeader<headers::Cookie>>,
-    State(db): State<crate::db::Db>,
+    State(db): State<Db>,
     mut request: Request,
     next: Next,
 ) -> Result<impl IntoResponse, super::AppError> {
@@ -36,12 +37,12 @@ pub async fn session_middleware(
         && let Ok(inner_session_id) = session_cookie.parse::<uuid::Uuid>()
     {
         session_id = SessionId(inner_session_id);
-        if let Some(new_session_id) = db.load_or_create_session(&session_id).await? {
+        if let Some(new_session_id) = crate::db::load_or_create_session(&db, &session_id).await? {
             session_id = new_session_id;
             changed = true;
         }
     } else {
-        session_id = db.create_session().await?;
+        session_id = crate::db::create_session(&db).await?;
         changed = true;
     }
 

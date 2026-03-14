@@ -7,7 +7,7 @@ let tree_sitter_rain = import("tree-sitter-rain/_.rain")
 pub let ci_mod = import("ci/_.rain")
 
 let load_stdlib = fn() {
-	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")], true)
+	stdlib_area = internal._create_area([internal._get_dir(area, "lib/std")], true, false)
 	internal._embed().load_stdlib(stdlib_area)
 }
 

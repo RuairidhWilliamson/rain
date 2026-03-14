@@ -6,9 +6,13 @@ use http::{Request, Response, request::Parts};
 use http_body_util::BodyExt as _;
 use hyper::body::Incoming;
 use log::{error, info};
-use rain_ci_common::RunStatus;
-use rain_ci_common::github::InstallationClient as _;
-use rain_ci_common::github::model::CheckRunConclusion;
+use rain_ci_common::db::repository::Repository;
+use rain_ci_common::db::repository_host::{RepoHostKind, RepositoryHost, RepositoryHostId};
+use rain_ci_common::db::run::{FinishedRun, Run, RunStatus};
+use rain_ci_common::db::{Db, Resource as _, WithId};
+use rain_ci_common::github::implementation::{AppAuth, AppClient};
+use rain_ci_common::github::model::{AppId, CheckRunConclusion};
+use rain_ci_common::github::{Client as _, InstallationClient as _};
 use rain_lang::afs::File;
 use rain_lang::afs::area::FSArea;
 use rain_lang::afs::dir::Dir;
@@ -16,7 +20,8 @@ use rain_lang::afs::generated::dir::GeneratedDir;
 use rain_lang::afs::generated::entry::GeneratedFSEntry;
 use rain_lang::afs::generated::file::GeneratedFile;
 use rain_lang::afs::path::SealedFilePath;
-use rain_lang::driver::{DriverTrait as _, FSTrait as _};
+use rain_lang::driver::{CreateAreaOptions, DriverTrait as _, FSTrait as _};
+use secrecy::ExposeSecret as _;
 use tokio::sync::mpsc::Receiver;
 use tokio::task::JoinHandle;
 
@@ -24,16 +29,14 @@ use crate::RunRequest;
 use crate::runner::RunComplete;
 use crate::runner::Runner;
 
-pub struct Server<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> {
+pub struct Server {
     pub target_url: url::Url,
-    pub github_webhook_secret: String,
     pub runner: Runner,
-    pub github_client: GH,
-    pub storage: ST,
+    pub db: Db,
     pub tx: tokio::sync::mpsc::Sender<RunRequest>,
 }
 
-impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Server<GH, ST> {
+impl Server {
     pub fn start_server_run_request_worker(self: &Arc<Self>, mut rx: Receiver<RunRequest>) {
         let server = Arc::clone(self);
         tokio::spawn(async move {
@@ -56,27 +59,45 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         self: Arc<Self>,
         request: Request<Incoming>,
     ) -> Result<Response<String>, Infallible> {
-        match request.uri().path() {
-            "/webhook/github" => {
-                match self.handle_github_event(request).await {
-                    Ok(()) => (),
-                    Err(err) => {
-                        error!("{err:#}");
-                    }
-                }
-                Ok(Response::builder()
-                    .status(http::status::StatusCode::OK)
-                    .body(String::default())
-                    .expect("build response"))
-            }
-            _ => Ok(Response::builder()
+        let Some(rest) = request.uri().path().strip_prefix("/webhook/") else {
+            return Ok(Response::builder()
                 .status(http::status::StatusCode::NOT_FOUND)
                 .body(String::default())
-                .expect("buid response")),
+                .expect("buid response"));
+        };
+        let Ok(repo_host_id) = rest.parse::<i64>() else {
+            return Ok(Response::builder()
+                .status(http::status::StatusCode::NOT_FOUND)
+                .body(String::default())
+                .expect("buid response"));
+        };
+        match self
+            .handle_webhook(RepositoryHostId(repo_host_id), request)
+            .await
+        {
+            Ok(()) => (),
+            Err(err) => {
+                error!("{err:#}");
+            }
         }
+        Ok(Response::builder()
+            .status(http::status::StatusCode::OK)
+            .body(String::default())
+            .expect("build response"))
     }
 
-    async fn handle_github_event(self: Arc<Self>, request: Request<Incoming>) -> Result<()> {
+    async fn handle_webhook(
+        self: Arc<Self>,
+        repo_host_id: RepositoryHostId,
+        request: Request<Incoming>,
+    ) -> Result<()> {
+        let repository_host = RepositoryHost::get(&self.db, repo_host_id).await?.resource;
+
+        match repository_host.kind {
+            RepoHostKind::Github => {}
+            RepoHostKind::Gitlab => todo!(),
+            RepoHostKind::Forgejo => todo!(),
+        }
         let headers = request.headers();
         let content_type = headers
             .get("Content-Type")
@@ -90,7 +111,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         }
         let (parts, body) = request.into_parts();
         let body = body.collect().await?.to_bytes();
-        self.verify_webhook_signature(&parts, &body[..])?;
+        Self::verify_webhook_signature(&parts, &body[..], &repository_host)?;
 
         let event_kind = parts
             .headers
@@ -123,55 +144,89 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         let head_sha = check_suite_event.check_suite.head_sha;
 
         let start = chrono::Utc::now();
-        let repo_host = rain_ci_common::RepoHost::Github;
-        let repo_id = self
-            .storage
-            .create_or_get_repo(&repo_host, &owner, &repo)
-            .await
-            .context("resolve repo id")?;
-        let run_id = self
-            .storage
-            .create_run(rain_ci_common::Run {
-                created_at: start,
-                commit: head_sha.clone(),
-                repository: rain_ci_common::Repository {
-                    id: repo_id,
-                    host: repo_host,
-                    owner: owner.clone(),
-                    name: repo.clone(),
-                },
-                dequeued_at: None,
-                finished: None,
-                target: String::from("ci"),
-                rain_version: None,
-            })
-            .await
-            .context("storage create run")?;
+        let repo_id = Repository {
+            host: repo_host_id,
+            owner,
+            name: repo,
+        }
+        .find(&self.db)
+        .await?;
+        let run_id = Run {
+            created_at: start,
+            commit: head_sha.clone(),
+            repository: repo_id,
+            dequeued_at: None,
+            finished: None,
+            target: String::from("ci"),
+            rain_version: None,
+        }
+        .create(&self.db)
+        .await?;
 
         self.tx.send(RunRequest { run_id }).await?;
         Ok(())
     }
 
-    #[expect(clippy::unwrap_used)]
     pub async fn handle_run_request(
         self: Arc<Self>,
         run_request: RunRequest,
     ) -> Result<(), anyhow::Error> {
-        let installations = self.github_client.app_installations().await?;
-        // FIXME: Getting the first installation is a bad assumption
-        let installation = installations.first().unwrap();
-        let installation_client = Arc::new(
-            self.github_client
-                .auth_installation(installation.id)
-                .await?,
-        );
         let run_id = run_request.run_id;
         let start = chrono::Utc::now();
-        let run = self.storage.get_run(&run_id).await?;
+        let run = Run::get(&self.db, run_id).await?;
+        let repository = Repository::get(&self.db, run.resource.repository)
+            .await?
+            .resource;
+        let repository_host = RepositoryHost::get(&self.db, repository.host)
+            .await?
+            .resource;
 
-        let owner = run.repository.owner;
-        let repo = run.repository.name;
-        let head_sha = run.commit.clone();
+        let owner = repository.owner;
+        let repo = repository.name;
+        let head_sha = run.resource.commit.clone();
+
+        match repository_host.kind {
+            RepoHostKind::Github => {
+                let github_client = AppClient::new(AppAuth {
+                    app_id: AppId(
+                        repository_host
+                            .app_id
+                            .context("no app id")?
+                            .parse()
+                            .context("invalid app id")?,
+                    ),
+                    key: jsonwebtoken::EncodingKey::from_rsa_pem(
+                        repository_host
+                            .app_key
+                            .context("no app key")?
+                            .expose_secret()
+                            .as_bytes(),
+                    )
+                    .context("decode github app key")?,
+                });
+
+                self.handle_github_run_request(start, run, owner, repo, head_sha, github_client)
+                    .await
+            }
+            RepoHostKind::Gitlab => todo!(),
+            RepoHostKind::Forgejo => todo!(),
+        }
+    }
+
+    #[expect(clippy::unwrap_used)]
+    async fn handle_github_run_request(
+        self: Arc<Self>,
+        start: chrono::DateTime<Utc>,
+        run: WithId<Run>,
+        owner: String,
+        repo: String,
+        head_sha: String,
+        github_client: AppClient,
+    ) -> Result<()> {
+        let installations = github_client.app_installations().await?;
+        // FIXME: Getting the first installation is a bad assumption
+        let installation = installations.first().unwrap();
+        let installation_client = Arc::new(github_client.auth_installation(installation.id).await?);
 
         let check_run = installation_client
             .create_check_run(
@@ -188,8 +243,7 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
             .await
             .context("create check run")?;
 
-        self.storage
-            .dequeued_run(&run_id)
+        Run::dequeued(&self.db, run.id, env!("CARGO_PKG_VERSION"))
             .await
             .context("storage dequeue run")?;
 
@@ -208,25 +262,31 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
 
         log::info!("Preparing run");
         let result_handle = self
-            .download_and_run(&installation_client, &owner, &repo, head_sha, run.target)
+            .download_and_run(
+                &installation_client,
+                &owner,
+                &repo,
+                head_sha,
+                run.resource.target,
+            )
             .await;
 
         let (status, conclusion, output) = resolve_error(result_handle).await;
 
         let finished_at = Utc::now();
         let execution_time = finished_at - start;
-        self.storage
-            .finished_run(
-                &run_id,
-                rain_ci_common::FinishedRun {
-                    finished_at,
-                    status,
-                    execution_time,
-                    output: output.clone(),
-                },
-            )
-            .await
-            .context("storage finished run")?;
+        Run::finished(
+            &self.db,
+            run.id,
+            FinishedRun {
+                finished_at,
+                status,
+                execution_time,
+                output: output.clone(),
+            },
+        )
+        .await
+        .context("storage finished run")?;
         installation_client
             .update_check_run(
                 &owner,
@@ -269,7 +329,9 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         let (root, lfs_entries) = tokio::task::spawn_blocking(move || {
             let config = rain_core::config::Config::new();
             let driver = rain_core::driver::DriverImpl::new(config);
-            let download_area = driver.create_area(&[], true).unwrap();
+            let download_area = driver
+                .create_area(&[], &CreateAreaOptions::default())
+                .unwrap();
             let download_entry =
                 GeneratedFSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
             std::fs::write(driver.resolve_fs_entry((&download_entry).into()), download).unwrap();
@@ -309,14 +371,25 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         Ok(tokio::task::spawn_blocking(move || {
             let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
             let area = driver
-                .create_overlay_area(std::iter::once(root.fsinner().into()), true, true)
+                .create_overlay_area(
+                    std::iter::once(root.fsinner().into()),
+                    &CreateAreaOptions {
+                        include_hidden: true,
+                        flatten_input_dirs: true,
+                        ..Default::default()
+                    },
+                )
                 .unwrap();
             let run_complete = server.runner.run(&driver, FSArea::Generated(area), &target);
             Ok(run_complete)
         }))
     }
 
-    fn verify_webhook_signature(&self, request: &Parts, body: &[u8]) -> Result<()> {
+    fn verify_webhook_signature(
+        request: &Parts,
+        body: &[u8],
+        repo_host: &RepositoryHost,
+    ) -> Result<()> {
         let signature = request
             .headers
             .get("x-hub-signature-256")
@@ -331,7 +404,12 @@ impl<GH: rain_ci_common::github::Client, ST: crate::storage::StorageTrait> Serve
         let sig = hex::decode(sig_hex).context("decode signature hex")?;
         let key = ring::hmac::Key::new(
             ring::hmac::HMAC_SHA256,
-            self.github_webhook_secret.as_bytes(),
+            repo_host
+                .webhook_secret
+                .as_ref()
+                .context("no webhook secret")?
+                .expose_secret()
+                .as_bytes(),
         );
         ring::hmac::verify(&key, body, &sig).context("verify signature")?;
         Ok(())

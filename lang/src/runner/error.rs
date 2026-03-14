@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::RangeInclusive, string::FromUtf8Error};
+use std::{borrow::Cow, ops::RangeInclusive, path::PathBuf, string::FromUtf8Error};
 
 use crate::{
     afs::{entry::FSEntry, error::PathError},
@@ -128,4 +128,6 @@ pub enum RunnerError {
     InvalidBinaryOp,
     #[error("invalid dot usage")]
     InvalidDot,
+    #[error("conflicting file names: {0}")]
+    ConflictingFileNames(PathBuf),
 }

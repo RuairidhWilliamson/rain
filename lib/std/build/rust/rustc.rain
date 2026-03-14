@@ -15,7 +15,7 @@ pub let compile = fn(channel, src: File, outname: String, target: String, editio
 	rustc = std.build.rust.dist.get_rustc(channel, std.utils.host_info().triple)
 	rust_std = std.build.rust.dist.get_rust_std(channel, target)
 
-	merged = std.fs.create_area([rustc, rust_std])
+	merged = std.fs.create_area_overwrite([rustc, rust_std])
 	env = {
 		CARGO_TERM_COLOR = "always",
 		CARGO_TERM_QUIET = "true",
