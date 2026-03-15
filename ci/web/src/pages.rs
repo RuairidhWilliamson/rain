@@ -74,13 +74,15 @@ pub async fn repos(
     #[template(path = "repos.html")]
     struct ReposPage {
         base: Base,
-        paged_repos: Paginated<WithId<Repository>>,
+        paged_repos: Paginated<WithId<ResolvedRepository>>,
     }
 
     Ok(Html(
         ReposPage {
             base: Base::new(auth.user),
-            paged_repos: Repository::list(&db, &page).await.context("list repos")?,
+            paged_repos: ResolvedRepository::list(&db, &page)
+                .await
+                .context("list repos")?,
         }
         .render()?,
     ))

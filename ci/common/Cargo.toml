@@ -9,16 +9,18 @@ publish.workspace = true
 [dependencies]
 anyhow.workspace = true
 chrono.workspace = true
+forgejo-api.workspace = true
 git-lfs-rs.workspace = true
 http.workspace = true
 ipnet.workspace = true
 jsonwebtoken = { version = "10.0", default-features = false , features = ["use_pem", "rust_crypto"] }
+oauth2.workspace = true
 reqwest = { version = "0.13", features = ["rustls", "charset", "http2", "json"], default-features = false }
 secrecy.workspace = true
 serde_json.workspace = true
 serde.workspace = true
-strum = { version = "0.28", features = ["derive"] }
 sqlx.workspace = true
+strum = { version = "0.28", features = ["derive"] }
 tokio.workspace = true
 
 [dev-dependencies]

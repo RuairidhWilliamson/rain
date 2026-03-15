@@ -3,7 +3,7 @@ mod server;
 
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use http::Request;
 use hyper::{body::Incoming, service::service_fn};
 use hyper_util::{
@@ -13,37 +13,21 @@ use hyper_util::{
 use ipnet::IpNet;
 use log::{error, info, warn};
 use rain_ci_common::db::{
-    Db,
+    Db, DbConfig,
     run::{FinishedRun, Run, RunId},
 };
 use runner::Runner;
-use secrecy::{ExposeSecret as _, SecretString};
 use sqlx::postgres::PgListener;
 use tokio::{sync::mpsc::Sender, task::JoinSet};
+use url::Url;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
     addr: SocketAddr,
     target_url: url::Url,
     seal: bool,
-    db_host: String,
-    db_name: String,
-    db_user: String,
-    db_password_file: Option<PathBuf>,
-    db_password: Option<SecretString>,
-}
-
-async fn load_password(config: &Config) -> Result<SecretString> {
-    if let Some(password) = &config.db_password {
-        return Ok(password.clone());
-    }
-    if let Some(password_file) = &config.db_password_file {
-        return Ok(tokio::fs::read_to_string(password_file)
-            .await
-            .context("cannot read DB_PASSWORD_FILE")?
-            .into());
-    }
-    Err(anyhow::anyhow!("set DB_PASSWORD or DB_PASSWORD_FILE"))
+    database_url: Url,
+    database_password_file: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -59,28 +43,17 @@ async fn main() -> Result<()> {
 
     let allowed_ipnets: Option<&[IpNet]> = None;
     let listener = tokio::net::TcpListener::bind(config.addr).await?;
-    let db_password = load_password(&config).await?;
-    let pool = sqlx::postgres::PgPool::connect_with(
-        sqlx::postgres::PgConnectOptions::new()
-            .host(&config.db_host)
-            .username(&config.db_user)
-            .password(db_password.expose_secret())
-            .database(&config.db_name),
+    let db = Db::new(
+        DbConfig {
+            url: config.database_url,
+            password_file: config.database_password_file,
+        },
+        "rain-ci-coordinator",
     )
     .await?;
 
     let (tx, rx) = tokio::sync::mpsc::channel(10);
-    start_pg_notify_worker(&pool, &tx);
-
-    let db = Db::new(rain_ci_common::db::DbConfig {
-        host: config.db_host,
-        name: config.db_name,
-        user: config.db_user,
-        password: config.db_password,
-        password_file: config.db_password_file,
-    })
-    .await
-    .context("connect db")?;
+    start_pg_notify_worker(&db, &tx);
     cleanup_old_runs(&db).await?;
 
     let server = Arc::new(server::Server {
@@ -146,11 +119,11 @@ struct RunRequest {
 }
 
 #[expect(clippy::unwrap_used)]
-fn start_pg_notify_worker(pool: &sqlx::PgPool, tx: &Sender<RunRequest>) {
-    let pool = pool.clone();
+fn start_pg_notify_worker(db: &Db, tx: &Sender<RunRequest>) {
+    let db = db.clone();
     let tx = tx.clone();
     tokio::spawn(async move {
-        let mut listener = PgListener::connect_with(&pool).await.unwrap();
+        let mut listener = PgListener::connect_with(&db.pool).await.unwrap();
         listener.listen("request_run").await.unwrap();
         loop {
             let notif = listener.recv().await.unwrap();

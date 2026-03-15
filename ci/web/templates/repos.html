@@ -6,15 +6,11 @@
 {% include "page_info.html" %}
 <table>
   <tr>
-    <th>Host</th>
-    <th>Owner</th>
-    <th>Name</th>
+    <th>Repository</th>
   </tr>
   {% for WithId{id, resource: repo} in paged_repos.elements %}
   <tr>
-    <td>{{ repo.host }}</td>
-    <td>{{ repo.owner }}</td>
-    <td>{{ repo.name }}</td>
+    <td><a href="{{ repo.external_repo_url() }}">{{ repo.owner }}/{{ repo.name }}</a></td>
     <td><a href="/repo/{{id}}">View</a></td>
   </tr>
   {% endfor %}

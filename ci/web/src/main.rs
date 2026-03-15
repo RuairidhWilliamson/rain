@@ -15,7 +15,6 @@ use axum::{
     routing::{get, post},
 };
 use chrono::Utc;
-use jsonwebtoken::EncodingKey;
 use log::info;
 use oauth2::ClientSecret;
 use rain_ci_common::{
@@ -25,10 +24,15 @@ use rain_ci_common::{
         repository_host::{RepoHostKind, RepositoryHost},
         run::Run,
     },
-    github::{Client as _, InstallationClient as _},
+    github::{
+        Client as _, InstallationClient as _,
+        implementation::{AppAuth, AppClient},
+        model::AppId,
+    },
 };
-use secrecy::{ExposeSecret as _, SecretString};
+use secrecy::ExposeSecret as _;
 use serde::Deserialize;
+use url::Url;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
@@ -37,13 +41,8 @@ struct Config {
     github_oauth_file: PathBuf,
     allowed_github_user_id: i64,
     allowed_github_login: String,
-    db_host: String,
-    db_name: String,
-    db_user: String,
-    db_password: Option<SecretString>,
-    db_password_file: Option<PathBuf>,
-    github_app_id: rain_ci_common::github::model::AppId,
-    github_app_key_file: PathBuf,
+    database_password_file: Option<PathBuf>,
+    database_url: Url,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -62,28 +61,14 @@ async fn main() -> Result<()> {
     let config = envy::from_env::<Config>()?;
     let version = env!("CARGO_PKG_VERSION");
     info!("version = {version}");
-    let db = Db::new(DbConfig {
-        host: config.db_host.clone(),
-        name: config.db_name.clone(),
-        user: config.db_user.clone(),
-        password: config.db_password.clone(),
-        password_file: config.db_password_file.clone(),
-    })
-    .await?;
-    let key_raw = secrecy::SecretSlice::from(
-        tokio::fs::read(&config.github_app_key_file)
-            .await
-            .context("read github app key")?,
-    );
-    let key =
-        EncodingKey::from_rsa_pem(key_raw.expose_secret()).context("decode github app key")?;
-
-    let github_client = Arc::new(rain_ci_common::github::implementation::AppClient::new(
-        rain_ci_common::github::implementation::AppAuth {
-            app_id: config.github_app_id,
-            key,
+    let db = Db::new(
+        DbConfig {
+            url: config.database_url.clone(),
+            password_file: config.database_password_file.clone(),
         },
-    ));
+        "rain-ci-web",
+    )
+    .await?;
     let addr = config.addr;
     let github_oauth_config: GithubOauthConfig =
         serde_json::from_slice(&tokio::fs::read(&config.github_oauth_file).await?)?;
@@ -93,7 +78,6 @@ async fn main() -> Result<()> {
             github_oauth_config.github_client_secret,
             &config.base_url,
         )?,
-        github_client,
         db,
         config: Arc::new(config),
     };
@@ -132,32 +116,82 @@ async fn repo_create_run(
     _auth: AdminUser,
     Path(repo_id): Path<RepositoryId>,
     State(db): State<Db>,
-    State(github_app): State<Arc<rain_ci_common::github::implementation::AppClient>>,
     Form(data): Form<RepoCreateRun>,
 ) -> Result<impl IntoResponse, AppError> {
-    let installations = github_app.app_installations().await?;
-    // FIXME: Using the first installation is stupid
-    let installation = installations.first().context("first installation")?;
-    let installation_client = github_app.auth_installation(installation.id).await?;
-    let db_repo = Repository::get(&db, repo_id).await?.resource;
-    let db_host = RepositoryHost::get(&db, db_repo.host).await?.resource;
-    assert_eq!(db_host.kind, RepoHostKind::Github);
-    let commit = installation_client
-        .get_commit(&db_repo.owner, &db_repo.name, &data.commit)
-        .await?;
-    let run_id = Run {
-        repository: repo_id,
-        commit: commit.sha,
-        created_at: Utc::now(),
-        dequeued_at: None,
-        finished: None,
-        target: data.target,
-        rain_version: None,
+    let repository = Repository::get(&db, repo_id).await?.resource;
+    let repository_host = RepositoryHost::get(&db, repository.host).await?.resource;
+    match repository_host.kind {
+        RepoHostKind::Github => {
+            let github_app = AppClient::new(AppAuth {
+                app_id: AppId(
+                    repository_host
+                        .app_id
+                        .context("no app id")?
+                        .parse()
+                        .context("invalid app id")?,
+                ),
+                key: jsonwebtoken::EncodingKey::from_rsa_pem(
+                    repository_host
+                        .app_key
+                        .context("no app key")?
+                        .expose_secret()
+                        .as_bytes(),
+                )
+                .context("decode github app key")?,
+            });
+            let installations = github_app.app_installations().await?;
+            // FIXME: Using the first installation is stupid
+            let installation = installations.first().context("first installation")?;
+            let installation_client = github_app.auth_installation(installation.id).await?;
+            let commit = installation_client
+                .get_commit(&repository.owner, &repository.name, &data.commit)
+                .await?;
+            let run_id = Run {
+                repository: repo_id,
+                commit: commit.sha,
+                created_at: Utc::now(),
+                dequeued_at: None,
+                finished: None,
+                target: data.target,
+                rain_version: None,
+            }
+            .create(&db)
+            .await?;
+            db::request_run(&db, run_id).await?;
+            Ok(Redirect::to(&format!("/run/{run_id}")))
+        }
+        RepoHostKind::Gitlab => todo!(),
+        RepoHostKind::Forgejo => {
+            let forgejo = forgejo_api::Forgejo::new(
+                forgejo_api::Auth::Token(
+                    repository_host.app_key.context("no token")?.expose_secret(),
+                ),
+                Url::parse(&repository_host.url)?,
+            )?;
+            let commit = forgejo
+                .repo_get_single_commit(
+                    &repository.owner,
+                    &repository.name,
+                    &data.commit,
+                    forgejo_api::structs::RepoGetSingleCommitQuery::default(),
+                )
+                .await
+                .context("forgejo get single commit")?;
+            let run_id = Run {
+                repository: repo_id,
+                commit: commit.sha.context("no commit sha")?,
+                created_at: Utc::now(),
+                dequeued_at: None,
+                finished: None,
+                target: data.target,
+                rain_version: None,
+            }
+            .create(&db)
+            .await?;
+            db::request_run(&db, run_id).await?;
+            Ok(Redirect::to(&format!("/run/{run_id}")))
+        }
     }
-    .create(&db)
-    .await?;
-    db::request_run(&db, run_id).await?;
-    Ok(Redirect::to(&format!("/run/{run_id}")))
 }
 
 async fn script_asset() -> impl IntoResponse {
@@ -177,7 +211,6 @@ async fn style_asset() -> impl IntoResponse {
 #[derive(FromRef, Clone)]
 struct AppState {
     github_oauth_client: github::Client,
-    github_client: Arc<rain_ci_common::github::implementation::AppClient>,
     db: Db,
     config: Arc<Config>,
 }

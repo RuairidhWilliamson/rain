@@ -163,6 +163,46 @@ impl super::Resource for ResolvedRepository {
 }
 
 impl ResolvedRepository {
+    pub async fn list(db: &super::Db, page: &Pagination) -> Result<Paginated<WithId<Self>>> {
+        let mut tx = db.pool.begin().await?;
+        let per_page = i64::try_from(page.per_page())?;
+        let rows = sqlx::query_as!(
+            QueryRepository,
+            r#"
+            SELECT
+                id,
+                host,
+                owner,
+                name
+            FROM repos
+            OFFSET $1 LIMIT $2;
+            "#,
+            page.page_numberz()? * per_page,
+            per_page,
+        )
+        .fetch_all(&mut *tx)
+        .await?;
+
+        let count_row = sqlx::query!("SELECT COUNT(*) FROM repos")
+            .fetch_one(&mut *tx)
+            .await?;
+
+        tx.rollback().await?;
+
+        let elements: Vec<WithId<Repository>> =
+            rows.into_iter().map(QueryRepository::convert).collect();
+        let mut repos: Vec<WithId<Self>> = Vec::with_capacity(elements.len());
+        for repo in elements {
+            let resolved = repo.resource.resolve(db).await?;
+            repos.push(WithId {
+                id: repo.id,
+                resource: resolved,
+            });
+        }
+        let full_count = u64::try_from(count_row.count.unwrap_or_default()).unwrap_or_default();
+        Ok(Paginated::new(repos, full_count, page.per_page(), page))
+    }
+
     pub fn external_repo_url(&self) -> String {
         match self.host.resource.kind {
             RepoHostKind::Github | RepoHostKind::Gitlab | RepoHostKind::Forgejo => format!(

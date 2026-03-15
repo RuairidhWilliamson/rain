@@ -5,27 +5,25 @@ pub mod run;
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result, anyhow};
+use reqwest::Url;
 use secrecy::{ExposeSecret as _, SecretString};
+use sqlx::{ConnectOptions as _, postgres::PgConnectOptions};
 
 pub struct DbConfig {
-    pub host: String,
-    pub name: String,
-    pub user: String,
-    pub password: Option<SecretString>,
+    pub url: Url,
     pub password_file: Option<PathBuf>,
 }
 
-async fn load_password(config: &DbConfig) -> Result<SecretString> {
-    if let Some(password) = &config.password {
-        return Ok(password.clone());
-    }
+async fn load_password(config: &DbConfig) -> Result<Option<SecretString>> {
     if let Some(password_file) = &config.password_file {
-        return Ok(tokio::fs::read_to_string(password_file)
-            .await
-            .context("cannot read DB_PASSWORD_FILE")?
-            .into());
+        return Ok(Some(
+            tokio::fs::read_to_string(password_file)
+                .await
+                .context("cannot read DATABASE_PASSWORD_FILE")?
+                .into(),
+        ));
     }
-    Err(anyhow!("set DB_PASSWORD or DB_PASSWORD_FILE"))
+    Err(anyhow!("set DATABASE_PASSWORD_FILE"))
 }
 
 #[derive(Clone)]
@@ -34,16 +32,14 @@ pub struct Db {
 }
 
 impl Db {
-    pub async fn new(config: DbConfig) -> Result<Self> {
+    pub async fn new(config: DbConfig, application_name: &str) -> Result<Self> {
         let db_password = load_password(&config).await?;
-        let pool = sqlx::PgPool::connect_with(
-            sqlx::postgres::PgConnectOptions::new()
-                .host(&config.host)
-                .username(&config.user)
-                .password(db_password.expose_secret())
-                .database(&config.name),
-        )
-        .await?;
+        let mut options = PgConnectOptions::from_url(&config.url)?;
+        if let Some(db_password) = db_password {
+            options = options.password(db_password.expose_secret());
+        }
+        options = options.application_name(application_name);
+        let pool = sqlx::PgPool::connect_with(options).await?;
         Ok(Self { pool })
     }
 }

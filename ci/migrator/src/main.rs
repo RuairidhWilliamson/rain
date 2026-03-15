@@ -9,30 +9,27 @@ use std::{
 use anyhow::{Context as _, Result, anyhow};
 use rustc_stable_hash::{FromStableHash, SipHasher128Hash};
 use secrecy::{ExposeSecret as _, SecretString};
-use sqlx::{Connection as _, Row as _};
+use sqlx::{ConnectOptions as _, Connection as _, Row as _, postgres::PgConnectOptions};
+use url::Url;
 
 #[derive(Debug, serde::Deserialize)]
 struct Config {
-    db_host: String,
-    db_name: String,
-    db_user: String,
-    db_password: Option<SecretString>,
-    db_password_file: Option<PathBuf>,
+    database_url: Url,
+    database_password_file: Option<PathBuf>,
     migrations_dir: PathBuf,
     dry_run: bool,
 }
 
-async fn load_password(config: &Config) -> Result<SecretString> {
-    if let Some(password) = &config.db_password {
-        return Ok(password.clone());
+async fn load_password(config: &Config) -> Result<Option<SecretString>> {
+    if let Some(password_file) = &config.database_password_file {
+        return Ok(Some(
+            tokio::fs::read_to_string(password_file)
+                .await
+                .context("cannot read DATABASE_PASSWORD_FILE")?
+                .into(),
+        ));
     }
-    if let Some(password_file) = &config.db_password_file {
-        return Ok(tokio::fs::read_to_string(password_file)
-            .await
-            .context("cannot read DB_PASSWORD_FILE")?
-            .into());
-    }
-    Err(anyhow!("set DB_PASSWORD or DB_PASSWORD_FILE"))
+    Err(anyhow!("set DATABASE_PASSWORD or DATABASE_PASSWORD_FILE"))
 }
 
 #[tokio::main]
@@ -40,14 +37,12 @@ async fn main() -> Result<()> {
     let _ = dotenvy::dotenv();
     let config = envy::from_env::<Config>()?;
     let db_password = load_password(&config).await?;
-    let mut conn = sqlx::postgres::PgConnection::connect_with(
-        &sqlx::postgres::PgConnectOptions::new()
-            .host(&config.db_host)
-            .username(&config.db_user)
-            .password(db_password.expose_secret())
-            .database(&config.db_name),
-    )
-    .await?;
+    let mut options = PgConnectOptions::from_url(&config.database_url)?;
+    if let Some(db_password) = db_password {
+        options = options.password(db_password.expose_secret());
+    }
+    options = options.application_name("rain-ci-migrator");
+    let mut conn = sqlx::PgConnection::connect_with(&options).await?;
 
     let mut tx = conn.begin().await?;
     sqlx::query(
