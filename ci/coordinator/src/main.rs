@@ -1,3 +1,4 @@
+mod forgejo;
 mod runner;
 mod server;
 
@@ -63,7 +64,7 @@ async fn main() -> Result<()> {
         tx,
     });
     server.start_server_run_request_worker(rx);
-    info!("listening on {}", config.addr);
+    info!("listening on {}", listener.local_addr()?);
     let mut join_set = JoinSet::new();
     loop {
         let (stream, addr) = listener.accept().await?;

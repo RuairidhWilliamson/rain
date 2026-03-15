@@ -160,7 +160,6 @@ async fn repo_create_run(
             db::request_run(&db, run_id).await?;
             Ok(Redirect::to(&format!("/run/{run_id}")))
         }
-        RepoHostKind::Gitlab => todo!(),
         RepoHostKind::Forgejo => {
             let forgejo = forgejo_api::Forgejo::new(
                 forgejo_api::Auth::Token(

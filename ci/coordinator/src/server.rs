@@ -2,7 +2,7 @@ use std::{convert::Infallible, sync::Arc};
 
 use anyhow::{Context as _, Result, anyhow};
 use chrono::Utc;
-use http::{Request, Response, request::Parts};
+use http::{Request, Response};
 use http_body_util::BodyExt as _;
 use hyper::body::Incoming;
 use log::{error, info};
@@ -38,6 +38,10 @@ pub struct Server {
 }
 
 impl Server {
+    fn target_url(&self, id: RunId) -> Result<Url> {
+        Ok(self.target_url.join(&format!("run/{id}"))?)
+    }
+
     pub fn start_server_run_request_worker(self: &Arc<Self>, mut rx: Receiver<RunRequest>) {
         let server = Arc::clone(self);
         tokio::spawn(async move {
@@ -95,77 +99,149 @@ impl Server {
         let repository_host = RepositoryHost::get(&self.db, repo_host_id).await?.resource;
 
         match repository_host.kind {
-            RepoHostKind::Github => {}
-            RepoHostKind::Gitlab => todo!(),
-            RepoHostKind::Forgejo => todo!(),
+            RepoHostKind::Github => {
+                let headers = request.headers();
+                let content_type = headers
+                    .get("Content-Type")
+                    .context("missing content type")?;
+                if content_type.as_bytes() != b"application/json" {
+                    return Err(anyhow!("unexpected content type"));
+                }
+                let user_agent = headers.get("User-Agent").context("missing user agent")?;
+                if !user_agent.as_bytes().starts_with(b"GitHub-Hookshot/") {
+                    return Err(anyhow!("unexpected user agent"));
+                }
+                let (parts, body) = request.into_parts();
+                let body = body.collect().await?.to_bytes();
+                let signature = parts
+                    .headers
+                    .get("x-hub-signature-256")
+                    .context("signature not present")?
+                    .to_str()?;
+                let (algo, sig_hex) = signature
+                    .split_once('=')
+                    .context("header does not contain =")?;
+                if algo != "sha256" {
+                    return Err(anyhow!("unknown algorithm"));
+                }
+                Self::verify_webhook_signature(sig_hex, &body[..], &repository_host)?;
+
+                let event_kind = parts
+                    .headers
+                    .get("x-github-event")
+                    .context("missing github event kind")?
+                    .to_str()?;
+
+                if event_kind != "check_suite" {
+                    return Err(anyhow!("unexpected event kind: {event_kind:?}"));
+                }
+
+                let check_suite_event: rain_ci_common::github::model::CheckSuiteEvent =
+                    serde_json::from_slice(&body[..])?;
+
+                if !matches!(
+                    check_suite_event.check_suite.status,
+                    Some(rain_ci_common::github::model::Status::Queued)
+                ) {
+                    info!(
+                        "skipping check suite event {:?}",
+                        check_suite_event.check_suite.status
+                    );
+                    return Ok(());
+                }
+
+                info!("received {check_suite_event:?}");
+
+                let owner = check_suite_event.repository.owner.login;
+                let repo = check_suite_event.repository.name;
+                let sha = check_suite_event.check_suite.head_sha;
+
+                let start = chrono::Utc::now();
+                let repo_id = Repository {
+                    host: repo_host_id,
+                    owner,
+                    name: repo,
+                }
+                .find(&self.db)
+                .await?;
+                let run_id = Run {
+                    created_at: start,
+                    commit: sha.clone(),
+                    repository: repo_id,
+                    dequeued_at: None,
+                    finished: None,
+                    target: String::from("ci"),
+                    rain_version: None,
+                }
+                .create(&self.db)
+                .await?;
+
+                self.tx.send(RunRequest { run_id }).await?;
+                Ok(())
+            }
+            RepoHostKind::Forgejo => {
+                let headers = request.headers();
+                let content_type = headers
+                    .get("Content-Type")
+                    .context("missing content type")?;
+                if content_type.as_bytes() != b"application/json" {
+                    return Err(anyhow!("unexpected content type"));
+                }
+                let (parts, body) = request.into_parts();
+                let body = body.collect().await?.to_bytes();
+                Self::verify_webhook_signature(
+                    parts
+                        .headers
+                        .get("x-forgejo-signature")
+                        .context("signature not present")?
+                        .to_str()?,
+                    &body[..],
+                    &repository_host,
+                )?;
+
+                let event_kind = parts
+                    .headers
+                    .get("x-forgejo-event")
+                    .context("missing forgejo event kind")?
+                    .to_str()?;
+
+                if event_kind != "push" {
+                    return Err(anyhow!("unexpected event kind: {event_kind:?}"));
+                }
+
+                let push_event: crate::forgejo::ForgejoPushEvent =
+                    serde_json::from_slice(&body[..])?;
+
+                info!("received {push_event:?}");
+
+                let owner = push_event.repository.owner.login;
+                let repo = push_event.repository.name;
+                let sha = push_event.after;
+
+                let start = chrono::Utc::now();
+                let repo_id = Repository {
+                    host: repo_host_id,
+                    owner,
+                    name: repo,
+                }
+                .find(&self.db)
+                .await?;
+                let run_id = Run {
+                    created_at: start,
+                    commit: sha.clone(),
+                    repository: repo_id,
+                    dequeued_at: None,
+                    finished: None,
+                    target: String::from("ci"),
+                    rain_version: None,
+                }
+                .create(&self.db)
+                .await?;
+
+                self.tx.send(RunRequest { run_id }).await?;
+                Ok(())
+            }
         }
-        let headers = request.headers();
-        let content_type = headers
-            .get("Content-Type")
-            .context("missing content type")?;
-        if content_type.as_bytes() != b"application/json" {
-            return Err(anyhow!("unexpected content type"));
-        }
-        let user_agent = headers.get("User-Agent").context("missing user agent")?;
-        if !user_agent.as_bytes().starts_with(b"GitHub-Hookshot/") {
-            return Err(anyhow!("unexpected user agent"));
-        }
-        let (parts, body) = request.into_parts();
-        let body = body.collect().await?.to_bytes();
-        Self::verify_webhook_signature(&parts, &body[..], &repository_host)?;
-
-        let event_kind = parts
-            .headers
-            .get("x-github-event")
-            .context("missing github event kind")?
-            .to_str()?;
-
-        if event_kind != "check_suite" {
-            return Err(anyhow!("unexpected event kind: {event_kind:?}"));
-        }
-
-        let check_suite_event: rain_ci_common::github::model::CheckSuiteEvent =
-            serde_json::from_slice(&body[..])?;
-
-        if !matches!(
-            check_suite_event.check_suite.status,
-            Some(rain_ci_common::github::model::Status::Queued)
-        ) {
-            info!(
-                "skipping check suite event {:?}",
-                check_suite_event.check_suite.status
-            );
-            return Ok(());
-        }
-
-        info!("received {check_suite_event:?}");
-
-        let owner = check_suite_event.repository.owner.login;
-        let repo = check_suite_event.repository.name;
-        let head_sha = check_suite_event.check_suite.head_sha;
-
-        let start = chrono::Utc::now();
-        let repo_id = Repository {
-            host: repo_host_id,
-            owner,
-            name: repo,
-        }
-        .find(&self.db)
-        .await?;
-        let run_id = Run {
-            created_at: start,
-            commit: head_sha.clone(),
-            repository: repo_id,
-            dequeued_at: None,
-            finished: None,
-            target: String::from("ci"),
-            rain_version: None,
-        }
-        .create(&self.db)
-        .await?;
-
-        self.tx.send(RunRequest { run_id }).await?;
-        Ok(())
     }
 
     pub async fn handle_run_request(
@@ -209,7 +285,6 @@ impl Server {
                 self.handle_github_run_request(start, run, owner, repo, sha, github_client)
                     .await
             }
-            RepoHostKind::Gitlab => todo!(),
             RepoHostKind::Forgejo => {
                 let forgejo = forgejo_api::Forgejo::new(
                     forgejo_api::Auth::Token(
@@ -221,10 +296,6 @@ impl Server {
                     .await
             }
         }
-    }
-
-    fn target_url(&self, id: RunId) -> Result<Url> {
-        Ok(self.target_url.join(&format!("run/{id}"))?)
     }
 
     async fn handle_github_run_request(
@@ -403,9 +474,7 @@ impl Server {
                 },
             )
             .await?;
-
         self.runner.prune();
-
         Ok(())
     }
 
@@ -550,28 +619,17 @@ impl Server {
     }
 
     fn verify_webhook_signature(
-        request: &Parts,
+        signature_hex: &str,
         body: &[u8],
         repo_host: &RepositoryHost,
     ) -> Result<()> {
-        let signature = request
-            .headers
-            .get("x-hub-signature-256")
-            .context("signature not present")?
-            .to_str()?;
-        let (algo, sig_hex) = signature
-            .split_once('=')
-            .context("header does not contain =")?;
-        if algo != "sha256" {
-            return Err(anyhow!("unknown algorithm"));
-        }
-        let sig = hex::decode(sig_hex).context("decode signature hex")?;
+        let sig = hex::decode(signature_hex).context("decode signature hex")?;
         let key = ring::hmac::Key::new(
             ring::hmac::HMAC_SHA256,
             repo_host
                 .webhook_secret
                 .as_ref()
-                .context("no webhook secret")?
+                .context("no webhook secret configured")?
                 .expose_secret()
                 .as_bytes(),
         );

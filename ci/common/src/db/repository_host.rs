@@ -26,8 +26,8 @@ pub struct RepositoryHost {
 #[derive(Debug, Clone, Copy, strum::IntoStaticStr, strum::EnumString, PartialEq, Eq)]
 pub enum RepoHostKind {
     Github,
-    Gitlab,
     Forgejo,
+    // Gitlab,
 }
 
 impl super::Resource for RepositoryHost {

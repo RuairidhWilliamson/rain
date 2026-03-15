@@ -108,7 +108,7 @@ impl Repository {
 
     pub fn external_repo_url(&self, host: &RepositoryHost) -> String {
         match host.kind {
-            RepoHostKind::Github | RepoHostKind::Gitlab | RepoHostKind::Forgejo => format!(
+            RepoHostKind::Github | RepoHostKind::Forgejo => format!(
                 "{url}/{owner}/{name}",
                 url = host.url,
                 owner = self.owner,
@@ -205,7 +205,7 @@ impl ResolvedRepository {
 
     pub fn external_repo_url(&self) -> String {
         match self.host.resource.kind {
-            RepoHostKind::Github | RepoHostKind::Gitlab | RepoHostKind::Forgejo => format!(
+            RepoHostKind::Github | RepoHostKind::Forgejo => format!(
                 "{url}/{owner}/{name}",
                 url = self.host.resource.url,
                 owner = self.owner,
