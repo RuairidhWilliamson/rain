@@ -6,11 +6,16 @@ use http::Request;
 use http_body_util::BodyExt as _;
 use hyper::body::Incoming;
 use log::info;
-use rain_ci_common::db::{
-    WithId,
-    repository::Repository,
-    repository_host::{RepositoryHost, RepositoryHostId},
-    run::{FinishedRun, Run, RunStatus},
+use rain_ci_common::{
+    db::{
+        WithId,
+        repository::Repository,
+        repository_host::{RepositoryHost, RepositoryHostId},
+        run::{FinishedRun, Run, RunStatus},
+    },
+    github::{
+        Client as _, InstallationClient as _, implementation::AppClient, model::CheckRunConclusion,
+    },
 };
 use rain_lang::{
     afs::{
@@ -21,33 +26,15 @@ use rain_lang::{
     },
     driver::{CreateAreaOptions, DriverTrait as _, FSTrait as _},
 };
-use serde::Deserialize;
 use tokio::task::JoinHandle;
 
 use crate::{RunRequest, runner::RunComplete, server::Server};
-
-#[derive(Debug, Deserialize)]
-pub struct ForgejoPushEvent {
-    pub after: String,
-    pub repository: ForgejoRepository,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ForgejoRepository {
-    pub owner: ForgejoOwner,
-    pub name: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ForgejoOwner {
-    pub login: String,
-}
 
 pub async fn handle_webhook(
     server: &Server,
     repo_host_id: RepositoryHostId,
     request: Request<Incoming>,
-    repository_host: RepositoryHost,
+    repository_host: &RepositoryHost,
 ) -> Result<()> {
     let headers = request.headers();
     let content_type = headers
@@ -56,35 +43,54 @@ pub async fn handle_webhook(
     if content_type.as_bytes() != b"application/json" {
         return Err(anyhow!("unexpected content type"));
     }
+    let user_agent = headers.get("User-Agent").context("missing user agent")?;
+    if !user_agent.as_bytes().starts_with(b"GitHub-Hookshot/") {
+        return Err(anyhow!("unexpected user agent"));
+    }
     let (parts, body) = request.into_parts();
     let body = body.collect().await?.to_bytes();
-    crate::server::verify_webhook_signature(
-        parts
-            .headers
-            .get("x-forgejo-signature")
-            .context("signature not present")?
-            .to_str()?,
-        &body[..],
-        &repository_host,
-    )?;
+    let signature = parts
+        .headers
+        .get("x-hub-signature-256")
+        .context("signature not present")?
+        .to_str()?;
+    let (algo, sig_hex) = signature
+        .split_once('=')
+        .context("header does not contain =")?;
+    if algo != "sha256" {
+        return Err(anyhow!("unknown algorithm"));
+    }
+    crate::server::verify_webhook_signature(sig_hex, &body[..], repository_host)?;
 
     let event_kind = parts
         .headers
-        .get("x-forgejo-event")
-        .context("missing forgejo event kind")?
+        .get("x-github-event")
+        .context("missing github event kind")?
         .to_str()?;
 
-    if event_kind != "push" {
+    if event_kind != "check_suite" {
         return Err(anyhow!("unexpected event kind: {event_kind:?}"));
     }
 
-    let push_event: crate::forgejo::ForgejoPushEvent = serde_json::from_slice(&body[..])?;
+    let check_suite_event: rain_ci_common::github::model::CheckSuiteEvent =
+        serde_json::from_slice(&body[..])?;
 
-    info!("received {push_event:?}");
+    if !matches!(
+        check_suite_event.check_suite.status,
+        Some(rain_ci_common::github::model::Status::Queued)
+    ) {
+        info!(
+            "skipping check suite event {:?}",
+            check_suite_event.check_suite.status
+        );
+        return Ok(());
+    }
 
-    let owner = push_event.repository.owner.login;
-    let repo = push_event.repository.name;
-    let sha = push_event.after;
+    info!("received {check_suite_event:?}");
+
+    let owner = check_suite_event.repository.owner.login;
+    let repo = check_suite_event.repository.name;
+    let sha = check_suite_event.check_suite.head_sha;
 
     let start = chrono::Utc::now();
     let repo_id = Repository {
@@ -117,46 +123,56 @@ pub async fn handle_run_request(
     owner: String,
     repo: String,
     sha: String,
-    forgejo: forgejo_api::Forgejo,
+    github_client: AppClient,
 ) -> Result<()> {
-    let context = format!("rain-run-{}", run.id);
     let target_url = server.target_url(run.id)?;
-    forgejo
-        .repo_create_status(
+    let installations = github_client.app_installations().await?;
+    // FIXME: Getting the first installation is a bad assumption
+    let installation = installations.first().context("no installations")?;
+    let installation_client = Arc::new(github_client.auth_installation(installation.id).await?);
+
+    let check_run = installation_client
+        .create_check_run(
             &owner,
             &repo,
-            &sha,
-            forgejo_api::structs::CreateStatusOption {
-                context: Some(context.clone()),
-                description: Some("rain run queued".into()),
-                state: Some(forgejo_api::structs::CommitStatusState::Pending),
-                target_url: Some(target_url.clone()),
+            rain_ci_common::github::model::CreateCheckRun {
+                name: String::from("rainci"),
+                head_sha: sha.clone(),
+                status: rain_ci_common::github::model::Status::Queued,
+                details_url: Some(target_url.to_string()),
+                output: None,
             },
         )
-        .await?;
+        .await
+        .context("create check run")?;
 
     Run::dequeued(&server.db, run.id, env!("CARGO_PKG_VERSION"))
         .await
         .context("storage dequeue run")?;
 
-    forgejo
-        .repo_create_status(
+    installation_client
+        .update_check_run(
             &owner,
             &repo,
-            &sha,
-            forgejo_api::structs::CreateStatusOption {
-                context: Some(context.clone()),
-                description: Some("rain run in progress".into()),
-                state: Some(forgejo_api::structs::CommitStatusState::Pending),
-                target_url: Some(target_url.clone()),
+            check_run.id,
+            rain_ci_common::github::model::PatchCheckRun {
+                status: Some(rain_ci_common::github::model::Status::InProgress),
+                ..Default::default()
             },
         )
-        .await?;
+        .await
+        .context("update check run")?;
 
     log::info!("Preparing run");
-
-    let result_handle =
-        download_and_run(&server, &forgejo, &owner, &repo, &sha, run.resource.target).await;
+    let result_handle = download_and_run(
+        &server,
+        &installation_client,
+        &owner,
+        &repo,
+        sha,
+        run.resource.target,
+    )
+    .await;
 
     let (status, conclusion, output) = resolve_error(result_handle).await;
 
@@ -174,37 +190,46 @@ pub async fn handle_run_request(
     )
     .await
     .context("storage finished run")?;
-    forgejo
-        .repo_create_status(
+    installation_client
+        .update_check_run(
             &owner,
             &repo,
-            &sha,
-            forgejo_api::structs::CreateStatusOption {
-                context: Some(context.clone()),
-                description: Some("rain run complete".into()),
-                state: Some(conclusion),
-                target_url: Some(target_url.clone()),
+            check_run.id,
+            rain_ci_common::github::model::PatchCheckRun {
+                status: Some(rain_ci_common::github::model::Status::Completed),
+                conclusion: Some(conclusion),
+                output: Some(rain_ci_common::github::model::CheckRunOutput {
+                    title: String::from("rain run"),
+                    summary: String::from("rain run complete"),
+                    text: output.replace(' ', "&nbsp;"),
+                }),
+                ..Default::default()
             },
         )
-        .await?;
+        .await
+        .context("update check run")?;
+
     server.runner.prune();
+
     Ok(())
 }
 
 async fn download_and_run(
     server: &Arc<Server>,
-    forgejo: &forgejo_api::Forgejo,
+    installation_client: &Arc<impl rain_ci_common::github::InstallationClient>,
     owner: &str,
     repo: &str,
-    sha: &str,
+    sha: String,
     target: String,
 ) -> Result<JoinHandle<Result<RunComplete, anyhow::Error>>, anyhow::Error> {
     let server = Arc::clone(server);
-    let download = forgejo
-        .repo_get_archive(owner, repo, &format!("{sha}.zip"))
-        .await?;
+    let installation_client = Arc::clone(installation_client);
+    let download = installation_client
+        .download_repo_tar(owner, repo, &sha)
+        .await
+        .context("download repo")?;
     #[expect(clippy::unwrap_used)]
-    let (root, _lfs_entries) = tokio::task::spawn_blocking(move || {
+    let (root, lfs_entries) = tokio::task::spawn_blocking(move || {
         let config = rain_core::config::Config::new();
         let driver = rain_core::driver::DriverImpl::new(config);
         let download_area = driver
@@ -214,7 +239,10 @@ async fn download_and_run(
             GeneratedFSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
         std::fs::write(driver.resolve_fs_entry((&download_entry).into()), download).unwrap();
         let download = GeneratedFile::new_checked(&driver, download_entry).unwrap();
-        let area = driver.extract_zip(&File::Generated(download)).unwrap();
+        let raw_tar = driver
+            .extract_gzip(&File::Generated(download), "extract_temp.tar")
+            .unwrap();
+        let area = driver.extract_tar(&File::Generated(raw_tar)).unwrap();
         let mut ls = std::fs::read_dir(
             driver.resolve_fs_entry(GeneratedDir::root(area.clone()).fsinner().into()),
         )
@@ -237,7 +265,10 @@ async fn download_and_run(
         (root, lfs_entries)
     })
     .await?;
-    // TODO: Smudge lfs
+    installation_client
+        .smudge_git_lfs(owner, repo, lfs_entries)
+        .await
+        .context("smudge git lfs")?;
     log::info!("Prepare run complete");
     #[expect(clippy::unwrap_used)]
     Ok(tokio::task::spawn_blocking(move || {
@@ -259,7 +290,7 @@ async fn download_and_run(
 
 async fn resolve_error(
     result_handle: Result<JoinHandle<Result<RunComplete>>>,
-) -> (RunStatus, forgejo_api::structs::CommitStatusState, String) {
+) -> (RunStatus, CheckRunConclusion, String) {
     match result_handle {
         Ok(handle) => {
             let result: Result<Result<RunComplete>, _> = handle.await;
@@ -267,24 +298,16 @@ async fn resolve_error(
                 Ok(Ok(RunComplete {
                     success: true,
                     output,
-                })) => (
-                    RunStatus::Success,
-                    forgejo_api::structs::CommitStatusState::Success,
-                    output,
-                ),
+                })) => (RunStatus::Success, CheckRunConclusion::Success, output),
                 Ok(Ok(RunComplete {
                     success: false,
                     output,
-                })) => (
-                    RunStatus::Failure,
-                    forgejo_api::structs::CommitStatusState::Error,
-                    output,
-                ),
+                })) => (RunStatus::Failure, CheckRunConclusion::Failure, output),
                 Ok(Err(err)) => {
                     log::error!("runner error: {err:?}");
                     (
                         RunStatus::Failure,
-                        forgejo_api::structs::CommitStatusState::Failure,
+                        CheckRunConclusion::Failure,
                         String::default(),
                     )
                 }
@@ -292,7 +315,7 @@ async fn resolve_error(
                     log::error!("runner panicked: {err:?}");
                     (
                         RunStatus::Failure,
-                        forgejo_api::structs::CommitStatusState::Failure,
+                        CheckRunConclusion::Failure,
                         String::default(),
                     )
                 }
@@ -302,7 +325,7 @@ async fn resolve_error(
             log::error!("runner download error: {err:?}");
             (
                 RunStatus::Failure,
-                forgejo_api::structs::CommitStatusState::Failure,
+                CheckRunConclusion::Failure,
                 String::default(),
             )
         }

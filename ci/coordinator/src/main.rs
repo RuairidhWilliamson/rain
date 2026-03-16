@@ -1,4 +1,5 @@
 mod forgejo;
+mod github;
 mod runner;
 mod server;
 
