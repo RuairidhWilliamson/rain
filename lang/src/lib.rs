@@ -1,5 +1,6 @@
 pub mod afs;
 pub mod ast;
+pub mod checker;
 pub mod driver;
 pub mod error;
 pub mod hash;

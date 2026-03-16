@@ -1,0 +1,9 @@
+---
+source: core/tests/errors.rs
+expression: "run_error(concat!\n(\"tests/errors/\", stringify! (conflicting_destructure_declarations), \".rain\"))"
+---
+<hidden>:3:11
+| let main = fn() {}
+| 
+| let {foo, foo} = {}
+            ^^^ makeshift: multiple declarations with the same name foo

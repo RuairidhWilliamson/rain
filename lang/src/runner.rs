@@ -17,7 +17,6 @@ use error::{ErrorTrace, RunnerError, Throwing};
 use indexmap::IndexMap;
 use internal::InternalFunction;
 use regex::Regex;
-use value::{RainInteger, RainList, RainRecord, RainTypeId, Value};
 
 use crate::{
     afs::{
@@ -36,7 +35,7 @@ use crate::{
         cache::{CacheKey, CacheTrait},
         cx::{Cx, StacktraceEntry},
         dep_list::DepList,
-        value::Closure,
+        value::{Closure, RainInteger, RainList, RainRecord, RainTypeId, Value},
     },
 };
 

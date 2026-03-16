@@ -47,6 +47,10 @@ pub fn run(
     let mid = ir
         .insert_module(Some(File::Local(file)), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&ir).into_owned())))?;
+    let mut checker = rain_lang::checker::Checker::new(&mut ir);
+    checker
+        .check_module(mid)
+        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&ir).into_owned())))?;
     let mut runner = rain_lang::runner::Runner::new(&mut ir, cache, driver);
     let mut deps = DepList::new();
     evaluate_and_call_chain(&mut runner, mid, &mut deps, target, &[])

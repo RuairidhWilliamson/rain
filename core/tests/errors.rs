@@ -16,20 +16,6 @@ fn run_error(path: &str) -> CoreError {
     err
 }
 
-/*
-#[test]
-fn conflicting_declarations() {
-    let res = run("tests/errors/conflicting_declarations.rain");
-    let _ = res;
-    // TODO: Need to add a "type check" phase to make this work
-    // match res {
-    //     Ok(_) => panic!("should have errored but did not"),
-    //     Err(CoreError::Other(s)) => panic!("wrong kind of error: {s}"),
-    //     Err(CoreError::LangError(_lang_err)) => (),
-    // }
-}
-*/
-
 macro_rules! tests {
     ($($name:ident,)*) => {
         $(
@@ -50,4 +36,6 @@ tests! {
     throw,
     destructures,
     conflicting_overlay_files,
+    conflicting_declarations,
+    conflicting_destructure_declarations,
 }
