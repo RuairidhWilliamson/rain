@@ -400,6 +400,10 @@ fn parse_builtin(walker: &mut Walker<'_, '_>) -> NodeId {
             let this_file = SimpleLiteralKind::ThisFile.with(walker.span_expect("this_file"));
             walker.nodes.push(this_file)
         }
+        "_" => {
+            let underscore = SimpleLiteralKind::Underscore.with(walker.span_expect("_"));
+            walker.nodes.push(underscore)
+        }
         kind => unreachable!("builtin: {kind}"),
     }
 }

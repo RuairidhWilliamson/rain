@@ -799,6 +799,7 @@ impl AstNode for SimpleLiteral {
             SimpleLiteralKind::Import => "ImportLiteral",
             SimpleLiteralKind::Stdlib => "StdlibLiteral",
             SimpleLiteralKind::ThisFile => "ThisFileLiteral",
+            SimpleLiteralKind::Underscore => "UnderscoreLiteral",
         })
         .finish()
     }
@@ -812,6 +813,7 @@ pub enum SimpleLiteralKind {
     Import,
     Stdlib,
     ThisFile,
+    Underscore,
 }
 
 impl SimpleLiteralKind {

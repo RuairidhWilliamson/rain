@@ -164,7 +164,7 @@ export default grammar({
     raw_string_literal: () => /r"[^"]*"/,
     number_literal: () => /\d+/,
     bool_literal: () => choice("true", "false"),
-    builtin: () => choice("internal", "import", "stdlib", "this_file"),
+    builtin: () => choice("internal", "import", "stdlib", "this_file", "_"),
 
     identifier: () => /[a-zA-Z_\P{ASCII}][a-zA-Z0-9_\P{ASCII}]*/u,
     line_comment: () => /\/\/.*/,

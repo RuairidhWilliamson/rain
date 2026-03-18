@@ -295,6 +295,12 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 span,
                 kind: SimpleLiteralKind::ThisFile,
             }) => self.this_file_sugar(cx, nid, *span),
+            Node::SimpleLiteral(SimpleLiteral {
+                span,
+                kind: SimpleLiteralKind::Underscore,
+            }) => cx.previous_line.clone().ok_or_else(|| {
+                cx.err(span, RunnerError::Makeshift("no previous statement".into()))
+            }),
             Node::StringLiteral(lit) => {
                 let contents = lit.contents.contents(&cx.module.src);
                 Ok(Value::String(Arc::new(EscapeReplacer::replace_all(
@@ -426,9 +432,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     }
 
     fn resolve_ident(&mut self, cx: &mut Cx, ident: &str) -> Result<Option<Value>> {
-        if ident == "_" {
-            return Ok(cx.previous_line.clone());
-        }
         if let Some(v) = cx.locals.get(ident) {
             return Ok(Some(v.clone()));
         }
@@ -446,26 +449,16 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
 
     fn evaluate_fn_call(&mut self, cx: &mut Cx, nid: NodeId, fn_call: &FnCall) -> ResultValue {
         let v = self.evaluate_node(cx, fn_call.callee)?;
-        self.evaluate_fn_call_inner(cx, nid, &v, fn_call)
-    }
-
-    fn evaluate_fn_call_inner(
-        &mut self,
-        cx: &mut Cx,
-        nid: NodeId,
-        v: &Value,
-        fn_call: &FnCall,
-    ) -> ResultValue {
         let arg_values: Vec<(NodeId, Value)> = fn_call
             .args
             .iter()
             .map(|a| Ok((*a, self.evaluate_node(cx, *a)?)))
             .collect::<Result<_, _>>()?;
         let call_span = fn_call.lparen_token + fn_call.rparen_token;
-        self.call_function(cx, nid, v, call_span, arg_values)
+        self.call_function_like(cx, nid, &v, call_span, arg_values)
     }
 
-    fn call_function(
+    fn call_function_like(
         &mut self,
         cx: &mut Cx,
         nid: NodeId,
@@ -570,7 +563,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 Ok(())
             }
             Value::Closure(_) => {
-                let result = self.call_function(
+                let result = self.call_function_like(
                     cx,
                     type_spec_nid,
                     &type_spec_value,
@@ -783,14 +776,14 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     }
 
     fn import_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> ResultValue {
-        let embed_value = self.call_function(
+        let embed_value = self.call_function_like(
             cx,
             nid,
             &Value::InternalFunction(InternalFunction::Embed),
             call_span,
             Vec::new(),
         )?;
-        let module_file = self.call_function(
+        let module_file = self.call_function_like(
             cx,
             nid,
             &Value::InternalFunction(InternalFunction::ModuleFile),
@@ -813,7 +806,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             return Err(cx.err(call_span, RunnerError::UnknownIdent));
         };
         let import_closure_generator = self.evaluate_declaration(cx, did)?;
-        self.call_function(
+        self.call_function_like(
             cx,
             nid,
             &import_closure_generator,
@@ -823,7 +816,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     }
 
     fn stdlib_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> ResultValue {
-        let embed_value = self.call_function(
+        let embed_value = self.call_function_like(
             cx,
             nid,
             &Value::InternalFunction(InternalFunction::Embed),
@@ -849,7 +842,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     }
 
     fn this_file_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> ResultValue {
-        self.call_function(
+        self.call_function_like(
             cx,
             nid,
             &Value::InternalFunction(InternalFunction::ModuleFile),

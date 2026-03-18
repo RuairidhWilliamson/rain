@@ -1,0 +1,9 @@
+---
+source: core/tests/errors.rs
+expression: "run_error(concat! (\"tests/errors/\", stringify! (underscore_start), \".rain\"))"
+---
+<hidden>:1:12
+<hidden>:2:2
+| let main = fn() {
+| 	_ + 1
+  	^ unrecoverable error: makeshift: no previous statement

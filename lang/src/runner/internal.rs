@@ -837,7 +837,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let list = expect_type!(self, List, list);
         let mut acc = initial_value.clone();
         for item in list.0.clone() {
-            acc = self.runner.call_function(
+            acc = self.runner.call_function_like(
                 self.caller_cx,
                 self.nid,
                 func_value,

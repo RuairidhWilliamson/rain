@@ -624,6 +624,10 @@
     "named": false
   },
   {
+    "type": "_",
+    "named": false
+  },
+  {
     "type": "else",
     "named": false
   },

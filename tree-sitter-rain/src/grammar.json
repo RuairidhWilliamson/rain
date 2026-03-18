@@ -1250,6 +1250,10 @@
         {
           "type": "STRING",
           "value": "this_file"
+        },
+        {
+          "type": "STRING",
+          "value": "_"
         }
       ]
     },

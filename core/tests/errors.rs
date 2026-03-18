@@ -38,4 +38,5 @@ tests! {
     conflicting_overlay_files,
     conflicting_declarations,
     conflicting_destructure_declarations,
+    underscore_start,
 }
