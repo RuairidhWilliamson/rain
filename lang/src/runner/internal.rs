@@ -404,6 +404,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .ir
             .insert_module(Some(f), src, module)
             .map_err(|err| err.convert().with_trace(self.caller_cx.stacktrace.clone()))?;
+        self.runner.check_module(self.caller_cx, id)?;
         let v = Value::Module(id);
         self.runner.cache.put(
             cache_key,

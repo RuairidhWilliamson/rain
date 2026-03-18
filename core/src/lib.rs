@@ -47,10 +47,6 @@ pub fn run(
     let mid = ir
         .insert_module(Some(File::Local(file)), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&ir).into_owned())))?;
-    let mut checker = rain_lang::checker::Checker::new(&mut ir);
-    checker
-        .check_module(mid)
-        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&ir).into_owned())))?;
     let mut runner = rain_lang::runner::Runner::new(&mut ir, cache, driver);
     let mut deps = DepList::new();
     evaluate_and_call_chain(&mut runner, mid, &mut deps, target, &[])
@@ -89,6 +85,9 @@ pub fn evaluate_and_call_chain(
 ) -> Result<Value, CoreError> {
     let initial_module = Arc::clone(runner.ir.get_module(mid));
     let mut cx = Cx::new(&initial_module, 0, HashMap::new(), Vec::new());
+    runner
+        .check_module(&mut cx, initial_module.id)
+        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;
     let mut v = None;
     let mut mid_nid = None;
     let target_chain: Vec<_> = targets.split('.').collect();
@@ -157,7 +156,7 @@ pub fn evaluate_and_call_chain(
             result
         }
         Some(v) => Ok(v),
-        None => todo!(),
+        None => Ok(Value::Unit),
     }
 }
 

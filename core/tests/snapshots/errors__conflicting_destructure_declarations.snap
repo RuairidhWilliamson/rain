@@ -6,4 +6,4 @@ expression: "run_error(concat!\n(\"tests/errors/\", stringify! (conflicting_dest
 | let main = fn() {}
 | 
 | let {foo, foo} = {}
-            ^^^ makeshift: multiple declarations with the same name foo
+            ^^^ unrecoverable error: conflicting declarations with the same name: foo

@@ -130,4 +130,6 @@ pub enum RunnerError {
     InvalidDot,
     #[error("conflicting file names: {0}")]
     ConflictingFileNames(PathBuf),
+    #[error("conflicting declarations with the same name: {0}")]
+    ConflictingDeclarations(String),
 }

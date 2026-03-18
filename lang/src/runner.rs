@@ -7,7 +7,7 @@ pub mod internal;
 pub mod value;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, LazyLock},
     time::Instant,
 };
@@ -29,7 +29,7 @@ use crate::{
     },
     driver::{DriverTrait, FSTrait, monitoring::Call},
     hash::FileHash,
-    ir::{DeclarationId, Rir},
+    ir::{DeclarationId, ModuleId, Rir},
     local_span::LocalSpan,
     runner::{
         cache::{CacheKey, CacheTrait},
@@ -75,9 +75,9 @@ impl LocalFileHashCache {
 }
 
 impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
-    pub fn new(rir: &'a mut Rir, cache: &'a Cache, driver: &'a Driver) -> Self {
+    pub fn new(ir: &'a mut Rir, cache: &'a Cache, driver: &'a Driver) -> Self {
         Self {
-            ir: rir,
+            ir,
             cache,
             driver,
             offline: false,
@@ -85,6 +85,23 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             max_call_depth: 250,
             local_file_hash_cache: LocalFileHashCache::default(),
         }
+    }
+
+    pub fn check_module(&mut self, cx: &mut Cx, mid: ModuleId) -> Result<()> {
+        let module = self.ir.get_module(mid);
+        let mut declaration_names = HashSet::new();
+        for d in module.declarations() {
+            for name_span in d.assignment.name_spans() {
+                let name = name_span.contents(&module.src);
+                if !declaration_names.insert(name) {
+                    return Err(cx.err(
+                        name_span,
+                        RunnerError::ConflictingDeclarations(name.to_owned()),
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn call_closure(
