@@ -4,9 +4,10 @@ use crate::{
     ast::{
         AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure,
         ClosureReturnTypeSpec, Declare, DeclareName, DeclareNameListElement, DeclareNameSingle,
-        DeclareNamedDestructure, DeclareSequenceDestructure, FnCall, FnDeclareArg, Ident,
-        IfCondition, IntegerLiteral, List, ListElement, Module, ModuleRoot, NodeId, NodeList, Not,
-        Record, RecordField, SimpleLiteralKind, StringLiteral, TypeSpec,
+        DeclareNamedDestructure, DeclareSequenceDestructure, FnCall, FnDeclareArg,
+        FormatStringLiteral, Ident, IfCondition, IntegerLiteral, List, ListElement, Module,
+        ModuleRoot, NodeId, NodeList, Not, RawStringLiteral, Record, RecordField,
+        SimpleLiteralKind, StringLiteral, TypeSpec,
     },
     local_span::LocalSpan,
 };
@@ -302,30 +303,31 @@ fn parse_expr(mut walker: Walker) -> Result<NodeId, Error> {
         "fn_call" => parse_fn_call(&mut walker),
         "identifier" => Ok(walker.nodes.push(Ident(walker.span_expect("identifier")))),
         "string_literal" => {
-            let mut span = walker.span();
+            let mut span = walker.span_expect("string_literal");
             span.start += 1;
             span.end -= 1;
-            Ok(walker.nodes.push(StringLiteral {
-                prefix: None,
-                contents: span,
-            }))
+            Ok(walker.nodes.push(StringLiteral { contents: span }))
         }
         "raw_string_literal" => {
-            let mut span = walker.span();
+            let mut span = walker.span_expect("raw_string_literal");
             span.start += 2;
             span.end -= 1;
-            Ok(walker.nodes.push(StringLiteral {
-                prefix: Some(crate::tokens::StringLiteralPrefix::Raw),
-                contents: span,
-            }))
+            Ok(walker.nodes.push(RawStringLiteral { contents: span }))
         }
         "format_string_literal" => {
-            let mut span = walker.span();
+            let mut span = walker.span_expect("format_string_literal");
             span.start += 2;
             span.end -= 1;
-            Ok(walker.nodes.push(StringLiteral {
-                prefix: Some(crate::tokens::StringLiteralPrefix::Format),
+            let mut walker = walker.child()?;
+            let mut nodes = Vec::new();
+            while walker.maybe_next() {
+                if walker.kind() == "expr" {
+                    nodes.push(parse_expr(walker.child()?)?);
+                }
+            }
+            Ok(walker.nodes.push(FormatStringLiteral {
                 contents: span,
+                nodes,
             }))
         }
         "fn_declare_expr" => parse_closure_declare(walker.child()?),

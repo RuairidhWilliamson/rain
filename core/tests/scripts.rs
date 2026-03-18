@@ -48,4 +48,5 @@ tests! {
     record_type_check,
     generated_vs_local,
     trailing_commas,
+    format_string,
 }

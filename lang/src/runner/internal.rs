@@ -640,72 +640,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )))
     }
 
-    fn stringify_impl(&self, nid: NodeId, v: &Value) -> Result<String> {
-        match v {
-            Value::String(s) => Ok(s.as_ref().clone()),
-            Value::GeneratedFile(f) => Ok(self
-                .runner
-                .driver
-                .resolve_fs_entry(f.fsinner().into())
-                .display()
-                .to_string()),
-            Value::LocalFile(f) => Ok(self
-                .runner
-                .driver
-                .resolve_fs_entry(f.fsinner().into())
-                .display()
-                .to_string()),
-            Value::GeneratedFSArea(area) => Ok(self
-                .runner
-                .driver
-                .resolve_fs_entry(Dir::root(area.as_ref().into()).fsinner())
-                .display()
-                .to_string()),
-            Value::LocalFSArea(area) => Ok(self
-                .runner
-                .driver
-                .resolve_fs_entry(Dir::root(area.as_ref().into()).fsinner())
-                .display()
-                .to_string()),
-            Value::GeneratedDir(d) => Ok(self
-                .runner
-                .driver
-                .resolve_fs_entry(d.fsinner().into())
-                .display()
-                .to_string()),
-            Value::LocalDir(d) => Ok(self
-                .runner
-                .driver
-                .resolve_fs_entry(d.fsinner().into())
-                .display()
-                .to_string()),
-            Value::EscapeFile(f) => Ok(format!("{}", f.0.display())),
-            Value::Integer(i) => Ok(i.to_string()),
-            Value::Boolean(b) => Ok(b.to_string()),
-            _ => Err(self.caller_cx.nid_err(
-                nid,
-                RunnerError::ExpectedType {
-                    actual: v.rain_type_id(),
-                    expected: Cow::Borrowed(&[
-                        RainTypeId::String,
-                        RainTypeId::GeneratedFile,
-                        RainTypeId::GeneratedDir,
-                        RainTypeId::GeneratedFSArea,
-                        RainTypeId::LocalFSArea,
-                        RainTypeId::LocalFile,
-                        RainTypeId::LocalDir,
-                        RainTypeId::EscapeFile,
-                        RainTypeId::Integer,
-                        RainTypeId::Boolean,
-                    ]),
-                },
-            )),
-        }
-    }
-
     fn stringify(self) -> ResultValue {
         let (nid, value) = single_arg!(self);
-        Ok(Value::String(Arc::new(self.stringify_impl(nid, value)?)))
+        Ok(Value::String(Arc::new(self.runner.stringify_value(
+            self.caller_cx,
+            nid,
+            value,
+        )?)))
     }
 
     fn embed(self) -> ResultValue {

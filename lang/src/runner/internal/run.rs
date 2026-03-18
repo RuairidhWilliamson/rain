@@ -6,7 +6,6 @@ use indexmap::IndexMap;
 
 use crate::{
     afs::area::FileAreaRef,
-    ast::NodeId,
     driver::{DriverTrait, RunOptions, monitoring::Call},
     runner::{cache::CacheTrait, dep::Dep, internal::InternalCx},
 };
@@ -56,7 +55,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let args = args
                     .0
                     .iter()
-                    .map(|value| self.stringify_arg(*args_nid, value))
+                    .map(|value| {
+                        self.runner
+                            .stringify_value(self.caller_cx, *args_nid, value)
+                    })
                     .collect::<Result<Vec<String>>>()?;
                 let Value::Record(env) = env_value else {
                     return Err(self.caller_cx.nid_err(
@@ -70,7 +72,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let env = env
                     .0
                     .iter()
-                    .map(|(key, value)| self.stringify_env(*env_nid, key, value))
+                    .map(|(key, value)| {
+                        Ok((
+                            key.to_owned(),
+                            self.runner
+                                .stringify_value(self.caller_cx, *env_nid, value)?,
+                        ))
+                    })
                     .collect::<Result<HashMap<String, String>>>()?;
 
                 let display_args = args.join(" ");
@@ -131,7 +139,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let args = args
                     .0
                     .iter()
-                    .map(|value| self.stringify_arg(*args_nid, value))
+                    .map(|value| {
+                        self.runner
+                            .stringify_value(self.caller_cx, *args_nid, value)
+                    })
                     .collect::<Result<Vec<String>>>()?;
                 let Value::Record(env) = env_value else {
                     return Err(self.caller_cx.nid_err(
@@ -145,7 +156,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 let env = env
                     .0
                     .iter()
-                    .map(|(key, value)| self.stringify_env(*env_nid, key, value))
+                    .map(|(key, value)| {
+                        Ok((
+                            key.to_owned(),
+                            self.runner
+                                .stringify_value(self.caller_cx, *env_nid, value)?,
+                        ))
+                    })
                     .collect::<Result<HashMap<String, String>>>()?;
                 let display_args = args.join(" ");
                 let _call = self.runner.driver.call_guard(Call::Custom(format!(
@@ -177,18 +194,5 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             }
             _ => self.incorrect_args(4..=4),
         }
-    }
-
-    fn stringify_env(
-        &self,
-        env_nid: NodeId,
-        key: &String,
-        value: &Value,
-    ) -> Result<(String, String)> {
-        Ok((key.to_owned(), self.stringify_impl(env_nid, value)?))
-    }
-
-    fn stringify_arg(&self, nid: NodeId, value: &Value) -> Result<String> {
-        self.stringify_impl(nid, value)
     }
 }

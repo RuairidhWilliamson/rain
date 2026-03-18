@@ -149,11 +149,15 @@ export default grammar({
         ),
         '"',
       ),
-    format_string_literal: () =>
+    format_string_literal: ($) =>
       seq(
         'f"',
         repeat(
-          choice(/[^"\n\\]/u, seq("\\", choice("\\", '"', "n", "r", "t", "0"))),
+          choice(
+            /[^"\n\\]/u,
+            seq("\\", choice("\\", '"', "n", "r", "t", "0")),
+            seq("$", "{", $.expr, "}"),
+          ),
         ),
         '"',
       ),

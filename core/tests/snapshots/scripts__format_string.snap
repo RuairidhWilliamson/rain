@@ -1,0 +1,7 @@
+---
+source: core/tests/scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (format_string), \".rain\")).unwrap()"
+---
+String(
+    "a = 6, b = true, c = hi ${a}",
+)

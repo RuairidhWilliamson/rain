@@ -7,6 +7,7 @@ pub mod internal;
 pub mod value;
 
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     sync::{Arc, LazyLock},
     time::Instant,
@@ -20,12 +21,13 @@ use regex::Regex;
 
 use crate::{
     afs::{
+        Dir,
         error::PathError,
         local::{entry::LocalFSEntry, file::LocalFile},
     },
     ast::{
         AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, DeclareName, FnCall,
-        IfCondition, Node, NodeId, Not, SimpleLiteral, SimpleLiteralKind,
+        FormatStringLiteral, IfCondition, Node, NodeId, Not, SimpleLiteral, SimpleLiteralKind,
     },
     driver::{DriverTrait, FSTrait, monitoring::Call},
     hash::FileHash,
@@ -293,23 +295,17 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 span,
                 kind: SimpleLiteralKind::ThisFile,
             }) => self.this_file_sugar(cx, nid, *span),
-            Node::StringLiteral(lit) => match lit.prefix {
-                Some(crate::tokens::StringLiteralPrefix::Format) => {
-                    log::info!("{lit:?}");
-                    let contents = lit.contents.contents(&cx.module.src);
-                    todo!("format strings not implemented: {contents}")
-                }
-                Some(crate::tokens::StringLiteralPrefix::Raw) => {
-                    let contents = lit.contents.contents(&cx.module.src);
-                    Ok(Value::String(Arc::new(contents.to_string())))
-                }
-                None => {
-                    let contents = lit.contents.contents(&cx.module.src);
-                    Ok(Value::String(Arc::new(EscapeReplacer::replace_all(
-                        contents,
-                    ))))
-                }
-            },
+            Node::StringLiteral(lit) => {
+                let contents = lit.contents.contents(&cx.module.src);
+                Ok(Value::String(Arc::new(EscapeReplacer::replace_all(
+                    contents,
+                ))))
+            }
+            Node::RawStringLiteral(lit) => {
+                let contents = lit.contents.contents(&cx.module.src);
+                Ok(Value::String(Arc::new(contents.to_string())))
+            }
+            Node::FormatStringLiteral(lit) => self.evaluate_format_string(cx, lit),
             Node::IntegerLiteral(tls) => Ok(Value::Integer(Arc::new(RainInteger(
                 tls.0
                     .contents(&cx.module.src)
@@ -347,6 +343,36 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 }
             }
         }
+    }
+
+    fn evaluate_format_string(
+        &mut self,
+        cx: &mut Cx<'_>,
+        lit: &FormatStringLiteral,
+    ) -> ResultValue {
+        let mut out = String::new();
+        let mut start = lit.contents.start;
+        for nid in &lit.nodes {
+            let span = cx.module.span(*nid);
+            out.push_str(&EscapeReplacer::replace_all(
+                LocalSpan {
+                    start,
+                    end: span.start - 2,
+                }
+                .contents(&cx.module.src),
+            ));
+            start = span.end + 1;
+            let v = self.evaluate_node(cx, *nid)?;
+            out.push_str(&self.stringify_value(cx, *nid, &v)?);
+        }
+        out.push_str(&EscapeReplacer::replace_all(
+            LocalSpan {
+                start,
+                end: lit.contents.end,
+            }
+            .contents(&cx.module.src),
+        ));
+        Ok(Value::String(Arc::new(out)))
     }
 
     fn evaluate_assignment(&mut self, cx: &mut Cx, assignment: &Assignment) -> ResultValue {
@@ -830,6 +856,63 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             call_span,
             Vec::new(),
         )
+    }
+
+    fn stringify_value(&self, cx: &mut Cx, nid: NodeId, v: &Value) -> Result<String> {
+        match v {
+            Value::String(s) => Ok(s.as_ref().clone()),
+            Value::GeneratedFile(f) => Ok(self
+                .driver
+                .resolve_fs_entry(f.fsinner().into())
+                .display()
+                .to_string()),
+            Value::LocalFile(f) => Ok(self
+                .driver
+                .resolve_fs_entry(f.fsinner().into())
+                .display()
+                .to_string()),
+            Value::GeneratedFSArea(area) => Ok(self
+                .driver
+                .resolve_fs_entry(Dir::root(area.as_ref().into()).fsinner())
+                .display()
+                .to_string()),
+            Value::LocalFSArea(area) => Ok(self
+                .driver
+                .resolve_fs_entry(Dir::root(area.as_ref().into()).fsinner())
+                .display()
+                .to_string()),
+            Value::GeneratedDir(d) => Ok(self
+                .driver
+                .resolve_fs_entry(d.fsinner().into())
+                .display()
+                .to_string()),
+            Value::LocalDir(d) => Ok(self
+                .driver
+                .resolve_fs_entry(d.fsinner().into())
+                .display()
+                .to_string()),
+            Value::EscapeFile(f) => Ok(format!("{}", f.0.display())),
+            Value::Integer(i) => Ok(i.to_string()),
+            Value::Boolean(b) => Ok(b.to_string()),
+            _ => Err(cx.nid_err(
+                nid,
+                RunnerError::ExpectedType {
+                    actual: v.rain_type_id(),
+                    expected: Cow::Borrowed(&[
+                        RainTypeId::String,
+                        RainTypeId::GeneratedFile,
+                        RainTypeId::GeneratedDir,
+                        RainTypeId::GeneratedFSArea,
+                        RainTypeId::LocalFSArea,
+                        RainTypeId::LocalFile,
+                        RainTypeId::LocalDir,
+                        RainTypeId::EscapeFile,
+                        RainTypeId::Integer,
+                        RainTypeId::Boolean,
+                    ]),
+                },
+            )),
+        }
     }
 }
 

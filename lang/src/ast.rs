@@ -8,10 +8,7 @@ pub mod ts_parser;
 
 use std::fmt::Debug;
 
-use crate::{
-    local_span::LocalSpan,
-    tokens::{StringLiteralPrefix, Token},
-};
+use crate::{local_span::LocalSpan, tokens::Token};
 
 trait AstNode {
     fn span(&self, list: &NodeList) -> LocalSpan;
@@ -134,6 +131,8 @@ pub enum Node {
     Not(Not),
     Ident(Ident),
     StringLiteral(StringLiteral),
+    RawStringLiteral(RawStringLiteral),
+    FormatStringLiteral(FormatStringLiteral),
     IntegerLiteral(IntegerLiteral),
     SimpleLiteral(SimpleLiteral),
     Record(Record),
@@ -151,6 +150,8 @@ impl Node {
             Self::Not(inner) => inner,
             Self::Ident(inner) => inner,
             Self::StringLiteral(inner) => inner,
+            Self::RawStringLiteral(inner) => inner,
+            Self::FormatStringLiteral(inner) => inner,
             Self::IntegerLiteral(inner) => inner,
             Self::SimpleLiteral(inner) => inner,
             Self::Record(inner) => inner,
@@ -495,8 +496,55 @@ impl AstNode for Block {
 }
 
 #[derive(Debug)]
+pub struct FormatStringLiteral {
+    pub contents: LocalSpan,
+    pub nodes: Vec<NodeId>,
+}
+
+impl From<FormatStringLiteral> for Node {
+    fn from(inner: FormatStringLiteral) -> Self {
+        Self::FormatStringLiteral(inner)
+    }
+}
+
+impl AstNode for FormatStringLiteral {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.contents
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("ForamtStringLiteral")
+            .child_contents(self.contents)
+            .children(self.nodes.iter())
+            .finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct RawStringLiteral {
+    pub contents: LocalSpan,
+}
+
+impl From<RawStringLiteral> for Node {
+    fn from(inner: RawStringLiteral) -> Self {
+        Self::RawStringLiteral(inner)
+    }
+}
+
+impl AstNode for RawStringLiteral {
+    fn span(&self, _list: &NodeList) -> LocalSpan {
+        self.contents
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("RawStringLiteral")
+            .child_contents(self.contents)
+            .finish()
+    }
+}
+
+#[derive(Debug)]
 pub struct StringLiteral {
-    pub prefix: Option<StringLiteralPrefix>,
     pub contents: LocalSpan,
 }
 

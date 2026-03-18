@@ -2,13 +2,13 @@ use crate::{
     ast::{
         AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, Block, Closure, Declare,
         DeclareName, DeclareNameListElement, DeclareNameSingle, DeclareNamedDestructure, FnCall,
-        FnDeclareArg, Ident, IfCondition, IntegerLiteral, List, ListElement, Module, ModuleRoot,
-        Node, NodeId, NodeList, Not, Record, RecordField, SimpleLiteralKind, StringLiteral,
-        TypeSpec,
+        FnDeclareArg, FormatStringLiteral, Ident, IfCondition, IntegerLiteral, List, ListElement,
+        Module, ModuleRoot, Node, NodeId, NodeList, Not, RawStringLiteral, Record, RecordField,
+        SimpleLiteralKind, StringLiteral, TypeSpec,
         error::{ParseError, ParseResult},
     },
     local_span::ErrorLocalSpan,
-    tokens::{Token, TokenLocalSpan, peek::PeekTokenStream},
+    tokens::{StringLiteralPrefix, Token, TokenLocalSpan, peek::PeekTokenStream},
 };
 
 pub fn parse_module_inner(source: &str) -> ParseResult<Module> {
@@ -326,7 +326,15 @@ impl<'src> ModuleParser<'src> {
                     contents.start += 1;
                 }
                 contents.end -= 1;
-                self.push(StringLiteral { prefix, contents })
+                match prefix {
+                    // TODO: Parse nodes
+                    Some(StringLiteralPrefix::Format) => self.push(FormatStringLiteral {
+                        contents,
+                        nodes: Vec::new(),
+                    }),
+                    Some(StringLiteralPrefix::Raw) => self.push(RawStringLiteral { contents }),
+                    None => self.push(StringLiteral { contents }),
+                }
             }
             Token::True => self.push(SimpleLiteralKind::True.with(t.span)),
             Token::False => self.push(SimpleLiteralKind::False.with(t.span)),
