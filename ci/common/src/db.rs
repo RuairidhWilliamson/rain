@@ -4,7 +4,7 @@ pub mod run;
 
 use std::path::PathBuf;
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Context as _, Result};
 use reqwest::Url;
 use secrecy::{ExposeSecret as _, SecretString};
 use sqlx::{ConnectOptions as _, postgres::PgConnectOptions};
@@ -23,7 +23,7 @@ async fn load_password(config: &DbConfig) -> Result<Option<SecretString>> {
                 .into(),
         ));
     }
-    Err(anyhow!("set DATABASE_PASSWORD_FILE"))
+    Ok(None)
 }
 
 #[derive(Clone)]

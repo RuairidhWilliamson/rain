@@ -29,7 +29,7 @@ async fn load_password(config: &Config) -> Result<Option<SecretString>> {
                 .into(),
         ));
     }
-    Err(anyhow!("set DATABASE_PASSWORD or DATABASE_PASSWORD_FILE"))
+    Ok(None)
 }
 
 #[tokio::main]
