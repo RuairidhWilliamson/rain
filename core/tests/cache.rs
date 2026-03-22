@@ -58,6 +58,7 @@ impl CacheTester {
             execution_time_thresold: Duration::ZERO,
             core: Arc::new(Mutex::new(cache_core)),
             stats: self.cache_stats.alias(),
+            verification: false,
         };
         let mid = ir
             .insert_module(Some(File::Local(file)), src, module)

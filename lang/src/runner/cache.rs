@@ -15,6 +15,8 @@ use crate::{
 };
 
 pub trait CacheTrait {
+    type CacheGuard: CacheGuardTrait;
+
     fn get(
         &self,
         key: &CacheKey,
@@ -23,6 +25,13 @@ pub trait CacheTrait {
     ) -> Option<CacheEntry>;
     fn put(&self, key: CacheKey, entry: CacheEntry);
     fn put_if_slow(&self, key: CacheKey, entry: CacheEntry);
+    fn guard(
+        &self,
+        key: Option<CacheKey>,
+        fs: &impl FSTrait,
+        lfhc: &mut LocalFileHashCache,
+    ) -> Self::CacheGuard;
+
     fn inspect_all(&self) -> Vec<String>;
     fn clean(&self);
 
@@ -34,6 +43,12 @@ pub trait CacheTrait {
     ) -> Option<Value> {
         self.get(key, fs, lfhc).map(|e| e.value)
     }
+}
+
+pub trait CacheGuardTrait {
+    fn check(&mut self) -> Option<(Value, DepList)>;
+    fn put(self, deps: DepList, value: Value);
+    fn put_if_slow(self, deps: DepList, value: Value);
 }
 
 fn display_vec<T: Display>(v: &Vec<T>) -> String {

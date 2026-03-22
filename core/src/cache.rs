@@ -8,7 +8,7 @@ use std::{
         Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use lru::LruCache;
@@ -18,7 +18,9 @@ use rain_lang::{
     driver::FSTrait,
     runner::{
         LocalFileHashCache,
-        cache::{CacheEntry, CacheKey, CacheTrait},
+        cache::{CacheEntry, CacheGuardTrait, CacheKey, CacheTrait},
+        dep_list::DepList,
+        value::Value,
     },
 };
 
@@ -30,6 +32,7 @@ pub struct Cache {
     pub execution_time_thresold: Duration,
     pub core: Arc<Mutex<CacheCore>>,
     pub stats: Arc<CacheStats>,
+    pub verification: bool,
 }
 
 impl Cache {
@@ -38,6 +41,7 @@ impl Cache {
             execution_time_thresold: Duration::from_millis(1),
             core: Arc::new(Mutex::new(core)),
             stats: Arc::default(),
+            verification: false,
         }
     }
 
@@ -50,7 +54,76 @@ impl Cache {
     }
 }
 
+pub struct CacheGuard {
+    cache: Cache,
+    start: Instant,
+    key: Option<CacheKey>,
+    existing_entry: Option<CacheEntry>,
+    verification: bool,
+}
+
+impl CacheGuardTrait for CacheGuard {
+    fn check(&mut self) -> Option<(Value, DepList)> {
+        if self.key.is_some()
+            && !self.verification
+            && let Some(existing_entry) = self.existing_entry.take()
+        {
+            Some((existing_entry.value, existing_entry.deps))
+        } else {
+            None
+        }
+    }
+
+    fn put(self, deps: DepList, value: Value) {
+        let Some(key) = self.key else {
+            return;
+        };
+        if let Some(existing_entry) = self.existing_entry {
+            if self.verification {
+                assert_eq!(value, existing_entry.value);
+                return;
+            }
+            panic!("should not be possible to reach here");
+        }
+        self.cache.put(
+            key,
+            CacheEntry {
+                execution_time: self.start.elapsed(),
+                expires: None,
+                etag: None,
+                deps,
+                value,
+            },
+        );
+    }
+
+    fn put_if_slow(self, deps: DepList, value: Value) {
+        let Some(key) = self.key else {
+            return;
+        };
+        if let Some(existing_entry) = self.existing_entry {
+            if self.verification {
+                assert_eq!(value, existing_entry.value);
+                return;
+            }
+            panic!("should not be possible to reach here");
+        }
+        self.cache.put_if_slow(
+            key,
+            CacheEntry {
+                execution_time: self.start.elapsed(),
+                expires: None,
+                etag: None,
+                deps,
+                value,
+            },
+        );
+    }
+}
+
 impl CacheTrait for Cache {
+    type CacheGuard = CacheGuard;
+
     fn get(
         &self,
         key: &CacheKey,
@@ -118,6 +191,21 @@ impl CacheTrait for Cache {
 
     fn clean(&self) {
         self.core.plock().storage.clear();
+    }
+
+    fn guard(
+        &self,
+        key: Option<CacheKey>,
+        fs: &impl FSTrait,
+        lfhc: &mut LocalFileHashCache,
+    ) -> Self::CacheGuard {
+        CacheGuard {
+            cache: self.clone(),
+            existing_entry: key.as_ref().and_then(|key| self.get(key, fs, lfhc)),
+            key,
+            verification: self.verification,
+            start: Instant::now(),
+        }
     }
 }
 

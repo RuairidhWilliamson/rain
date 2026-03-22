@@ -68,6 +68,7 @@ pub mod run {
         pub seal: bool,
         pub host_override: Option<String>,
         pub custom_config: HashMap<String, String>,
+        pub verification: bool,
     }
 
     impl From<RunRequest> for super::Request {

@@ -150,9 +150,9 @@ where
             let server_thread_handle = {
                 let config = config.clone();
                 std::thread::spawn(move || {
-                    let server = super::server::Server::new(config).unwrap();
+                    let mut server = super::server::Server::new(config).unwrap();
                     let client_handler = super::server::ClientHandler {
-                        server: &server,
+                        server: &mut server,
                         stream,
                     };
                     let result = client_handler.handle_client();

@@ -29,6 +29,7 @@ pub fn run(
             seal: options.seal,
             host_override: options.host.clone(),
             custom_config,
+            verification: options.verification,
         },
         |progress| reporter.update(progress),
         mode,

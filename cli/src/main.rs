@@ -79,6 +79,10 @@ struct GlobalOptions {
     /// Sets the maximum report tree depth
     #[arg(long, default_value_t = 2, global = true)]
     tree_depth: usize,
+
+    /// Run with cache verification, can be expensive so use carefully
+    #[arg(long, global = true, env = "RAIN_VERIFICATION")]
+    verification: bool,
 }
 
 impl GlobalOptions {

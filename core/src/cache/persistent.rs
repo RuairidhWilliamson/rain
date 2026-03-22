@@ -66,7 +66,7 @@ impl PersistCache {
         Ok(inner.deserialized()?)
     }
 
-    pub fn save(self, path: &Path) -> Result<(), PersistCacheError> {
+    pub fn save(&self, path: &Path) -> Result<(), PersistCacheError> {
         let Some(dir_path) = path.parent() else {
             return Err(PersistCacheError::DoesNotExist);
         };

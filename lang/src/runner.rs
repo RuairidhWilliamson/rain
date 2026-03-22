@@ -8,13 +8,11 @@ pub mod value;
 
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, hash_map::Entry},
     sync::{Arc, LazyLock},
-    time::Instant,
 };
 
 use alias::Alias as _;
-use cache::CacheEntry;
 use error::{ErrorTrace, RunnerError, Throwing};
 use indexmap::IndexMap;
 use internal::InternalFunction;
@@ -35,7 +33,7 @@ use crate::{
     ir::{DeclarationId, ModuleId, Rir},
     local_span::LocalSpan,
     runner::{
-        cache::{CacheKey, CacheTrait},
+        cache::{CacheGuardTrait as _, CacheKey, CacheTrait},
         cx::{Cx, StacktraceEntry},
         dep_list::DepList,
         value::{Closure, ClosureCaptures, RainInteger, RainList, RainRecord, RainTypeId, Value},
@@ -45,6 +43,10 @@ use crate::{
 type ResultValue = Result<Value>;
 type Result<T, E = ErrorTrace<Throwing>> = core::result::Result<T, E>;
 
+/// Runner represents a lifetime of a single run and makes a lot of assumptions around this
+///
+/// The main assumptions it makes is:
+/// - Local files do not change during its lifetime
 pub struct Runner<'a, Driver, Cache> {
     pub ir: &'a mut Rir,
     pub cache: &'a Cache,
@@ -67,8 +69,8 @@ impl LocalFileHashCache {
         fs: &impl FSTrait,
     ) -> Result<&'a FileHash, PathError> {
         match self.hashes.entry(fsentry.clone()) {
-            std::collections::hash_map::Entry::Occupied(entry) => Ok(entry.into_mut()),
-            std::collections::hash_map::Entry::Vacant(entry) => {
+            Entry::Occupied(entry) => Ok(entry.into_mut()),
+            Entry::Vacant(entry) => {
                 let file = LocalFile::new_checked(fs, fsentry)?;
                 let hash = file.file_hash();
                 Ok(entry.insert(hash.clone()))
@@ -134,17 +136,15 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             node: closure.node,
             args: arg_values.clone(),
         });
-        if let Some(cache_key) = &cache_key
-            && let Some(entry) =
-                self.cache
-                    .get(cache_key, self.driver, &mut self.local_file_hash_cache)
-        {
-            cx.propagate_deps(entry.deps);
-            return Ok(entry.value);
+        let mut guard = self
+            .cache
+            .guard(cache_key, self.driver, &mut self.local_file_hash_cache);
+        if let Some((v, deps)) = guard.check() {
+            cx.propagate_deps(deps);
+            return Ok(v);
         }
         // TODO: Work out a more helpful name than anonymous
         let _call = self.driver.call_guard(Call::Closure);
-        let start = Instant::now();
         let args = closure_declare
             .args
             .iter()
@@ -170,25 +170,14 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 self.evaluate_type_check(&mut callee_cx, &v, type_spec.type_expr)?;
             }
         }
-        let result = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
-        if let Some(cache_key) = cache_key {
-            self.cache.put_if_slow(
-                cache_key,
-                CacheEntry {
-                    execution_time: start.elapsed(),
-                    expires: None,
-                    etag: None,
-                    deps: callee_cx.deps.clone(),
-                    value: result.clone(),
-                },
-            );
+        let value = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
+        if let Some(type_spec) = &closure_declare.return_type {
+            self.evaluate_type_check(&mut callee_cx, &value, type_spec.type_expr)?;
         }
         cx.propagate_deps(callee_cx.deps.clone());
-        if let Some(type_spec) = &closure_declare.return_type {
-            self.evaluate_type_check(&mut callee_cx, &result, type_spec.type_expr)?;
-        }
+        guard.put_if_slow(callee_cx.deps, value.clone());
 
-        Ok(result)
+        Ok(value)
     }
 
     pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> ResultValue {
@@ -205,24 +194,22 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         }
         let stacktrace = cx.stacktrace.clone();
         let mut callee_cx = Cx::new(&m, cx.call_depth + 1, HashMap::new(), stacktrace);
-        let start = Instant::now();
         let key = m.file.as_ref().map(|file| cache::CacheKey::Declaration {
             module: file.clone(),
             name: declaration_name.to_owned(),
         });
-        if let Some(key) = &key
-            && let Some(cache_entry) =
-                self.cache
-                    .get(key, self.driver, &mut self.local_file_hash_cache)
-        {
-            cx.propagate_deps(cache_entry.deps);
-            return Ok(cache_entry.value);
+        let mut guard = self
+            .cache
+            .guard(key, self.driver, &mut self.local_file_hash_cache);
+        if let Some((v, deps)) = guard.check() {
+            cx.propagate_deps(deps);
+            return Ok(v);
         }
         let _call = self
             .driver
             .call_guard(Call::Declaration(declaration_name.to_string()));
         let result = self.evaluate_node(&mut callee_cx, declaration.assignment.expr)?;
-        let result = match &declaration.assignment.name {
+        let value = match &declaration.assignment.name {
             DeclareName::Single(single) => {
                 if let Some(type_spec) = &single.type_spec {
                     self.evaluate_type_check(&mut callee_cx, &result, type_spec.type_expr)?;
@@ -244,20 +231,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 value
             }
         };
-        if let Some(key) = key {
-            self.cache.put_if_slow(
-                key,
-                CacheEntry {
-                    execution_time: start.elapsed(),
-                    expires: None,
-                    etag: None,
-                    deps: callee_cx.deps.clone(),
-                    value: result.clone(),
-                },
-            );
-        }
-        cx.propagate_deps(callee_cx.deps);
-        Ok(result)
+        cx.propagate_deps(callee_cx.deps.clone());
+        guard.put_if_slow(callee_cx.deps, value.clone());
+        Ok(value)
     }
 
     fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> ResultValue {
@@ -349,7 +325,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         exclamation,
                         RunnerError::ExpectedType {
                             actual: inner_value.rain_type_id(),
-                            expected: std::borrow::Cow::Borrowed(&[RainTypeId::Boolean]),
+                            expected: Cow::Borrowed(&[RainTypeId::Boolean]),
                         },
                     )),
                 }
@@ -485,14 +461,15 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     func: *f,
                     args: arg_values.iter().map(|(_, v)| v.clone()).collect(),
                 };
-                if let Some(entry) =
-                    self.cache
-                        .get(&cache_key, self.driver, &mut self.local_file_hash_cache)
-                {
-                    cx.propagate_deps(entry.deps);
-                    return Ok(entry.value);
+                let mut guard = self.cache.guard(
+                    Some(cache_key),
+                    self.driver,
+                    &mut self.local_file_hash_cache,
+                );
+                if let Some((v, deps)) = guard.check() {
+                    cx.propagate_deps(deps);
+                    return Ok(v);
                 }
-                let start = Instant::now();
                 let _call = self.driver.call_guard(Call::Internal(*f));
                 log::trace!("internal function call {f:?} {arg_values:?}");
                 let mut deps = DepList::new();
@@ -507,42 +484,20 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     deps: &mut deps,
                     cache_hint: &mut cache_hint,
                 };
-                let result = internal_cx.call_internal_function();
-                let result = result?;
+                let result = internal_cx.call_internal_function()?;
+                cx.propagate_deps(deps.clone());
                 if cache_hint {
-                    self.cache.put(
-                        cache_key,
-                        CacheEntry {
-                            execution_time: start.elapsed(),
-                            expires: None,
-                            etag: None,
-                            deps: deps.clone(),
-                            value: result.clone(),
-                        },
-                    );
+                    guard.put(deps, result.clone());
                 } else {
-                    self.cache.put_if_slow(
-                        cache_key,
-                        CacheEntry {
-                            execution_time: start.elapsed(),
-                            expires: None,
-                            etag: None,
-                            deps: deps.clone(),
-                            value: result.clone(),
-                        },
-                    );
+                    guard.put_if_slow(deps, result.clone());
                 }
-                cx.propagate_deps(deps);
                 Ok(result)
             }
             _ => Err(cx.err(
                 call_span,
                 RunnerError::ExpectedType {
                     actual: function_value.rain_type_id(),
-                    expected: std::borrow::Cow::Borrowed(&[
-                        RainTypeId::InternalFunction,
-                        RainTypeId::Closure,
-                    ]),
+                    expected: Cow::Borrowed(&[RainTypeId::InternalFunction, RainTypeId::Closure]),
                 },
             )),
         }
@@ -562,7 +517,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         type_spec_nid,
                         RunnerError::ExpectedType {
                             actual: v.rain_type_id(),
-                            expected: std::borrow::Cow::Owned(vec![expected_type]),
+                            expected: Cow::Owned(vec![expected_type]),
                         },
                     ));
                 }
@@ -584,7 +539,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                                 RunnerError::ExpectedType {
                                     actual: v.rain_type_id(),
                                     // FIXME: We have no way to know what types would work here :(
-                                    expected: std::borrow::Cow::Owned(vec![]),
+                                    expected: Cow::Owned(vec![]),
                                 },
                             ));
                         }
@@ -594,7 +549,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         type_spec_nid,
                         RunnerError::ExpectedType {
                             actual: type_spec_value.rain_type_id(),
-                            expected: std::borrow::Cow::Borrowed(&[RainTypeId::Boolean]),
+                            expected: Cow::Borrowed(&[RainTypeId::Boolean]),
                         },
                     )),
                 }
@@ -603,7 +558,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 type_spec_nid,
                 RunnerError::ExpectedType {
                     actual: type_spec_value.rain_type_id(),
-                    expected: std::borrow::Cow::Borrowed(&[RainTypeId::Type, RainTypeId::Closure]),
+                    expected: Cow::Borrowed(&[RainTypeId::Type, RainTypeId::Closure]),
                 },
             )),
         }
@@ -716,7 +671,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 span,
                 RunnerError::ExpectedType {
                     actual: value.rain_type_id(),
-                    expected: std::borrow::Cow::Borrowed(&[
+                    expected: Cow::Borrowed(&[
                         RainTypeId::Module,
                         RainTypeId::Internal,
                         RainTypeId::Record,
@@ -738,7 +693,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 span,
                 RunnerError::ExpectedType {
                     actual: value.rain_type_id(),
-                    expected: std::borrow::Cow::Borrowed(&[RainTypeId::List]),
+                    expected: Cow::Borrowed(&[RainTypeId::List]),
                 },
             )),
         }
@@ -764,7 +719,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 LocalSpan::default(),
                 RunnerError::ExpectedType {
                     actual: condition_value.rain_type_id(),
-                    expected: std::borrow::Cow::Borrowed(&[RainTypeId::Boolean]),
+                    expected: Cow::Borrowed(&[RainTypeId::Boolean]),
                 },
             ));
         };

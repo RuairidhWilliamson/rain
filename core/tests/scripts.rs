@@ -1,10 +1,20 @@
+#![expect(clippy::print_stderr)]
+
 use std::path::Path;
 
+use rain_core::cache::Cache;
 use rain_lang::runner::value::Value;
 use test_log::test;
 
 fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
-    rain_core::run_stderr(path, "main")
+    let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::default());
+    let cache = Cache {
+        verification: true,
+        ..Cache::default()
+    };
+    rain_core::run(path, "main", &cache, &driver).map_err(|err| {
+        eprintln!("{err}");
+    })
 }
 
 macro_rules! tests {

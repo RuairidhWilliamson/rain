@@ -2,12 +2,15 @@
 
 use std::{
     collections::HashMap,
+    fs, io, panic,
     path::Path,
+    process,
     sync::{
         Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
         mpsc::{Receiver, SyncSender, sync_channel},
     },
+    thread,
     time::{Instant, SystemTime},
 };
 
@@ -15,7 +18,7 @@ use poison_panic::MutexExt as _;
 use rain_core::{
     CoreError,
     cache::{
-        Cache,
+        Cache, CacheStats,
         persistent::{PersistCache, PersistCacheError},
     },
     config::Config,
@@ -40,11 +43,11 @@ pub enum Error {
     #[error("server graceful exit")]
     GracefulExit,
     #[error("io: {0}")]
-    IO(std::io::Error),
+    IO(io::Error),
     #[error("encode: {0}")]
-    Encode(ciborium::ser::Error<std::io::Error>),
+    Encode(ciborium::ser::Error<io::Error>),
     #[error("decode: {0}")]
-    Decode(ciborium::de::Error<std::io::Error>),
+    Decode(ciborium::de::Error<io::Error>),
     #[error("serde: {0}")]
     SerdeJson(#[from] serde_json::Error),
     #[error("cache: {0}")]
@@ -53,42 +56,42 @@ pub enum Error {
     ClientDisconnected,
 }
 
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Self {
         Self::IO(err)
     }
 }
 
-impl From<ciborium::ser::Error<std::io::Error>> for Error {
-    fn from(err: ciborium::ser::Error<std::io::Error>) -> Self {
+impl From<ciborium::ser::Error<io::Error>> for Error {
+    fn from(err: ciborium::ser::Error<io::Error>) -> Self {
         Self::Encode(err)
     }
 }
 
-impl From<ciborium::de::Error<std::io::Error>> for Error {
-    fn from(err: ciborium::de::Error<std::io::Error>) -> Self {
+impl From<ciborium::de::Error<io::Error>> for Error {
+    fn from(err: ciborium::de::Error<io::Error>) -> Self {
         Self::Decode(err)
     }
 }
 
 pub fn rain_server(config: Config) -> Result<(), Error> {
     log::info!("starting cli server");
-    let s = Server::new(config)?;
+    let mut s = Server::new(config)?;
     let socket_path = s.config.server_socket_path();
-    std::fs::create_dir_all(socket_path.parent().expect("path parent"))?;
+    fs::create_dir_all(socket_path.parent().expect("path parent"))?;
     let mut l = ruipc::Listener::bind(socket_path)?;
     for stream in l.incoming() {
         match stream {
             Ok(connection) => {
                 log::info!("got a stream {connection:?}");
                 let result = ClientHandler {
-                    server: &s,
+                    server: &mut s,
                     stream: IpcMsgConnection { connection },
                 }
                 .handle_client();
                 match result {
                     Ok(()) => (),
-                    Err(Error::GracefulExit) => std::process::exit(0),
+                    Err(Error::GracefulExit) => process::exit(0),
                     Err(err) => return Err(err),
                 }
             }
@@ -107,24 +110,27 @@ pub struct Server {
     modified_time: SystemTime,
     /// Time the server was started
     start_time: chrono::DateTime<chrono::Utc>,
-    cache: rain_core::cache::Cache,
+    cache: Option<PersistCache>,
+    cache_stats: CacheStats,
     stats: Stats,
-    ir: Mutex<Rir>,
 }
 
 impl Server {
     pub fn new(config: Config) -> Result<Self, Error> {
         let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
         let modified_time = exe_stat.modified()?;
-        let (cache, ir) = rain_core::load_cache_or_default(&config);
-        log::info!("cache loaded {} entries", cache.len());
+        let cache = PersistCache::load(&config.cache_json_path())
+            .inspect_err(|err| {
+                log::info!("failed to load persist cache: {err}");
+            })
+            .ok();
         Ok(Self {
             config,
             modified_time,
             start_time: chrono::Utc::now(),
             cache,
+            cache_stats: Default::default(),
             stats: Stats::default(),
-            ir: Mutex::new(ir),
         })
     }
 }
@@ -180,7 +186,7 @@ impl MsgConnection for InternalMsgConnection {
 }
 
 pub struct ClientHandler<'a, C> {
-    pub server: &'a Server,
+    pub server: &'a mut Server,
     pub stream: C,
 }
 
@@ -200,52 +206,63 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
             return self.restart();
         }
         log::info!("Header {header:?}");
-        let request: Request = ciborium::from_reader(std::io::Cursor::new(request))?;
+        let request: Request = ciborium::from_reader(io::Cursor::new(request))?;
         log::info!("Request {request:?}");
         self.server
             .stats
             .requests_received
             .fetch_add(1, Ordering::Relaxed);
-        match std::thread::scope(|s| {
-            std::thread::Builder::new()
+        let mut ir = Rir::new();
+        let mut cache = Cache::new(
+            self.server
+                .cache
+                .take()
+                .map(|c| c.depersist(&self.server.config, &self.server.cache_stats, &mut ir))
+                .unwrap_or_default(),
+        );
+
+        match thread::scope(|s| {
+            thread::Builder::new()
                 .name(String::from("handle_request"))
-                .spawn_scoped(s, || self.handle_request(request))
+                .spawn_scoped(s, || self.handle_request(&mut cache, &mut ir, request))
                 .expect("spawn thread")
                 .join()
         }) {
             Err(err) => {
                 log::error!("panic during handle request");
                 self.send_panic()?;
-                std::panic::resume_unwind(err)
+                panic::resume_unwind(err)
             }
             Ok(Err(err)) => Err(err),
             Ok(Ok(())) => {
-                log::info!("cache size {}", self.server.cache.len());
-                let persistent_cache = PersistCache::persist(
-                    &self.server.cache.core.plock(),
-                    &self.server.cache.stats,
-                    &self.server.ir.plock(),
-                );
+                let persistent_cache =
+                    PersistCache::persist(&cache.core.plock(), &cache.stats, &ir);
                 persistent_cache.save(&self.server.config.cache_json_path())?;
-                log::info!("cache stats {:#?}", self.server.cache.stats);
+                self.server.cache = Some(persistent_cache);
+                log::info!("cache stats {:#?}", self.server.cache_stats);
                 Ok(())
             }
         }
     }
 
     fn restart(&mut self) -> Result<(), Error> {
-        std::fs::remove_file(self.server.config.server_socket_path())?;
+        fs::remove_file(self.server.config.server_socket_path())?;
         let response = ServerMessage::RestartPls(RestartReason::RainBinaryChanged);
         self.stream.send(response)?;
         Err(Error::GracefulExit)
     }
 
-    fn handle_request(&mut self, req: Request) -> Result<(), Error> {
+    fn handle_request(
+        &mut self,
+        cache: &mut Cache,
+        ir: &mut Rir,
+        req: Request,
+    ) -> Result<(), Error> {
         match req {
-            Request::Run(req) => self.run(req),
+            Request::Run(req) => self.run(cache, ir, req),
             Request::Info(req) => {
                 let resp = super::msg::info::InfoResponse {
-                    pid: std::process::id(),
+                    pid: process::id(),
                     start_time: self.server.start_time,
                     config: self.server.config.clone(),
                     stats: super::msg::info::Stats {
@@ -255,15 +272,15 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
                             .requests_received
                             .load(Ordering::Relaxed),
                         responses_sent: self.server.stats.responses_sent.load(Ordering::Relaxed),
-                        cache_size: self.server.cache.len(),
+                        cache_size: cache.len(),
                     },
                 };
                 self.send_response(req, &resp)?;
                 Ok(())
             }
             Request::Inspect(req) => {
-                let cache_size = self.server.cache.len();
-                let entries = self.server.cache.inspect_all();
+                let cache_size = cache.len();
+                let entries = cache.inspect_all();
                 self.send_response(
                     req,
                     &super::msg::cache_inspect::CacheInspectResponse {
@@ -278,18 +295,22 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
                 self.send_response(req, &super::msg::shutdown::Goodbye)?;
                 Err(Error::GracefulExit)
             }
-            Request::Clean(req) => self.clean(req),
-            Request::Prune(req) => self.prune(req),
+            Request::Clean(req) => self.clean(cache, req),
+            Request::Prune(req) => self.prune(cache, req),
         }
     }
 
-    fn run(&mut self, req: super::msg::run::RunRequest) -> Result<(), Error> {
+    fn run(
+        &mut self,
+        cache: &mut Cache,
+        ir: &mut Rir,
+        req: super::msg::run::RunRequest,
+    ) -> Result<(), Error> {
+        cache.verification = req.verification;
         let config = self.server.config.clone();
-        let cache = &self.server.cache;
-        let mut ir = self.server.ir.plock();
         let s = Mutex::new(self);
         let start = Instant::now();
-        let (result, deps) = run_inner(&req, config, cache, &s, &mut ir);
+        let (result, deps) = run_inner(&req, config, cache, &s, ir);
         let s = s.pinto_inner();
         s.send_response(
             req,
@@ -302,9 +323,9 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
         Ok(())
     }
 
-    fn clean(&mut self, req: super::msg::clean::CleanRequest) -> Result<(), Error> {
+    fn clean(&mut self, cache: &Cache, req: super::msg::clean::CleanRequest) -> Result<(), Error> {
         log::info!("Cleaning");
-        self.server.cache.clean();
+        cache.clean();
         let clean_paths = &[
             &self.server.config.base_cache_dir,
             &self.server.config.base_generated_dir,
@@ -314,7 +335,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
         let mut sizes = HashMap::new();
         for p in clean_paths {
             log::info!("removing {}", p.display());
-            let metadata = match std::fs::metadata(p) {
+            let metadata = match fs::metadata(p) {
                 Err(err) => {
                     log::error!("failed {}: {err}", p.display());
                     continue;
@@ -333,8 +354,8 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
         Err(Error::GracefulExit)
     }
 
-    fn prune(&mut self, req: super::msg::prune::PruneRequest) -> Result<(), Error> {
-        let guard = self.server.cache.core.plock();
+    fn prune(&mut self, cache: &Cache, req: super::msg::prune::PruneRequest) -> Result<(), Error> {
+        let guard = cache.core.plock();
         let pruned = guard.prune_generated_areas(&self.server.config)?;
         self.send_response(
             req,
@@ -436,6 +457,7 @@ fn run_core(
         seal,
         host_override: _,
         custom_config: _,
+        verification: _,
     }: &super::msg::run::RunRequest,
     cache: &Cache,
     driver: &DriverImpl<'_>,
@@ -467,27 +489,27 @@ fn run_core(
     )
 }
 
-fn remove_recursive(path: &Path) -> std::io::Result<u64> {
-    let metadata = std::fs::symlink_metadata(path)?;
+fn remove_recursive(path: &Path) -> io::Result<u64> {
+    let metadata = fs::symlink_metadata(path)?;
     let filetype = metadata.file_type();
     if filetype.is_symlink() {
-        std::fs::remove_file(path)?;
+        fs::remove_file(path)?;
         return Ok(metadata.len());
     }
     remove_dir_all_recursive(path)
 }
 
-fn remove_dir_all_recursive(path: &Path) -> std::io::Result<u64> {
+fn remove_dir_all_recursive(path: &Path) -> io::Result<u64> {
     let mut size = 0;
-    for child in std::fs::read_dir(path)? {
+    for child in fs::read_dir(path)? {
         let child = child?;
         if child.file_type()?.is_dir() {
             size += remove_dir_all_recursive(&child.path())?;
         } else {
             size += child.metadata()?.len();
-            std::fs::remove_file(child.path())?;
+            fs::remove_file(child.path())?;
         }
     }
-    std::fs::remove_dir(path)?;
+    fs::remove_dir(path)?;
     Ok(size)
 }
