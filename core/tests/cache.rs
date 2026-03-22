@@ -8,6 +8,7 @@ use std::{
     time::Duration,
 };
 
+use alias::Alias as _;
 use poison_panic::MutexExt as _;
 use rain_core::cache::{Cache, persistent::PersistCache};
 use rain_lang::{
@@ -56,7 +57,7 @@ impl CacheTester {
         let cache = Cache {
             execution_time_thresold: Duration::ZERO,
             core: Arc::new(Mutex::new(cache_core)),
-            stats: Arc::clone(&self.cache_stats),
+            stats: self.cache_stats.alias(),
         };
         let mid = ir
             .insert_module(Some(File::Local(file)), src, module)
@@ -226,4 +227,37 @@ fn unchanged_local_import() {
     let value = tester.run(&root).exec("main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(6))));
     assert_eq!(2, tester.driver.get_counter(&counter_name));
+}
+
+#[test]
+fn non_capturing_closure_caching() {
+    let mut tester = CacheTester::new();
+    let counter_name = Arc::new(String::from("foo"));
+
+    let f = tempfile::NamedTempFile::new().unwrap();
+    fs::write(
+        &f,
+        r#"
+        let main = fn() {
+            internal._set_cache_never()
+            foo()()
+        }
+
+        let foo = fn() {
+            fn() {
+                internal._inc_counter("foo")
+                42
+            }
+        }
+        "#,
+    )
+    .unwrap();
+    let value = tester.run(&f).exec("main");
+    assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(42))));
+    assert_eq!(1, tester.driver.get_counter(&counter_name));
+
+    // Should be cached
+    let value = tester.run(&f).exec("main");
+    assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(42))));
+    assert_eq!(1, tester.driver.get_counter(&counter_name));
 }

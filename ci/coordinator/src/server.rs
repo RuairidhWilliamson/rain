@@ -1,5 +1,6 @@
 use std::{convert::Infallible, sync::Arc};
 
+use alias::Alias as _;
 use anyhow::{Context as _, Result};
 use http::{Request, Response};
 use hyper::body::Incoming;
@@ -30,17 +31,14 @@ impl Server {
     }
 
     pub fn start_server_run_request_worker(self: &Arc<Self>, mut rx: Receiver<RunRequest>) {
-        let server = Arc::clone(self);
+        let server = self.alias();
         tokio::spawn(async move {
             loop {
                 let Some(check_suite_event) = rx.recv().await else {
                     error!("server recv channel closed");
                     return;
                 };
-                if let Err(err) = Arc::clone(&server)
-                    .handle_run_request(check_suite_event)
-                    .await
-                {
+                if let Err(err) = server.alias().handle_run_request(check_suite_event).await {
                     error!("handle check suite event: {err}");
                 }
             }

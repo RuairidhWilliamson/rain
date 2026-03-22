@@ -10,14 +10,14 @@ use rain_lang::{
         },
         local::{entry::LocalFSEntry, file::LocalFile},
     },
-    ast::Module,
+    ast::{Module, NodeId},
     hash::FileHash,
     ir::Rir,
     runner::{
         cache::{CacheEntry, CacheKey},
         dep_list::DepList,
         internal::InternalFunction,
-        value::{RainInteger, RainList, RainRecord, RainTypeId, Value},
+        value::{ClosureCaptures, RainInteger, RainList, RainRecord, RainTypeId, Value},
     },
 };
 
@@ -280,7 +280,7 @@ impl PersistValue {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum PersistCacheKey {
     Declaration {
-        file: PersistFile,
+        module: PersistFile,
         name: String,
     },
     InternalFunction {
@@ -290,13 +290,19 @@ pub enum PersistCacheKey {
     Download {
         url: String,
     },
+    CallClosure {
+        // captures: Arc<HashMap<String, Value>>,
+        module: PersistFile,
+        node: NodeId,
+        args: Vec<PersistValue>,
+    },
 }
 
 impl PersistCacheKey {
     fn persist(key: &CacheKey, rir: &Rir) -> Option<Self> {
         match key {
-            CacheKey::Declaration { file, name } => Some(Self::Declaration {
-                file: PersistFile::persist(file)?,
+            CacheKey::Declaration { module: file, name } => Some(Self::Declaration {
+                module: PersistFile::persist(file)?,
                 name: name.to_owned(),
             }),
             CacheKey::InternalFunction { func, args } => Some(Self::InternalFunction {
@@ -306,8 +312,20 @@ impl PersistCacheKey {
                     .map(|v| PersistValue::persist(v, rir))
                     .collect::<Option<_>>()?,
             }),
+            CacheKey::CallClosure {
+                captures,
+                module,
+                node,
+                args,
+            } if captures.0.is_empty() => Some(Self::CallClosure {
+                module: PersistFile::persist(module)?,
+                node: *node,
+                args: args
+                    .iter()
+                    .map(|v| PersistValue::persist(v, rir))
+                    .collect::<Option<_>>()?,
+            }),
             CacheKey::Download { url } => Some(Self::Download { url: url.clone() }),
-            // TODO: It is possible to persist declarations in the cache if we resolve the function/module id to a stable value and embed the File it was imported from
             // TODO: It is possible to persist embed in the cache if we key it by the rain binary version
             CacheKey::CallClosure { .. } | CacheKey::Embed | CacheKey::Import { .. } => None,
         }
@@ -323,9 +341,18 @@ impl PersistCacheKey {
                     .collect::<Option<Vec<Value>>>()?,
             }),
             Self::Download { url } => Some(CacheKey::Download { url }),
-            Self::Declaration { file, name } => Some(CacheKey::Declaration {
-                file: file.depersist(config)?,
+            Self::Declaration { module, name } => Some(CacheKey::Declaration {
+                module: module.depersist(config)?,
                 name,
+            }),
+            Self::CallClosure { module, node, args } => Some(CacheKey::CallClosure {
+                captures: ClosureCaptures::default(),
+                module: module.depersist(config)?,
+                node,
+                args: args
+                    .into_iter()
+                    .map(|a| a.depersist(config, rir))
+                    .collect::<Option<Vec<Value>>>()?,
             }),
         }
     }

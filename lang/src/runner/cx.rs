@@ -1,5 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
+use alias::Alias as _;
+
 use crate::{
     ast::NodeId,
     ir::{IrModule, ModuleId},
@@ -8,7 +10,7 @@ use crate::{
         dep::Dep,
         dep_list::DepList,
         error::{ErrorTrace, RunnerError, Throwing},
-        value::Value,
+        value::{ClosureCaptures, Value},
     },
 };
 
@@ -16,7 +18,7 @@ pub struct Cx<'a> {
     pub module: &'a Arc<IrModule>,
     pub call_depth: usize,
     pub locals: HashMap<&'a str, Value>,
-    pub captures: Vec<Arc<HashMap<String, Value>>>,
+    pub captures: Vec<ClosureCaptures>,
     pub args: HashMap<&'a str, Value>,
     pub deps: DepList,
     pub previous_line: Option<Value>,
@@ -59,14 +61,14 @@ impl<'a> Cx<'a> {
         &self,
         module: &'a Arc<IrModule>,
         args: HashMap<&'a str, Value>,
-        captures: &Arc<HashMap<String, Value>>,
+        captures: &ClosureCaptures,
         ste: StacktraceEntry,
     ) -> Self {
         let mut st = self.stacktrace.clone();
         st.push(ste);
         let mut callee = Cx::new(module, self.call_depth + 1, args, st);
         callee.captures.clone_from(&self.captures);
-        callee.captures.push(Arc::clone(captures));
+        callee.captures.push(captures.alias());
         callee
     }
 
@@ -75,12 +77,12 @@ impl<'a> Cx<'a> {
         &self,
         module: &'a Arc<IrModule>,
         args: HashMap<&'a str, Value>,
-        captures: &Arc<HashMap<String, Value>>,
+        captures: &ClosureCaptures,
     ) -> Self {
         let st = self.stacktrace.clone();
         let mut callee = Cx::new(module, self.call_depth + 1, args, st);
         callee.captures.clone_from(&self.captures);
-        callee.captures.push(Arc::clone(captures));
+        callee.captures.push(captures.alias());
         callee
     }
 

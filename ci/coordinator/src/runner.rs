@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use alias::Alias as _;
 use log::{error, info};
 use poison_panic::MutexExt as _;
 use rain_core::{
@@ -60,7 +61,7 @@ impl Runner {
             .unwrap_or_default();
         let cache = Cache {
             core: Arc::new(Mutex::new(cache_core)),
-            stats: Arc::clone(&self.cache_stats),
+            stats: self.cache_stats.alias(),
             ..Default::default()
         };
         let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, driver);

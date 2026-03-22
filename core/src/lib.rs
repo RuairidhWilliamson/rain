@@ -8,6 +8,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use alias::Alias as _;
 pub use rain_lang;
 
 use driver::DriverImpl;
@@ -83,7 +84,7 @@ pub fn evaluate_and_call_chain(
     targets: &str,
     args: &[String],
 ) -> Result<Value, CoreError> {
-    let initial_module = Arc::clone(runner.ir.get_module(mid));
+    let initial_module = runner.ir.get_module(mid).alias();
     let mut cx = Cx::new(&initial_module, 0, HashMap::new(), Vec::new());
     runner
         .check_module(&mut cx, initial_module.id)
@@ -109,7 +110,7 @@ pub fn evaluate_and_call_chain(
                 suggestions,
             });
         };
-        let m = Arc::clone(runner.ir.get_module(mid));
+        let m = runner.ir.get_module(mid).alias();
         let nid = m.get_declaration(declaration.local_id()).assignment.expr;
         mid_nid = Some((mid, nid));
 

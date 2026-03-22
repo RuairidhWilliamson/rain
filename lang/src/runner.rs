@@ -13,6 +13,7 @@ use std::{
     time::Instant,
 };
 
+use alias::Alias as _;
 use cache::CacheEntry;
 use error::{ErrorTrace, RunnerError, Throwing};
 use indexmap::IndexMap;
@@ -37,7 +38,7 @@ use crate::{
         cache::{CacheKey, CacheTrait},
         cx::{Cx, StacktraceEntry},
         dep_list::DepList,
-        value::{Closure, RainInteger, RainList, RainRecord, RainTypeId, Value},
+        value::{Closure, ClosureCaptures, RainInteger, RainList, RainRecord, RainTypeId, Value},
     },
 };
 
@@ -114,7 +115,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         closure: &Closure,
         arg_values: Vec<Value>,
     ) -> ResultValue {
-        let m = &Arc::clone(self.ir.get_module(closure.module));
+        let m = self.ir.get_module(closure.module).alias();
         let Node::Closure(closure_declare) = m.get(closure.node) else {
             unreachable!()
         };
@@ -127,13 +128,16 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 },
             ));
         }
-        let cache_key = CacheKey::CallClosure {
-            closure: closure.clone(),
+        let cache_key = m.file.as_ref().map(|module| CacheKey::CallClosure {
+            captures: closure.captures.clone(),
+            module: module.clone(),
+            node: closure.node,
             args: arg_values.clone(),
-        };
-        if let Some(entry) =
-            self.cache
-                .get(&cache_key, self.driver, &mut self.local_file_hash_cache)
+        });
+        if let Some(cache_key) = &cache_key
+            && let Some(entry) =
+                self.cache
+                    .get(cache_key, self.driver, &mut self.local_file_hash_cache)
         {
             cx.propagate_deps(entry.deps);
             return Ok(entry.value);
@@ -148,7 +152,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             .map(|(a, v)| (a.name.contents(&m.src), v))
             .collect();
         let mut callee_cx = cx.callee(
-            m,
+            &m,
             args,
             &closure.captures,
             StacktraceEntry {
@@ -167,16 +171,18 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             }
         }
         let result = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
-        self.cache.put_if_slow(
-            cache_key,
-            CacheEntry {
-                execution_time: start.elapsed(),
-                expires: None,
-                etag: None,
-                deps: callee_cx.deps.clone(),
-                value: result.clone(),
-            },
-        );
+        if let Some(cache_key) = cache_key {
+            self.cache.put_if_slow(
+                cache_key,
+                CacheEntry {
+                    execution_time: start.elapsed(),
+                    expires: None,
+                    etag: None,
+                    deps: callee_cx.deps.clone(),
+                    value: result.clone(),
+                },
+            );
+        }
         cx.propagate_deps(callee_cx.deps.clone());
         if let Some(type_spec) = &closure_declare.return_type {
             self.evaluate_type_check(&mut callee_cx, &result, type_spec.type_expr)?;
@@ -186,7 +192,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     }
 
     pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> ResultValue {
-        let m = &Arc::clone(self.ir.get_module(id.module_id()));
+        let m = self.ir.get_module(id.module_id()).alias();
         let declaration_name = m.get_declaration_name_span(id.local_id()).contents(&m.src);
         let declaration = m.get_declaration(id.local_id());
         // If calling into another module check the privacy
@@ -198,10 +204,10 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 .with_trace(cx.stacktrace.clone()));
         }
         let stacktrace = cx.stacktrace.clone();
-        let mut callee_cx = Cx::new(m, cx.call_depth + 1, HashMap::new(), stacktrace);
+        let mut callee_cx = Cx::new(&m, cx.call_depth + 1, HashMap::new(), stacktrace);
         let start = Instant::now();
         let key = m.file.as_ref().map(|file| cache::CacheKey::Declaration {
-            file: file.clone(),
+            module: file.clone(),
             name: declaration_name.to_owned(),
         });
         if let Some(key) = &key
@@ -438,7 +444,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         if let Some(v) = cx.args.get(ident) {
             return Ok(Some(v.clone()));
         }
-        if let Some(v) = cx.captures.iter().rev().find_map(|cap| cap.get(ident)) {
+        if let Some(v) = cx.captures.iter().rev().find_map(|cap| cap.0.get(ident)) {
             return Ok(Some(v.clone()));
         }
         if let Some(declaration_id) = self.ir.resolve_global_declaration(cx.module.id, ident) {
@@ -918,7 +924,7 @@ fn evaluate_closure_definition(cx: &mut Cx, nid: NodeId) -> Value {
         captures.insert(k.to_string(), v.clone());
     }
     Value::Closure(Closure {
-        captures: Arc::new(captures),
+        captures: ClosureCaptures(Arc::new(captures)),
         module: cx.module.id,
         node: nid,
     })

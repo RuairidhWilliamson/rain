@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use alias::Alias;
 use indexmap::IndexMap;
 
 use crate::{
@@ -232,9 +233,9 @@ impl Value {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Closure {
-    pub captures: Arc<HashMap<String, Value>>,
+    pub captures: ClosureCaptures,
     pub module: ModuleId,
     pub node: NodeId,
 }
@@ -245,13 +246,16 @@ impl std::fmt::Display for Closure {
     }
 }
 
-impl std::hash::Hash for Closure {
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct ClosureCaptures(pub Arc<HashMap<String, Value>>);
+
+impl std::hash::Hash for ClosureCaptures {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        for (k, v) in self.captures.iter() {
+        for (k, v) in self.0.iter() {
             k.hash(state);
             v.hash(state);
         }
-        self.module.hash(state);
-        self.node.hash(state);
     }
 }
+
+impl Alias for ClosureCaptures {}

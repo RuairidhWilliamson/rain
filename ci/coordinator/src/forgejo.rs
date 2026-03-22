@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use alias::Alias as _;
 use anyhow::{Context as _, Result, anyhow};
 use chrono::Utc;
 use http::Request;
@@ -199,7 +200,7 @@ async fn download_and_run(
     sha: &str,
     target: String,
 ) -> Result<JoinHandle<Result<RunComplete, anyhow::Error>>, anyhow::Error> {
-    let server = Arc::clone(server);
+    let server = (server).alias();
     let download = forgejo
         .repo_get_archive(owner, repo, &format!("{sha}.zip"))
         .await?;

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use alias::Alias as _;
 use anyhow::{Context as _, Result, anyhow};
 use chrono::Utc;
 use http::Request;
@@ -222,8 +223,8 @@ async fn download_and_run(
     sha: String,
     target: String,
 ) -> Result<JoinHandle<Result<RunComplete, anyhow::Error>>, anyhow::Error> {
-    let server = Arc::clone(server);
-    let installation_client = Arc::clone(installation_client);
+    let server = server.alias();
+    let installation_client = installation_client.alias();
     let download = installation_client
         .download_repo_tar(owner, repo, &sha)
         .await

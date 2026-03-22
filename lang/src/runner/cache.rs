@@ -4,8 +4,14 @@ use chrono::{DateTime, Utc};
 
 use crate::{
     afs::File,
+    ast::NodeId,
     driver::FSTrait,
-    runner::{LocalFileHashCache, dep_list::DepList, internal::InternalFunction, value::Value},
+    runner::{
+        LocalFileHashCache,
+        dep_list::DepList,
+        internal::InternalFunction,
+        value::{ClosureCaptures, Value},
+    },
 };
 
 pub trait CacheTrait {
@@ -47,11 +53,13 @@ fn display_vec<T: Display>(v: &Vec<T>) -> String {
 pub enum CacheKey {
     Embed,
     Declaration {
-        file: File,
+        module: File,
         name: String,
     },
     CallClosure {
-        closure: super::value::Closure,
+        captures: ClosureCaptures,
+        module: File,
+        node: NodeId,
         args: Vec<Value>,
     },
     InternalFunction {
@@ -70,13 +78,18 @@ impl Display for CacheKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Embed => f.write_str("Embed"),
-            Self::Declaration { file, name } => {
+            Self::Declaration { module: file, name } => {
                 f.write_fmt(format_args!("Declaration({file}, {name})"))
             }
-            Self::CallClosure { closure, args } => f.write_fmt(format_args!(
+            Self::CallClosure {
+                captures: _,
+                module,
+                node,
+                args,
+            } => f.write_fmt(format_args!(
                 "Closure({},{:?})({})",
-                closure.module,
-                closure.node,
+                module,
+                node,
                 display_vec(args)
             )),
             Self::InternalFunction { func, args } => {

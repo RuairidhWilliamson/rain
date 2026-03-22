@@ -5,6 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use alias::Alias as _;
 use git2::{Cred, Oid};
 use poison_panic::MutexExt as _;
 use rain_lang::{
@@ -182,7 +183,7 @@ impl FSTrait for DriverImpl<'_> {
 impl DriverTrait for DriverImpl<'_> {
     fn increment_counter(&self, name: Arc<String>) {
         let mut guard = self.internal_counts.plock();
-        let entry = guard.entry(Arc::clone(&name)).or_default();
+        let entry = guard.entry(name.alias()).or_default();
         *entry += 1;
     }
 
@@ -808,7 +809,7 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     fn config(&self, name: &str) -> Option<Arc<String>> {
-        Some(Arc::clone(self.custom_config.get(name)?))
+        Some(self.custom_config.get(name)?.alias())
     }
 }
 

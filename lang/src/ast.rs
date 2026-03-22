@@ -8,6 +8,8 @@ pub mod ts_parser;
 
 use std::fmt::Debug;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{local_span::LocalSpan, tokens::Token};
 
 trait AstNode {
@@ -111,7 +113,7 @@ impl NodeList {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeId(usize);
 
 impl From<&Self> for NodeId {

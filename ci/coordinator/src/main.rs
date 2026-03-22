@@ -5,6 +5,7 @@ mod server;
 
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
+use alias::Alias as _;
 use anyhow::Result;
 use http::Request;
 use hyper::{body::Incoming, service::service_fn};
@@ -77,13 +78,13 @@ async fn main() -> Result<()> {
             warn!("connection {addr:?} did not match allowed ipnets");
             continue;
         }
-        let server = Arc::clone(&server);
+        let server = server.alias();
         join_set.spawn(async move {
             let result = Builder::new(TokioExecutor::new())
                 .serve_connection(
                     TokioIo::new(stream),
                     service_fn(|request: Request<Incoming>| {
-                        let server = Arc::clone(&server);
+                        let server = server.alias();
                         async move { server::Server::handle_request(server, request).await }
                     }),
                 )

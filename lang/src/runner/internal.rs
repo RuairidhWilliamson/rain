@@ -16,6 +16,7 @@ use std::{
     time::Instant,
 };
 
+use alias::Alias as _;
 use indexmap::IndexMap;
 use num_bigint::BigInt;
 
@@ -897,7 +898,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     fn inc_counter(self) -> ResultValue {
         self.deps.push(Dep::Counter);
         let name = expect_type!(self, String, single_arg!(self));
-        self.runner.driver.increment_counter(Arc::clone(name));
+        self.runner.driver.increment_counter(name.alias());
         Ok(Value::Unit)
     }
 }

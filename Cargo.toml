@@ -12,6 +12,7 @@ members = [
   "ci/common",
   "tree-sitter-rain",
   "fuzz",
+  "alias",
 ]
 resolver = "3"
 

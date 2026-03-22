@@ -26,6 +26,7 @@ toml.workspace = true
 tree-sitter-rain.path = "../tree-sitter-rain"
 tree-sitter.workspace = true
 uuid.workspace = true
+alias.path = "../alias"
 
 [dev-dependencies]
 insta.workspace = true

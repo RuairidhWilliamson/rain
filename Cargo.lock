@@ -18,6 +18,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "alias"
+version = "0.15.0"
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2641,6 +2645,7 @@ dependencies = [
 name = "rain-ci-coordinator"
 version = "0.15.0"
 dependencies = [
+ "alias",
  "anyhow",
  "base64",
  "bytes",
@@ -2724,6 +2729,7 @@ dependencies = [
 name = "rain-core"
 version = "0.15.0"
 dependencies = [
+ "alias",
  "base16",
  "chrono",
  "ciborium",
@@ -2765,6 +2771,7 @@ dependencies = [
 name = "rain-lang"
 version = "0.15.0"
 dependencies = [
+ "alias",
  "base16",
  "chrono",
  "indexmap",
