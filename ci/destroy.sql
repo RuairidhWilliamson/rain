@@ -5,3 +5,4 @@ DROP TABLE runs;
 DROP TABLE migrations;
 DROP TABLE repos;
 DROP TABLE repo_hosts;
+DROP TABLE auth_providers;

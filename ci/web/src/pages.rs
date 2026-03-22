@@ -15,15 +15,15 @@ use rain_ci_common::{
     pagination::{Paginated, Pagination},
 };
 
-use crate::{AdminUser, AppError, AuthUser, User};
+use crate::{AppError, AuthUser};
 
 struct Base {
-    user: User,
+    user: crate::user::User,
     rain_version: &'static str,
 }
 
 impl Base {
-    fn new(user: User) -> Self {
+    fn new(user: crate::user::User) -> Self {
         Self {
             user,
             rain_version: env!("CARGO_PKG_VERSION"),
@@ -51,7 +51,7 @@ pub async fn home(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
     }
 }
 
-pub async fn profile(auth: AdminUser) -> Result<Html<String>, AppError> {
+pub async fn profile(auth: AuthUser) -> Result<Html<String>, AppError> {
     #[derive(Template)]
     #[template(path = "profile.html")]
     struct Profile {
@@ -66,7 +66,7 @@ pub async fn profile(auth: AdminUser) -> Result<Html<String>, AppError> {
 }
 
 pub async fn repos(
-    auth: AdminUser,
+    auth: AuthUser,
     Query(page): Query<Pagination>,
     State(db): State<Db>,
 ) -> Result<Html<String>, AppError> {
@@ -89,7 +89,7 @@ pub async fn repos(
 }
 
 pub async fn repo(
-    auth: AdminUser,
+    auth: AuthUser,
     Path(id): Path<RepositoryId>,
     Query(page): Query<Pagination>,
     State(db): State<Db>,
@@ -121,7 +121,7 @@ pub async fn repo(
 }
 
 pub async fn runs(
-    auth: AdminUser,
+    auth: AuthUser,
     Query(page): Query<Pagination>,
     State(db): State<Db>,
 ) -> Result<Html<String>, AppError> {
@@ -141,7 +141,7 @@ pub async fn runs(
 }
 
 pub async fn run(
-    auth: AdminUser,
+    auth: AuthUser,
     Path(id): Path<RunId>,
     State(db): State<Db>,
 ) -> Result<Html<String>, AppError> {

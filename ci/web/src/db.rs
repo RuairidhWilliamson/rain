@@ -2,8 +2,9 @@ use anyhow::Result;
 use chrono::{Days, Utc};
 use oauth2::CsrfToken;
 use rain_ci_common::db::{Db, run::RunId};
+use secrecy::SecretString;
 
-use crate::session::SessionId;
+use crate::{auth::UserDetails, session::SessionId};
 
 const SESSION_EXPIRY: Days = Days::new(7);
 
@@ -80,27 +81,65 @@ pub async fn check_session_csrf(db: &Db, id: &SessionId, csrf: CsrfToken) -> Res
     Ok(())
 }
 
-pub async fn auth_user_session(db: &Db, id: &SessionId, user: super::User) -> Result<()> {
-    sqlx::query!("INSERT INTO users (id, login, name, avatar_url) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING", user.0.id, user.0.login, user.0.name, user.0.avatar_url)
-            .execute(&db.pool)
-            .await?;
-    sqlx::query!(
-        "UPDATE sessions SET user_id=$1 WHERE id=$2",
-        user.0.id,
-        id.0
+pub async fn auth_user_session(
+    db: &Db,
+    id: &SessionId,
+    auth_provider: &str,
+    user: UserDetails,
+) -> Result<()> {
+    let mut tx = db.pool.begin().await?;
+    let user_id;
+    if let Some(row) = sqlx::query!(
+        "
+        SELECT id FROM users WHERE provider=$1 AND email=$2
+        ",
+        auth_provider,
+        &user.email,
     )
-    .execute(&db.pool)
-    .await?;
+    .fetch_optional(&mut *tx)
+    .await?
+    {
+        user_id = row.id;
+    } else {
+        let row = sqlx::query!(
+            "
+        INSERT INTO users (login, email, name, avatar_url, provider)
+        VALUES ($1, $2, $3, $4, $5) RETURNING id
+        ",
+            user.login,
+            user.email,
+            user.name,
+            user.avatar_url,
+            auth_provider,
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        user_id = row.id;
+    }
+    sqlx::query!("UPDATE sessions SET user_id=$1 WHERE id=$2", user_id, id.0)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
     Ok(())
 }
 
-pub async fn get_user(db: &Db, id: SessionId) -> Result<Option<super::User>> {
-    if let Some(user_row) = sqlx::query_as!(crate::github::UserDetails, "SELECT users.id, login, name, avatar_url FROM users INNER JOIN sessions ON users.id=sessions.user_id WHERE sessions.id=$1", id.0)
-            .fetch_optional(&db.pool).await? {
-            Ok(Some(super::User(user_row)))
-        } else {
-            Ok(None)
-        }
+pub async fn get_user(db: &Db, id: SessionId) -> Result<Option<crate::user::User>> {
+    if let Some(user_row) = sqlx::query_as!(
+        crate::user::User,
+        "
+        SELECT users.id, email, login, name, avatar_url FROM users
+        INNER JOIN sessions ON users.id=sessions.user_id
+        WHERE sessions.id=$1
+        ",
+        id.0
+    )
+    .fetch_optional(&db.pool)
+    .await?
+    {
+        Ok(Some(user_row))
+    } else {
+        Ok(None)
+    }
 }
 
 pub async fn request_run(db: &Db, run: RunId) -> Result<()> {
@@ -108,4 +147,33 @@ pub async fn request_run(db: &Db, run: RunId) -> Result<()> {
         .execute(&db.pool)
         .await?;
     Ok(())
+}
+
+#[derive(Debug)]
+pub struct AuthProvider {
+    pub name: String,
+    pub kind: AuthKind,
+    pub oidc_discovery_url: Option<String>,
+    pub client_id: String,
+    pub client_secret: SecretString,
+}
+
+#[derive(Debug, Clone, sqlx::Type)]
+pub enum AuthKind {
+    Github,
+    OpenIDConnect,
+}
+
+pub async fn get_auth_provider(db: &Db, name: &str) -> Result<AuthProvider> {
+    let auth_provider = sqlx::query_as!(
+        AuthProvider,
+        r#"
+        SELECT name, kind as "kind: AuthKind", oidc_discovery_url, client_id, client_secret
+        FROM auth_providers WHERE name=$1
+        "#,
+        name,
+    )
+    .fetch_one(&db.pool)
+    .await?;
+    Ok(auth_provider)
 }

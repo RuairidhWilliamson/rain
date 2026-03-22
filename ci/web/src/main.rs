@@ -1,8 +1,8 @@
 mod auth;
 mod db;
-mod github;
 mod pages;
 mod session;
+mod user;
 
 use std::{convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
 
@@ -16,7 +16,6 @@ use axum::{
 };
 use chrono::Utc;
 use log::info;
-use oauth2::ClientSecret;
 use rain_ci_common::{
     db::{
         Db, DbConfig, Resource as _,
@@ -38,17 +37,9 @@ use url::Url;
 struct Config {
     base_url: String,
     addr: SocketAddr,
-    github_oauth_file: PathBuf,
-    allowed_github_user_id: i64,
-    allowed_github_login: String,
+    allowed_user_id: i64,
     database_password_file: Option<PathBuf>,
     database_url: Url,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct GithubOauthConfig {
-    github_client_id: String,
-    github_client_secret: ClientSecret,
 }
 
 #[tokio::main]
@@ -70,14 +61,7 @@ async fn main() -> Result<()> {
     )
     .await?;
     let addr = config.addr;
-    let github_oauth_config: GithubOauthConfig =
-        serde_json::from_slice(&tokio::fs::read(&config.github_oauth_file).await?)?;
     let state = AppState {
-        github_oauth_client: github::Client::new(
-            github_oauth_config.github_client_id,
-            github_oauth_config.github_client_secret,
-            &config.base_url,
-        )?,
         db,
         config: Arc::new(config),
     };
@@ -209,7 +193,6 @@ async fn style_asset() -> impl IntoResponse {
 
 #[derive(FromRef, Clone)]
 struct AppState {
-    github_oauth_client: github::Client,
     db: Db,
     config: Arc<Config>,
 }
@@ -241,17 +224,8 @@ impl IntoResponse for AuthRedirect {
     }
 }
 
-#[derive(Clone)]
-struct User(github::UserDetails);
-
-impl User {
-    fn is_admin(&self, config: &Config) -> bool {
-        self.0.id == config.allowed_github_user_id && self.0.login == config.allowed_github_login
-    }
-}
-
 struct AuthUser {
-    user: User,
+    user: user::User,
 }
 
 impl<S> FromRequestParts<S> for AuthUser
@@ -299,7 +273,8 @@ where
 }
 
 struct AdminUser {
-    user: User,
+    #[expect(dead_code)]
+    user: crate::user::User,
 }
 
 impl<S> FromRequestParts<S> for AdminUser

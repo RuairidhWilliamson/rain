@@ -3,6 +3,5 @@
 {% block content %}
 <h1>Profile</h1>
 
-<p><img src="{{base.user.0.avatar_url}}" width="16px" height="16px"> {{base.user.0.name}}</p>
-<p>{{base.user.0.login}}</p>
+<p><img src="{{base.user.avatar_url()}}" width="16px" height="16px"> {{base.user.display_name()}}</p>
 {% endblock %}

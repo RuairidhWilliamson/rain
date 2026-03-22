@@ -21,6 +21,7 @@ log.workspace = true
 oauth2.workspace = true
 forgejo-api.workspace = true
 rain-ci-common.path = "../common"
+reqwest.workspace = true
 secrecy.workspace = true
 serde_json.workspace = true
 serde.workspace = true
