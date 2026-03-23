@@ -44,15 +44,19 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     &mut self.runner.local_file_hash_cache,
                 );
                 if let Some(cache_entry) = &cache_entry {
-                    if let Some(expires) = cache_entry.expires {
-                        if expires > Utc::now() || self.runner.offline {
-                            log::debug!("Download cache hit, not expired");
-                            return Ok(cache_entry.value.clone());
-                        }
-                    } else {
+                    let Some(expires) = cache_entry.expires else {
                         log::debug!("Download cache hit, no expiry");
                         return Ok(cache_entry.value.clone());
+                    };
+                    if expires > Utc::now() {
+                        log::debug!("Download cache hit, not expired");
+                        return Ok(cache_entry.value.clone());
                     }
+                    if self.runner.offline {
+                        log::debug!("Download cache hit, expired but offline mode");
+                        return Ok(cache_entry.value.clone());
+                    }
+                    log::debug!("Download cache miss because expired");
                 }
                 if self.runner.offline {
                     return Err(self.caller_cx.nid_err(
@@ -76,12 +80,9 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
                 if !ok && status_code == Some(304) {
                     // Etag matched we can use our cached value!
-                    if let Some(mut cache_entry) = cache_entry {
+                    if let Some(cache_entry) = cache_entry {
                         log::debug!("Download cache etag hit");
-                        // TODO: Maybe we shouldn't have an expiry on this?
-                        cache_entry.expires = Some(Utc::now() + chrono::TimeDelta::days(30));
                         let value = cache_entry.value.clone();
-                        self.runner.cache.put(cache_key, cache_entry);
                         return Ok(value);
                     }
                 }
@@ -98,13 +99,16 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 } else {
                     m.insert("file".to_owned(), Value::Unit);
                 }
+                if etag.is_none() {
+                    log::warn!("no etag provided for download can result in more cache misses");
+                }
                 let out = Value::Record(Arc::new(RainRecord(m)));
                 self.runner.cache.put(
                     cache_key,
                     CacheEntry {
                         execution_time: start.elapsed(),
                         etag,
-                        expires: Some(Utc::now() + chrono::TimeDelta::hours(1)),
+                        expires: Some(Utc::now() + chrono::TimeDelta::hours(4)),
                         deps: DepList::new(),
                         value: out.clone(),
                     },
