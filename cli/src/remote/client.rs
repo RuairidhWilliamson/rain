@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::too_many_lines)]
-
 use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -60,6 +58,7 @@ impl From<ciborium::de::Error<std::io::Error>> for Error {
     }
 }
 
+#[expect(clippy::too_many_lines)]
 pub fn make_request_or_start<Req>(
     config: &Config,
     request: Req,
@@ -150,7 +149,13 @@ where
             let server_thread_handle = {
                 let config = config.clone();
                 std::thread::spawn(move || {
-                    let mut server = super::server::Server::new(config).unwrap();
+                    let mut server = match super::server::Server::new(config) {
+                        Ok(s) => s,
+                        Err(err) => {
+                            eprintln!("server create error: {err:#}");
+                            return;
+                        }
+                    };
                     let client_handler = super::server::ClientHandler {
                         server: &mut server,
                         stream,
@@ -173,10 +178,12 @@ where
                 },
                 request: buf,
             };
-            tx.send(req).unwrap();
+            if tx.send(req).is_err() {
+                return Err(Error::ChannelClosed);
+            }
             loop {
-                let msg = rx.recv();
-                match msg {
+                let recv_result = rx.recv();
+                match recv_result {
                     Ok(ServerMessage::ServerPanic) => {
                         log::error!("server panicked");
                         return Err(Error::ServerPanic(None));

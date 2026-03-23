@@ -121,22 +121,26 @@ struct RunRequest {
     run_id: RunId,
 }
 
-#[expect(clippy::unwrap_used)]
 fn start_pg_notify_worker(db: &Db, tx: &Sender<RunRequest>) {
     let db = db.clone();
     let tx = tx.clone();
     tokio::spawn(async move {
-        let mut listener = PgListener::connect_with(&db.pool).await.unwrap();
-        listener.listen("request_run").await.unwrap();
-        loop {
-            let notif = listener.recv().await.unwrap();
-            assert_eq!(notif.channel(), "request_run");
-            let run_id: i64 = notif.payload().parse().unwrap();
-            tx.send(RunRequest {
-                run_id: RunId(run_id),
-            })
-            .await
-            .unwrap();
+        if let Err(err) = pg_notify_worker(db, tx).await {
+            log::error!("pg notify worker error: {err}");
         }
     });
+}
+
+async fn pg_notify_worker(db: Db, tx: Sender<RunRequest>) -> anyhow::Result<()> {
+    let mut listener = PgListener::connect_with(&db.pool).await?;
+    listener.listen("request_run").await?;
+    loop {
+        let notif = listener.recv().await?;
+        assert_eq!(notif.channel(), "request_run");
+        let run_id: i64 = notif.payload().parse()?;
+        tx.send(RunRequest {
+            run_id: RunId(run_id),
+        })
+        .await?;
+    }
 }

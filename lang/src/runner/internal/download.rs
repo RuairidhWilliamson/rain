@@ -82,8 +82,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     // Etag matched we can use our cached value!
                     if let Some(cache_entry) = cache_entry {
                         log::debug!("Download cache etag hit");
-                        let value = cache_entry.value.clone();
-                        return Ok(value);
+                        return Ok(cache_entry.value);
                     }
                 }
                 let mut m = IndexMap::new();
