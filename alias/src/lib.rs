@@ -11,3 +11,4 @@ impl<T> Alias for std::rc::Rc<T> {}
 impl<T> Alias for std::rc::Weak<T> {}
 impl<T> Alias for std::sync::Arc<T> {}
 impl<T> Alias for std::sync::Weak<T> {}
+impl<T> Alias for &T {}
