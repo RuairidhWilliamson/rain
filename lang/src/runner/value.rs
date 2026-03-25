@@ -251,7 +251,11 @@ pub struct ClosureCaptures(pub Arc<HashMap<String, Value>>);
 
 impl std::hash::Hash for ClosureCaptures {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        for (k, v) in self.0.iter() {
+        // TODO: Optmisie this implementation, maybe you BTreeMap?
+        let mut kv: Vec<_> = self.0.iter().collect();
+        // Sorted to make the order stable
+        kv.sort_unstable_by_key(|(name, _)| *name);
+        for (k, v) in kv {
             k.hash(state);
             v.hash(state);
         }

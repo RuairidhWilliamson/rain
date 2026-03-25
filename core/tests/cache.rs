@@ -262,3 +262,36 @@ fn non_capturing_closure_caching() {
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(42))));
     assert_eq!(1, tester.driver.get_counter(&counter_name));
 }
+
+#[test]
+fn capturing_closure_caching() {
+    let mut tester = CacheTester::new();
+    let counter_name = Arc::new(String::from("foo"));
+
+    let f = tempfile::NamedTempFile::new().unwrap();
+    fs::write(
+        &f,
+        r#"
+        let main = fn() {
+            internal._set_cache_never()
+            foo(1)()
+        }
+
+        let foo = fn(x) {
+            fn() {
+                internal._inc_counter("foo")
+                42 + x
+            }
+        }
+        "#,
+    )
+    .unwrap();
+    let value = tester.run(&f).exec("main");
+    assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(43))));
+    assert_eq!(1, tester.driver.get_counter(&counter_name));
+
+    // Should be cached
+    let value = tester.run(&f).exec("main");
+    assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(43))));
+    assert_eq!(1, tester.driver.get_counter(&counter_name));
+}

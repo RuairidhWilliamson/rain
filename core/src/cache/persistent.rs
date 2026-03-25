@@ -1,4 +1,4 @@
-use std::{io::ErrorKind, path::Path, sync::Arc, time::Duration};
+use std::{collections::HashMap, io::ErrorKind, path::Path, sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
@@ -158,6 +158,10 @@ impl PersistCacheEntry {
     }
 
     fn depersist(self, config: &Config, rir: &mut Rir) -> Option<CacheEntry> {
+        if self.deps.iter().any(|d| !d.is_inter_run_stable()) {
+            // Don't depersist cache because a dep is inter run unstable
+            return None;
+        }
         let value = self.value.depersist(config, rir)?;
         Some(CacheEntry {
             execution_time: self.execution_time,
@@ -291,7 +295,7 @@ pub enum PersistCacheKey {
         url: String,
     },
     CallClosure {
-        // captures: Arc<HashMap<String, Value>>,
+        captures: HashMap<String, PersistValue>,
         module: PersistFile,
         node: NodeId,
         args: Vec<PersistValue>,
@@ -317,7 +321,12 @@ impl PersistCacheKey {
                 module,
                 node,
                 args,
-            } if captures.0.is_empty() => Some(Self::CallClosure {
+            } => Some(Self::CallClosure {
+                captures: captures
+                    .0
+                    .iter()
+                    .map(|(name, v)| Some((name.clone(), PersistValue::persist(v, rir)?)))
+                    .collect::<Option<_>>()?,
                 module: PersistFile::persist(module)?,
                 node: *node,
                 args: args
@@ -327,7 +336,7 @@ impl PersistCacheKey {
             }),
             CacheKey::Download { url } => Some(Self::Download { url: url.clone() }),
             // TODO: It is possible to persist embed in the cache if we key it by the rain binary version
-            CacheKey::CallClosure { .. } | CacheKey::Embed | CacheKey::Import { .. } => None,
+            CacheKey::Embed | CacheKey::Import { .. } => None,
         }
     }
 
@@ -345,8 +354,18 @@ impl PersistCacheKey {
                 module: module.depersist(config)?,
                 name,
             }),
-            Self::CallClosure { module, node, args } => Some(CacheKey::CallClosure {
-                captures: ClosureCaptures::default(),
+            Self::CallClosure {
+                captures,
+                module,
+                node,
+                args,
+            } => Some(CacheKey::CallClosure {
+                captures: ClosureCaptures(Arc::new(
+                    captures
+                        .into_iter()
+                        .map(|(name, v)| Some((name, v.depersist(config, rir)?)))
+                        .collect::<Option<_>>()?,
+                )),
                 module: module.depersist(config)?,
                 node,
                 args: args
