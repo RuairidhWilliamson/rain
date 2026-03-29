@@ -295,3 +295,34 @@ fn capturing_closure_caching() {
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(43))));
     assert_eq!(1, tester.driver.get_counter(&counter_name));
 }
+
+#[test]
+fn capturing_closure_across_modules_caching() {
+    let mut tester = CacheTester::new();
+
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("main.rain");
+    fs::write(
+        &root,
+        "
+        let child = internal._import(internal._get_file(\"child.rain\"))
+        let foo = fn() {
+            x = child.x
+            fn() {
+                x + 1
+            }
+        }
+        let main = foo()()
+        ",
+    )
+    .unwrap();
+    let child = dir.path().join("child.rain");
+    fs::write(&child, "pub let x = 4").unwrap();
+
+    let value = tester.run(&root).exec("main");
+    assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(5))));
+
+    fs::write(&child, "pub let x = 5").unwrap();
+    let value = tester.run(&root).exec("main");
+    assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(6))));
+}

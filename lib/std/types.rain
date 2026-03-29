@@ -36,7 +36,7 @@ pub let Either = fn(a: Type, b: Type) -> Type {
 	}
 }
 
-let check_type = fn(v: Any, type_constraint: Type) -> Bool {
+pub let check_type = fn(v: Any, type_constraint: Type) -> Bool {
 	if get_type(type_constraint) == get_type(Unit) {
 		get_type(v) == type_constraint
 	} else {

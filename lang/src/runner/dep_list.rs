@@ -2,9 +2,15 @@ use std::collections::HashSet;
 
 use crate::runner::{dep::Dep, value::Value};
 
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct DepList {
     inner: Vec<Dep>,
+}
+
+impl std::fmt::Debug for DepList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("DepList").field(&self.inner).finish()
+    }
 }
 
 impl DepList {
