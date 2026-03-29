@@ -2,7 +2,6 @@ let std = import("std.rain")
 
 let download = std.utils.download
 let _throw = std.utils._throw
-let get_file = std.fs.file
 let get_dir = std.fs.dir
 
 let download_pre_sha = fn(url, filename) {
@@ -33,21 +32,6 @@ let get_manifest = fn(channel) {
 		_throw("unsupported manifest version, expected 2 but got " + manifest_toml.manifest_version)
 	}
 	manifest_toml
-}
-
-let get_gz_artifact = fn(artifact) {
-	if !artifact.available {
-		_throw("requested artifact not available")
-	}
-	download_result = download(artifact.url)
-	if !download_result.ok {
-		_throw("download failed")
-	}
-	hash = std.fs.sha256(download_result.file)
-	if artifact.hash != hash {
-		_throw("checksum does not match")
-	}
-	std.compression.extract_tar_gz(download_result.file)
 }
 
 let get_xz_artifact = fn(artifact) {

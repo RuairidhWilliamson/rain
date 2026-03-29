@@ -83,6 +83,10 @@ struct GlobalOptions {
     /// Run with cache verification, can be expensive so use carefully
     #[arg(long, global = true, env = "RAIN_VERIFICATION")]
     verification: bool,
+
+    /// Error for unused declarations
+    #[arg(long, global = true)]
+    unused: bool,
 }
 
 impl GlobalOptions {

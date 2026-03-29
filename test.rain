@@ -1,7 +1,4 @@
-let main = import("main.rain")
-let std = main.std
-
-let {print} = std
+let std = import("main.rain").std
 
 // Run tests to make sure intra-process caching is working
 
@@ -39,7 +36,7 @@ let test_create_file_cache = fn() {
 }
 
 let test_import_cache = fn() {
-	rain_src = std.fs.create_file("let foo = 5", "foo.rain")
+	rain_src = std.fs.create_file("pub let foo = 5", "foo.rain")
 	main1 = internal._import(rain_src)
 	main2 = internal._import(rain_src)
 	std.assert.is_true(internal._rust_eq(main1, main2))
@@ -49,12 +46,4 @@ let test_type_check = fn() {
 	a = "abcd"
 	std.assert.not_equal(internal._get_type(a), std.types.Integer)
 	std.assert.equal(internal._get_type(a), std.types.String)
-}
-
-let bar = fn() {
-	foo()
-}
-
-let foo = fn() {
-	internal._throw("hi")
 }

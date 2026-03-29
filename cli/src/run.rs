@@ -30,6 +30,7 @@ pub fn run(
             host_override: options.host.clone(),
             custom_config,
             verification: options.verification,
+            unused: options.unused,
         },
         |progress| reporter.update(progress),
         mode,

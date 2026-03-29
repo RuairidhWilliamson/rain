@@ -2,7 +2,6 @@ pub let area = internal._get_area(this_file)
 pub let std = load_stdlib()
 let publish_mod = import("publish/_.rain")
 let test_mod = import("test.rain")
-let hermetic = import("hermetic.rain")
 let tree_sitter_rain = import("tree-sitter-rain/_.rain")
 pub let ci_mod = import("ci/_.rain")
 
@@ -11,7 +10,6 @@ let load_stdlib = fn() {
 	internal._embed().load_stdlib(stdlib_area)
 }
 
-let {print} = std
 let {String, File} = std.types
 
 let cargo = std.escape.bin("cargo")
@@ -45,10 +43,6 @@ pub let check = fn() {
 	test()
 }
 
-let build = fn() {
-	std.build.rust.cargo.build(std.build.rust.stable, area, "rain", true, "", "dev", std.utils.host_info().triple, [], {})
-}
-
 pub let build_cli_release = fn(target_triple: String) -> File {
 	std.build.rust.escape.cargo_build(area, "rain", target_triple, true)
 }
@@ -57,28 +51,8 @@ pub let build_lsp_release = fn(target_triple: String) -> File {
 	std.build.rust.escape.cargo_build(area, "rain-lsp", target_triple, true)
 }
 
-let run = fn() {
-	binary = build_c()
-	std.utils.run(std.utils.unit, binary, [], {})
-}
-
-let helloworld = fn() {
-	src = std.fs.create_file("fn main() {\n\tprintln!(\"Hello world!\")\n}", "helloworld.rs")
-	bin = std.build.rust.rustc.compile("stable", src, "helloworld", std.utils.host_info().triple, "2024")
-	print(std.utils.run(std.utils.unit, bin, [], {}).stdout)
-}
-
 let check_empty_files = fn() {
 	std.list.map(std.utils.glob(area), std.build.lints.no_emptish)
-}
-
-let test_zig = fn() {
-	src = std.fs.create_file("const std = @import(\"std\"); pub fn main() !void {std.debug.print(\"hello world\", .{});}", "helloworld.zig")
-	zig_bin = std.build.zig.dist.download("0.15.1", "x86_64", "linux")
-	run_result = std.utils.run_check(std.utils.unit, zig_bin, ["build-exe", src], {ZIG_GLOBAL_CACHE_DIR = "."})
-	bin = std.fs.file(run_result.area, "helloworld")
-	run_result = std.utils.run_check(std.utils.unit, bin, [], {})
-	print(run_result.stderr)
 }
 
 pub let publish = fn(version: String) {
@@ -110,23 +84,23 @@ let regular_test = fn() {
 	std.escape.run(area, cargo, ["test"], cargo_env)
 }
 
-let nextest = fn() {
+pub let nextest = fn() {
 	std.escape.run(area, cargo, ["nextest", "run"], cargo_env)
 }
 
-let coverage = fn() -> File {
+pub let coverage = fn() -> File {
 	std.escape.run(area, cargo, ["llvm-cov", "nextest", "-p", "rain-lang", "-p", "rain-core", "--html"], cargo_env)
 	std.fs.file(area, "target/llvm-cov/html/index.html")
 }
 
-let cleanup_snapshots = fn() {
+pub let cleanup_snapshots = fn() {
 	std.escape.run(area, cargo, ["insta", "test", "--unreferenced", "delete"], cargo_env)
 }
 
-let check_sqlx_prepared = fn() {
+pub let check_sqlx_prepared = fn() {
 	std.escape.run(area, cargo, ["sqlx", "prepare", "--workspace", "--check"], cargo_env)
 }
 
-let prepare_sqlx = fn() {
+pub let prepare_sqlx = fn() {
 	std.escape.run(area, cargo, ["sqlx", "prepare", "--workspace"], cargo_env)
 }

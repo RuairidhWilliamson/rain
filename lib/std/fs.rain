@@ -1,6 +1,6 @@
 let std = import("std.rain")
 
-let {String, Integer, List, File, Dir, DirLike, Bool, Any, Area} = std.types
+let {String, Integer, List, File, Dir, DirLike, Any, Area} = std.types
 
 pub let write_file = create_file
 pub let create_file = fn(contents: String, name: String) -> File {

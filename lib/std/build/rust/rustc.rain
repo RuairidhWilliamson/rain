@@ -3,7 +3,6 @@ let std = import("std.rain")
 let {File, String, List} = std.types
 let {run, unit, _throw} = std.utils
 
-let escape_bin = std.escape.bin
 let get_file = std.fs.file
 let get_dir = std.fs.dir
 

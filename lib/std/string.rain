@@ -1,5 +1,4 @@
 let std = import("std.rain")
-let {unit} = std.utils
 let {String, List, Bool, Any} = std.types
 
 pub let split = fn(target: String, delimitter: String) -> List(String) {
