@@ -29,8 +29,8 @@ pub fn router() -> Router<AppState> {
         .route("/{name}/authorized", get(authorized))
 }
 
-async fn default_auth() -> impl IntoResponse {
-    Redirect::to("/auth/github")
+async fn default_auth(State(config): State<Arc<Config>>) -> impl IntoResponse {
+    Redirect::to(&format!("/auth/{}", config.default_auth))
 }
 
 async fn auth(
@@ -42,7 +42,9 @@ async fn auth(
     let auth_provider = crate::db::get_auth_provider(&db, &name).await?;
     let client = Client::new_from_auth_provider(&config.base_url, auth_provider).await?;
     let (auth_url, csrf_token) = client.authorize_url();
-    crate::db::set_session_csrf(&db, &session.id, csrf_token).await?;
+    crate::db::set_session_csrf(&db, &session.id, csrf_token)
+        .await
+        .context("set session csrf")?;
     Ok(Redirect::to(auth_url.as_ref()))
 }
 
@@ -59,13 +61,20 @@ async fn authorized(
     State(config): State<Arc<Config>>,
     Extension(session): Extension<session::Session>,
 ) -> Result<impl IntoResponse, AppError> {
-    let auth_provider = crate::db::get_auth_provider(&db, &name).await?;
-    let client = Client::new_from_auth_provider(&config.base_url, auth_provider).await?;
+    let auth_provider = crate::db::get_auth_provider(&db, &name)
+        .await
+        .context("get auth provider")?;
+    let client = Client::new_from_auth_provider(&config.base_url, auth_provider)
+        .await
+        .context("new auth provider client")?;
     crate::db::check_session_csrf(&db, &session.id, query.state)
         .await
         .map_err(|err| anyhow::format_err!("csrf check failed: {err:#}"))?;
     let token = client.exchange_code(query.code).await?;
-    let user = client.get_user_details(token.access_token()).await?;
+    let user = client
+        .get_user_details(token.access_token())
+        .await
+        .context("get user details")?;
     crate::db::auth_user_session(&db, &session.id, &name, user)
         .await
         .map_err(|err| anyhow::format_err!("auth user session: {err:#}"))?;
@@ -203,7 +212,41 @@ impl Client {
                     .send()
                     .await?;
                 let body = response.bytes().await?;
-                Ok(serde_json::from_slice(&body)?)
+                let user: GithubUserDetails =
+                    serde_json::from_slice(&body).context("deserialize json user")?;
+                if let Some(email) = user.email {
+                    return Ok(UserDetails {
+                        name: user.name,
+                        email,
+                        login: user.login,
+                        preferred_username: user.preferred_username,
+                        avatar_url: user.avatar_url,
+                    });
+                }
+                // Github user email is only provided if the user's email is public
+                // Otherwise we have to call /user/emails to get their email address
+                let response = http_client
+                    .get("https://api.github.com/user/emails")
+                    .bearer_auth(token.secret())
+                    .header(ACCEPT, "application/vnd.github+json")
+                    .header("X-GitHub-Api-Version", "2022-11-28")
+                    .header(USER_AGENT, "RainCIWeb")
+                    .send()
+                    .await?;
+                let body = response.bytes().await?;
+                let emails: Vec<GithubEmail> =
+                    serde_json::from_slice(&body).context("deserialize json github email")?;
+                let email = emails
+                    .into_iter()
+                    .find(|email| email.primary && email.verified)
+                    .context("no primary email that is verified")?;
+                Ok(UserDetails {
+                    name: user.name,
+                    email: email.email,
+                    login: user.login,
+                    preferred_username: user.preferred_username,
+                    avatar_url: user.avatar_url,
+                })
             }
             AuthKind::OpenIDConnect => {
                 let response = http_client()?
@@ -222,6 +265,22 @@ impl Client {
             }
         }
     }
+}
+
+#[derive(Clone, Deserialize)]
+pub struct GithubUserDetails {
+    pub name: String,
+    pub email: Option<String>,
+    pub login: Option<String>,
+    pub preferred_username: Option<String>,
+    pub avatar_url: Option<String>,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct GithubEmail {
+    pub email: String,
+    pub primary: bool,
+    pub verified: bool,
 }
 
 #[derive(Clone, Deserialize)]

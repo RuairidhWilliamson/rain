@@ -40,6 +40,7 @@ struct Config {
     allowed_user_id: i64,
     database_password_file: Option<PathBuf>,
     database_url: Url,
+    default_auth: String,
 }
 
 #[tokio::main]
