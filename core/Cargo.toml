@@ -18,7 +18,6 @@ flate2 = "1.1"
 git2 = "0.20"
 ignore = "0.4"
 indexmap.workspace = true
-libc.workspace = true
 liblzma = "0.4"
 log.workspace = true
 lru = "0.16"

@@ -5,13 +5,13 @@ use crate::{Client, Listener};
 fn test_pipe_path(name: &str) -> String {
     #[cfg(target_family = "unix")]
     {
-        let path = format!("/tmp/{name}");
-        let _ = std::fs::remove_file(&path);
+        let path = format!("/tmp/rain-test-{name}");
+        let _ = std::fs::remove_dir_all(&path);
         path
     }
     #[cfg(target_family = "windows")]
     {
-        format!("\\\\.\\pipe\\{name}")
+        format!("\\\\.\\pipe\\rain-test-{name}")
     }
 }
 

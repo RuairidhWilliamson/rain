@@ -51,7 +51,7 @@ impl Config {
 
     #[cfg(target_family = "unix")]
     pub fn server_socket_path(&self) -> PathBuf {
-        self.base_run_dir.join("server.socket")
+        self.base_run_dir.join("ipc")
     }
 
     #[cfg(target_family = "windows")]

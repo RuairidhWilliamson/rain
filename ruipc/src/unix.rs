@@ -1,3 +1,5 @@
+use std::fs::DirBuilder;
+use std::os::unix::fs::DirBuilderExt as _;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
 
@@ -5,14 +7,15 @@ use std::path::Path;
 pub struct Listener(UnixListener);
 
 impl Listener {
-    #[expect(unsafe_code, clippy::undocumented_unsafe_blocks)]
     pub fn bind(path: impl AsRef<Path>) -> std::io::Result<Self> {
-        // Set the socket file to have rwx------ so that only the owner can access it
-        // FIXME: This can race other threads affecting their create files
-        let prev = unsafe { libc::umask(0o077) };
-        let res = UnixListener::bind(path).map(Self);
-        unsafe { libc::umask(prev) };
-        res
+        let path = path.as_ref();
+        // Set the directory of the socket file to have rwx------ so that only the owner can access it
+        DirBuilder::new()
+            .mode(0o700)
+            .recursive(true)
+            .create(&path)?;
+
+        UnixListener::bind(path.join("socket")).map(Self)
     }
 
     pub fn incoming(&self) -> Incoming<'_> {
@@ -55,7 +58,7 @@ pub struct Client(UnixStream);
 
 impl Client {
     pub fn connect(path: impl AsRef<Path>) -> std::io::Result<Self> {
-        UnixStream::connect(path).map(Self)
+        UnixStream::connect(path.as_ref().join("socket")).map(Self)
     }
 }
 

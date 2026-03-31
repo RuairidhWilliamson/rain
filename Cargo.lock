@@ -2739,7 +2739,6 @@ dependencies = [
  "ignore",
  "indexmap",
  "insta",
- "libc",
  "liblzma",
  "log",
  "lru",
@@ -3030,7 +3029,6 @@ dependencies = [
 name = "ruipc"
 version = "0.16.0"
 dependencies = [
- "libc",
  "windows",
 ]
 
