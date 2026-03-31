@@ -15,7 +15,6 @@ use axum::{
     routing::{get, post},
 };
 use chrono::Utc;
-use log::info;
 use rain_ci_common::{
     db::{
         Db, DbConfig, Resource as _,
@@ -46,13 +45,13 @@ struct Config {
 #[tokio::main]
 async fn main() -> Result<()> {
     let dotenv_result = dotenvy::dotenv();
-    env_logger::init();
+    tracing_subscriber::fmt::init();
     if let Err(err) = dotenv_result {
-        log::warn!(".env could not be loaded: {err:#}");
+        tracing::warn!(".env could not be loaded: {err:#}");
     }
     let config = envy::from_env::<Config>()?;
     let version = env!("CARGO_PKG_VERSION");
-    info!("version = {version}");
+    tracing::info!("version = {version}");
     let db = Db::new(
         DbConfig {
             url: config.database_url.clone(),
@@ -84,7 +83,7 @@ async fn main() -> Result<()> {
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    log::info!("listening on {}", listener.local_addr()?);
+    tracing::info!("listening on {}", listener.local_addr()?);
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
@@ -203,7 +202,7 @@ struct AppError(anyhow::Error);
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        log::error!("Application error: {:#}", self.0);
+        tracing::error!("Application error: {:#}", self.0);
         (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong").into_response()
     }
 }
@@ -246,7 +245,7 @@ where
         let user = db::get_user(&store, session.id)
             .await
             .map_err(|err| {
-                log::error!("get user: {err:#}");
+                tracing::error!("get user: {err:#}");
                 AuthRedirect
             })?
             .ok_or(AuthRedirect)?;
@@ -296,7 +295,7 @@ where
         let user = db::get_user(&store, session.id)
             .await
             .map_err(|err| {
-                log::error!("get user: {err:#}");
+                tracing::error!("get user: {err:#}");
                 StatusCode::UNAUTHORIZED
             })?
             .ok_or(StatusCode::UNAUTHORIZED)?;
@@ -351,5 +350,5 @@ async fn shutdown_signal() {
         () = terminate => {},
     }
 
-    log::info!("signal received, starting graceful shutdown");
+    tracing::info!("signal received, starting graceful shutdown");
 }
