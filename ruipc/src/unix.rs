@@ -10,10 +10,7 @@ impl Listener {
     pub fn bind(path: impl AsRef<Path>) -> std::io::Result<Self> {
         let path = path.as_ref();
         // Set the directory of the socket file to have rwx------ so that only the owner can access it
-        DirBuilder::new()
-            .mode(0o700)
-            .recursive(true)
-            .create(&path)?;
+        DirBuilder::new().mode(0o700).recursive(true).create(path)?;
 
         UnixListener::bind(path.join("socket")).map(Self)
     }

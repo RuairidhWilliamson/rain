@@ -408,23 +408,21 @@ impl DriverTrait for DriverImpl<'_> {
         name: &str,
         etag: Option<&[u8]>,
     ) -> Result<DownloadStatus, RunnerError> {
-        let agent = ureq::Agent::new_with_config(
-            ureq::config::Config::builder()
-                .http_status_as_error(false)
-                .build(),
-        );
+        let agent = reqwest::blocking::ClientBuilder::new()
+            .build()
+            .map_err(|err| RunnerError::Makeshift(format!("create client: {err:#}").into()))?;
         let mut request = agent.get(url);
         if let Some(etag) = etag {
-            request = request.header(ureq::http::header::IF_NONE_MATCH, etag);
+            request = request.header(http::header::IF_NONE_MATCH, etag);
         }
         log::debug!("Download {url}");
         let mut response = request
-            .call()
-            .map_err(|err| RunnerError::MakeshiftIO("download request".into(), err.into_io()))?;
+            .send()
+            .map_err(|err| RunnerError::Makeshift(format!("download request: {err:#}").into()))?;
         log::debug!("Download complete {url} {}", response.status());
         let etag: Option<Vec<u8>> = response
             .headers()
-            .get(ureq::http::header::ETAG)
+            .get(http::header::ETAG)
             .map(|h| h.as_bytes().to_vec());
         let area = self.create_empty_area()?;
         let path = SealedFilePath::new(name)?;
@@ -432,9 +430,9 @@ impl DriverTrait for DriverImpl<'_> {
         let output_path = self.resolve_fs_entry((&entry).into());
         let mut out = std::fs::File::create_new(output_path)
             .map_err(|err| RunnerError::MakeshiftIO("create download file".into(), err))?;
-        let body = response.body_mut();
-        std::io::copy(&mut body.as_reader(), &mut out)
-            .map_err(|err| RunnerError::MakeshiftIO("download file".into(), err))?;
+        response
+            .copy_to(&mut out)
+            .map_err(|err| RunnerError::Makeshift(format!("download file: {err:#}").into()))?;
         // Safety: We just created the file and checked for errors so it is present
         let output = unsafe { GeneratedFile::new(entry) };
         Ok(DownloadStatus {

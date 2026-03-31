@@ -10,6 +10,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+alias.path = "../alias"
 base16.workspace = true
 chrono.workspace = true
 ciborium.workspace = true
@@ -24,16 +25,16 @@ lru = "0.16"
 num-bigint = "0.4"
 poison_panic.path = "../poison_panic"
 rain-lang.path = "../lang"
+reqwest.workspace = true
 serde.workspace = true
 sha2.workspace = true
 tar = "0.4"
 thiserror.workspace = true
 toml.workspace = true
-ureq.workspace = true
 uuid.workspace = true
 zip = { version = "8.0", features = ["deflate"], default-features = false }
 zstd = "0.13"
-alias.path = "../alias"
+http.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
