@@ -1,12 +1,12 @@
 use std::{collections::HashMap, process::ExitCode};
 
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    DidSaveTextDocumentParams, Hover, HoverParams, HoverProviderCapability,
-    PublishDiagnosticsParams, TextDocumentSyncKind,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, DidSaveTextDocumentParams, Hover,
+    HoverParams, HoverProviderCapability, TextDocumentSyncKind,
 };
 
 use crate::{
+    analysis::TextDocument,
     comms::Comms,
     json_rpc::{self, Notification, Request},
 };
@@ -14,52 +14,6 @@ use crate::{
 pub struct Server {
     comms: Comms,
     text_documents: HashMap<String, TextDocument>,
-}
-
-struct TextDocument {
-    uri: lsp_types::Uri,
-    version: i32,
-    source: String,
-    tree: tree_sitter::Tree,
-}
-
-impl TextDocument {
-    fn publish_diagnostics(&self) -> Notification<PublishDiagnosticsParams> {
-        Notification::new(
-            "textDocument/publishDiagnostics",
-            Some(PublishDiagnosticsParams {
-                uri: self.uri.clone(),
-                version: Some(self.version),
-                diagnostics: self.diagnostics().collect(),
-            }),
-        )
-    }
-
-    fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> {
-        tree_errors(&self.tree).map(|node| Diagnostic {
-            range: convert_range_to_lsp(node.range()),
-            severity: Some(DiagnosticSeverity::ERROR),
-            code: None,
-            code_description: None,
-            source: None,
-            message: node.to_sexp(),
-            related_information: None,
-            tags: None,
-            data: None,
-        })
-    }
-}
-
-fn tree_errors(tree: &tree_sitter::Tree) -> impl Iterator<Item = tree_sitter::Node<'_>> {
-    let mut cursor = tree.root_node().walk();
-    (0..tree.root_node().descendant_count()).filter_map(move |i| {
-        cursor.goto_descendant(i);
-        if cursor.node().is_error() && cursor.node().child_count() > 0 {
-            Some(cursor.node())
-        } else {
-            None
-        }
-    })
 }
 
 impl Server {
@@ -149,14 +103,7 @@ impl Server {
 
     fn handle_did_open(&mut self, message: Notification<DidOpenTextDocumentParams>) {
         let params = message.params.unwrap();
-        let src = params.text_document.text;
-        let tree = rain_lang::ast::ts_parser::parse(&src);
-        let text_document = TextDocument {
-            uri: params.text_document.uri,
-            version: (params.text_document.version),
-            source: src,
-            tree,
-        };
+        let text_document = TextDocument::from(params.text_document);
         self.comms
             .send_message(&text_document.publish_diagnostics());
         self.text_documents
@@ -164,26 +111,19 @@ impl Server {
     }
 
     fn handle_did_change(&mut self, message: Notification<DidChangeTextDocumentParams>) {
-        let mut params = message.params.unwrap();
+        let params = message.params.unwrap();
         let text_document = self
             .text_documents
             .get_mut(&params.text_document.uri.to_string())
             .unwrap();
-        let change = params.content_changes.pop().unwrap();
-        let tree = rain_lang::ast::ts_parser::parse(&change.text);
-        *text_document = TextDocument {
-            uri: params.text_document.uri,
-            version: params.text_document.version,
-            source: change.text,
-            tree,
-        };
+        text_document.change(params);
         self.comms
             .send_message(&text_document.publish_diagnostics());
     }
 
     fn handle_hover(&mut self, message: Request<HoverParams>) {
         let params = message.params.clone().unwrap();
-        let entry = self
+        let text_document = self
             .text_documents
             .get(
                 &params
@@ -193,11 +133,8 @@ impl Server {
                     .to_string(),
             )
             .unwrap();
-        let point = convert_position_to_ts(params.text_document_position_params.position);
-        let Some(node) = entry
-            .tree
-            .root_node()
-            .named_descendant_for_point_range(point, point)
+        let Some((display, range)) =
+            text_document.hover(params.text_document_position_params.position)
         else {
             self.comms
                 .send_message(&message.error_response(json_rpc::ResponseError {
@@ -207,33 +144,10 @@ impl Server {
                 }));
             return;
         };
-        // let display = node.to_sexp();
-        let display = node.utf8_text(entry.source.as_bytes()).unwrap().to_string();
 
         self.comms.send_message(&message.ok_response(Hover {
             contents: lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(display)),
-            range: Some(convert_range_to_lsp(node.range())),
+            range: Some(range),
         }));
-    }
-}
-
-fn convert_position_to_ts(position: lsp_types::Position) -> tree_sitter::Point {
-    tree_sitter::Point {
-        row: position.line as usize,
-        column: position.character as usize,
-    }
-}
-
-fn convert_range_to_lsp(range: tree_sitter::Range) -> lsp_types::Range {
-    lsp_types::Range {
-        start: convert_point_to_lsp(range.start_point),
-        end: convert_point_to_lsp(range.end_point),
-    }
-}
-
-fn convert_point_to_lsp(start_point: tree_sitter::Point) -> lsp_types::Position {
-    lsp_types::Position {
-        line: start_point.row.try_into().unwrap(),
-        character: start_point.column.try_into().unwrap(),
     }
 }

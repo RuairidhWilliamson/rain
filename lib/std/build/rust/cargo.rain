@@ -7,7 +7,6 @@ let get_file = std.fs.file
 let get_dir = std.fs.dir
 let escape_bin = std.escape.bin
 let run = utils.run
-let unit = utils.unit
 let _throw = utils._throw
 let print = std.print
 
@@ -38,7 +37,7 @@ let prepare_cargo = fn(channel) {
 	{env = env, cargo_bin = cargo_bin}
 }
 
-let build = fn(channel, area, package, default_features: Bool, features, profile, target, extra_args, env) -> File {
+pub let build = fn(channel, area, package, default_features: Bool, features, profile, target, extra_args, env) -> File {
 	prep = prepare_cargo(channel)
 	args = [
 		"build",
@@ -65,7 +64,7 @@ let build = fn(channel, area, package, default_features: Bool, features, profile
 	get_file(run_result.area, "target/" + target + "/" + profile_dir + "/" + package + utils.exe_suffix(target))
 }
 
-let test = fn(channel, area, package, default_features: Bool, features, profile) {
+pub let test = fn(channel, area, package, default_features: Bool, features, profile) {
 	prep = prepare_cargo(channel)
 	args = [
 		"test",
@@ -87,7 +86,7 @@ let test = fn(channel, area, package, default_features: Bool, features, profile)
 	}
 }
 
-let clippy = fn(channel, area) {
+pub let clippy = fn(channel, area) {
 	// Download components
 	// Implicitly requires cc for linking
 	cc = escape_bin("cc")
@@ -108,7 +107,7 @@ let clippy = fn(channel, area) {
 	}
 }
 
-let check_fmt = fn(channel, area) {
+pub let check_fmt = fn(channel, area) {
 	// Download components
 	prep = prepare_cargo(channel)
 	rustfmt = rust_dist.get_rustfmt(channel, host_triple)

@@ -2,7 +2,7 @@ let main = import("main.rain")
 let std = main.std
 let area = std.fs.area(this_file)
 
-let {Record, String, File, Dir} = std.types
+let {Record, String, File} = std.types
 
 let render = fn(template: File, vars: Record(String)) -> File {
 	std.fs.read_file(template)

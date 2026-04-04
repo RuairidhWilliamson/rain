@@ -5,6 +5,7 @@
     clippy::print_stdout
 )]
 
+mod analysis;
 mod comms;
 mod json_rpc;
 mod server;

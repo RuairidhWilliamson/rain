@@ -10,11 +10,13 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+alias.path = "../alias"
 base16.workspace = true
 chrono.workspace = true
 indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
+poison_panic.path = "../poison_panic"
 regex = "1.11"
 serde_json.workspace = true
 serde.workspace = true
@@ -26,7 +28,6 @@ toml.workspace = true
 tree-sitter-rain.path = "../tree-sitter-rain"
 tree-sitter.workspace = true
 uuid.workspace = true
-alias.path = "../alias"
 
 [dev-dependencies]
 insta.workspace = true

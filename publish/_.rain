@@ -3,9 +3,9 @@ let std = main.std
 let templates = import("publish/templates.rain")
 let gcloud = import("publish/gcloud.rain")
 
-let {run, unit, _throw, parse_toml} = std.utils
+let {unit, _throw, parse_toml} = std.utils
 let {print} = std
-let {File, Dir, String} = std.types
+let {String} = std.types
 
 let bucket = "rain-e870e063"
 let webhook_url = internal._get_secret("RAIN_PUBLISH_WEBHOOK")

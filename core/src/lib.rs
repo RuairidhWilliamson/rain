@@ -18,7 +18,13 @@ use rain_lang::{
     driver::FSTrait as _,
     error::OwnedResolvedError,
     ir::ModuleId,
-    runner::{cx::Cx, dep_list::DepList, value::Value},
+    runner::{
+        check_cx::CheckCx,
+        cx::Cx,
+        dep_list::DepList,
+        error::{RunnerError, Throwing},
+        value::Value,
+    },
 };
 use serde::{Deserialize, Serialize};
 
@@ -77,9 +83,17 @@ pub fn evaluate_and_call_chain(
 ) -> Result<Value, CoreError> {
     let initial_module = runner.ir.get_module(mid).alias();
     let mut cx = Cx::new(&initial_module, 0, HashMap::new(), Vec::new());
-    runner
-        .check_module(&mut cx, initial_module.id)
-        .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned())))?;
+    let mut check_errors = CheckCx::check_module(initial_module.alias());
+    check_errors.truncate(1);
+    if let Some(err) = check_errors.pop() {
+        return Err(CoreError::LangError(Box::new(
+            err.upgrade(mid)
+                .convert::<RunnerError>()
+                .convert::<Throwing>()
+                .resolve_ir(runner.ir)
+                .into_owned(),
+        )));
+    }
     let mut v = None;
     let mut mid_nid = None;
     let target_chain: Vec<_> = targets.split('.').collect();

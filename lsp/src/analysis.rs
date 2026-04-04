@@ -1,0 +1,181 @@
+use std::path::Path;
+
+use alias::Alias as _;
+use lsp_types::{
+    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, Position,
+    PublishDiagnosticsParams, Range, TextDocumentItem,
+};
+use rain_core::{config::Config, driver::DriverImpl};
+use rain_lang::{
+    afs::{
+        File,
+        absolute::AbsolutePathBuf,
+        local::{entry::LocalFSEntry, file::LocalFile},
+        path::SealedFilePath,
+    },
+    ast::Module,
+    ir::Rir,
+    local_span::{ErrorLocalSpan, LocalSpan},
+    runner::check_cx::{CheckCx, CheckError},
+};
+
+use crate::json_rpc::Notification;
+
+pub struct TextDocument {
+    pub uri: lsp_types::Uri,
+    pub version: i32,
+    pub source: String,
+    pub tree: tree_sitter::Tree,
+}
+
+impl From<TextDocumentItem> for TextDocument {
+    fn from(text_document: TextDocumentItem) -> Self {
+        Self {
+            uri: text_document.uri,
+            version: text_document.version,
+            tree: rain_lang::ast::ts_parser::parse(&text_document.text),
+            source: text_document.text,
+        }
+    }
+}
+
+impl TextDocument {
+    pub fn change(&mut self, params: DidChangeTextDocumentParams) {
+        assert_eq!(self.uri, params.text_document.uri);
+        for change in params.content_changes {
+            if let Some(_) = change.range {
+                todo!()
+            } else {
+                self.source = change.text;
+            }
+        }
+        self.tree = rain_lang::ast::ts_parser::parse(&self.source);
+        self.version = params.text_document.version;
+    }
+
+    pub fn publish_diagnostics(&self) -> Notification<PublishDiagnosticsParams> {
+        Notification::new(
+            "textDocument/publishDiagnostics",
+            Some(PublishDiagnosticsParams {
+                uri: self.uri.clone(),
+                version: Some(self.version),
+                diagnostics: self.diagnostics().collect(),
+            }),
+        )
+    }
+
+    pub fn hover(&self, position: Position) -> Option<(String, Range)> {
+        let point = convert_position_to_ts(position);
+        let node = self
+            .tree
+            .root_node()
+            .named_descendant_for_point_range(point, point)?;
+        // let display = node.to_sexp();
+        let display = node.utf8_text(self.source.as_bytes()).unwrap().to_string();
+        Some((display, convert_range_to_lsp(node.range())))
+    }
+
+    fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> {
+        tree_errors(&self.tree)
+            .map(|node| Diagnostic {
+                range: convert_range_to_lsp(node.range()),
+                severity: Some(DiagnosticSeverity::ERROR),
+                code: None,
+                code_description: None,
+                source: None,
+                message: node.to_sexp(),
+                related_information: None,
+                tags: None,
+                data: None,
+            })
+            .chain(self.check_errors().into_iter().map(|err| Diagnostic {
+                range: convert_span_to_lsp(err.span, &self.source),
+                severity: Some(match err.err {
+                    CheckError::UnusedDeclaration => DiagnosticSeverity::WARNING,
+                    _ => DiagnosticSeverity::ERROR,
+                }),
+                code: None,
+                code_description: None,
+                source: None,
+                message: err.err.to_string(),
+                related_information: None,
+                tags: None,
+                data: None,
+            }))
+    }
+
+    fn check_errors(&self) -> Vec<ErrorLocalSpan<CheckError>> {
+        let config = Config::new();
+        let mut ir = Rir::new();
+        let driver = DriverImpl::new(config);
+        let root = rain_core::find_main_rain().unwrap();
+        let area = root.parent().unwrap();
+        let path = Path::new(self.uri.path().as_str());
+        let rel_path = path.strip_prefix(area).unwrap();
+        let rel_path = SealedFilePath::new(rel_path.to_str().unwrap()).unwrap();
+        let file = File::Local(
+            LocalFile::new_checked(
+                &driver,
+                LocalFSEntry {
+                    area: AbsolutePathBuf(area.to_path_buf()),
+                    path: rel_path,
+                },
+            )
+            .unwrap(),
+        );
+        let src = self.source.clone();
+        let module = Module::parse(&src);
+        let Ok(mid) = ir.insert_module(Some(file), src, module) else {
+            return Vec::new();
+        };
+        let module = ir.get_module(mid);
+        CheckCx::check_module(module.alias())
+    }
+}
+
+fn tree_errors(tree: &tree_sitter::Tree) -> impl Iterator<Item = tree_sitter::Node<'_>> {
+    let mut cursor = tree.root_node().walk();
+    (0..tree.root_node().descendant_count()).filter_map(move |i| {
+        cursor.goto_descendant(i);
+        if cursor.node().is_error() && cursor.node().child_count() > 0 {
+            Some(cursor.node())
+        } else {
+            None
+        }
+    })
+}
+pub fn convert_position_to_ts(position: lsp_types::Position) -> tree_sitter::Point {
+    tree_sitter::Point {
+        row: position.line as usize,
+        column: position.character as usize,
+    }
+}
+
+pub fn convert_span_to_lsp(span: LocalSpan, src: &str) -> lsp_types::Range {
+    let start = span.start_line_colz(src);
+    let end = span.end_line_colz(src);
+    lsp_types::Range {
+        start: Position {
+            line: start.0 as u32,
+            character: start.1 as u32,
+        },
+        end: Position {
+            line: end.0 as u32,
+            character: end.1 as u32,
+        },
+    }
+}
+
+pub fn convert_range_to_lsp(range: tree_sitter::Range) -> lsp_types::Range {
+    lsp_types::Range {
+        start: convert_point_to_lsp(range.start_point),
+        end: convert_point_to_lsp(range.end_point),
+    }
+}
+
+pub fn convert_point_to_lsp(start_point: tree_sitter::Point) -> lsp_types::Position {
+    lsp_types::Position {
+        line: start_point.row.try_into().unwrap(),
+        character: start_point.column.try_into().unwrap(),
+    }
+}

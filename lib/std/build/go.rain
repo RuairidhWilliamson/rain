@@ -1,5 +1,8 @@
 let std = import("std.rain")
 
+let {unit} = std
+let {Dir, String, File} = std.types
+
 let go = std.escape.bin("go")
 
 // This is experimental

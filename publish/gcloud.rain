@@ -1,7 +1,7 @@
 let main = import("main.rain")
 let std = main.std
 
-let {run, unit, _throw, parse_toml} = std.utils
+let {run, unit, _throw} = std.utils
 let {print} = std
 let {File, DirLike, String} = std.types
 

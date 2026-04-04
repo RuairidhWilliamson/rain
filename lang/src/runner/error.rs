@@ -7,6 +7,7 @@ use crate::{
     error::{ResolvedError, ResolvedSpan},
     ir::Rir,
     runner::{
+        check_cx::CheckError,
         cx::StacktraceEntry,
         value::{RainInteger, RainTypeId},
     },
@@ -132,4 +133,6 @@ pub enum RunnerError {
     ConflictingFileNames(PathBuf),
     #[error("conflicting declarations with the same name: {0}")]
     ConflictingDeclarations(String),
+    #[error("check error: {0}")]
+    CheckError(#[from] CheckError),
 }

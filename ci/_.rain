@@ -1,9 +1,7 @@
 let main = import("main.rain")
 let std = main.std
 
-let {Area, File, String, Dir} = std.types
-
-let podman = std.escape.bin("podman")
+let {File} = std.types
 
 pub let build_ci_web = fn() -> File {
 	std.build.rust.escape.cargo_build(main.area, "rain-ci-web", "x86_64-unknown-linux-musl", true)

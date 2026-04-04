@@ -9,11 +9,8 @@ pub mod value;
 
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet, hash_map::Entry},
-    sync::{
-        Arc, LazyLock,
-        atomic::{AtomicUsize, Ordering},
-    },
+    collections::{HashMap, hash_map::Entry},
+    sync::{Arc, LazyLock},
 };
 
 use alias::Alias as _;
@@ -34,16 +31,14 @@ use crate::{
     },
     driver::{DriverTrait, FSTrait, monitoring::Call},
     hash::FileHash,
-    ir::{DeclarationId, ModuleId, Rir},
+    ir::{DeclarationId, Rir},
     local_span::LocalSpan,
     runner::{
         cache::{CacheGuardTrait as _, CacheKey, CacheTrait},
-        check_cx::CheckCx,
         cx::{Cx, StacktraceEntry},
         dep_list::DepList,
         value::{Closure, ClosureCaptures, RainInteger, RainList, RainRecord, RainTypeId, Value},
     },
-    span::ErrorSpan,
 };
 
 type ResultValue = Result<Value>;
@@ -98,159 +93,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             max_call_depth: 250,
             local_file_hash_cache: LocalFileHashCache::default(),
         }
-    }
-
-    pub fn check_module(&mut self, cx: &mut Cx, mid: ModuleId) -> Result<()> {
-        let module = self.ir.get_module(mid).alias();
-        let mut declaration_names = HashMap::<&str, AtomicUsize>::new();
-        for d in module.declarations() {
-            for name_span in d.assignment.name_spans() {
-                let name = name_span.contents(&module.src);
-                let entry = declaration_names.entry(name);
-                match entry {
-                    Entry::Occupied(_) => {
-                        return Err(name_span
-                            .with_module(module.id)
-                            .with_error(
-                                RunnerError::ConflictingDeclarations(name.to_owned()).into(),
-                            )
-                            .with_trace(cx.stacktrace.clone()));
-                    }
-                    Entry::Vacant(vacant) => {
-                        vacant.insert(AtomicUsize::new(0));
-                    }
-                }
-            }
-        }
-        let mut check_cx = CheckCx {
-            module: &module,
-            locals: HashSet::new(),
-            captures: HashSet::new(),
-            args: HashSet::new(),
-            declaration_names: Arc::new(declaration_names),
-        };
-        for d in module.declarations() {
-            Self::check_node(&mut check_cx, d.assignment.expr)
-                .map_err(|err| err.with_trace(cx.stacktrace.clone()))?;
-        }
-        if self.check_unused_declarations {
-            for (name, count) in check_cx.declaration_names.iter() {
-                if count.load(Ordering::Relaxed) == 0 && *name != "ci" {
-                    let Some(did) = module.find_declaration_by_name(name) else {
-                        unreachable!()
-                    };
-                    if module.get_declaration(did).pub_token.is_some() {
-                        continue;
-                    }
-                    let span = module.get_declaration_name_span(did);
-                    return Err(span
-                        .with_module(module.id)
-                        .with_error(RunnerError::Makeshift("unused declaration".into()).into())
-                        .with_trace(cx.stacktrace.clone()));
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn check_node(cx: &mut CheckCx, nid: NodeId) -> Result<(), ErrorSpan<Throwing>> {
-        match cx.module.get(nid) {
-            Node::Ident(tls) => {
-                let ident = tls.0.contents(&cx.module.src);
-                if cx.locals.contains(ident) {
-                    return Ok(());
-                }
-                if cx.args.contains(ident) {
-                    return Ok(());
-                }
-                if cx.captures.contains(ident) {
-                    return Ok(());
-                }
-                if let Some(c) = cx.declaration_names.get(ident) {
-                    c.fetch_add(1, Ordering::Relaxed);
-                    return Ok(());
-                }
-                return Err(tls
-                    .0
-                    .with_module(cx.module.id)
-                    .with_error(RunnerError::UnknownIdent.into()));
-            }
-            Node::Block(block) => {
-                for &nid in &block.statements {
-                    Self::check_node(cx, nid)?;
-                }
-            }
-            Node::Closure(closure) => {
-                let mut callee_cx = cx.callee();
-                for a in &closure.args {
-                    if let Some(a) = &a.type_spec {
-                        Self::check_node(&mut callee_cx, a.type_expr)?;
-                    }
-                    callee_cx
-                        .args
-                        .insert(a.name.contents(&callee_cx.module.src));
-                }
-                if let Some(return_type) = &closure.return_type {
-                    Self::check_node(&mut callee_cx, return_type.type_expr)?;
-                }
-                Self::check_node(&mut callee_cx, closure.block)?;
-            }
-            Node::IfCondition(condition) => {
-                Self::check_node(cx, condition.condition)?;
-                Self::check_node(cx, condition.then_block)?;
-                match &condition.alternate {
-                    Some(
-                        AlternateCondition::IfElseCondition(alternate)
-                        | AlternateCondition::ElseBlock(alternate),
-                    ) => {
-                        Self::check_node(cx, *alternate)?;
-                    }
-                    None => {}
-                }
-            }
-            Node::FnCall(fn_call) => {
-                Self::check_node(cx, fn_call.callee)?;
-                for &a in &fn_call.args {
-                    Self::check_node(cx, a)?;
-                }
-            }
-            Node::Assignment(assignment) => {
-                for name in assignment.names(&cx.module.src) {
-                    cx.locals.insert(name);
-                }
-                Self::check_node(cx, assignment.expr)?;
-            }
-            Node::BinaryOp(binary_op) => {
-                Self::check_node(cx, binary_op.left)?;
-                match binary_op.op {
-                    BinaryOperatorKind::Dot => {}
-                    _ => {
-                        Self::check_node(cx, binary_op.right)?;
-                    }
-                }
-            }
-            Node::List(list) => {
-                for element in &list.elements {
-                    Self::check_node(cx, element.value)?;
-                }
-            }
-            Node::Record(record) => {
-                for field in &record.fields {
-                    Self::check_node(cx, field.value)?;
-                }
-            }
-            Node::Not(not) => Self::check_node(cx, not.inner)?,
-            Node::FormatStringLiteral(literal) => {
-                for &nid in &literal.nodes {
-                    Self::check_node(cx, nid)?;
-                }
-            }
-            Node::RawStringLiteral(_)
-            | Node::SimpleLiteral(_)
-            | Node::StringLiteral(_)
-            | Node::IntegerLiteral(_) => {}
-        }
-        Ok(())
     }
 
     pub fn call_closure(
