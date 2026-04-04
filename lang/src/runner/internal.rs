@@ -407,7 +407,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .insert_module(Some(f), src, module)
             .map_err(|err| err.convert().with_trace(self.caller_cx.stacktrace.clone()))?;
         let module = self.runner.ir.get_module(id);
-        let mut check_errors = CheckCx::check_module(module.alias());
+        let mut check_errors = CheckCx::check_module(module, self.runner.check_unused);
         check_errors.truncate(1);
         if let Some(err) = check_errors.pop() {
             return Err(err

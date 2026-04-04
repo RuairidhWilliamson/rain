@@ -83,7 +83,7 @@ pub fn evaluate_and_call_chain(
 ) -> Result<Value, CoreError> {
     let initial_module = runner.ir.get_module(mid).alias();
     let mut cx = Cx::new(&initial_module, 0, HashMap::new(), Vec::new());
-    let mut check_errors = CheckCx::check_module(initial_module.alias());
+    let mut check_errors = CheckCx::check_module(&initial_module, runner.check_unused);
     check_errors.truncate(1);
     if let Some(err) = check_errors.pop() {
         return Err(CoreError::LangError(Box::new(

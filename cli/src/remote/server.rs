@@ -465,7 +465,7 @@ fn run_core(
     let mut runner = rain_core::new_runner(ir, cache, driver);
     runner.offline = *offline;
     runner.seal = *seal;
-    runner.check_unused_declarations = *unused;
+    runner.check_unused = *unused;
     let mut deps = DepList::new();
     let mid = match rain_core::insert_local_module(&mut runner, root) {
         Ok(mid) => mid,

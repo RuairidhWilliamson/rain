@@ -26,7 +26,10 @@ pub struct CheckCx<'a> {
 }
 
 impl CheckCx<'_> {
-    pub fn check_module(module: Arc<IrModule>) -> Vec<ErrorLocalSpan<CheckError>> {
+    pub fn check_module(
+        module: &Arc<IrModule>,
+        check_unused: bool,
+    ) -> Vec<ErrorLocalSpan<CheckError>> {
         let mut declaration_names = HashMap::<&str, AtomicUsize>::new();
         let mut errors = Vec::new();
         for d in module.declarations() {
@@ -54,8 +57,13 @@ impl CheckCx<'_> {
         for d in check_cx.module.declarations() {
             check_cx.check_node(d.assignment.expr);
         }
-        check_cx.check_unused_declarations();
-        Arc::into_inner(check_cx.errors).unwrap().pinto_inner()
+        if check_unused {
+            check_cx.check_unused_declarations();
+        }
+        let Some(mutex) = Arc::into_inner(check_cx.errors) else {
+            unreachable!();
+        };
+        mutex.pinto_inner()
     }
 
     pub fn check_unused_declarations(&mut self) {
@@ -189,7 +197,7 @@ impl CheckCx<'_> {
             captures,
             args: HashSet::new(),
             declaration_names: self.declaration_names.alias(),
-            errors: self.errors.clone(),
+            errors: self.errors.alias(),
         }
     }
 }

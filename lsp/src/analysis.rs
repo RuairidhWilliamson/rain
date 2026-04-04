@@ -1,6 +1,5 @@
-use std::path::Path;
+use std::{num::TryFromIntError, path::Path};
 
-use alias::Alias as _;
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, Position,
     PublishDiagnosticsParams, Range, TextDocumentItem,
@@ -43,8 +42,8 @@ impl TextDocument {
     pub fn change(&mut self, params: DidChangeTextDocumentParams) {
         assert_eq!(self.uri, params.text_document.uri);
         for change in params.content_changes {
-            if let Some(_) = change.range {
-                todo!()
+            if let Some(rng) = change.range {
+                todo!("implement partial document changes: {rng:?}")
             } else {
                 self.source = change.text;
             }
@@ -89,7 +88,7 @@ impl TextDocument {
                 data: None,
             })
             .chain(self.check_errors().into_iter().map(|err| Diagnostic {
-                range: convert_span_to_lsp(err.span, &self.source),
+                range: convert_span_to_lsp(err.span, &self.source).unwrap(),
                 severity: Some(match err.err {
                     CheckError::UnusedDeclaration => DiagnosticSeverity::WARNING,
                     _ => DiagnosticSeverity::ERROR,
@@ -129,7 +128,7 @@ impl TextDocument {
             return Vec::new();
         };
         let module = ir.get_module(mid);
-        CheckCx::check_module(module.alias())
+        CheckCx::check_module(module, true)
     }
 }
 
@@ -151,19 +150,22 @@ pub fn convert_position_to_ts(position: lsp_types::Position) -> tree_sitter::Poi
     }
 }
 
-pub fn convert_span_to_lsp(span: LocalSpan, src: &str) -> lsp_types::Range {
+pub fn convert_span_to_lsp(
+    span: LocalSpan,
+    src: &str,
+) -> Result<lsp_types::Range, TryFromIntError> {
     let start = span.start_line_colz(src);
     let end = span.end_line_colz(src);
-    lsp_types::Range {
+    Ok(lsp_types::Range {
         start: Position {
-            line: start.0 as u32,
-            character: start.1 as u32,
+            line: start.0.try_into()?,
+            character: start.1.try_into()?,
         },
         end: Position {
-            line: end.0 as u32,
-            character: end.1 as u32,
+            line: end.0.try_into()?,
+            character: end.1.try_into()?,
         },
-    }
+    })
 }
 
 pub fn convert_range_to_lsp(range: tree_sitter::Range) -> lsp_types::Range {

@@ -54,7 +54,7 @@ pub struct Runner<'a, Driver, Cache> {
     pub driver: &'a Driver,
     pub offline: bool,
     pub seal: bool,
-    pub check_unused_declarations: bool,
+    pub check_unused: bool,
     pub max_call_depth: usize,
     pub local_file_hash_cache: LocalFileHashCache,
 }
@@ -89,7 +89,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             driver,
             offline: false,
             seal: false,
-            check_unused_declarations: false,
+            check_unused: false,
             max_call_depth: 250,
             local_file_hash_cache: LocalFileHashCache::default(),
         }
