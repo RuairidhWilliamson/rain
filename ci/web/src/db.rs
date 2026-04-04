@@ -156,6 +156,7 @@ pub struct AuthProvider {
     pub oidc_discovery_url: Option<String>,
     pub client_id: String,
     pub client_secret: SecretString,
+    pub certificate: Option<String>,
 }
 
 #[derive(Debug, Clone, sqlx::Type)]
@@ -168,7 +169,7 @@ pub async fn get_auth_provider(db: &Db, name: &str) -> Result<AuthProvider> {
     let auth_provider = sqlx::query_as!(
         AuthProvider,
         r#"
-        SELECT name, kind as "kind: AuthKind", oidc_discovery_url, client_id, client_secret
+        SELECT name, kind as "kind: AuthKind", oidc_discovery_url, client_id, client_secret, certificate
         FROM auth_providers WHERE name=$1
         "#,
         name,

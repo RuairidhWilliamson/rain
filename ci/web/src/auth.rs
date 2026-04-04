@@ -16,6 +16,7 @@ use oauth2::{
     TokenResponse as _, TokenUrl, basic::BasicTokenType, url::Url,
 };
 use rain_ci_common::db::Db;
+use reqwest::Certificate;
 use secrecy::ExposeSecret as _;
 use serde::Deserialize;
 
@@ -96,6 +97,7 @@ pub struct Client {
     kind: AuthKind,
     oauth: BasicClient,
     user_info_endpoint: Option<Url>,
+    certificate: Option<Certificate>,
 }
 
 impl Client {
@@ -134,6 +136,7 @@ impl Client {
                     kind: auth_provider.kind,
                     oauth: oauth_client,
                     user_info_endpoint: None,
+                    certificate: None,
                 })
             }
             crate::db::AuthKind::OpenIDConnect => {
@@ -141,7 +144,11 @@ impl Client {
                     .oidc_discovery_url
                     .as_ref()
                     .context("no oidc discovery url")?;
-                let discovered: OpenIDConnectDiscovered = http_client()?
+                let certificate = auth_provider
+                    .certificate
+                    .map(|pem| Certificate::from_pem(pem.as_bytes()))
+                    .transpose()?;
+                let discovered: OpenIDConnectDiscovered = Self::http_client(certificate.clone())?
                     .get(discovery_url)
                     .send()
                     .await?
@@ -174,6 +181,7 @@ impl Client {
                             .userinfo_endpoint
                             .context("no user info endpoint")?,
                     )?),
+                    certificate,
                 })
             }
         }
@@ -194,7 +202,7 @@ impl Client {
         let token = self
             .oauth
             .exchange_code(code)
-            .request_async(&http_client()?)
+            .request_async(&Self::http_client(self.certificate.clone())?)
             .await?;
         Ok(token)
     }
@@ -249,7 +257,7 @@ impl Client {
                 })
             }
             AuthKind::OpenIDConnect => {
-                let response = http_client()?
+                let response = Self::http_client(self.certificate.clone())?
                     .get(
                         self.user_info_endpoint
                             .clone()
@@ -264,6 +272,15 @@ impl Client {
                 Ok(serde_json::from_slice(&body)?)
             }
         }
+    }
+
+    fn http_client(certificate: Option<Certificate>) -> Result<reqwest::Client> {
+        let mut builder = reqwest::Client::builder();
+        if let Some(cert) = certificate {
+            builder = builder.add_root_certificate(cert);
+        }
+        let http_client = builder.build()?;
+        Ok(http_client)
     }
 }
 
@@ -299,9 +316,4 @@ pub struct OpenIDConnectDiscovered {
     pub authorization_endpoint: String,
     pub token_endpoint: Option<String>,
     pub userinfo_endpoint: Option<String>,
-}
-
-fn http_client() -> Result<reqwest::Client> {
-    let http_client = reqwest::Client::builder().build()?;
-    Ok(http_client)
 }
