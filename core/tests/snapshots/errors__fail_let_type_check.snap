@@ -2,9 +2,8 @@
 source: core/tests/errors.rs
 expression: "run_error(concat!\n(\"tests/errors/\", stringify! (fail_let_type_check), \".rain\"))"
 ---
-<hidden>:1:12
-<hidden>:7:8
+<hidden>:7:19
 | let Integer = internal._get_type(0)
 | 
 | let x: Integer = "5"
-         ^^^^^^^ unrecoverable error: type mismatch, expected [Integer] actual String
+                    ^ unrecoverable error: check error: type error: expected Integer, actual String

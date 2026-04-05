@@ -457,6 +457,7 @@ fn run_core(
         custom_config: _,
         verification: _,
         unused,
+        no_exec,
     }: &super::msg::run::RunRequest,
     cache: &Cache,
     driver: &DriverImpl<'_>,
@@ -466,6 +467,7 @@ fn run_core(
     runner.offline = *offline;
     runner.seal = *seal;
     runner.check_unused = *unused;
+    runner.no_exec = *no_exec;
     let mut deps = DepList::new();
     let mid = match rain_core::insert_local_module(&mut runner, root) {
         Ok(mid) => mid,

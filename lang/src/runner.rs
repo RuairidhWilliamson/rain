@@ -55,6 +55,7 @@ pub struct Runner<'a, Driver, Cache> {
     pub offline: bool,
     pub seal: bool,
     pub check_unused: bool,
+    pub no_exec: bool,
     pub max_call_depth: usize,
     pub local_file_hash_cache: LocalFileHashCache,
 }
@@ -90,6 +91,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             offline: false,
             seal: false,
             check_unused: false,
+            no_exec: false,
             max_call_depth: 250,
             local_file_hash_cache: LocalFileHashCache::default(),
         }
@@ -103,6 +105,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         closure: &Closure,
         arg_values: Vec<Value>,
     ) -> ResultValue {
+        if self.no_exec {
+            return Err(cx.err(call_span, RunnerError::NoExec));
+        }
         let m = self.ir.get_module(closure.module).alias();
         let Node::Closure(closure_declare) = m.get(closure.node) else {
             unreachable!()
@@ -168,7 +173,11 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
 
     pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> ResultValue {
         let m = self.ir.get_module(id.module_id()).alias();
-        let declaration_name = m.get_declaration_name_span(id.local_id()).contents(&m.src);
+        let span = m.get_declaration_name_span(id.local_id());
+        if self.no_exec {
+            return Err(cx.err(span, RunnerError::NoExec));
+        }
+        let declaration_name = span.contents(&m.src);
         let declaration = m.get_declaration(id.local_id());
         let assignment = m.get_declaration_assignment(id.local_id());
         // If calling into another module check the privacy

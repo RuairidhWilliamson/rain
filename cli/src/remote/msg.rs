@@ -70,6 +70,7 @@ pub mod run {
         pub custom_config: HashMap<String, String>,
         pub verification: bool,
         pub unused: bool,
+        pub no_exec: bool,
     }
 
     impl From<RunRequest> for super::Request {

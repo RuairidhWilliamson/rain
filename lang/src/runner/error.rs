@@ -135,4 +135,6 @@ pub enum RunnerError {
     ConflictingDeclarations(String),
     #[error("check error: {0}")]
     CheckError(#[from] CheckError),
+    #[error("no exec set")]
+    NoExec,
 }

@@ -87,6 +87,9 @@ struct GlobalOptions {
     /// Error for unused declarations
     #[arg(long, global = true)]
     unused: bool,
+
+    #[arg(long, global = true)]
+    no_exec: bool,
 }
 
 impl GlobalOptions {

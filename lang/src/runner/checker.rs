@@ -1,6 +1,6 @@
 use std::{
-    collections::{HashMap, hash_map::Entry},
-    sync::{Arc, atomic::AtomicUsize},
+    collections::{HashMap, HashSet},
+    sync::Arc,
 };
 
 use alias::Alias as _;
@@ -20,24 +20,19 @@ use crate::{
 
 pub struct CheckModuleResult {
     pub errors: Vec<ErrorLocalSpan<CheckError>>,
+    pub declarations: HashMap<LocalDeclarationId, Declaration>,
     pub node_types: HashMap<NodeId, CheckValue>,
 }
 
 impl CheckModuleResult {
     pub fn check_module(module: &Arc<IrModule>, check_unused: bool) -> Self {
-        let mut declaration_names = HashMap::<&str, AtomicUsize>::new();
+        let mut declaration_names = HashSet::<&str>::new();
         let mut errors = Vec::new();
         for (_, assignment) in module.declaration_assignments() {
             for name_span in assignment.name_spans() {
                 let name = name_span.contents(&module.src);
-                let entry = declaration_names.entry(name);
-                match entry {
-                    Entry::Occupied(_) => {
-                        errors.push(name_span.with_error(CheckError::ConflictingDeclaration));
-                    }
-                    Entry::Vacant(vacant) => {
-                        vacant.insert(AtomicUsize::new(0));
-                    }
+                if !declaration_names.insert(name) {
+                    errors.push(name_span.with_error(CheckError::ConflictingDeclaration));
                 }
             }
         }
@@ -46,20 +41,87 @@ impl CheckModuleResult {
         let mut check_cx = CheckCx {
             module: &module.alias(),
             previous: None,
-            locals: None,
+            locals: HashMap::new(),
             captures: HashMap::new(),
             args: HashMap::new(),
             errors: &mut errors,
             node_types: &mut node_types,
             declarations: &mut declarations,
         };
-        for d in check_cx.module.declarations() {
-            check_cx.check_node(d.assignment, CheckValue::Unknown);
+        for (_, assignment) in module.declaration_assignments() {
+            match &assignment.name {
+                DeclareName::Single(declare) => {
+                    let name = declare.name.contents(&module.src);
+                    let expected = if let Some(type_spec) = &declare.type_spec {
+                        check_cx
+                            .check_node(type_spec.type_expr, CheckValue::Unknown)
+                            .type_constraint()
+                            .map(CheckValue::ExactType)
+                            .unwrap_or(CheckValue::Unknown)
+                    } else {
+                        CheckValue::Unknown
+                    };
+                    let rhs = check_cx.check_node(assignment.expr, expected);
+                    let Some(id) = module.find_declaration_by_name(name) else {
+                        unreachable!();
+                    };
+                    let declaration = check_cx.declarations.entry(id).or_default();
+                    declaration.value = rhs;
+                }
+                DeclareName::NamedDestructure(declare) => {
+                    check_cx.check_node(assignment.expr, CheckValue::Unknown);
+                    for e in &declare.elements {
+                        let name = e.name.contents(&module.src);
+                        if let Some(type_spec) = &e.type_spec {
+                            check_cx.check_node(type_spec.type_expr, CheckValue::Unknown);
+                        }
+                        let Some(id) = module.find_declaration_by_name(name) else {
+                            unreachable!();
+                        };
+                        let declaration = check_cx.declarations.entry(id).or_default();
+                        declaration.value = CheckValue::Unknown;
+                    }
+                }
+                DeclareName::SequenceDestructure(declare) => {
+                    check_cx.check_node(assignment.expr, CheckValue::ExactType(RainTypeId::List));
+                    for e in &declare.elements {
+                        let name = e.name.contents(&module.src);
+                        if let Some(type_spec) = &e.type_spec {
+                            check_cx.check_node(type_spec.type_expr, CheckValue::Unknown);
+                        }
+                        let Some(id) = module.find_declaration_by_name(name) else {
+                            unreachable!();
+                        };
+                        let declaration = check_cx.declarations.entry(id).or_default();
+                        declaration.value = CheckValue::Unknown;
+                    }
+                }
+            }
         }
+        debug_assert!(
+            check_cx.locals.is_empty(),
+            "locals cannot be set in declaration scope"
+        );
+        debug_assert!(
+            check_cx.captures.is_empty(),
+            "captures cannot be set in declaration scope"
+        );
+        debug_assert!(
+            check_cx.args.is_empty(),
+            "args cannot be set in declaration scope"
+        );
+        debug_assert!(
+            check_cx.previous.is_none(),
+            "previous cannot be set in declaration scope"
+        );
         if check_unused {
             check_cx.check_unused_declarations();
         }
-        Self { errors, node_types }
+        Self {
+            errors,
+            declarations,
+            node_types,
+        }
     }
 
     pub fn check_node_type(&self, node: NodeId) -> CheckValue {
@@ -102,8 +164,7 @@ impl CheckValue {
 struct CheckCx<'a, 'b> {
     module: &'a Arc<IrModule>,
     previous: Option<CheckValue>,
-    // None when in the global declaration scope
-    locals: Option<HashMap<&'a str, CheckValue>>,
+    locals: HashMap<&'a str, CheckValue>,
     captures: HashMap<&'a str, CheckValue>,
     args: HashMap<&'a str, CheckValue>,
     errors: &'b mut Vec<ErrorLocalSpan<CheckError>>,
@@ -111,10 +172,10 @@ struct CheckCx<'a, 'b> {
     declarations: &'b mut HashMap<LocalDeclarationId, Declaration>,
 }
 
-#[derive(Default)]
-struct Declaration {
-    value: CheckValue,
-    usage: usize,
+#[derive(Debug, Default)]
+pub struct Declaration {
+    pub value: CheckValue,
+    pub usage: usize,
 }
 
 impl CheckCx<'_, '_> {
@@ -132,12 +193,11 @@ impl CheckCx<'_, '_> {
         }
     }
 
-    #[expect(clippy::needless_pass_by_value)]
     fn check_node<'b, 'c>(&'c mut self, nid: NodeId, expected: CheckValue) -> CheckValue
     where
         'c: 'b,
     {
-        let actual = self.check_node_inner(nid, expected.clone());
+        let mut actual = self.check_node_inner(nid, expected.clone());
         // Check the type
         match (&expected, actual.exact_type()) {
             (CheckValue::ExactType(expected), Some(actual)) if *expected != actual => {
@@ -148,6 +208,9 @@ impl CheckCx<'_, '_> {
                 );
             }
             _ => (),
+        }
+        if matches!(actual, CheckValue::Unknown) {
+            actual = expected;
         }
         self.node_types.insert(nid, actual.clone());
         actual
@@ -161,9 +224,7 @@ impl CheckCx<'_, '_> {
         match self.module.get(nid) {
             Node::Ident(tls) => {
                 let ident = tls.0.contents(&self.module.src);
-                if let Some(locals) = &self.locals
-                    && let Some(v) = locals.get(ident)
-                {
+                if let Some(v) = self.locals.get(ident) {
                     return v.clone();
                 }
                 if let Some(v) = self.args.get(ident) {
@@ -299,9 +360,7 @@ impl CheckCx<'_, '_> {
                             CheckValue::Unknown
                         };
                         let rhs = self.check_node(assignment.expr, expected);
-                        if let Some(locals) = &mut self.locals {
-                            locals.insert(name, rhs);
-                        }
+                        self.locals.insert(name, rhs);
                     }
                     DeclareName::NamedDestructure(declare) => {
                         self.check_node(assignment.expr, CheckValue::Unknown);
@@ -310,9 +369,7 @@ impl CheckCx<'_, '_> {
                             if let Some(type_spec) = &e.type_spec {
                                 self.check_node(type_spec.type_expr, CheckValue::Unknown);
                             }
-                            if let Some(locals) = &mut self.locals {
-                                locals.insert(name, CheckValue::Unknown);
-                            }
+                            self.locals.insert(name, CheckValue::Unknown);
                         }
                     }
                     DeclareName::SequenceDestructure(declare) => {
@@ -326,9 +383,7 @@ impl CheckCx<'_, '_> {
                             if let Some(type_spec) = &e.type_spec {
                                 self.check_node(type_spec.type_expr, CheckValue::Unknown);
                             }
-                            if let Some(locals) = &mut self.locals {
-                                locals.insert(name, CheckValue::Unknown);
-                            }
+                            self.locals.insert(name, CheckValue::Unknown);
                         }
                     }
                 }
@@ -506,15 +561,13 @@ impl CheckCx<'_, '_> {
         for (&name, v) in &self.args {
             captures.insert(name, v.clone());
         }
-        if let Some(locals) = &self.locals {
-            for (&name, v) in locals {
-                captures.insert(name, v.clone());
-            }
+        for (&name, v) in &self.locals {
+            captures.insert(name, v.clone());
         }
         CheckCx {
             module: self.module,
             previous: None,
-            locals: Some(HashMap::new()),
+            locals: HashMap::new(),
             captures,
             args: HashMap::new(),
             errors: self.errors,

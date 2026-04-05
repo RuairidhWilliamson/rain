@@ -31,6 +31,7 @@ pub fn run(
             custom_config,
             verification: options.verification,
             unused: options.unused,
+            no_exec: options.no_exec,
         },
         |progress| reporter.update(progress),
         mode,

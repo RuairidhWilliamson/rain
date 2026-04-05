@@ -19,6 +19,7 @@ use rain_lang::{
     error::OwnedResolvedError,
     ir::ModuleId,
     runner::{
+        checker::CheckModuleResult,
         cx::Cx,
         dep_list::DepList,
         error::{RunnerError, Throwing},
@@ -82,10 +83,7 @@ pub fn evaluate_and_call_chain(
 ) -> Result<Value, CoreError> {
     let initial_module = runner.ir.get_module(mid).alias();
     let mut cx = Cx::new(&initial_module, 0, HashMap::new(), Vec::new());
-    let mut check_result = rain_lang::runner::checker::CheckModuleResult::check_module(
-        &initial_module,
-        runner.check_unused,
-    );
+    let mut check_result = CheckModuleResult::check_module(&initial_module, runner.check_unused);
     check_result.errors.truncate(1);
     if let Some(err) = check_result.errors.pop() {
         return Err(CoreError::LangError(Box::new(
@@ -120,7 +118,6 @@ pub fn evaluate_and_call_chain(
         let m = runner.ir.get_module(mid).alias();
         let nid = m.get_declaration_assignment(declaration.local_id()).expr;
         mid_nid = Some((mid, nid));
-
         let mut initial_cx = Cx::new(&m, 0, HashMap::new(), Vec::new());
 
         v = Some(
