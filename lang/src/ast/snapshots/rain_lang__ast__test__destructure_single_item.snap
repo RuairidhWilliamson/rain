@@ -5,16 +5,20 @@ expression: parse_display_script(src)
 ModuleRoot(
  LetDeclare(
   private
-  NamedDestructure(
-   NamedDestructureElement(
-    a
+  Assignment(
+   Name(
+    NamedDestructure(
+     NamedDestructureElement(
+      a
+     )
+    )
    )
-  )
-  Record(
-   RecordEntry(
-    a
-    IntegerLiteral(
-     4
+   Record(
+    RecordEntry(
+     a
+     IntegerLiteral(
+      4
+     )
     )
    )
   )

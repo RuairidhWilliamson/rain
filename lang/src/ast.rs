@@ -192,7 +192,7 @@ impl AstNode for ModuleRoot {
 pub struct Declare {
     pub pub_token: Option<LocalSpan>,
     pub let_token: LocalSpan,
-    pub assignment: Assignment,
+    pub assignment: NodeId,
 }
 
 #[derive(Debug)]
@@ -359,7 +359,7 @@ impl AstNode for Declare {
         } else {
             self.let_token
         };
-        first + self.assignment.span(list)
+        first + list.span(self.assignment)
     }
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
@@ -369,47 +369,7 @@ impl AstNode for Declare {
         } else {
             b.child_str("private");
         }
-        match &self.assignment.name {
-            DeclareName::Single(single_name) => {
-                b.child_contents(single_name.name);
-                if let Some(t) = &single_name.type_spec {
-                    b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
-                }
-            }
-            DeclareName::NamedDestructure(destructure) => {
-                b.child_fn(|f| {
-                    let mut b = f.node("NamedDestructure");
-                    for e in &destructure.elements {
-                        b.child_fn(|f| {
-                            let mut b = f.node("NamedDestructureElement");
-                            b.child_contents(e.name);
-                            if let Some(t) = &e.type_spec {
-                                b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
-                            }
-                            b.finish()
-                        });
-                    }
-                    b.finish()
-                });
-            }
-            DeclareName::SequenceDestructure(destructure) => {
-                b.child_fn(|f| {
-                    let mut b = f.node("SequenceDestructure");
-                    for e in &destructure.elements {
-                        b.child_fn(|f| {
-                            let mut b = f.node("SequenceDestructureElement");
-                            b.child_contents(e.name);
-                            if let Some(t) = &e.type_spec {
-                                b.child_fn(|f| f.node("TypeSpec").child(t.type_expr).finish());
-                            }
-                            b.finish()
-                        });
-                    }
-                    b.finish()
-                });
-            }
-        }
-        b.child(self.assignment.expr).finish()
+        b.child(self.assignment).finish()
     }
 }
 

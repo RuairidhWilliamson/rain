@@ -5,17 +5,21 @@ expression: "parse_display_script(\"\n        let main = fn() {\n            pri
 ModuleRoot(
  LetDeclare(
   private
-  main
-  AnonymousFnDeclare(
-   Args(
+  Assignment(
+   Name(
+    main
    )
-   Block(
-    FnCall(
-     Ident(
-      print
-     )
-     StringLiteral(
-      Hello world
+   AnonymousFnDeclare(
+    Args(
+    )
+    Block(
+     FnCall(
+      Ident(
+       print
+      )
+      StringLiteral(
+       Hello world
+      )
      )
     )
    )

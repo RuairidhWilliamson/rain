@@ -5,63 +5,75 @@ expression: "parse_display_script(\"\n        let assert = std.test.assert\n    
 ModuleRoot(
  LetDeclare(
   private
-  assert
-  BinaryOp(
-   BinaryOp(
-    Ident(
-     std
-    )
-    .
-    Ident(
-     test
-    )
-   )
-   .
-   Ident(
+  Assignment(
+   Name(
     assert
    )
-  )
- )
- LetDeclare(
-  private
-  eq
-  BinaryOp(
    BinaryOp(
-    Ident(
-     std
+    BinaryOp(
+     Ident(
+      std
+     )
+     .
+     Ident(
+      test
+     )
     )
     .
     Ident(
-     ops
+     assert
     )
    )
-   .
-   Ident(
+  )
+ )
+ LetDeclare(
+  private
+  Assignment(
+   Name(
     eq
    )
+   BinaryOp(
+    BinaryOp(
+     Ident(
+      std
+     )
+     .
+     Ident(
+      ops
+     )
+    )
+    .
+    Ident(
+     eq
+    )
+   )
   )
  )
  LetDeclare(
   private
-  main
-  AnonymousFnDeclare(
-   Args(
+  Assignment(
+   Name(
+    main
    )
-   Block(
-    FnCall(
-     Ident(
-      assert
-     )
+   AnonymousFnDeclare(
+    Args(
+    )
+    Block(
      FnCall(
       Ident(
-       factorial
+       assert
+      )
+      FnCall(
+       Ident(
+        factorial
+       )
+       IntegerLiteral(
+        5
+       )
       )
       IntegerLiteral(
-       5
+       12
       )
-     )
-     IntegerLiteral(
-      12
      )
     )
    )
@@ -69,46 +81,50 @@ ModuleRoot(
  )
  LetDeclare(
   private
-  factorial
-  AnonymousFnDeclare(
-   Args(
-    n
+  Assignment(
+   Name(
+    factorial
    )
-   Block(
-    IfCondition(
-     BinaryOp(
-      Ident(
-       n
-      )
-      ==
-      IntegerLiteral(
-       0
-      )
-     )
-     Block(
-      IntegerLiteral(
-       1
-      )
-     )
-     Block(
+   AnonymousFnDeclare(
+    Args(
+     n
+    )
+    Block(
+     IfCondition(
       BinaryOp(
-       FnCall(
-        Ident(
-         factorial
-        )
-        BinaryOp(
-         Ident(
-          n
-         )
-         -
-         IntegerLiteral(
-          1
-         )
-        )
-       )
-       *
        Ident(
         n
+       )
+       ==
+       IntegerLiteral(
+        0
+       )
+      )
+      Block(
+       IntegerLiteral(
+        1
+       )
+      )
+      Block(
+       BinaryOp(
+        FnCall(
+         Ident(
+          factorial
+         )
+         BinaryOp(
+          Ident(
+           n
+          )
+          -
+          IntegerLiteral(
+           1
+          )
+         )
+        )
+        *
+        Ident(
+         n
+        )
        )
       )
      )

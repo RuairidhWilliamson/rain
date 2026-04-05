@@ -5,14 +5,18 @@ expression: "parse_display_script(\"\n        let a: B = 5\n        \")"
 ModuleRoot(
  LetDeclare(
   private
-  a
-  TypeSpec(
-   Ident(
-    B
+  Assignment(
+   Name(
+    a
+    TypeSpec(
+     Ident(
+      B
+     )
+    )
    )
-  )
-  IntegerLiteral(
-   5
+   IntegerLiteral(
+    5
+   )
   )
  )
 )

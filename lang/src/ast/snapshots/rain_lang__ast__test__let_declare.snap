@@ -5,16 +5,24 @@ expression: "parse_display_script(\"\n        let a = 4\n        let asjldf = \\
 ModuleRoot(
  LetDeclare(
   private
-  a
-  IntegerLiteral(
-   4
+  Assignment(
+   Name(
+    a
+   )
+   IntegerLiteral(
+    4
+   )
   )
  )
  LetDeclare(
   private
-  asjldf
-  StringLiteral(
-   asjldf
+  Assignment(
+   Name(
+    asjldf
+   )
+   StringLiteral(
+    asjldf
+   )
   )
  )
 )

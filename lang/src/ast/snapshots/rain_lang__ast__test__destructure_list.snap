@@ -5,28 +5,32 @@ expression: parse_display_script(src)
 ModuleRoot(
  LetDeclare(
   private
-  SequenceDestructure(
-   SequenceDestructureElement(
-    a
-    TypeSpec(
-     Ident(
-      Integer
+  Assignment(
+   Name(
+    NamedDestructure(
+     NamedDestructureElement(
+      a
+      TypeSpec(
+       Ident(
+        Integer
+       )
+      )
+     )
+     NamedDestructureElement(
+      b
      )
     )
    )
-   SequenceDestructureElement(
-    b
-   )
-  )
-  List(
-   ListElement(
-    IntegerLiteral(
-     4
+   List(
+    ListElement(
+     IntegerLiteral(
+      4
+     )
     )
-   )
-   ListElement(
-    IntegerLiteral(
-     6
+    ListElement(
+     IntegerLiteral(
+      6
+     )
     )
    )
   )

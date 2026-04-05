@@ -5,11 +5,15 @@ expression: "parse_display_script(\"\n        pub let foo = fn() {}\n        \")
 ModuleRoot(
  LetDeclare(
   pub
-  foo
-  AnonymousFnDeclare(
-   Args(
+  Assignment(
+   Name(
+    foo
    )
-   Block(
+   AnonymousFnDeclare(
+    Args(
+    )
+    Block(
+    )
    )
   )
  )

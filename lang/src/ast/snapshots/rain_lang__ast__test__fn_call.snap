@@ -5,29 +5,37 @@ expression: "parse_display_script(\"\n        let val = foo(3)\n        let val 
 ModuleRoot(
  LetDeclare(
   private
-  val
-  FnCall(
-   Ident(
-    foo
+  Assignment(
+   Name(
+    val
    )
-   IntegerLiteral(
-    3
+   FnCall(
+    Ident(
+     foo
+    )
+    IntegerLiteral(
+     3
+    )
    )
   )
  )
  LetDeclare(
   private
-  val
-  FnCall(
-   Ident(
-    foo
+  Assignment(
+   Name(
+    val
    )
    FnCall(
     Ident(
-     bar
+     foo
     )
-    IntegerLiteral(
-     4
+    FnCall(
+     Ident(
+      bar
+     )
+     IntegerLiteral(
+      4
+     )
     )
    )
   )

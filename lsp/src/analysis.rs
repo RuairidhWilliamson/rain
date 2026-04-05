@@ -1,6 +1,6 @@
 use std::{num::TryFromIntError, path::Path, sync::Arc};
 
-use alias::Alias;
+use alias::Alias as _;
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, Position,
     PublishDiagnosticsParams, Range, TextDocumentItem,

@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     afs::File,
-    ast::{Declare, Module, ModuleRoot, Node, NodeId, TypeSpec, error::ParseError},
+    ast::{Assignment, Declare, Module, ModuleRoot, Node, NodeId, TypeSpec, error::ParseError},
     local_span::{ErrorLocalSpan, LocalSpan},
     runner::error::RunnerError,
     span::ErrorSpan,
@@ -24,14 +24,24 @@ impl Rir {
         let mut suggestions: Vec<&str> = module
             .declarations()
             .filter(|declare| declare.pub_token.is_some())
-            .flat_map(|declare| declare.assignment.names(&module.src))
+            .flat_map(|declare| {
+                let Node::Assignment(assignment) = module.get(declare.assignment) else {
+                    unreachable!()
+                };
+                assignment.names(&module.src)
+            })
             .take(SUGGESTION_LIMIT)
             .collect();
         if suggestions.is_empty() {
             // If there are no pub fns fallback to private fns
             suggestions = module
                 .declarations()
-                .flat_map(|declare| declare.assignment.names(&module.src))
+                .flat_map(|declare| {
+                    let Node::Assignment(assignment) = module.get(declare.assignment) else {
+                        unreachable!()
+                    };
+                    assignment.names(&module.src)
+                })
                 .take(SUGGESTION_LIMIT)
                 .collect();
         }
@@ -129,22 +139,23 @@ impl IrModule {
         d
     }
 
+    pub fn get_declaration_assignment(&self, id: LocalDeclarationId) -> &Assignment {
+        let Node::Assignment(assignment) = self.get(self.get_declaration(id).assignment) else {
+            unreachable!()
+        };
+        assignment
+    }
+
     pub fn get_declaration_type_spec(&self, id: LocalDeclarationId) -> &Option<TypeSpec> {
-        match self.inner().module_root().declarations.get(id.0) {
-            Some(let_declare) => match let_declare.assignment.type_specs().nth(id.1) {
-                Some(type_spec) => type_spec,
-                None => unreachable!(),
-            },
+        match self.get_declaration_assignment(id).type_specs().nth(id.1) {
+            Some(type_spec) => type_spec,
             None => unreachable!(),
         }
     }
 
     pub fn get_declaration_name_span(&self, id: LocalDeclarationId) -> LocalSpan {
-        match self.inner().module_root().declarations.get(id.0) {
-            Some(let_declare) => match let_declare.assignment.name_spans().nth(id.1) {
-                Some(span) => span,
-                None => unreachable!(),
-            },
+        match self.get_declaration_assignment(id).name_spans().nth(id.1) {
+            Some(span) => span,
             None => unreachable!(),
         }
     }
@@ -154,8 +165,10 @@ impl IrModule {
             .declarations()
             .enumerate()
             .find_map(|(id, let_declare)| {
-                let index = let_declare
-                    .assignment
+                let Node::Assignment(assignment) = self.get(let_declare.assignment) else {
+                    unreachable!()
+                };
+                let index = assignment
                     .names(&self.src)
                     .position(|declare_name| declare_name == name)?;
                 Some(LocalDeclarationId(id, index))
@@ -164,6 +177,15 @@ impl IrModule {
 
     pub fn declarations(&self) -> impl Iterator<Item = &Declare> {
         self.inner().declarations()
+    }
+
+    pub fn declaration_assignments(&self) -> impl Iterator<Item = (&Declare, &Assignment)> {
+        self.inner().declarations().map(|d| {
+            let Node::Assignment(assignment) = self.get(d.assignment) else {
+                unreachable!()
+            };
+            (d, assignment)
+        })
     }
 
     pub fn find_node_by_span(&self, span: LocalSpan) -> Option<NodeId> {

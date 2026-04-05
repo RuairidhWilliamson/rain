@@ -5,23 +5,27 @@ expression: "parse_display_script(\"\n        let foo = fn(a: A, b: B) {}\n     
 ModuleRoot(
  LetDeclare(
   private
-  foo
-  AnonymousFnDeclare(
-   Args(
-    a
-    TypeSpec(
-     Ident(
-      A
-     )
-    )
-    b
-    TypeSpec(
-     Ident(
-      B
-     )
-    )
+  Assignment(
+   Name(
+    foo
    )
-   Block(
+   AnonymousFnDeclare(
+    Args(
+     a
+     TypeSpec(
+      Ident(
+       A
+      )
+     )
+     b
+     TypeSpec(
+      Ident(
+       B
+      )
+     )
+    )
+    Block(
+    )
    )
   )
  )

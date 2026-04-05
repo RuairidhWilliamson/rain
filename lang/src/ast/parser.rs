@@ -85,7 +85,8 @@ impl<'src> ModuleParser<'src> {
             (None, token.span)
         };
 
-        let assignment = self.parse_assignment()?;
+        let node = self.parse_assignment()?;
+        let assignment = self.push(node);
         Ok(Declare {
             pub_token,
             let_token,

@@ -170,6 +170,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         let m = self.ir.get_module(id.module_id()).alias();
         let declaration_name = m.get_declaration_name_span(id.local_id()).contents(&m.src);
         let declaration = m.get_declaration(id.local_id());
+        let assignment = m.get_declaration_assignment(id.local_id());
         // If calling into another module check the privacy
         if id.module_id() != cx.module.id && declaration.pub_token.is_none() {
             let span = m.get_declaration_name_span(id.local_id());
@@ -194,8 +195,8 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         let _call = self
             .driver
             .call_guard(Call::Declaration(declaration_name.to_string()));
-        let result = self.evaluate_node(&mut callee_cx, declaration.assignment.expr)?;
-        let value = match &declaration.assignment.name {
+        let result = self.evaluate_node(&mut callee_cx, assignment.expr)?;
+        let value = match &assignment.name {
             DeclareName::Single(single) => {
                 if let Some(type_spec) = &single.type_spec {
                     self.evaluate_type_check(&mut callee_cx, &result, type_spec.type_expr)?;
@@ -207,7 +208,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 let name = span.contents(&m.src);
                 let Some(value) = self.evaluate_named_index(cx, &result, span, name)? else {
                     return Err(cx.nid_err(
-                        declaration.assignment.expr,
+                        assignment.expr,
                         RunnerError::IndexKeyNotFound(name.to_owned()),
                     ));
                 };

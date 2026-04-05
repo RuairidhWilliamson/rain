@@ -116,7 +116,7 @@ pub fn evaluate_and_call_chain(
             });
         };
         let m = runner.ir.get_module(mid).alias();
-        let nid = m.get_declaration(declaration.local_id()).assignment.expr;
+        let nid = m.get_declaration_assignment(declaration.local_id()).expr;
         mid_nid = Some((mid, nid));
 
         let mut initial_cx = Cx::new(&m, 0, HashMap::new(), Vec::new());

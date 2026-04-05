@@ -1,7 +1,7 @@
 use test_log::test;
 
 use crate::{
-    ast::{Module, error::ParseError},
+    ast::{Module, Node, error::ParseError},
     local_span::ErrorLocalSpan,
 };
 
@@ -165,7 +165,10 @@ fn parse_expr(src: &str) -> Result<String, String> {
     match Module::parse(&src) {
         Ok(module) => {
             let declaration = module.root.declarations.first().unwrap();
-            let id = declaration.assignment.expr;
+            let Node::Assignment(assignment) = module.get(declaration.assignment) else {
+                unreachable!()
+            };
+            let id = assignment.expr;
             Ok(module.display_node(&src, id))
         }
         Err(err) => Err(err.resolve(None, &src).into_owned().to_string()),

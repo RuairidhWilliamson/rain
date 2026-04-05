@@ -148,7 +148,7 @@ fn parse_declaration(mut walker: Walker) -> Result<Declare, Error> {
     Ok(Declare {
         pub_token,
         let_token,
-        assignment,
+        assignment: walker.nodes.push(assignment),
     })
 }
 
