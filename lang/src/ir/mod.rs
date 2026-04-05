@@ -165,6 +165,10 @@ impl IrModule {
     pub fn declarations(&self) -> impl Iterator<Item = &Declare> {
         self.inner().declarations()
     }
+
+    pub fn find_node_by_span(&self, span: LocalSpan) -> Option<NodeId> {
+        self.inner().0.find_node_by_span(span)
+    }
 }
 
 #[derive(Debug)]

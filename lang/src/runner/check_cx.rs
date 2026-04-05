@@ -56,8 +56,37 @@ pub fn check_module(module: &Arc<IrModule>, check_unused: bool) -> Vec<ErrorLoca
     errors
 }
 
-#[derive(Clone)]
-enum CheckValue {
+pub fn check_node_type(module: &Arc<IrModule>, node: NodeId) -> CheckValue {
+    let mut declaration_names = HashMap::<&str, AtomicUsize>::new();
+    let mut errors = Vec::new();
+    for d in module.declarations() {
+        for name_span in d.assignment.name_spans() {
+            let name = name_span.contents(&module.src);
+            let entry = declaration_names.entry(name);
+            match entry {
+                Entry::Occupied(_) => {
+                    errors.push(name_span.with_error(CheckError::ConflictingDeclaration));
+                }
+                Entry::Vacant(vacant) => {
+                    vacant.insert(AtomicUsize::new(0));
+                }
+            }
+        }
+    }
+    let mut check_cx = CheckCx {
+        module: &module.alias(),
+        previous: None,
+        locals: HashMap::new(),
+        captures: HashMap::new(),
+        args: HashMap::new(),
+        declaration_names: Arc::new(declaration_names),
+        errors: &mut errors,
+    };
+    check_cx.check_node(node, CheckValue::Unknown)
+}
+
+#[derive(Debug, Clone)]
+pub enum CheckValue {
     /// No clue, could be anything
     Unknown,
     /// The value is known to be of this type
@@ -190,23 +219,34 @@ impl CheckCx<'_, '_> {
             }
             Node::FnCall(fn_call) => {
                 let callee = Self::check_node(self, fn_call.callee, CheckValue::Unknown);
-                if matches!(
-                    callee,
-                    CheckValue::ExactValue(Value::InternalFunction(InternalFunction::GetType))
-                ) {
-                    if let &[a] = &fn_call.args[..] {
-                        if let Some(exact_type) =
-                            Self::check_node(self, a, CheckValue::Unknown).exact_type()
-                        {
-                            return CheckValue::ExactType(exact_type);
+                match callee {
+                    CheckValue::ExactValue(Value::InternalFunction(InternalFunction::GetType)) => {
+                        if let &[a] = &fn_call.args[..] {
+                            if let Some(exact_type) =
+                                Self::check_node(self, a, CheckValue::Unknown).exact_type()
+                            {
+                                return CheckValue::ExactType(exact_type);
+                            }
+                        } else {
+                            self.errors.push(
+                                fn_call
+                                    .rparen_token
+                                    .with_error(CheckError::WrongArgCount(1, fn_call.args.len())),
+                            );
                         }
-                    } else {
-                        self.errors.push(
-                            fn_call
-                                .rparen_token
-                                .with_error(CheckError::WrongArgCount(1, fn_call.args.len())),
-                        );
                     }
+                    CheckValue::ExactValue(Value::InternalFunction(InternalFunction::Unit)) => {
+                        if let &[] = &fn_call.args[..] {
+                            return CheckValue::ExactValue(Value::Unit);
+                        } else {
+                            self.errors.push(
+                                fn_call
+                                    .rparen_token
+                                    .with_error(CheckError::WrongArgCount(0, fn_call.args.len())),
+                            );
+                        }
+                    }
+                    _ => {}
                 }
                 for &a in &fn_call.args {
                     Self::check_node(self, a, CheckValue::Unknown);

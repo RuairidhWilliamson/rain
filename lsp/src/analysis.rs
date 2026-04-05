@@ -1,5 +1,6 @@
-use std::{num::TryFromIntError, path::Path};
+use std::{num::TryFromIntError, path::Path, sync::Arc};
 
+use alias::Alias;
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, Position,
     PublishDiagnosticsParams, Range, TextDocumentItem,
@@ -13,9 +14,9 @@ use rain_lang::{
         path::SealedFilePath,
     },
     ast::Module,
-    ir::Rir,
+    ir::{IrModule, Rir},
     local_span::{ErrorLocalSpan, LocalSpan},
-    runner::check_cx::CheckError,
+    runner::check_cx::{CheckError, check_node_type},
 };
 
 use crate::json_rpc::Notification;
@@ -64,14 +65,18 @@ impl TextDocument {
     }
 
     pub fn hover(&self, position: Position) -> Option<(String, Range)> {
-        let point = convert_position_to_ts(position);
-        let node = self
-            .tree
-            .root_node()
-            .named_descendant_for_point_range(point, point)?;
-        // let display = node.to_sexp();
-        let display = node.utf8_text(self.source.as_bytes()).unwrap().to_string();
-        Some((display, convert_range_to_lsp(node.range())))
+        let span: LocalSpan = LocalSpan::byte_from_line_colz(
+            &self.source,
+            position.line.try_into().unwrap(),
+            position.character.try_into().unwrap(),
+        )?;
+        let module = self.prepare_module()?;
+        let node = module.find_node_by_span(span)?;
+        let checked = check_node_type(&module, node);
+        Some((
+            format!("{checked:?}"),
+            convert_span_to_lsp(module.span(node), &self.source).unwrap(),
+        ))
     }
 
     fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> {
@@ -104,6 +109,13 @@ impl TextDocument {
     }
 
     fn check_errors(&self) -> Vec<ErrorLocalSpan<CheckError>> {
+        let Some(module) = self.prepare_module() else {
+            return Vec::new();
+        };
+        rain_lang::runner::check_cx::check_module(&module, true)
+    }
+
+    fn prepare_module(&self) -> Option<Arc<IrModule>> {
         let config = Config::new();
         let mut ir = Rir::new();
         let driver = DriverImpl::new(config);
@@ -125,10 +137,10 @@ impl TextDocument {
         let src = self.source.clone();
         let module = Module::parse(&src);
         let Ok(mid) = ir.insert_module(Some(file), src, module) else {
-            return Vec::new();
+            return None;
         };
         let module = ir.get_module(mid);
-        rain_lang::runner::check_cx::check_module(module, true)
+        Some(module.alias())
     }
 }
 
@@ -142,12 +154,6 @@ fn tree_errors(tree: &tree_sitter::Tree) -> impl Iterator<Item = tree_sitter::No
             None
         }
     })
-}
-pub fn convert_position_to_ts(position: lsp_types::Position) -> tree_sitter::Point {
-    tree_sitter::Point {
-        row: position.line as usize,
-        column: position.character as usize,
-    }
 }
 
 pub fn convert_span_to_lsp(
