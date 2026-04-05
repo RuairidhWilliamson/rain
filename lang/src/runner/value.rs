@@ -186,7 +186,7 @@ impl Display for RainRecord {
 }
 
 impl Value {
-    pub fn rain_type_id(&self) -> RainTypeId {
+    pub const fn rain_type_id(&self) -> RainTypeId {
         match self {
             Self::Unit => RainTypeId::Unit,
             Self::Boolean(_) => RainTypeId::Boolean,

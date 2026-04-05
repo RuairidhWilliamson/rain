@@ -1,0 +1,7 @@
+let main = fn() {
+	a = 3
+	b = false
+	if a && !b {
+		
+	}
+}

@@ -1,0 +1,9 @@
+---
+source: core/tests/errors.rs
+expression: "run_error(concat! (\"tests/errors/\", stringify! (bool_type_check), \".rain\"))"
+---
+<hidden>:4:5
+| 	a = 3
+| 	b = false
+| 	if a && !b {
+  	   ^ unrecoverable error: check error: type error: expected Boolean, actual Integer

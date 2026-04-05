@@ -43,4 +43,6 @@ tests! {
     conflicting_destructure_declarations,
     underscore_start,
     invalid_internal,
+    bool_type_check,
+    check_type,
 }
