@@ -15,7 +15,7 @@ use rain_lang::{
     ast::Module,
     ir::Rir,
     local_span::{ErrorLocalSpan, LocalSpan},
-    runner::check_cx::{CheckCx, CheckError},
+    runner::check_cx::CheckError,
 };
 
 use crate::json_rpc::Notification;
@@ -128,7 +128,7 @@ impl TextDocument {
             return Vec::new();
         };
         let module = ir.get_module(mid);
-        CheckCx::check_module(module, true)
+        rain_lang::runner::check_cx::check_module(module, true)
     }
 }
 

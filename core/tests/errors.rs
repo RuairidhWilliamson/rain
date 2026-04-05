@@ -42,4 +42,5 @@ tests! {
     conflicting_declarations,
     conflicting_destructure_declarations,
     underscore_start,
+    invalid_internal,
 }

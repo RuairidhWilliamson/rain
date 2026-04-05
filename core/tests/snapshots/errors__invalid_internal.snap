@@ -1,0 +1,8 @@
+---
+source: core/tests/errors.rs
+expression: "run_error(concat! (\"tests/errors/\", stringify! (invalid_internal), \".rain\"))"
+---
+<hidden>:2:11
+| let main = fn() {
+| 	internal._banana
+  	         ^^^^^^^ unrecoverable error: check error: invalid internal
