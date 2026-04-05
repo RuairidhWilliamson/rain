@@ -32,7 +32,7 @@ let bwrap_run = fn(image_layers, command, args, env) {
 	overlay_working = internal._create_write_area([])
 	overlay_rw = internal._create_write_area([])
 
-	layer_args = internal._flatten(internal._foreach(image_layers, fn(layer) {
+	layer_args = std.list.flatten(std.list.foreach(image_layers, fn(layer) {
 		["--overlay-src", layer]
 	}))
 	args = layer_args + [

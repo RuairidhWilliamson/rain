@@ -1,0 +1,9 @@
+let main = fn() {}
+
+let bar = fn() {
+	Integer = internal._get_type(0)
+	foo = fn() -> Integer {
+		8
+	}
+	!foo()
+}

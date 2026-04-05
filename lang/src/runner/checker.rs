@@ -76,12 +76,16 @@ pub enum CheckValue {
     ExactType(RainTypeId),
     /// The value is known to be this value
     ExactValue(Value),
+    FunctionCall {
+        args: Vec<Self>,
+        return_type: Box<Self>,
+    },
 }
 
 impl CheckValue {
     fn exact_type(&self) -> Option<RainTypeId> {
         match self {
-            Self::Unknown => None,
+            Self::Unknown | Self::FunctionCall { .. } => None,
             Self::ExactType(rain_type_id) => Some(*rain_type_id),
             Self::ExactValue(value) => Some(value.rain_type_id()),
         }
@@ -187,6 +191,7 @@ impl CheckCx<'_, '_> {
             }
             Node::Closure(closure) => {
                 let mut callee_cx = self.callee();
+                let mut args = Vec::new();
                 for a in &closure.args {
                     let expected = if let Some(a) = &a.type_spec {
                         callee_cx
@@ -197,6 +202,7 @@ impl CheckCx<'_, '_> {
                     } else {
                         CheckValue::Unknown
                     };
+                    args.push(expected.clone());
                     callee_cx
                         .args
                         .insert(a.name.contents(&callee_cx.module.src), expected);
@@ -210,26 +216,11 @@ impl CheckCx<'_, '_> {
                 } else {
                     CheckValue::Unknown
                 };
-                callee_cx.check_node(closure.block, expected);
-                CheckValue::ExactType(RainTypeId::Closure)
-            }
-            Node::IfCondition(condition) => {
-                Self::check_node(
-                    self,
-                    condition.condition,
-                    CheckValue::ExactType(RainTypeId::Boolean),
-                );
-                self.check_node(condition.then_block, expected.clone());
-                match &condition.alternate {
-                    Some(
-                        AlternateCondition::IfElseCondition(alternate)
-                        | AlternateCondition::ElseBlock(alternate),
-                    ) => {
-                        self.check_node(*alternate, expected);
-                    }
-                    None => {}
+                callee_cx.check_node(closure.block, expected.clone());
+                CheckValue::FunctionCall {
+                    args,
+                    return_type: Box::new(expected),
                 }
-                CheckValue::Unknown
             }
             Node::FnCall(fn_call) => {
                 let callee = self.check_node(fn_call.callee, CheckValue::Unknown);
@@ -259,10 +250,39 @@ impl CheckCx<'_, '_> {
                                 .with_error(CheckError::WrongArgCount(0, fn_call.args.len())),
                         );
                     }
+                    CheckValue::FunctionCall { args, return_type } => {
+                        if fn_call.args.len() != args.len() {
+                            self.errors.push(fn_call.rparen_token.with_error(
+                                CheckError::WrongArgCount(args.len(), fn_call.args.len()),
+                            ));
+                        }
+                        for (expected, arg) in args.into_iter().zip(&fn_call.args) {
+                            self.check_node(*arg, expected);
+                        }
+                        return *return_type;
+                    }
                     _ => {}
                 }
                 for &a in &fn_call.args {
                     self.check_node(a, CheckValue::Unknown);
+                }
+                CheckValue::Unknown
+            }
+            Node::IfCondition(condition) => {
+                Self::check_node(
+                    self,
+                    condition.condition,
+                    CheckValue::ExactType(RainTypeId::Boolean),
+                );
+                self.check_node(condition.then_block, expected.clone());
+                match &condition.alternate {
+                    Some(
+                        AlternateCondition::IfElseCondition(alternate)
+                        | AlternateCondition::ElseBlock(alternate),
+                    ) => {
+                        self.check_node(*alternate, expected);
+                    }
+                    None => {}
                 }
                 CheckValue::Unknown
             }
@@ -417,7 +437,8 @@ impl CheckCx<'_, '_> {
                     CheckValue::ExactValue(Value::Boolean(b)) => {
                         CheckValue::ExactValue(Value::Boolean(!b))
                     }
-                    _ => unreachable!(),
+                    // Something has gone in the child, let's not make any assumption
+                    _ => CheckValue::Unknown,
                 }
             }
             Node::FormatStringLiteral(literal) => {

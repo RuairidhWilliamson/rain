@@ -1,0 +1,9 @@
+let main = fn() {}
+
+let bar = fn() {
+	Integer = internal._get_type(0)
+	String = internal._get_type("")
+	Bool = internal._get_type(false)
+	foo = fn(a: Integer, b: String, c: Bool) {}
+	foo(1, "banana", 9)
+}

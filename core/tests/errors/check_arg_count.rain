@@ -1,0 +1,7 @@
+let main = fn() {}
+
+let bar = fn() {
+	foo = fn(a, b, c) {
+	}
+	foo(1, 2)
+}

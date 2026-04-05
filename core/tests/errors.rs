@@ -45,4 +45,7 @@ tests! {
     invalid_internal,
     bool_type_check,
     check_type,
+    check_return_type,
+    check_arg_count,
+    check_arg_type,
 }
