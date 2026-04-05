@@ -1,13 +1,12 @@
 use std::{
     collections::{HashMap, HashSet, hash_map::Entry},
     sync::{
-        Arc, Mutex,
+        Arc,
         atomic::{AtomicUsize, Ordering},
     },
 };
 
 use alias::Alias as _;
-use poison_panic::MutexExt as _;
 
 use crate::{
     ast::{AlternateCondition, BinaryOperatorKind, Node, NodeId},
@@ -15,17 +14,16 @@ use crate::{
     local_span::ErrorLocalSpan,
 };
 
-pub struct CheckCx<'a> {
+pub struct CheckCx<'a, 'b> {
     pub module: &'a Arc<IrModule>,
     pub locals: HashSet<&'a str>,
     pub captures: HashSet<&'a str>,
     pub args: HashSet<&'a str>,
     pub declaration_names: Arc<HashMap<&'a str, AtomicUsize>>,
-    // TODO: Remove this mutex
-    pub errors: Arc<Mutex<Vec<ErrorLocalSpan<CheckError>>>>,
+    pub errors: &'b mut Vec<ErrorLocalSpan<CheckError>>,
 }
 
-impl CheckCx<'_> {
+impl CheckCx<'_, '_> {
     pub fn check_module(
         module: &Arc<IrModule>,
         check_unused: bool,
@@ -52,7 +50,7 @@ impl CheckCx<'_> {
             captures: HashSet::new(),
             args: HashSet::new(),
             declaration_names: Arc::new(declaration_names),
-            errors: Arc::new(Mutex::new(errors)),
+            errors: &mut errors,
         };
         for d in check_cx.module.declarations() {
             check_cx.check_node(d.assignment.expr);
@@ -60,10 +58,7 @@ impl CheckCx<'_> {
         if check_unused {
             check_cx.check_unused_declarations();
         }
-        let Some(mutex) = Arc::into_inner(check_cx.errors) else {
-            unreachable!();
-        };
-        mutex.pinto_inner()
+        errors
     }
 
     pub fn check_unused_declarations(&mut self) {
@@ -77,13 +72,15 @@ impl CheckCx<'_> {
                 }
                 let span = self.module.get_declaration_name_span(did);
                 self.errors
-                    .plock()
                     .push(span.with_error(CheckError::UnusedDeclaration));
             }
         }
     }
 
-    fn check_node(&mut self, nid: NodeId) {
+    fn check_node<'b, 'c>(&'c mut self, nid: NodeId)
+    where
+        'c: 'b,
+    {
         match self.module.get(nid) {
             Node::Ident(tls) => {
                 let ident = tls.0.contents(&self.module.src);
@@ -100,9 +97,7 @@ impl CheckCx<'_> {
                     c.fetch_add(1, Ordering::Relaxed);
                     return;
                 }
-                self.errors
-                    .plock()
-                    .push(tls.0.with_error(CheckError::UnknownIdent));
+                self.errors.push(tls.0.with_error(CheckError::UnknownIdent));
             }
             Node::Block(block) => {
                 for &nid in &block.statements {
@@ -115,7 +110,9 @@ impl CheckCx<'_> {
                     if let Some(a) = &a.type_spec {
                         callee_cx.check_node(a.type_expr);
                     }
-                    callee_cx.args.insert(a.name.contents(&self.module.src));
+                    callee_cx
+                        .args
+                        .insert(a.name.contents(&callee_cx.module.src));
                 }
                 if let Some(return_type) = &closure.return_type {
                     callee_cx.check_node(return_type.type_expr);
@@ -180,7 +177,10 @@ impl CheckCx<'_> {
     }
 
     #[must_use]
-    pub fn callee(&self) -> Self {
+    pub fn callee<'b, 'c>(&'c mut self) -> CheckCx<'c, 'b>
+    where
+        'c: 'b,
+    {
         let mut captures = HashSet::new();
         for &name in &self.locals {
             captures.insert(name);
@@ -191,13 +191,13 @@ impl CheckCx<'_> {
         for &name in &self.args {
             captures.insert(name);
         }
-        Self {
+        CheckCx {
             module: self.module,
             locals: HashSet::new(),
             captures,
             args: HashSet::new(),
             declaration_names: self.declaration_names.alias(),
-            errors: self.errors.alias(),
+            errors: self.errors,
         }
     }
 }
