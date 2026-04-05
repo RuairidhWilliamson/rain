@@ -82,10 +82,12 @@ pub fn evaluate_and_call_chain(
 ) -> Result<Value, CoreError> {
     let initial_module = runner.ir.get_module(mid).alias();
     let mut cx = Cx::new(&initial_module, 0, HashMap::new(), Vec::new());
-    let mut check_errors =
-        rain_lang::runner::check_cx::check_module(&initial_module, runner.check_unused);
-    check_errors.truncate(1);
-    if let Some(err) = check_errors.pop() {
+    let mut check_result = rain_lang::runner::checker::CheckModuleResult::check_module(
+        &initial_module,
+        runner.check_unused,
+    );
+    check_result.errors.truncate(1);
+    if let Some(err) = check_result.errors.pop() {
         return Err(CoreError::LangError(Box::new(
             err.upgrade(mid)
                 .convert::<RunnerError>()

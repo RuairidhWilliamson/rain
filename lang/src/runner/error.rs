@@ -7,7 +7,7 @@ use crate::{
     error::{ResolvedError, ResolvedSpan},
     ir::Rir,
     runner::{
-        check_cx::CheckError,
+        checker::CheckError,
         cx::StacktraceEntry,
         value::{RainInteger, RainTypeId},
     },

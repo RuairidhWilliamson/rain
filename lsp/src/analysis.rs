@@ -16,7 +16,7 @@ use rain_lang::{
     ast::Module,
     ir::{IrModule, Rir},
     local_span::{ErrorLocalSpan, LocalSpan},
-    runner::check_cx::{CheckError, check_node_type},
+    runner::checker::CheckError,
 };
 
 use crate::json_rpc::Notification;
@@ -72,7 +72,8 @@ impl TextDocument {
         )?;
         let module = self.prepare_module()?;
         let node = module.find_node_by_span(span)?;
-        let checked = check_node_type(&module, node);
+        let checked = rain_lang::runner::checker::CheckModuleResult::check_module(&module, true)
+            .check_node_type(node);
         Some((
             format!("{checked:?}"),
             convert_span_to_lsp(module.span(node), &self.source).unwrap(),
@@ -112,7 +113,7 @@ impl TextDocument {
         let Some(module) = self.prepare_module() else {
             return Vec::new();
         };
-        rain_lang::runner::check_cx::check_module(&module, true)
+        rain_lang::runner::checker::CheckModuleResult::check_module(&module, true).errors
     }
 
     fn prepare_module(&self) -> Option<Arc<IrModule>> {

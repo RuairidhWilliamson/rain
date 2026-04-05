@@ -1,5 +1,5 @@
 pub mod cache;
-pub mod check_cx;
+pub mod checker;
 pub mod cx;
 pub mod dep;
 pub mod dep_list;

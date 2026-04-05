@@ -406,10 +406,12 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .insert_module(Some(f), src, module)
             .map_err(|err| err.convert().with_trace(self.caller_cx.stacktrace.clone()))?;
         let module = self.runner.ir.get_module(id);
-        let mut check_errors =
-            crate::runner::check_cx::check_module(module, self.runner.check_unused);
-        check_errors.truncate(1);
-        if let Some(err) = check_errors.pop() {
+        let mut check_result = crate::runner::checker::CheckModuleResult::check_module(
+            module,
+            self.runner.check_unused,
+        );
+        check_result.errors.truncate(1);
+        if let Some(err) = check_result.errors.pop() {
             return Err(err
                 .upgrade(id)
                 .convert::<RunnerError>()

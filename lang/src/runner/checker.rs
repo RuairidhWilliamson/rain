@@ -1,9 +1,6 @@
 use std::{
     collections::{HashMap, hash_map::Entry},
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::{Arc, atomic::AtomicUsize},
 };
 
 use alias::Alias as _;
@@ -13,7 +10,7 @@ use crate::{
         AlternateCondition, BinaryOp, BinaryOperatorKind, DeclareName, Node, NodeId, SimpleLiteral,
         SimpleLiteralKind,
     },
-    ir::IrModule,
+    ir::{IrModule, LocalDeclarationId},
     local_span::ErrorLocalSpan,
     runner::{
         internal::InternalFunction,
@@ -21,73 +18,59 @@ use crate::{
     },
 };
 
-pub fn check_module(module: &Arc<IrModule>, check_unused: bool) -> Vec<ErrorLocalSpan<CheckError>> {
-    let mut declaration_names = HashMap::<&str, AtomicUsize>::new();
-    let mut errors = Vec::new();
-    for (_, assignment) in module.declaration_assignments() {
-        for name_span in assignment.name_spans() {
-            let name = name_span.contents(&module.src);
-            let entry = declaration_names.entry(name);
-            match entry {
-                Entry::Occupied(_) => {
-                    errors.push(name_span.with_error(CheckError::ConflictingDeclaration));
-                }
-                Entry::Vacant(vacant) => {
-                    vacant.insert(AtomicUsize::new(0));
+pub struct CheckModuleResult {
+    pub errors: Vec<ErrorLocalSpan<CheckError>>,
+    pub node_types: HashMap<NodeId, CheckValue>,
+}
+
+impl CheckModuleResult {
+    pub fn check_module(module: &Arc<IrModule>, check_unused: bool) -> Self {
+        let mut declaration_names = HashMap::<&str, AtomicUsize>::new();
+        let mut errors = Vec::new();
+        for (_, assignment) in module.declaration_assignments() {
+            for name_span in assignment.name_spans() {
+                let name = name_span.contents(&module.src);
+                let entry = declaration_names.entry(name);
+                match entry {
+                    Entry::Occupied(_) => {
+                        errors.push(name_span.with_error(CheckError::ConflictingDeclaration));
+                    }
+                    Entry::Vacant(vacant) => {
+                        vacant.insert(AtomicUsize::new(0));
+                    }
                 }
             }
         }
-    }
-    let mut check_cx = CheckCx {
-        module: &module.alias(),
-        previous: None,
-        locals: None,
-        captures: HashMap::new(),
-        args: HashMap::new(),
-        declaration_names: Arc::new(declaration_names),
-        errors: &mut errors,
-    };
-    for d in check_cx.module.declarations() {
-        check_cx.check_node(d.assignment, CheckValue::Unknown);
-    }
-    if check_unused {
-        check_cx.check_unused_declarations();
-    }
-    errors
-}
-
-pub fn check_node_type(module: &Arc<IrModule>, node: NodeId) -> CheckValue {
-    let mut declaration_names = HashMap::<&str, AtomicUsize>::new();
-    let mut errors = Vec::new();
-    for (_, assignment) in module.declaration_assignments() {
-        for name_span in assignment.name_spans() {
-            let name = name_span.contents(&module.src);
-            let entry = declaration_names.entry(name);
-            match entry {
-                Entry::Occupied(_) => {
-                    errors.push(name_span.with_error(CheckError::ConflictingDeclaration));
-                }
-                Entry::Vacant(vacant) => {
-                    vacant.insert(AtomicUsize::new(0));
-                }
-            }
+        let mut node_types = HashMap::new();
+        let mut declarations = HashMap::new();
+        let mut check_cx = CheckCx {
+            module: &module.alias(),
+            previous: None,
+            locals: None,
+            captures: HashMap::new(),
+            args: HashMap::new(),
+            errors: &mut errors,
+            node_types: &mut node_types,
+            declarations: &mut declarations,
+        };
+        for d in check_cx.module.declarations() {
+            check_cx.check_node(d.assignment, CheckValue::Unknown);
         }
+        if check_unused {
+            check_cx.check_unused_declarations();
+        }
+        Self { errors, node_types }
     }
-    let mut check_cx = CheckCx {
-        module: &module.alias(),
-        previous: None,
-        locals: Some(HashMap::new()),
-        captures: HashMap::new(),
-        args: HashMap::new(),
-        declaration_names: Arc::new(declaration_names),
-        errors: &mut errors,
-    };
-    check_cx.check_node(node, CheckValue::Unknown)
+
+    pub fn check_node_type(&self, node: NodeId) -> CheckValue {
+        self.node_types.get(&node).cloned().unwrap_or_default()
+    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub enum CheckValue {
     /// No clue, could be anything
+    #[default]
     Unknown,
     /// The value is known to be of this type but it is not known what value it is within the type
     ExactType(RainTypeId),
@@ -119,21 +102,26 @@ struct CheckCx<'a, 'b> {
     locals: Option<HashMap<&'a str, CheckValue>>,
     captures: HashMap<&'a str, CheckValue>,
     args: HashMap<&'a str, CheckValue>,
-    declaration_names: Arc<HashMap<&'a str, AtomicUsize>>,
     errors: &'b mut Vec<ErrorLocalSpan<CheckError>>,
+    node_types: &'b mut HashMap<NodeId, CheckValue>,
+    declarations: &'b mut HashMap<LocalDeclarationId, Declaration>,
+}
+
+#[derive(Default)]
+struct Declaration {
+    value: CheckValue,
+    usage: usize,
 }
 
 impl CheckCx<'_, '_> {
     fn check_unused_declarations(&mut self) {
-        for (&name, count) in self.declaration_names.iter() {
-            if count.load(Ordering::Relaxed) == 0 && name != "ci" && name != "main" {
-                let Some(did) = self.module.find_declaration_by_name(name) else {
-                    unreachable!()
-                };
-                if self.module.get_declaration(did).pub_token.is_some() {
+        for (&id, Declaration { usage, .. }) in self.declarations.iter() {
+            let span = self.module.get_declaration_name_span(id);
+            let name = span.contents(&self.module.src);
+            if *usage == 0 && name != "ci" && name != "main" {
+                if self.module.get_declaration(id).pub_token.is_some() {
                     continue;
                 }
-                let span = self.module.get_declaration_name_span(did);
                 self.errors
                     .push(span.with_error(CheckError::UnusedDeclaration));
             }
@@ -157,6 +145,7 @@ impl CheckCx<'_, '_> {
             }
             _ => (),
         }
+        self.node_types.insert(nid, actual.clone());
         actual
     }
 
@@ -179,16 +168,17 @@ impl CheckCx<'_, '_> {
                 if let Some(v) = self.captures.get(ident) {
                     return v.clone();
                 }
-                if let Some(c) = self.declaration_names.get(ident) {
-                    c.fetch_add(1, Ordering::Relaxed);
-                    return CheckValue::Unknown;
+                if let Some(id) = self.module.find_declaration_by_name(ident) {
+                    let declaration = self.declarations.entry(id).or_default();
+                    declaration.usage += 1;
+                    return declaration.value.clone();
                 }
                 self.errors.push(tls.0.with_error(CheckError::UnknownIdent));
                 CheckValue::Unknown
             }
             Node::Block(block) => {
                 let [statements @ .., last] = &block.statements[..] else {
-                    return CheckValue::ExactType(RainTypeId::Unit);
+                    return CheckValue::ExactValue(Value::Unit);
                 };
                 for &nid in statements {
                     self.previous = Some(self.check_node(nid, CheckValue::Unknown));
@@ -198,17 +188,29 @@ impl CheckCx<'_, '_> {
             Node::Closure(closure) => {
                 let mut callee_cx = self.callee();
                 for a in &closure.args {
-                    if let Some(a) = &a.type_spec {
-                        callee_cx.check_node(a.type_expr, CheckValue::Unknown);
-                    }
+                    let expected = if let Some(a) = &a.type_spec {
+                        callee_cx
+                            .check_node(a.type_expr, CheckValue::Unknown)
+                            .type_constraint()
+                            .map(CheckValue::ExactType)
+                            .unwrap_or_default()
+                    } else {
+                        CheckValue::Unknown
+                    };
                     callee_cx
                         .args
-                        .insert(a.name.contents(&callee_cx.module.src), CheckValue::Unknown);
+                        .insert(a.name.contents(&callee_cx.module.src), expected);
                 }
-                if let Some(return_type) = &closure.return_type {
-                    callee_cx.check_node(return_type.type_expr, CheckValue::Unknown);
-                }
-                callee_cx.check_node(closure.block, CheckValue::Unknown);
+                let expected = if let Some(return_type) = &closure.return_type {
+                    callee_cx
+                        .check_node(return_type.type_expr, CheckValue::Unknown)
+                        .type_constraint()
+                        .map(CheckValue::ExactType)
+                        .unwrap_or_default()
+                } else {
+                    CheckValue::Unknown
+                };
+                callee_cx.check_node(closure.block, expected);
                 CheckValue::ExactType(RainTypeId::Closure)
             }
             Node::IfCondition(condition) => {
@@ -217,25 +219,25 @@ impl CheckCx<'_, '_> {
                     condition.condition,
                     CheckValue::ExactType(RainTypeId::Boolean),
                 );
-                Self::check_node(self, condition.then_block, expected.clone());
+                self.check_node(condition.then_block, expected.clone());
                 match &condition.alternate {
                     Some(
                         AlternateCondition::IfElseCondition(alternate)
                         | AlternateCondition::ElseBlock(alternate),
                     ) => {
-                        Self::check_node(self, *alternate, expected);
+                        self.check_node(*alternate, expected);
                     }
                     None => {}
                 }
                 CheckValue::Unknown
             }
             Node::FnCall(fn_call) => {
-                let callee = Self::check_node(self, fn_call.callee, CheckValue::Unknown);
+                let callee = self.check_node(fn_call.callee, CheckValue::Unknown);
                 match callee {
                     CheckValue::ExactValue(Value::InternalFunction(InternalFunction::GetType)) => {
                         if let &[a] = &fn_call.args[..] {
                             if let Some(exact_type) =
-                                Self::check_node(self, a, CheckValue::Unknown).exact_type()
+                                self.check_node(a, CheckValue::Unknown).exact_type()
                             {
                                 return CheckValue::ExactValue(Value::Type(exact_type));
                             }
@@ -260,7 +262,7 @@ impl CheckCx<'_, '_> {
                     _ => {}
                 }
                 for &a in &fn_call.args {
-                    Self::check_node(self, a, CheckValue::Unknown);
+                    self.check_node(a, CheckValue::Unknown);
                 }
                 CheckValue::Unknown
             }
@@ -276,13 +278,13 @@ impl CheckCx<'_, '_> {
                         } else {
                             CheckValue::Unknown
                         };
-                        let rhs = Self::check_node(self, assignment.expr, expected);
+                        let rhs = self.check_node(assignment.expr, expected);
                         if let Some(locals) = &mut self.locals {
                             locals.insert(name, rhs);
                         }
                     }
                     DeclareName::NamedDestructure(declare) => {
-                        Self::check_node(self, assignment.expr, CheckValue::Unknown);
+                        self.check_node(assignment.expr, CheckValue::Unknown);
                         for e in &declare.elements {
                             let name = e.name.contents(&self.module.src);
                             if let Some(type_spec) = &e.type_spec {
@@ -319,7 +321,7 @@ impl CheckCx<'_, '_> {
                 ..
             }) => {
                 if matches!(
-                    Self::check_node(self, *left, CheckValue::Unknown).exact_type(),
+                    self.check_node(*left, CheckValue::Unknown).exact_type(),
                     Some(RainTypeId::Internal)
                 ) && let Node::Ident(tls) = self.module.get(*right)
                 {
@@ -340,8 +342,8 @@ impl CheckCx<'_, '_> {
                 right,
                 ..
             }) => {
-                Self::check_node(self, *left, CheckValue::ExactType(RainTypeId::Boolean));
-                Self::check_node(self, *right, CheckValue::ExactType(RainTypeId::Boolean));
+                self.check_node(*left, CheckValue::ExactType(RainTypeId::Boolean));
+                self.check_node(*right, CheckValue::ExactType(RainTypeId::Boolean));
                 CheckValue::ExactType(RainTypeId::Boolean)
             }
             Node::BinaryOp(BinaryOp {
@@ -350,8 +352,8 @@ impl CheckCx<'_, '_> {
                 right,
                 ..
             }) => {
-                Self::check_node(self, *left, CheckValue::Unknown);
-                Self::check_node(self, *right, CheckValue::Unknown);
+                self.check_node(*left, CheckValue::Unknown);
+                self.check_node(*right, CheckValue::Unknown);
                 CheckValue::ExactType(RainTypeId::Boolean)
             }
             Node::BinaryOp(BinaryOp {
@@ -364,8 +366,8 @@ impl CheckCx<'_, '_> {
                 right,
                 ..
             }) => {
-                Self::check_node(self, *left, CheckValue::ExactType(RainTypeId::Integer));
-                Self::check_node(self, *right, CheckValue::ExactType(RainTypeId::Integer));
+                self.check_node(*left, CheckValue::ExactType(RainTypeId::Integer));
+                self.check_node(*right, CheckValue::ExactType(RainTypeId::Integer));
                 CheckValue::ExactType(RainTypeId::Boolean)
             }
             Node::BinaryOp(BinaryOp {
@@ -383,38 +385,44 @@ impl CheckCx<'_, '_> {
                 ..
             }) => {
                 // These operators are all of the form fn(T, T) -> T
-                let lhs = Self::check_node(self, *left, CheckValue::Unknown);
-                let rhs = Self::check_node(
-                    self,
+                let lhs = self.check_node(*left, CheckValue::Unknown);
+                let rhs = self.check_node(
                     *right,
                     lhs.exact_type()
                         .map(CheckValue::ExactType)
-                        .unwrap_or(CheckValue::Unknown),
+                        .unwrap_or_default(),
                 );
                 lhs.exact_type()
                     .or_else(|| rhs.exact_type())
                     .map(CheckValue::ExactType)
-                    .unwrap_or(CheckValue::Unknown)
+                    .unwrap_or_default()
             }
             Node::List(list) => {
                 for element in &list.elements {
-                    Self::check_node(self, element.value, CheckValue::Unknown);
+                    self.check_node(element.value, CheckValue::Unknown);
                 }
                 CheckValue::ExactType(RainTypeId::List)
             }
             Node::Record(record) => {
                 for field in &record.fields {
-                    Self::check_node(self, field.value, CheckValue::Unknown);
+                    self.check_node(field.value, CheckValue::Unknown);
                 }
                 CheckValue::ExactType(RainTypeId::Record)
             }
             Node::Not(not) => {
-                Self::check_node(self, not.inner, CheckValue::ExactType(RainTypeId::Boolean));
-                CheckValue::ExactType(RainTypeId::Boolean)
+                match self.check_node(not.inner, CheckValue::ExactType(RainTypeId::Boolean)) {
+                    CheckValue::Unknown | CheckValue::ExactType(RainTypeId::Boolean) => {
+                        CheckValue::ExactType(RainTypeId::Boolean)
+                    }
+                    CheckValue::ExactValue(Value::Boolean(b)) => {
+                        CheckValue::ExactValue(Value::Boolean(!b))
+                    }
+                    _ => unreachable!(),
+                }
             }
             Node::FormatStringLiteral(literal) => {
                 for &nid in &literal.nodes {
-                    Self::check_node(self, nid, CheckValue::Unknown);
+                    self.check_node(nid, CheckValue::Unknown);
                 }
                 CheckValue::ExactType(RainTypeId::String)
             }
@@ -437,7 +445,12 @@ impl CheckCx<'_, '_> {
             Node::SimpleLiteral(SimpleLiteral {
                 kind: SimpleLiteralKind::ThisFile,
                 ..
-            }) => CheckValue::Unknown,
+            }) => self
+                .module
+                .file
+                .as_ref()
+                .map(|f| CheckValue::ExactValue(f.clone().to_value()))
+                .unwrap_or_default(),
             Node::SimpleLiteral(SimpleLiteral {
                 kind: SimpleLiteralKind::Underscore,
                 span,
@@ -450,8 +463,15 @@ impl CheckCx<'_, '_> {
                 CheckValue::Unknown
             }
             Node::IntegerLiteral(_) => CheckValue::ExactType(RainTypeId::Integer),
-            Node::RawStringLiteral(_) | Node::StringLiteral(_) => {
-                CheckValue::ExactType(RainTypeId::String)
+            Node::StringLiteral(lit) => {
+                let contents = lit.contents.contents(&self.module.src);
+                CheckValue::ExactValue(Value::String(Arc::new(super::EscapeReplacer::replace_all(
+                    contents,
+                ))))
+            }
+            Node::RawStringLiteral(lit) => {
+                let contents = lit.contents.contents(&self.module.src);
+                CheckValue::ExactValue(Value::String(Arc::new(contents.to_string())))
             }
         }
     }
@@ -476,8 +496,9 @@ impl CheckCx<'_, '_> {
             locals: Some(HashMap::new()),
             captures,
             args: HashMap::new(),
-            declaration_names: self.declaration_names.alias(),
             errors: self.errors,
+            node_types: self.node_types,
+            declarations: self.declarations,
         }
     }
 }
