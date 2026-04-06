@@ -13,7 +13,7 @@ pub async fn create_session(db: &Db) -> Result<SessionId> {
     let created_at = Utc::now().naive_utc();
     let expires_at = created_at + SESSION_EXPIRY;
     sqlx::query!(
-        "INSERT INTO sessions (id, expires_at, created_at) VALUES ($1, $2, $3)",
+        "INSERT INTO sessions (id, expires_at, created_at, active) VALUES ($1, $2, $3, true)",
         session_id.0,
         expires_at,
         created_at,
@@ -23,11 +23,18 @@ pub async fn create_session(db: &Db) -> Result<SessionId> {
     Ok(session_id)
 }
 
+pub async fn delete_session(db: &Db, id: &SessionId) -> Result<()> {
+    sqlx::query!("UPDATE sessions SET active=false WHERE id=$1", id.0)
+        .execute(&db.pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn load_or_create_session(db: &Db, id: &SessionId) -> Result<Option<SessionId>> {
     let mut tx = db.pool.begin().await?;
     let creation_deadline = Utc::now().naive_utc() - SESSION_EXPIRY;
     if sqlx::query!(
-            "SELECT id FROM sessions WHERE id=$1 AND expires_at > CURRENT_TIMESTAMP AND created_at > $2",
+            "SELECT id FROM sessions WHERE id=$1 AND expires_at > CURRENT_TIMESTAMP AND created_at > $2 AND active",
             id.0,
             creation_deadline,
         )
@@ -41,7 +48,7 @@ pub async fn load_or_create_session(db: &Db, id: &SessionId) -> Result<Option<Se
     let created_at = Utc::now().naive_utc();
     let expires_at = created_at + SESSION_EXPIRY;
     sqlx::query!(
-        "INSERT INTO sessions (id, expires_at, created_at) VALUES ($1, $2, $3)",
+        "INSERT INTO sessions (id, expires_at, created_at, active) VALUES ($1, $2, $3, true)",
         session_id.0,
         expires_at,
         created_at,

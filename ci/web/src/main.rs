@@ -36,7 +36,7 @@ use url::Url;
 struct Config {
     base_url: String,
     addr: SocketAddr,
-    allowed_user_id: i64,
+    admin_user_id: i64,
     database_password_file: Option<PathBuf>,
     database_url: Url,
     default_auth: String,
@@ -67,6 +67,7 @@ async fn main() -> Result<()> {
     };
     let app = Router::new()
         .route("/", get(pages::home))
+        .route("/signout", post(session::signout))
         .nest("/auth", auth::router())
         .route("/profile", get(pages::profile))
         .route("/repos", get(pages::repos))
@@ -76,6 +77,7 @@ async fn main() -> Result<()> {
         .route("/run/{id}", get(pages::run))
         .route("/assets/script.js", get(script_asset))
         .route("/assets/style.css", get(style_asset))
+        .layer(tower_http::trace::TraceLayer::new_for_http())
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             session::session_middleware,

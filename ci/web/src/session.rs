@@ -1,13 +1,14 @@
 use axum::{
+    Extension,
     extract::{Request, State},
     http::header::SET_COOKIE,
     middleware::Next,
-    response::IntoResponse,
+    response::{IntoResponse, Redirect},
 };
 use axum_extra::{TypedHeader, headers};
 use rain_ci_common::db::Db;
 
-const SESSION_COOKIE_NAME: &str = "SESSION";
+const SESSION_COOKIE_NAME: &str = "__Host-Http-SESSION";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, sqlx::Type)]
 #[sqlx(transparent)]
@@ -38,11 +39,15 @@ pub async fn session_middleware(
     {
         session_id = SessionId(inner_session_id);
         if let Some(new_session_id) = crate::db::load_or_create_session(&db, &session_id).await? {
+            tracing::debug!("changed session {} -> {}", session_id, new_session_id);
             session_id = new_session_id;
             changed = true;
+        } else {
+            tracing::debug!("restored session {}", session_id);
         }
     } else {
         session_id = crate::db::create_session(&db).await?;
+        tracing::debug!("created new session {}", session_id);
         changed = true;
     }
 
@@ -59,4 +64,12 @@ pub async fn session_middleware(
     }
 
     Ok(response)
+}
+
+pub async fn signout(
+    Extension(session): Extension<Session>,
+    State(db): State<Db>,
+) -> Result<impl IntoResponse, super::AppError> {
+    crate::db::delete_session(&db, &session.id).await?;
+    Ok(Redirect::to("/"))
 }

@@ -13,7 +13,7 @@ pub struct User {
 
 impl User {
     pub fn is_admin(&self, config: &crate::Config) -> bool {
-        self.id == config.allowed_user_id
+        self.id == config.admin_user_id
     }
 
     pub fn display_name(&self) -> &str {

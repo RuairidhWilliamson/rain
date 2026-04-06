@@ -3,5 +3,9 @@
 {% block content %}
 <h1>Profile</h1>
 
+<p>Id = {{base.user.id}}</p>
 <p><img src="{{base.user.avatar_url()}}" width="16px" height="16px"> {{base.user.display_name()}}</p>
+<form method="POST" action="/signout">
+  <button type="submit">Sign Out</button>
+</form>
 {% endblock %}
