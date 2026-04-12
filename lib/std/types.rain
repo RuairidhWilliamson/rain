@@ -4,6 +4,7 @@ let fold = internal._fold
 let concrete_types = internal._concrete_types()
 
 pub let Any = fn(v) -> Bool { true }
+pub let Never = fn(v) -> Bool { false }
 
 pub let Type = fn(v) {
 	// A type is either a concrete type or a function
@@ -54,6 +55,18 @@ pub let Record = fn(inner: Type) -> Type {
 	fn(v: Any) -> Bool {
 		get_type(v) == AnyRecord && fold(true, internal._record_keys(v), fn(acc, x) {
 			acc && check_type(internal._index(v, x), inner)
+		})
+	}
+}
+
+pub let new_interface = fn(fields: Record(Type)) -> Type {
+	fn(v: Any) -> Bool {
+		get_type(v) == AnyRecord && fold(true, internal._record_keys(fields), fn(acc, field_name) {
+			type = internal._index(fields, field_name)
+			result = internal._try(fn() {
+				internal._index(v, field_name)
+			})
+			acc && result.success && check_type(result.value, type)
 		})
 	}
 }

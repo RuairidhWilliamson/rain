@@ -1,4 +1,4 @@
-let std = import("main.rain").std
+let {std} = import("main.rain")
 
 // Run tests to make sure intra-process caching is working
 
@@ -8,6 +8,7 @@ pub let test_caching = fn() {
 	test_create_file_cache()
 	test_import_cache()
 	test_type_check()
+	test_interface()
 }
 
 let test_embed_cache = fn() {
@@ -46,4 +47,16 @@ let test_type_check = fn() {
 	a = "abcd"
 	std.assert.not_equal(internal._get_type(a), std.types.Integer)
 	std.assert.equal(internal._get_type(a), std.types.String)
+}
+
+let test_interface = fn() {
+	MyInterface = std.types.new_interface({
+		x = std.types.Integer,
+		y = std.types.Integer,
+		z = std.types.Integer,
+		foo = std.types.String,
+	})
+	std.assert.is_false(std.types.check_type({}, MyInterface))
+	std.assert.is_false(std.types.check_type({x = 1, y = 2, z = 3, foo = 4}, MyInterface))
+	std.assert.is_true(std.types.check_type({x = 1, y = 2, z = 3, foo = "Hi"}, MyInterface))
 }

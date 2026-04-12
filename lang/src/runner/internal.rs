@@ -100,6 +100,7 @@ pub enum InternalFunction {
     Config,
     ConcreteTypes,
     IncCounter,
+    Try,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -172,6 +173,7 @@ impl InternalFunction {
             "_config" => Some(Self::Config),
             "_concrete_types" => Some(Self::ConcreteTypes),
             "_inc_counter" => Some(Self::IncCounter),
+            "_try" => Some(Self::Try),
             _ => None,
         }
     }
@@ -255,6 +257,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::Config => self.config(),
             InternalFunction::ConcreteTypes => self.concrete_types(),
             InternalFunction::IncCounter => self.inc_counter(),
+            InternalFunction::Try => self.try_function(),
         }
     }
 
@@ -912,5 +915,31 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         let name = expect_type!(self, String, single_arg!(self));
         self.runner.driver.increment_counter(name.alias());
         Ok(Value::Unit)
+    }
+
+    fn try_function(self) -> ResultValue {
+        let (_, func_value) = single_arg!(self);
+        let result = self.runner.call_function_like(
+            self.caller_cx,
+            self.nid,
+            func_value,
+            self.call_span,
+            vec![],
+        );
+        let mut out = IndexMap::<String, Value>::new();
+        match result {
+            Ok(v) => {
+                out.insert("success".to_owned(), Value::Boolean(true));
+                out.insert("value".to_owned(), v);
+            }
+            Err(err) => {
+                out.insert("success".to_owned(), Value::Boolean(false));
+                out.insert(
+                    "error".to_owned(),
+                    Value::String(Arc::new(err.err_span.err.to_string())),
+                );
+            }
+        }
+        Ok(Value::Record(Arc::new(RainRecord(out))))
     }
 }

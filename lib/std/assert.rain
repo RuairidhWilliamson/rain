@@ -6,6 +6,12 @@ pub let is_true = fn(b) {
 	}
 }
 
+pub let is_false = fn(b) {
+	if b {
+		internal._throw("assertion failed: is false check")
+	}
+}
+
 pub let equal = fn(a, b) {
 	if a != b {
 		internal._throw("assertion failed: equal check")
