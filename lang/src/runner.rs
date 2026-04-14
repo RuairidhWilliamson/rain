@@ -416,7 +416,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         if let Some(v) = cx.args.get(ident) {
             return Ok(Some(v.clone()));
         }
-        if let Some(v) = cx.captures.iter().rev().find_map(|cap| cap.0.get(ident)) {
+        if let Some(v) = cx.captures.0.get(ident) {
             return Ok(Some(v.clone()));
         }
         if let Some(declaration_id) = self.ir.resolve_global_declaration(cx.module.id, ident) {
@@ -867,17 +867,18 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
 }
 
 fn evaluate_closure_definition(cx: &mut Cx, nid: NodeId) -> Value {
-    let mut captures = cx.captures.clone();
-    let mut new_captures = HashMap::<String, Value>::new();
+    let mut captures = HashMap::<String, Value>::new();
+    for (k, v) in cx.captures.0.iter() {
+        captures.insert(k.to_string(), v.clone());
+    }
     for (k, v) in &cx.args {
-        new_captures.insert(k.to_string(), v.clone());
+        captures.insert(k.to_string(), v.clone());
     }
     for (k, v) in &cx.locals {
-        new_captures.insert(k.to_string(), v.clone());
+        captures.insert(k.to_string(), v.clone());
     }
-    captures.push(ClosureCaptures(Arc::new(new_captures)));
     Value::Closure(Closure {
-        captures,
+        captures: ClosureCaptures(Arc::new(captures)),
         module: cx.module.id,
         node: nid,
     })

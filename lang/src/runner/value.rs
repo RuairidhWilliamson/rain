@@ -235,7 +235,7 @@ impl Value {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Closure {
-    pub captures: Vec<ClosureCaptures>,
+    pub captures: ClosureCaptures,
     pub module: ModuleId,
     pub node: NodeId,
 }

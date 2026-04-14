@@ -1,0 +1,15 @@
+let main = fn() {
+	x = 42
+	f = foo()
+	x = 101
+	f()
+}
+
+
+let foo = fn() {
+	x = 4
+	fn() {
+		x + 1
+	}
+}
+

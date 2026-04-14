@@ -18,7 +18,7 @@ pub struct Cx<'a> {
     pub module: &'a Arc<IrModule>,
     pub call_depth: usize,
     pub locals: HashMap<&'a str, Value>,
-    pub captures: Vec<ClosureCaptures>,
+    pub captures: ClosureCaptures,
     pub args: HashMap<&'a str, Value>,
     pub deps: DepList,
     pub previous_line: Option<Value>,
@@ -37,7 +37,7 @@ impl<'a> Cx<'a> {
             module,
             call_depth,
             args,
-            captures: Vec::new(),
+            captures: ClosureCaptures(Arc::new(HashMap::new())),
             locals: HashMap::new(),
             deps: DepList::new(),
             previous_line: None,
@@ -61,13 +61,13 @@ impl<'a> Cx<'a> {
         &self,
         module: &'a Arc<IrModule>,
         args: HashMap<&'a str, Value>,
-        captures: &Vec<ClosureCaptures>,
+        captures: &ClosureCaptures,
         ste: StacktraceEntry,
     ) -> Self {
         let mut st = self.stacktrace.clone();
         st.push(ste);
         let mut callee = Cx::new(module, self.call_depth + 1, args, st);
-        callee.captures = captures.clone();
+        callee.captures = captures.alias();
         callee
     }
 
@@ -80,8 +80,7 @@ impl<'a> Cx<'a> {
     ) -> Self {
         let st = self.stacktrace.clone();
         let mut callee = Cx::new(module, self.call_depth + 1, args, st);
-        callee.captures.clone_from(&self.captures);
-        callee.captures.push(captures.alias());
+        callee.captures = captures.alias();
         callee
     }
 

@@ -59,4 +59,5 @@ tests! {
     generated_vs_local,
     trailing_commas,
     format_string,
+    closure_disambiguation,
 }
