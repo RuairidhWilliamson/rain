@@ -121,7 +121,6 @@ impl PersistCache {
                 continue;
             };
             stats.depersists.inc();
-            dbg!(&k, &e);
             lru.put(k, e);
         }
         super::CacheCore { storage: lru }

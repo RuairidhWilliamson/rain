@@ -869,7 +869,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
 fn evaluate_closure_definition(cx: &mut Cx, nid: NodeId) -> Value {
     let mut captures = HashMap::<String, Value>::new();
     for (k, v) in cx.captures.0.iter() {
-        captures.insert(k.to_string(), v.clone());
+        captures.insert(k.clone(), v.clone());
     }
     for (k, v) in &cx.args {
         captures.insert(k.to_string(), v.clone());

@@ -256,7 +256,6 @@ fn non_capturing_closure_caching() {
     let value = tester.run(&f).exec("main");
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(42))));
     assert_eq!(1, tester.driver.get_counter(&counter_name));
-    dbg!(&tester.persist_cache);
 
     // Should be cached
     let value = tester.run(&f).exec("main");
