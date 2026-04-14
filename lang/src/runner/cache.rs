@@ -72,7 +72,7 @@ pub enum CacheKey {
         name: String,
     },
     CallClosure {
-        captures: ClosureCaptures,
+        captures: Vec<ClosureCaptures>,
         module: File,
         node: NodeId,
         args: Vec<Value>,

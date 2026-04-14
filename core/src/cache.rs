@@ -20,7 +20,7 @@ use rain_lang::{
         LocalFileHashCache,
         cache::{CacheEntry, CacheGuardTrait, CacheKey, CacheTrait},
         dep_list::DepList,
-        value::Value,
+        value::{RainTypeId, Value},
     },
 };
 
@@ -62,6 +62,33 @@ pub struct CacheGuard {
     verification: bool,
 }
 
+impl CacheGuard {
+    fn verify(&self, value: &Value) {
+        let Some(key) = &self.key else {
+            return;
+        };
+        let Some(existing_entry) = &self.existing_entry else {
+            unreachable!();
+        };
+        // Skip some things for now
+        if [
+            RainTypeId::Module,
+            RainTypeId::GeneratedFile,
+            RainTypeId::GeneratedFSArea,
+            RainTypeId::GeneratedDir,
+        ]
+        .contains(&value.rain_type_id())
+        {
+            return;
+        }
+        if value != &existing_entry.value {
+            log::error!(
+                "cache violation {key:?}\nexisting cache entry = {existing_entry:?}\nactual value = {value:?}"
+            );
+        }
+    }
+}
+
 impl CacheGuardTrait for CacheGuard {
     fn check(&mut self) -> Option<(Value, DepList)> {
         if self.key.is_some()
@@ -75,16 +102,16 @@ impl CacheGuardTrait for CacheGuard {
     }
 
     fn put(self, deps: DepList, value: Value) {
+        if self.key.is_none() {
+            return;
+        }
+        if self.verification && self.existing_entry.is_some() {
+            self.verify(&value);
+            return;
+        }
         let Some(key) = self.key else {
             return;
         };
-        if let Some(existing_entry) = self.existing_entry {
-            if self.verification {
-                assert_eq!(value, existing_entry.value);
-                return;
-            }
-            panic!("should not be possible to reach here");
-        }
         self.cache.put(
             key,
             CacheEntry {
@@ -98,16 +125,16 @@ impl CacheGuardTrait for CacheGuard {
     }
 
     fn put_if_slow(self, deps: DepList, value: Value) {
+        if self.key.is_none() {
+            return;
+        }
+        if self.verification && self.existing_entry.is_some() {
+            self.verify(&value);
+            return;
+        }
         let Some(key) = self.key else {
             return;
         };
-        if let Some(existing_entry) = self.existing_entry {
-            if self.verification {
-                assert_eq!(value, existing_entry.value);
-                return;
-            }
-            panic!("should not be possible to reach here");
-        }
         self.cache.put_if_slow(
             key,
             CacheEntry {

@@ -61,14 +61,13 @@ impl<'a> Cx<'a> {
         &self,
         module: &'a Arc<IrModule>,
         args: HashMap<&'a str, Value>,
-        captures: &ClosureCaptures,
+        captures: &Vec<ClosureCaptures>,
         ste: StacktraceEntry,
     ) -> Self {
         let mut st = self.stacktrace.clone();
         st.push(ste);
         let mut callee = Cx::new(module, self.call_depth + 1, args, st);
-        callee.captures.clone_from(&self.captures);
-        callee.captures.push(captures.alias());
+        callee.captures = captures.clone();
         callee
     }
 

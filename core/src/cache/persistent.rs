@@ -323,8 +323,8 @@ impl PersistCacheKey {
                 args,
             } => Some(Self::CallClosure {
                 captures: captures
-                    .0
                     .iter()
+                    .flat_map(|x| x.0.iter())
                     .map(|(name, v)| Some((name.clone(), PersistValue::persist(v, rir)?)))
                     .collect::<Option<_>>()?,
                 module: PersistFile::persist(module)?,
@@ -360,12 +360,12 @@ impl PersistCacheKey {
                 node,
                 args,
             } => Some(CacheKey::CallClosure {
-                captures: ClosureCaptures(Arc::new(
+                captures: vec![ClosureCaptures(Arc::new(
                     captures
                         .into_iter()
                         .map(|(name, v)| Some((name, v.depersist(config, rir)?)))
                         .collect::<Option<_>>()?,
-                )),
+                ))],
                 module: module.depersist(config)?,
                 node,
                 args: args

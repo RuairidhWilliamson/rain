@@ -49,7 +49,7 @@ let test_type_check = fn() {
 	std.assert.equal(internal._get_type(a), std.types.String)
 }
 
-let test_interface = fn() {
+pub let test_interface = fn() {
 	MyInterface = std.types.new_interface({
 		x = std.types.Integer,
 		y = std.types.Integer,

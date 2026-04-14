@@ -66,7 +66,11 @@ pub let new_interface = fn(fields: Record(Type)) -> Type {
 			result = internal._try(fn() {
 				internal._index(v, field_name)
 			})
-			acc && result.success && check_type(result.value, type)
+			if result.success {
+				acc && check_type(result.value, type)
+			} else {
+				false
+			}
 		})
 	}
 }
