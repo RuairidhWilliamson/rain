@@ -82,7 +82,6 @@ pub fn evaluate_and_call_chain(
     args: &[String],
 ) -> Result<Value, CoreError> {
     let initial_module = runner.ir.get_module(mid).alias();
-    let mut cx = Cx::new(&initial_module, 0, HashMap::new(), Vec::new());
     let mut check_result = CheckModuleResult::check_module(&initial_module, runner.check_unused);
     check_result.errors.truncate(1);
     if let Some(err) = check_result.errors.pop() {
@@ -146,9 +145,11 @@ pub fn evaluate_and_call_chain(
             let Some((mid, nid)) = mid_nid else {
                 unreachable!()
             };
+            let m = runner.ir.get_module(mid).alias();
+            let mut initial_cx = Cx::new(&m, 0, HashMap::new(), Vec::new());
             let result = runner
                 .call_closure(
-                    &mut cx,
+                    &mut initial_cx,
                     nid,
                     runner.ir.get_module(mid).span(nid),
                     &closure,
@@ -157,7 +158,7 @@ pub fn evaluate_and_call_chain(
                 .map_err(|err| {
                     CoreError::LangError(Box::new(err.resolve_ir(runner.ir).into_owned()))
                 });
-            deps.merge(cx.deps);
+            deps.merge(initial_cx.deps);
             result
         }
         Some(v) => Ok(v),
