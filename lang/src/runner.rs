@@ -134,8 +134,12 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             cx.propagate_deps(deps);
             return Ok(v);
         }
-        // TODO: Work out a more helpful name than anonymous
-        let _call = self.driver.call_guard(Call::Closure);
+        let containing_declaration = m.find_containing_declaration(closure.node);
+        let Node::Assignment(assignment) = m.get(containing_declaration.assignment) else {
+            unreachable!();
+        };
+        let names = assignment.names(&m.src).collect::<Vec<_>>().join(",");
+        let _call = self.driver.call_guard(Call::Closure(names));
         let args = closure_declare
             .args
             .iter()

@@ -30,7 +30,7 @@ impl Drop for CallGuard<'_> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Call {
     Declaration(String),
-    Closure,
+    Closure(String),
     Internal(InternalFunction),
     Custom(String),
 }

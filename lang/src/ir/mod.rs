@@ -191,6 +191,17 @@ impl IrModule {
     pub fn find_node_by_span(&self, span: LocalSpan) -> Option<NodeId> {
         self.inner().0.find_node_by_span(span)
     }
+
+    pub fn find_containing_declaration(&self, id: NodeId) -> &Declare {
+        let span = self.span(id);
+        let Some(d) = self
+            .declarations()
+            .find(|d| self.span(d.assignment).contains(&span))
+        else {
+            unreachable!();
+        };
+        d
+    }
 }
 
 #[derive(Debug)]
