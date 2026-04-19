@@ -1,4 +1,5 @@
 use rain_core::{CoreError, cache::Cache, config::Config, driver::DriverImpl};
+use rain_lang::error::OwnedTraceEntry;
 
 fn run_error(path: &str) -> CoreError {
     let driver = DriverImpl::new(Config::default());
@@ -13,7 +14,7 @@ fn run_error(path: &str) -> CoreError {
         owned_resolved_error
             .trace
             .iter_mut()
-            .for_each(|(s, _, _)| *s = String::from("<hidden>"));
+            .for_each(|OwnedTraceEntry { filename, .. }| *filename = String::from("<hidden>"));
         owned_resolved_error.file_name = String::from("<hidden>");
     }
     err

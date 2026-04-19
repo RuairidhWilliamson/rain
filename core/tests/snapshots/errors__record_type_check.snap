@@ -2,7 +2,7 @@
 source: core/tests/errors.rs
 expression: "run_error(concat! (\"tests/errors/\", stringify! (record_type_check), \".rain\"))"
 ---
-<hidden>:6:12
+<hidden>:6:12 main
 <hidden>:10:10
 | }
 | 

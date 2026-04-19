@@ -32,6 +32,7 @@ impl<E: std::error::Error> ErrorTrace<E> {
                 file,
                 src,
                 call_span: span,
+                name: Some(module.find_containing_declaration_name(s.n)),
             });
         }
         let module = ir.get_module(self.err_span.span.module);
@@ -41,6 +42,7 @@ impl<E: std::error::Error> ErrorTrace<E> {
             file,
             src,
             call_span: self.err_span.span.span,
+            name: None,
         });
         ResolvedError {
             err: &self.err_span.err,

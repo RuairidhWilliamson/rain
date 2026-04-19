@@ -202,6 +202,14 @@ impl IrModule {
         };
         d
     }
+
+    pub fn find_containing_declaration_name(&self, id: NodeId) -> String {
+        let containing_declaration = self.find_containing_declaration(id);
+        let Node::Assignment(assignment) = self.get(containing_declaration.assignment) else {
+            unreachable!();
+        };
+        assignment.names(&self.src).collect::<Vec<_>>().join(",")
+    }
 }
 
 #[derive(Debug)]

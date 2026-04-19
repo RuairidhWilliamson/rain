@@ -8,6 +8,7 @@ pub struct ResolvedSpan<'a> {
     pub file: Option<&'a File>,
     pub src: &'a str,
     pub call_span: LocalSpan,
+    pub name: Option<String>,
 }
 
 #[derive(Debug)]
@@ -24,6 +25,7 @@ impl ResolvedError<'_> {
             file,
             src,
             call_span,
+            name,
         } in &trace[..trace.len() - 1]
         {
             let (line, col) = call_span.start_line_colo(src);
@@ -31,12 +33,18 @@ impl ResolvedError<'_> {
                 .as_ref()
                 .map(|f| format!("{f}"))
                 .unwrap_or_else(|| String::from("<embed>"));
-            trace_out.push((filename, line, col));
+            trace_out.push(OwnedTraceEntry {
+                filename,
+                line,
+                col,
+                name: name.clone(),
+            });
         }
         let ResolvedSpan {
             file,
             src,
             call_span,
+            name,
         } = &trace[trace.len() - 1];
         let (line, col) = call_span.start_line_colo(src);
         let [before, contents, after] = call_span.surrounding_lines(src, 2);
@@ -52,6 +60,7 @@ impl ResolvedError<'_> {
         OwnedResolvedError {
             trace: trace_out,
             file_name: filename,
+            name: name.clone(),
             line,
             col,
             before,
@@ -78,9 +87,18 @@ impl std::fmt::Display for ResolvedError<'_> {
 impl std::error::Error for ResolvedError<'_> {}
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct OwnedTraceEntry {
+    pub filename: String,
+    pub line: usize,
+    pub col: usize,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OwnedResolvedError {
-    pub trace: Vec<(String, usize, usize)>,
+    pub trace: Vec<OwnedTraceEntry>,
     pub file_name: String,
+    pub name: Option<String>,
     pub line: usize,
     pub col: usize,
     pub before: String,
@@ -96,6 +114,7 @@ impl OwnedResolvedError {
         let Self {
             trace,
             file_name,
+            name,
             line,
             col,
             before,
@@ -104,11 +123,25 @@ impl OwnedResolvedError {
             arrows,
             err,
         } = self;
-        for (f, l, c) in trace {
-            writeln!(writer, "{f}:{l}:{c}")?;
+        for OwnedTraceEntry {
+            filename,
+            line,
+            col,
+            name,
+        } in trace
+        {
+            if let Some(name) = name {
+                writeln!(writer, "{filename}:{line}:{col} {name}")?;
+            } else {
+                writeln!(writer, "{filename}:{line}:{col}")?;
+            }
         }
         writer.set_color(ColorSpec::new().set_fg(Some(Color::Blue)))?;
-        writeln!(writer, "{file_name}:{line}:{col}")?;
+        if let Some(name) = name {
+            writeln!(writer, "{file_name}:{line}:{col} {name}")?;
+        } else {
+            writeln!(writer, "{file_name}:{line}:{col}")?;
+        }
         writer.set_color(ColorSpec::new().set_fg(None))?;
         writeln!(writer, "| {before}{contents}{after}")?;
         writer.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;

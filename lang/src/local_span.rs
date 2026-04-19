@@ -205,6 +205,7 @@ impl<E: std::error::Error> ErrorLocalSpan<E> {
                 file,
                 src,
                 call_span: self.span,
+                name: None,
             }],
         }
     }

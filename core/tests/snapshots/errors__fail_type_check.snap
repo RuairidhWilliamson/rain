@@ -2,8 +2,8 @@
 source: core/tests/errors.rs
 expression: "run_error(concat! (\"tests/errors/\", stringify! (fail_type_check), \".rain\"))"
 ---
-<hidden>:3:12
-<hidden>:4:2
+<hidden>:3:12 main
+<hidden>:4:2 main
 <hidden>:7:17
 | }
 | 
