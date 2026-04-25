@@ -460,10 +460,7 @@ impl<'src> ModuleParser<'src> {
     fn parse_fn_call(&mut self, lhs: NodeId) -> ParseResult<NodeId> {
         let lparen_token = self.stream.expect_parse_next(&[Token::LParen])?.span;
         let mut args = Vec::new();
-        loop {
-            let Some(t) = self.stream.peek()? else {
-                break;
-            };
+        while let Some(t) = self.stream.peek()? {
             if t.token == Token::RParen {
                 break;
             }

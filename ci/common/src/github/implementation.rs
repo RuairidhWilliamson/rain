@@ -260,7 +260,7 @@ impl super::InstallationClient for InstallationClient {
             .git_lfs_api(owner, repo, request)
             .await
             .context("git lfs api")?;
-        for (resp, (path, _)) in response.objects.into_iter().zip(entries.into_iter()) {
+        for (resp, (path, _)) in response.objects.into_iter().zip(entries) {
             let mut f = tokio::fs::File::create(&path)
                 .await
                 .context("create lfs file")?;
