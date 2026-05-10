@@ -4,14 +4,12 @@ expression: "parse_display_expr(\"a.b + !c + !d.e\")"
 ---
 BinaryOp(
  BinaryOp(
-  BinaryOp(
+  Namespace(
    Ident(
     a
    )
    .
-   Ident(
-    b
-   )
+   b
   )
   +
   Not(
@@ -22,14 +20,12 @@ BinaryOp(
  )
  +
  Not(
-  BinaryOp(
+  Namespace(
    Ident(
     d
    )
    .
-   Ident(
-    e
-   )
+   e
   )
  )
 )

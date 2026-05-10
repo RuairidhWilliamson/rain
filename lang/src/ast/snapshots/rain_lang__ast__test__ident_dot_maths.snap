@@ -3,20 +3,16 @@ source: lang/src/ast/test.rs
 expression: "parse_display_expr(\"a.b.c + 3 * d.e\")"
 ---
 BinaryOp(
- BinaryOp(
-  BinaryOp(
+ Namespace(
+  Namespace(
    Ident(
     a
    )
    .
-   Ident(
-    b
-   )
+   b
   )
   .
-  Ident(
-   c
-  )
+  c
  )
  +
  BinaryOp(
@@ -24,14 +20,12 @@ BinaryOp(
    3
   )
   *
-  BinaryOp(
+  Namespace(
    Ident(
     d
    )
    .
-   Ident(
-    e
-   )
+   e
   )
  )
 )

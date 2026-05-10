@@ -9,20 +9,16 @@ ModuleRoot(
    Name(
     assert
    )
-   BinaryOp(
-    BinaryOp(
+   Namespace(
+    Namespace(
      Ident(
       std
      )
      .
-     Ident(
-      test
-     )
+     test
     )
     .
-    Ident(
-     assert
-    )
+    assert
    )
   )
  )
@@ -32,20 +28,16 @@ ModuleRoot(
    Name(
     eq
    )
-   BinaryOp(
-    BinaryOp(
+   Namespace(
+    Namespace(
      Ident(
       std
      )
      .
-     Ident(
-      ops
-     )
+     ops
     )
     .
-    Ident(
-     eq
-    )
+    eq
    )
   )
  )

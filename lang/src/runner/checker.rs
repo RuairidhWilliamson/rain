@@ -7,8 +7,8 @@ use alias::Alias as _;
 
 use crate::{
     ast::{
-        AlternateCondition, BinaryOp, BinaryOperatorKind, DeclareName, Node, NodeId, SimpleLiteral,
-        SimpleLiteralKind,
+        AlternateCondition, BinaryOp, BinaryOperatorKind, DeclareName, Namespace, Node, NodeId,
+        SimpleLiteral, SimpleLiteralKind,
     },
     ir::{IrModule, LocalDeclarationId},
     local_span::ErrorLocalSpan,
@@ -389,25 +389,19 @@ impl CheckCx<'_, '_> {
                 }
                 CheckValue::Unknown
             }
-            Node::BinaryOp(BinaryOp {
-                left,
-                op: BinaryOperatorKind::Dot,
-                right,
-                ..
-            }) => {
+            Node::Namespace(Namespace { left, name, .. }) => {
                 if matches!(
                     self.check_node(*left, CheckValue::Unknown).exact_type(),
                     Some(RainTypeId::Internal)
-                ) && let Node::Ident(tls) = self.module.get(*right)
-                {
-                    let name = tls.0.contents(&self.module.src);
+                ) {
+                    let name_contents = name.contents(&self.module.src);
                     if let Some(internal_function) =
-                        InternalFunction::evaluate_internal_function_name(name)
+                        InternalFunction::evaluate_internal_function_name(name_contents)
                     {
                         return CheckValue::ExactValue(Value::InternalFunction(internal_function));
                     }
                     self.errors
-                        .push(tls.0.with_error(CheckError::InvalidInternal));
+                        .push(name.with_error(CheckError::InvalidInternal));
                 }
                 CheckValue::Unknown
             }

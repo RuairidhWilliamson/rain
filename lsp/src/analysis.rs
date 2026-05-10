@@ -2,7 +2,7 @@ use std::{num::TryFromIntError, path::Path, sync::Arc};
 
 use alias::Alias as _;
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, Position,
+    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, Location, Position,
     PublishDiagnosticsParams, Range, TextDocumentItem,
 };
 use rain_core::{config::Config, driver::DriverImpl};
@@ -72,12 +72,32 @@ impl TextDocument {
         )?;
         let module = self.prepare_module()?;
         let node = module.find_node_by_span(span)?;
-        let checked = rain_lang::runner::checker::CheckModuleResult::check_module(&module, true)
+        let span = module.span(node);
+        let contents = span.contents(&module.src);
+        let checker = rain_lang::runner::checker::CheckModuleResult::check_module(&module, true)
             .check_node_type(node);
         Some((
-            format!("{checked:?}"),
+            format!("{contents}\n{checker:?}"),
             convert_span_to_lsp(module.span(node), &self.source).unwrap(),
         ))
+    }
+
+    pub fn goto_definition(&self, position: Position) -> Option<Location> {
+        let span: LocalSpan = LocalSpan::byte_from_line_colz(
+            &self.source,
+            position.line.try_into().unwrap(),
+            position.character.try_into().unwrap(),
+        )?;
+        let module = self.prepare_module()?;
+        let node = module.find_node_by_span(span)?;
+        let span = module.span(node);
+        let contents = span.contents(&module.src);
+        let id = module.find_declaration_by_name(contents)?;
+        let span = module.span(module.get_declaration(id).assignment);
+        Some(Location {
+            uri: self.uri.clone(),
+            range: convert_span_to_lsp(span, &module.src).unwrap(),
+        })
     }
 
     fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> {

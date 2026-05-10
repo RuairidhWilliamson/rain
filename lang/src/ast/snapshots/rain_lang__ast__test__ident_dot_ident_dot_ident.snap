@@ -2,18 +2,14 @@
 source: lang/src/ast/test.rs
 expression: "parse_display_expr(\"foo.bar.baz\")"
 ---
-BinaryOp(
- BinaryOp(
+Namespace(
+ Namespace(
   Ident(
    foo
   )
   .
-  Ident(
-   bar
-  )
+  bar
  )
  .
- Ident(
-  baz
- )
+ baz
 )

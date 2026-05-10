@@ -8,14 +8,12 @@ BinaryOp(
  )
  ||
  Not(
-  BinaryOp(
+  Namespace(
    Ident(
     b
    )
    .
-   Ident(
-    c
-   )
+   c
   )
  )
 )

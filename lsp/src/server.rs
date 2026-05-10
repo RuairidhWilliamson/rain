@@ -1,8 +1,9 @@
 use std::{collections::HashMap, process::ExitCode};
 
 use lsp_types::{
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, DidSaveTextDocumentParams, Hover,
-    HoverParams, HoverProviderCapability, TextDocumentSyncKind,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, DidSaveTextDocumentParams,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, HoverProviderCapability,
+    TextDocumentSyncKind,
 };
 
 use crate::{
@@ -35,6 +36,7 @@ impl Server {
                     text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
                         TextDocumentSyncKind::FULL,
                     )),
+                    definition_provider: Some(lsp_types::OneOf::Left(true)),
                     diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
                         lsp_types::DiagnosticOptions {
                             identifier: None,
@@ -84,6 +86,10 @@ impl Server {
                 "textDocument/hover" => {
                     let message = message.cast_params::<HoverParams>().unwrap();
                     self.handle_hover(message);
+                }
+                "textDocument/definition" => {
+                    let message = message.cast_params::<GotoDefinitionParams>().unwrap();
+                    self.handle_goto_definition(message);
                 }
                 "exit" => return ExitCode::SUCCESS,
                 _ => {
@@ -149,5 +155,32 @@ impl Server {
             contents: lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(display)),
             range: Some(range),
         }));
+    }
+
+    fn handle_goto_definition(&mut self, message: Request<GotoDefinitionParams>) {
+        let params = message.params.clone().unwrap();
+        let text_document = self
+            .text_documents
+            .get(
+                &params
+                    .text_document_position_params
+                    .text_document
+                    .uri
+                    .to_string(),
+            )
+            .unwrap();
+        let Some(location) =
+            text_document.goto_definition(params.text_document_position_params.position)
+        else {
+            self.comms
+                .send_message(&message.error_response(json_rpc::ResponseError {
+                    code: 400,
+                    message: String::from("no named node for this span"),
+                    data: None,
+                }));
+            return;
+        };
+        self.comms
+            .send_message(&message.ok_response(GotoDefinitionResponse::Scalar(location)));
     }
 }

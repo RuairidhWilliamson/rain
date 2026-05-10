@@ -9,14 +9,12 @@ BinaryOp(
   )
   +
   Not(
-   BinaryOp(
+   Namespace(
     Ident(
      a
     )
     .
-    Ident(
-     b
-    )
+    b
    )
   )
  )

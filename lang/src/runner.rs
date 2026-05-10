@@ -27,7 +27,8 @@ use crate::{
     },
     ast::{
         AlternateCondition, Assignment, BinaryOp, BinaryOperatorKind, DeclareName, FnCall,
-        FormatStringLiteral, IfCondition, Node, NodeId, Not, SimpleLiteral, SimpleLiteralKind,
+        FormatStringLiteral, IfCondition, Namespace, Node, NodeId, Not, SimpleLiteral,
+        SimpleLiteralKind,
     },
     driver::{DriverTrait, FSTrait, monitoring::Call},
     hash::FileHash,
@@ -326,6 +327,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     )),
                 }
             }
+            Node::Namespace(namespace) => self.evaluate_dot_operator(cx, namespace),
         }
     }
 
@@ -562,10 +564,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
 
     fn evaluate_binary_op(&mut self, cx: &mut Cx, op: &BinaryOp) -> ResultValue {
         let left = self.evaluate_node(cx, op.left)?;
-        // Dot is a special case where we have to evaluate the right differently
-        if op.op == BinaryOperatorKind::Dot {
-            return self.evaluate_dot_operator(cx, op, &left);
-        }
         let right = self.evaluate_node(cx, op.right)?;
 
         match (left, op.op, right) {
@@ -695,24 +693,24 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         }
     }
 
-    fn evaluate_dot_operator(&mut self, cx: &mut Cx, op: &BinaryOp, left: &Value) -> ResultValue {
-        match cx.module.get(op.right) {
-            Node::Ident(tls) => {
-                let name = tls.0.contents(&cx.module.src);
-                let Some(value) = self.evaluate_named_index(cx, left, tls.0, name)? else {
-                    return Err(cx.err(tls.0, RunnerError::IndexKeyNotFound(name.to_owned())));
-                };
-                Ok(value)
-            }
-            _ => Err(cx.err(op.op_span, RunnerError::InvalidDot)),
-        }
+    fn evaluate_dot_operator(&mut self, cx: &mut Cx, namespace: &Namespace) -> ResultValue {
+        let left = self.evaluate_node(cx, namespace.left)?;
+        let name_contents = namespace.name.contents(&cx.module.src);
+        let Some(value) = self.evaluate_named_index(cx, &left, namespace.name, name_contents)?
+        else {
+            return Err(cx.err(
+                namespace.name,
+                RunnerError::IndexKeyNotFound(name_contents.to_owned()),
+            ));
+        };
+        Ok(value)
     }
 
     fn evaluate_if_condition(&mut self, cx: &mut Cx, if_condition: &IfCondition) -> ResultValue {
         let condition_value = self.evaluate_node(cx, if_condition.condition)?;
         let Value::Boolean(condition_bool) = condition_value else {
-            return Err(cx.err(
-                LocalSpan::default(),
+            return Err(cx.nid_err(
+                if_condition.condition,
                 RunnerError::ExpectedType {
                     actual: condition_value.rain_type_id(),
                     expected: Cow::Borrowed(&[RainTypeId::Boolean]),

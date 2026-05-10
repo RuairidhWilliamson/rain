@@ -124,6 +124,8 @@ impl From<&Self> for NodeId {
 
 #[derive(Debug)]
 pub enum Node {
+    Ident(Ident),
+    Namespace(Namespace),
     Closure(Closure),
     Block(Block),
     IfCondition(IfCondition),
@@ -131,7 +133,6 @@ pub enum Node {
     Assignment(Assignment),
     BinaryOp(BinaryOp),
     Not(Not),
-    Ident(Ident),
     StringLiteral(StringLiteral),
     RawStringLiteral(RawStringLiteral),
     FormatStringLiteral(FormatStringLiteral),
@@ -144,13 +145,14 @@ pub enum Node {
 impl Node {
     fn ast_node(&self) -> &dyn AstNode {
         match self {
+            Self::Ident(inner) => inner,
+            Self::Namespace(inner) => inner,
             Self::Block(inner) => inner,
             Self::IfCondition(inner) => inner,
             Self::FnCall(inner) => inner,
             Self::Assignment(inner) => inner,
             Self::BinaryOp(inner) => inner,
             Self::Not(inner) => inner,
-            Self::Ident(inner) => inner,
             Self::StringLiteral(inner) => inner,
             Self::RawStringLiteral(inner) => inner,
             Self::FormatStringLiteral(inner) => inner,
@@ -684,7 +686,6 @@ pub enum BinaryOperatorKind {
     Pow,
     BitwiseAnd,
     BitwiseOr,
-    Dot,
     LogicalAnd,
     LogicalOr,
     Equals,
@@ -702,7 +703,6 @@ impl BinaryOperatorKind {
             Token::Slash => Some(Self::Division),
             Token::Plus => Some(Self::Addition),
             Token::Subtract => Some(Self::Subtraction),
-            Token::Dot => Some(Self::Dot),
             Token::Equals => Some(Self::Equals),
             Token::NotEquals => Some(Self::NotEquals),
             Token::LogicalAnd => Some(Self::LogicalAnd),
@@ -800,6 +800,33 @@ impl AstNode for Ident {
 
     fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
         f.node("Ident").child_contents(self.0).finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct Namespace {
+    pub left: NodeId,
+    pub dot_span: LocalSpan,
+    pub name: LocalSpan,
+}
+
+impl From<Namespace> for Node {
+    fn from(inner: Namespace) -> Self {
+        Self::Namespace(inner)
+    }
+}
+
+impl AstNode for Namespace {
+    fn span(&self, list: &NodeList) -> LocalSpan {
+        list.span(self.left) + self.name
+    }
+
+    fn ast_display(&self, f: &mut display::AstFormatter) -> std::fmt::Result {
+        f.node("Namespace")
+            .child(self.left)
+            .child_str(".")
+            .child_contents(self.name)
+            .finish()
     }
 }
 

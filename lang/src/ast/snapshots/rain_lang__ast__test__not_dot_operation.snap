@@ -3,13 +3,11 @@ source: lang/src/ast/test.rs
 expression: "parse_display_expr(\"!a.b\")"
 ---
 Not(
- BinaryOp(
+ Namespace(
   Ident(
    a
   )
   .
-  Ident(
-   b
-  )
+  b
  )
 )

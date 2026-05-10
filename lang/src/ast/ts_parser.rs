@@ -6,7 +6,7 @@ use crate::{
         ClosureReturnTypeSpec, Declare, DeclareName, DeclareNameListElement, DeclareNameSingle,
         DeclareNamedDestructure, DeclareSequenceDestructure, FnCall, FnDeclareArg,
         FormatStringLiteral, Ident, IfCondition, IntegerLiteral, List, ListElement, Module,
-        ModuleRoot, NodeId, NodeList, Not, RawStringLiteral, Record, RecordField,
+        ModuleRoot, Namespace, NodeId, NodeList, Not, RawStringLiteral, Record, RecordField,
         SimpleLiteralKind, StringLiteral, TypeSpec,
     },
     local_span::LocalSpan,
@@ -335,14 +335,14 @@ fn parse_expr(mut walker: Walker) -> Result<NodeId, Error> {
             let mut walker = walker.child()?;
             let left = parse_expr(walker.child()?)?;
             walker.next();
-            let op_span = walker.span_expect(".");
+            let dot_span = walker.span_expect(".");
             walker.next();
-            let right = walker.nodes.push(Ident(walker.span_expect("identifier")));
-            let binary_op = BinaryOp {
+            let name = walker.span_expect("identifier");
+
+            let binary_op = Namespace {
                 left,
-                op: BinaryOperatorKind::Dot,
-                op_span,
-                right,
+                dot_span,
+                name,
             };
             Ok(walker.nodes.push(binary_op))
         }

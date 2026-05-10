@@ -3,13 +3,11 @@ source: lang/src/ast/test.rs
 expression: "parse_display_expr(\"internal._print(42)\")"
 ---
 FnCall(
- BinaryOp(
+ Namespace(
   InternalLiteral(
   )
   .
-  Ident(
-   _print
-  )
+  _print
  )
  IntegerLiteral(
   42
