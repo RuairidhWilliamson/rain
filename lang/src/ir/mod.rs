@@ -132,6 +132,10 @@ impl IrModule {
         self.inner().0.span(id)
     }
 
+    pub fn declaration_ids(&self) -> impl Iterator<Item = LocalDeclarationId> {
+        (0..self.inner().module_root().declarations.len()).map(|id| LocalDeclarationId(id, 0))
+    }
+
     pub fn get_declaration(&self, id: LocalDeclarationId) -> &Declare {
         let Some(d) = self.inner().module_root().declarations.get(id.0) else {
             unreachable!()

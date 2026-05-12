@@ -4,8 +4,8 @@ expression: "run_error(concat! (\"tests/errors/\", stringify! (fail_type_check),
 ---
 <hidden>:3:12 main
 <hidden>:4:2 main-inner
-<hidden>:7:17
-| }
-| 
-| let foo = fn(x: Integer) {
-                  ^^^^^^^ unrecoverable error: type mismatch, expected [Integer] actual String
+<hidden>:9:8
+| // Subvert the type checker
+| let foo = fn() {
+| 	fn(x: Integer) {
+  	      ^^^^^^^ unrecoverable error: type mismatch, expected [Integer] actual String

@@ -51,4 +51,5 @@ tests! {
     check_arg_type,
     check_import_sugar,
     check_stdlib_sugar,
+    check_arg_declared_type,
 }

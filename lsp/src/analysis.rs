@@ -153,7 +153,8 @@ impl TextDocument {
                     path: rel_path,
                 },
             )
-            .unwrap(),
+            .inspect_err(|err| eprintln!("get local file failed: {err}"))
+            .ok()?,
         );
         let src = self.source.clone();
         let module = Module::parse(&src);

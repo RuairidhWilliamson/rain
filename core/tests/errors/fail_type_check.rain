@@ -4,6 +4,9 @@ let main = fn() {
 	foo("hello")
 }
 
-let foo = fn(x: Integer) {
-	internal._print(x + 1)
-}
+// Subvert the type checker
+let foo = fn() {
+	fn(x: Integer) {
+		internal._print(x + 1)
+	}
+}()

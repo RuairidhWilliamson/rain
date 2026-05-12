@@ -1,0 +1,10 @@
+let main = fn() {}
+
+let Integer = internal._get_type(0)
+let String = internal._get_type("")
+
+let foo = fn(a: Integer) {
+	bar(a)
+}
+
+let bar = fn(b: String) { }

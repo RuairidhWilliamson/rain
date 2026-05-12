@@ -1,0 +1,9 @@
+---
+source: core/tests/errors.rs
+expression: "run_error(concat!\n(\"tests/errors/\", stringify! (check_arg_declared_type), \".rain\"))"
+---
+<hidden>:7:6
+| 
+| let foo = fn(a: Integer) {
+| 	bar(a)
+  	    ^ unrecoverable error: check error: type error: expected String, actual Integer

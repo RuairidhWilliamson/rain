@@ -48,55 +48,8 @@ impl CheckModuleResult {
             node_types: &mut node_types,
             declarations: &mut declarations,
         };
-        for (_, assignment) in module.declaration_assignments() {
-            match &assignment.name {
-                DeclareName::Single(declare) => {
-                    let name = declare.name.contents(&module.src);
-                    let expected = if let Some(type_spec) = &declare.type_spec {
-                        check_cx
-                            .check_node(type_spec.type_expr, CheckValue::Unknown)
-                            .type_constraint()
-                            .map(CheckValue::ExactType)
-                            .unwrap_or(CheckValue::Unknown)
-                    } else {
-                        CheckValue::Unknown
-                    };
-                    let rhs = check_cx.check_node(assignment.expr, expected);
-                    let Some(id) = module.find_declaration_by_name(name) else {
-                        unreachable!();
-                    };
-                    let declaration = check_cx.declarations.entry(id).or_default();
-                    declaration.value = rhs;
-                }
-                DeclareName::NamedDestructure(declare) => {
-                    check_cx.check_node(assignment.expr, CheckValue::Unknown);
-                    for e in &declare.elements {
-                        let name = e.name.contents(&module.src);
-                        if let Some(type_spec) = &e.type_spec {
-                            check_cx.check_node(type_spec.type_expr, CheckValue::Unknown);
-                        }
-                        let Some(id) = module.find_declaration_by_name(name) else {
-                            unreachable!();
-                        };
-                        let declaration = check_cx.declarations.entry(id).or_default();
-                        declaration.value = CheckValue::Unknown;
-                    }
-                }
-                DeclareName::SequenceDestructure(declare) => {
-                    check_cx.check_node(assignment.expr, CheckValue::ExactType(RainTypeId::List));
-                    for e in &declare.elements {
-                        let name = e.name.contents(&module.src);
-                        if let Some(type_spec) = &e.type_spec {
-                            check_cx.check_node(type_spec.type_expr, CheckValue::Unknown);
-                        }
-                        let Some(id) = module.find_declaration_by_name(name) else {
-                            unreachable!();
-                        };
-                        let declaration = check_cx.declarations.entry(id).or_default();
-                        declaration.value = CheckValue::Unknown;
-                    }
-                }
-            }
+        for id in module.declaration_ids() {
+            check_cx.check_declaration(id);
         }
         debug_assert!(
             check_cx.locals.is_empty(),
@@ -194,6 +147,64 @@ impl CheckCx<'_, '_> {
         }
     }
 
+    fn check_declaration<'b, 'c>(&'c mut self, id: LocalDeclarationId)
+    where
+        'c: 'b,
+    {
+        if self.declarations.get(&id).is_some() {
+            return;
+        }
+        self.declarations.entry(id).or_default();
+        let assignment = self.module.get_declaration_assignment(id);
+        match &assignment.name {
+            DeclareName::Single(declare) => {
+                let name = declare.name.contents(&self.module.src);
+                let expected = if let Some(type_spec) = &declare.type_spec {
+                    self.check_node(type_spec.type_expr, CheckValue::Unknown)
+                        .type_constraint()
+                        .map(CheckValue::ExactType)
+                        .unwrap_or(CheckValue::Unknown)
+                } else {
+                    CheckValue::Unknown
+                };
+                let rhs = self.check_node(assignment.expr, expected);
+                let Some(id) = self.module.find_declaration_by_name(name) else {
+                    unreachable!();
+                };
+                let declaration = self.declarations.entry(id).or_default();
+                declaration.value = rhs;
+            }
+            DeclareName::NamedDestructure(declare) => {
+                self.check_node(assignment.expr, CheckValue::Unknown);
+                for e in &declare.elements {
+                    let name = e.name.contents(&self.module.src);
+                    if let Some(type_spec) = &e.type_spec {
+                        self.check_node(type_spec.type_expr, CheckValue::Unknown);
+                    }
+                    let Some(id) = self.module.find_declaration_by_name(name) else {
+                        unreachable!();
+                    };
+                    let declaration = self.declarations.entry(id).or_default();
+                    declaration.value = CheckValue::Unknown;
+                }
+            }
+            DeclareName::SequenceDestructure(declare) => {
+                self.check_node(assignment.expr, CheckValue::ExactType(RainTypeId::List));
+                for e in &declare.elements {
+                    let name = e.name.contents(&self.module.src);
+                    if let Some(type_spec) = &e.type_spec {
+                        self.check_node(type_spec.type_expr, CheckValue::Unknown);
+                    }
+                    let Some(id) = self.module.find_declaration_by_name(name) else {
+                        unreachable!();
+                    };
+                    let declaration = self.declarations.entry(id).or_default();
+                    declaration.value = CheckValue::Unknown;
+                }
+            }
+        };
+    }
+
     fn check_node<'b, 'c>(&'c mut self, nid: NodeId, expected: CheckValue) -> CheckValue
     where
         'c: 'b,
@@ -235,6 +246,7 @@ impl CheckCx<'_, '_> {
                     return v.clone();
                 }
                 if let Some(id) = self.module.find_declaration_by_name(ident) {
+                    self.check_declaration(id);
                     let declaration = self.declarations.entry(id).or_default();
                     declaration.usage += 1;
                     return declaration.value.clone();
