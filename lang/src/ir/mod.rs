@@ -208,7 +208,11 @@ impl IrModule {
         let Node::Assignment(assignment) = self.get(containing_declaration.assignment) else {
             unreachable!();
         };
-        assignment.names(&self.src).collect::<Vec<_>>().join(",")
+        let mut out: String = assignment.names(&self.src).collect::<Vec<_>>().join(",");
+        if assignment.expr != id {
+            out += "-inner";
+        }
+        out
     }
 }
 

@@ -56,8 +56,9 @@ impl Dep {
             | Self::CallingModule
             | Self::Print
             | Self::Counter
-            | Self::MutateDeps
-            | Self::LocalDir => false,
+            | Self::MutateDeps => false,
+            // Not sure if this is correct or not
+            Self::LocalDir => true,
             Self::Escape
             | Self::Secret
             | Self::EnvVar

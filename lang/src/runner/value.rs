@@ -21,6 +21,11 @@ use crate::{
     runner::internal::InternalFunction,
 };
 
+pub struct NamedValue {
+    pub name: Arc<str>,
+    pub value: Value,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Value {
     Unit,
