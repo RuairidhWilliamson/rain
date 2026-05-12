@@ -30,11 +30,14 @@ pub enum Dep {
     LocalDir,
     /// Marks any calls that depend on this to be uncacheable
     Uncacheable,
+    /// Downloads a file
     Download,
+    /// This call mutates the deps so should not be cached but also should not propogate to callers
     MutateDeps,
 }
 
 impl Dep {
+    /// Whether this dep is propogated to the caller when its called
     pub fn is_propogated_in_closure(&self) -> bool {
         match self {
             Self::CallingModule | Self::Counter | Self::MutateDeps => false,
@@ -50,6 +53,9 @@ impl Dep {
         }
     }
 
+    /// Whether cache entries that depend on this are stable within a given run
+    ///
+    /// This encodes one of the major assumptions of rain, that most things in the environment are stable for the lifetime of a run
     pub fn is_intra_run_stable(&self) -> bool {
         match self {
             Self::Uncacheable
@@ -68,6 +74,9 @@ impl Dep {
         }
     }
 
+    /// Whether cache entries that depend on this are stable across 2 different runs
+    ///
+    /// This is important because it controls how much of the cache is kept between runs, currently this is only pure closures and ones that depend on local files
     pub fn is_inter_run_stable(&self) -> bool {
         matches!(self, Self::LocalFile(..))
     }
