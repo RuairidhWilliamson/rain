@@ -138,8 +138,9 @@ pub enum CheckValue {
     ExactType(RainTypeId),
     /// The value is known to be this value
     ExactValue(Value),
-    FunctionCall {
-        args: Vec<Self>,
+    /// The value is known to be callable (closure or similar) with a certain number of arguments
+    Callable {
+        arg_types: Vec<Self>,
         return_type: Box<Self>,
     },
 }
@@ -147,7 +148,7 @@ pub enum CheckValue {
 impl CheckValue {
     fn exact_type(&self) -> Option<RainTypeId> {
         match self {
-            Self::Unknown | Self::FunctionCall { .. } => None,
+            Self::Unknown | Self::Callable { .. } => None,
             Self::ExactType(rain_type_id) => Some(*rain_type_id),
             Self::ExactValue(value) => Some(value.rain_type_id()),
         }
@@ -252,7 +253,7 @@ impl CheckCx<'_, '_> {
             }
             Node::Closure(closure) => {
                 let mut callee_cx = self.callee();
-                let mut args = Vec::new();
+                let mut arg_types = Vec::new();
                 for a in &closure.args {
                     let expected = if let Some(a) = &a.type_spec {
                         callee_cx
@@ -263,7 +264,7 @@ impl CheckCx<'_, '_> {
                     } else {
                         CheckValue::Unknown
                     };
-                    args.push(expected.clone());
+                    arg_types.push(expected.clone());
                     callee_cx
                         .args
                         .insert(a.name.contents(&callee_cx.module.src), expected);
@@ -278,8 +279,8 @@ impl CheckCx<'_, '_> {
                     CheckValue::Unknown
                 };
                 callee_cx.check_node(closure.block, expected.clone());
-                CheckValue::FunctionCall {
-                    args,
+                CheckValue::Callable {
+                    arg_types,
                     return_type: Box::new(expected),
                 }
             }
@@ -311,13 +312,16 @@ impl CheckCx<'_, '_> {
                                 .with_error(CheckError::WrongArgCount(0, fn_call.args.len())),
                         );
                     }
-                    CheckValue::FunctionCall { args, return_type } => {
-                        if fn_call.args.len() != args.len() {
+                    CheckValue::Callable {
+                        arg_types,
+                        return_type,
+                    } => {
+                        if fn_call.args.len() != arg_types.len() {
                             self.errors.push(fn_call.rparen_token.with_error(
-                                CheckError::WrongArgCount(args.len(), fn_call.args.len()),
+                                CheckError::WrongArgCount(arg_types.len(), fn_call.args.len()),
                             ));
                         }
-                        for (expected, arg) in args.into_iter().zip(&fn_call.args) {
+                        for (expected, arg) in arg_types.into_iter().zip(&fn_call.args) {
                             self.check_node(*arg, expected);
                         }
                         return *return_type;
@@ -509,9 +513,19 @@ impl CheckCx<'_, '_> {
                 ..
             }) => CheckValue::ExactValue(Value::Boolean(false)),
             Node::SimpleLiteral(SimpleLiteral {
-                kind: SimpleLiteralKind::Import | SimpleLiteralKind::Stdlib,
+                kind: SimpleLiteralKind::Import,
                 ..
-            }) => CheckValue::ExactType(RainTypeId::Closure),
+            }) => CheckValue::Callable {
+                arg_types: vec![CheckValue::ExactType(RainTypeId::String)],
+                return_type: Box::new(CheckValue::ExactType(RainTypeId::Module)),
+            },
+            Node::SimpleLiteral(SimpleLiteral {
+                kind: SimpleLiteralKind::Stdlib,
+                ..
+            }) => CheckValue::Callable {
+                arg_types: vec![CheckValue::ExactType(RainTypeId::String)],
+                return_type: Box::new(CheckValue::ExactType(RainTypeId::Module)),
+            },
             Node::SimpleLiteral(SimpleLiteral {
                 kind: SimpleLiteralKind::ThisFile,
                 ..

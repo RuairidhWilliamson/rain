@@ -1,0 +1,2 @@
+let foo_bar = import("foo", "bar")
+let main = fn() {}

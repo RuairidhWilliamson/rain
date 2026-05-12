@@ -1,0 +1,7 @@
+---
+source: core/tests/errors.rs
+expression: "run_error(concat! (\"tests/errors/\", stringify! (check_stdlib_sugar), \".rain\"))"
+---
+<hidden>:1:28
+| let std = stdlib("abc", 123)
+                             ^ unrecoverable error: check error: wrong number of arguments: expected 1, actual 2

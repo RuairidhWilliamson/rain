@@ -49,4 +49,6 @@ tests! {
     check_return_type,
     check_arg_count,
     check_arg_type,
+    check_import_sugar,
+    check_stdlib_sugar,
 }

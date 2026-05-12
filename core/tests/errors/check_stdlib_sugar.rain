@@ -1,0 +1,2 @@
+let std = stdlib("abc", 123)
+let main = fn() {}
