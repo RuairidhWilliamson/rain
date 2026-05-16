@@ -52,4 +52,5 @@ tests! {
     check_import_sugar,
     check_stdlib_sugar,
     check_arg_declared_type,
+    fail_union_type_check,
 }

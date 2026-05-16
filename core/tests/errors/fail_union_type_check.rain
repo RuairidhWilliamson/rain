@@ -1,6 +1,10 @@
 let stdlib_area = internal._local_area("../../../lib/std")
 let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
 
+let {Union, String, Integer} = std.types
+
 let main = fn() {
-	foo: std.types.String = 5
+	x: Union([String, Integer]) = 6
+	y: Union([String, Integer]) = "hi"
+	z: Union([String, Integer]) = false
 }

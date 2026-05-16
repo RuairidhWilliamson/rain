@@ -6,6 +6,8 @@ let concrete_types = internal._concrete_types()
 pub let Any = fn(v) -> Bool { true }
 pub let Never = fn(v) -> Bool { false }
 
+// A type constraint is currently equivalent to a type
+pub let TypeConstraint = Type
 pub let Type = fn(v) {
 	// A type is either a concrete type or a function
 	get_type(v) == get_type(Unit) || get_type(v) == get_type(Any)
@@ -30,9 +32,31 @@ pub let Dir = Either(GeneratedDir, LocalDir)
 pub let DirLike = Either(Dir, Area)
 
 pub let Either = fn(a: Type, b: Type) -> Type {
-	fn (v: Any) -> Bool {
-		check_type(v, a) || check_type(v, b)
+	Union([a, b])
+}
+
+pub let Union = fn(types: List(Type)) -> Type {
+	fn(v: Any) -> Bool {
+		fold(false, types, fn(acc, x) {
+			acc || check_type(v, x)
+		})
 	}
+}
+
+pub let PositiveInteger = fn(v: Any) -> Bool {
+	check_type(v, Integer) && v > 0
+}
+
+pub let NonPositiveInteger = fn(v: Any) -> Bool {
+	check_type(v, Integer) && v <= 0
+}
+
+pub let NonNegativeInteger = fn(v: Any) -> Bool {
+	check_type(v, Integer) && v >= 0
+}
+
+pub let NegativeInteger = fn(v: Any) -> Bool {
+	check_type(v, Integer) && v < 0
 }
 
 pub let check_type = fn(v: Any, type_constraint: Type) -> Bool {
