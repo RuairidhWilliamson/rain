@@ -230,7 +230,8 @@ impl PersistValue {
             | Value::Closure(_)
             | Value::LocalFile(_)
             | Value::LocalDir(_)
-            | Value::LocalFSArea(_) => None,
+            | Value::LocalFSArea(_)
+            | Value::Unique(_) => None,
         }
     }
 

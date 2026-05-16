@@ -68,7 +68,8 @@ impl DepList {
             | Value::Type(_)
             | Value::Internal
             | Value::Closure(_)
-            | Value::InternalFunction(_) => {}
+            | Value::InternalFunction(_)
+            | Value::Unique(_) => {}
             Value::LocalFSArea(_) | Value::LocalDir(_) => self.push(Dep::LocalDir),
             Value::LocalFile(local_file) => self.push(Dep::LocalFile(
                 local_file.fsinner().clone(),

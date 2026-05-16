@@ -10,7 +10,7 @@ pub mod value;
 use std::{
     borrow::Cow,
     collections::{HashMap, hash_map::Entry},
-    sync::{Arc, LazyLock},
+    sync::{Arc, LazyLock, atomic::AtomicU64},
 };
 
 use alias::Alias as _;
@@ -59,6 +59,7 @@ pub struct Runner<'a, Driver, Cache> {
     pub no_exec: bool,
     pub max_call_depth: usize,
     pub local_file_hash_cache: LocalFileHashCache,
+    pub next_unique: AtomicU64,
 }
 
 #[derive(Default)]
@@ -95,6 +96,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             no_exec: false,
             max_call_depth: 250,
             local_file_hash_cache: LocalFileHashCache::default(),
+            next_unique: AtomicU64::new(0),
         }
     }
 

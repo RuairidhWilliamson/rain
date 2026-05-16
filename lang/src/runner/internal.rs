@@ -12,7 +12,7 @@ use std::{
     ops::RangeInclusive,
     path::{Path, PathBuf},
     str::FromStr as _,
-    sync::Arc,
+    sync::{Arc, atomic::Ordering},
     time::Instant,
 };
 
@@ -101,6 +101,7 @@ pub enum InternalFunction {
     ConcreteTypes,
     IncCounter,
     Try,
+    CreateUnique,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -174,6 +175,7 @@ impl InternalFunction {
             "_concrete_types" => Some(Self::ConcreteTypes),
             "_inc_counter" => Some(Self::IncCounter),
             "_try" => Some(Self::Try),
+            "_create_unique" => Some(Self::CreateUnique),
             _ => None,
         }
     }
@@ -258,6 +260,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::ConcreteTypes => self.concrete_types(),
             InternalFunction::IncCounter => self.inc_counter(),
             InternalFunction::Try => self.try_function(),
+            InternalFunction::CreateUnique => self.create_unique(),
         }
     }
 
@@ -941,5 +944,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             }
         }
         Ok(Value::Record(Arc::new(RainRecord(out))))
+    }
+
+    fn create_unique(self) -> ResultValue {
+        let v = self.runner.next_unique.fetch_add(1, Ordering::Relaxed);
+        Ok(Value::Unique(v))
     }
 }

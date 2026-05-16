@@ -46,6 +46,7 @@ pub enum Value {
     Record(Arc<RainRecord>),
     Closure(Closure),
     Type(RainTypeId),
+    Unique(u64),
 }
 
 impl Display for Value {
@@ -69,6 +70,7 @@ impl Display for Value {
             Self::Record(rain_record) => Display::fmt(rain_record, f),
             Self::Closure(closure) => Display::fmt(closure, f),
             Self::Type(typ) => Display::fmt(typ, f),
+            Self::Unique(v) => Display::fmt(v, f),
         }
     }
 }
@@ -93,6 +95,7 @@ pub enum RainTypeId {
     Record,
     Closure,
     Type,
+    Unique,
 }
 
 impl std::fmt::Display for RainTypeId {
@@ -116,6 +119,7 @@ impl std::fmt::Display for RainTypeId {
             Self::Record => "Record",
             Self::Closure => "Closure",
             Self::Type => "Type",
+            Self::Unique => "Unique",
         })
     }
 }
@@ -211,6 +215,7 @@ impl Value {
             Self::Record(_) => RainTypeId::Record,
             Self::Closure(_) => RainTypeId::Closure,
             Self::Type(_) => RainTypeId::Type,
+            Self::Unique(_) => RainTypeId::Unique,
         }
     }
 
@@ -225,7 +230,8 @@ impl Value {
             | Self::Internal
             | Self::InternalFunction(_)
             | Self::Closure(_)
-            | Self::Type(_) => Vec::new(),
+            | Self::Type(_)
+            | Self::Unique(_) => Vec::new(),
             Self::GeneratedFile(f) => vec![f.area()],
             Self::LocalFile(f) => vec![f.area()],
             Self::GeneratedDir(d) => vec![d.area()],
