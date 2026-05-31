@@ -237,7 +237,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
 
     fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> ResultValue {
         match cx.module.get(nid) {
-            Node::Closure(_) => Ok(evaluate_closure_definition(cx, nid)),
+            Node::Closure(_) => Ok(Self::evaluate_closure_definition(cx, nid)),
             Node::Block(block) => {
                 for nid in &block.statements {
                     let v = self.evaluate_node(cx, *nid)?;
@@ -607,6 +607,12 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             (Value::String(left), BinaryOperatorKind::NotEquals, Value::String(right)) => {
                 Ok(Value::Boolean(left != right))
             }
+            (Value::Unique(left), BinaryOperatorKind::Equals, Value::Unique(right)) => {
+                Ok(Value::Boolean(left == right))
+            }
+            (Value::Unique(left), BinaryOperatorKind::NotEquals, Value::Unique(right)) => {
+                Ok(Value::Boolean(left != right))
+            }
             (Value::Integer(left), BinaryOperatorKind::LessThan, Value::Integer(right)) => {
                 Ok(Value::Boolean(left.0 < right.0))
             }
@@ -864,24 +870,24 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             )),
         }
     }
-}
 
-fn evaluate_closure_definition(cx: &mut Cx, nid: NodeId) -> Value {
-    let mut captures = HashMap::<String, Value>::new();
-    for (k, v) in cx.captures.0.iter() {
-        captures.insert(k.clone(), v.clone());
+    fn evaluate_closure_definition(cx: &mut Cx, nid: NodeId) -> Value {
+        let mut captures = HashMap::<String, Value>::new();
+        for (k, v) in cx.captures.0.iter() {
+            captures.insert(k.clone(), v.clone());
+        }
+        for (k, v) in &cx.args {
+            captures.insert(k.to_string(), v.clone());
+        }
+        for (k, v) in &cx.locals {
+            captures.insert(k.to_string(), v.clone());
+        }
+        Value::Closure(Closure {
+            captures: ClosureCaptures(Arc::new(captures)),
+            module: cx.module.id,
+            node: nid,
+        })
     }
-    for (k, v) in &cx.args {
-        captures.insert(k.to_string(), v.clone());
-    }
-    for (k, v) in &cx.locals {
-        captures.insert(k.to_string(), v.clone());
-    }
-    Value::Closure(Closure {
-        captures: ClosureCaptures(Arc::new(captures)),
-        module: cx.module.id,
-        node: nid,
-    })
 }
 
 struct EscapeReplacer;

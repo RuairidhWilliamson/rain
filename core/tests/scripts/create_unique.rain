@@ -1,0 +1,11 @@
+let a = internal._create_unique()
+let b = internal._create_unique()
+let c = a
+
+let main = fn() {
+	[
+		a == a,
+		a == b,
+		a == c,
+	]
+}

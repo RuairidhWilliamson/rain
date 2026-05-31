@@ -60,4 +60,6 @@ tests! {
     trailing_commas,
     format_string,
     closure_disambiguation,
+    // Currently doesn't work correctly
+    // create_unique,
 }
