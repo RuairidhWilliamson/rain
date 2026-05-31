@@ -102,6 +102,7 @@ pub enum InternalFunction {
     IncCounter,
     Try,
     CreateUnique,
+    Offline,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -176,6 +177,7 @@ impl InternalFunction {
             "_inc_counter" => Some(Self::IncCounter),
             "_try" => Some(Self::Try),
             "_create_unique" => Some(Self::CreateUnique),
+            "_offline" => Some(Self::Offline),
             _ => None,
         }
     }
@@ -261,6 +263,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::IncCounter => self.inc_counter(),
             InternalFunction::Try => self.try_function(),
             InternalFunction::CreateUnique => self.create_unique(),
+            InternalFunction::Offline => self.offline(),
         }
     }
 
@@ -949,5 +952,9 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     fn create_unique(self) -> ResultValue {
         let v = self.runner.next_unique.fetch_add(1, Ordering::Relaxed);
         Ok(Value::Unique(v))
+    }
+
+    fn offline(self) -> ResultValue {
+        Ok(Value::Boolean(self.runner.offline))
     }
 }

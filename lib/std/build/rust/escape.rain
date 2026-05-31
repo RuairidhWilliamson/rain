@@ -12,9 +12,13 @@ let cargo_env =  {
 pub let cargo_build = fn(area: Area, package: String, target_triple: String, release: Bool) -> File {
 	args = [
 		"build",
+		"--locked",
 		"--package", package,
 		"--target", target_triple,
 	]
+	if internal._offline() {
+		args = args + ["--offline"]
+	}
 	if release {
 		args = args + ["--release"]
 	}

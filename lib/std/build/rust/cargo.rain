@@ -49,6 +49,9 @@ pub let build = fn(channel, area, package, default_features: Bool, features, pro
 		"--quiet",
 		"--color", "always"
 	]
+	if internal._offline() {
+		args = args + ["--offline"]
+	}
 	if !default_features {
 		args = args + ["--no-default-features"]
 	}
@@ -75,6 +78,9 @@ pub let test = fn(channel, area, package, default_features: Bool, features, prof
 		"--color", "always",
 		"--quiet"
 	]
+	if internal._offline() {
+		args = args + ["--offline"]
+	}
 	if !default_features {
 		args = args + ["--no-default-features"]
 	}
