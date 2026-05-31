@@ -3,15 +3,41 @@ let fold = internal._fold
 
 let concrete_types = internal._concrete_types()
 
-pub let Any = fn(v) -> Bool { true }
-pub let Never = fn(v) -> Bool { false }
+let throw_type = fn() {
+	internal._throw("type error")
+}
+
+let bool_type_checker = fn(old) {
+	fn(v) {
+		if old(v) {
+			v
+		} else {
+			throw_type()
+		}
+	}
+}
+
+pub let check_type = fn(v: Any, type_constraint: Type) -> Any {
+	if get_type(type_constraint) == get_type(Unit) {
+		if get_type(v) == type_constraint {
+			v
+		} else {
+			throw_type()
+		}
+	} else {
+		type_constraint(v)
+	}
+}
+
+pub let Any = fn(v) { v }
+pub let Never = fn(v) { throw_type() }
 
 // A type constraint is currently equivalent to a type
 pub let TypeConstraint = Type
-pub let Type = fn(v) {
+pub let Type = bool_type_checker(fn(v) {
 	// A type is either a concrete type or a function
 	get_type(v) == get_type(Unit) || get_type(v) == get_type(Any)
-}
+})
 
 pub let Unit = get_type(internal._unit())
 pub let Bool = get_type(false)
@@ -36,55 +62,56 @@ pub let Either = fn(a: Type, b: Type) -> Type {
 }
 
 pub let Union = fn(types: List(Type)) -> Type {
-	fn(v: Any) -> Bool {
-		fold(false, types, fn(acc, x) {
-			acc || check_type(v, x)
+	fn(v: Any) {
+		result = fold(false, types, fn(acc, x) {
+			result = internal._try(fn() {
+				check_type(v, x)
+			})
+			acc || result.success
 		})
+		if result {
+			v
+		} else {
+			throw_type()
+		}
 	}
 }
 
-pub let PositiveInteger = fn(v: Any) -> Bool {
+pub let PositiveInteger = bool_type_checker(fn(v: Any) -> Bool {
 	check_type(v, Integer) && v > 0
-}
+})
 
-pub let NonPositiveInteger = fn(v: Any) -> Bool {
+pub let NonPositiveInteger = bool_type_checker(fn(v: Any) -> Bool {
 	check_type(v, Integer) && v <= 0
-}
+})
 
-pub let NonNegativeInteger = fn(v: Any) -> Bool {
+pub let NonNegativeInteger = bool_type_checker(fn(v: Any) -> Bool {
 	check_type(v, Integer) && v >= 0
-}
+})
 
-pub let NegativeInteger = fn(v: Any) -> Bool {
+pub let NegativeInteger = bool_type_checker(fn(v: Any) -> Bool {
 	check_type(v, Integer) && v < 0
-}
-
-pub let check_type = fn(v: Any, type_constraint: Type) -> Bool {
-	if get_type(type_constraint) == get_type(Unit) {
-		get_type(v) == type_constraint
-	} else {
-		type_constraint(v)
-	}
-}
+})
 
 pub let List = fn(inner: Type) -> Type {
-	fn(v: Any) -> Bool {
-		get_type(v) == AnyList && fold(true, v, fn(acc, x) {
+	internal._print(inner)
+	internal._print(bool_type_checker(fn(v: Any) -> Bool {
+		internal._print(get_type(v) == AnyList && fold(true, v, fn(acc, x) {
 			acc && check_type(x, inner)
-		})
-	}
+		}))
+	}))
 }
 
 pub let Record = fn(inner: Type) -> Type {
-	fn(v: Any) -> Bool {
+	bool_type_checker(fn(v: Any) -> Bool {
 		get_type(v) == AnyRecord && fold(true, internal._record_keys(v), fn(acc, x) {
 			acc && check_type(internal._index(v, x), inner)
 		})
-	}
+	})
 }
 
 pub let new_interface = fn(fields: Record(Type)) -> Type {
-	fn(v: Any) -> Bool {
+	bool_type_checker(fn(v: Any) -> Bool {
 		get_type(v) == AnyRecord && fold(true, internal._record_keys(fields), fn(acc, field_name) {
 			type = internal._index(fields, field_name)
 			result = internal._try(fn() {
@@ -96,11 +123,11 @@ pub let new_interface = fn(fields: Record(Type)) -> Type {
 				false
 			}
 		})
-	}
+	})
 }
 
 pub let new_optional_interface = fn(fields: Record(Type)) -> Type {
-	fn(v: Any) -> Bool {
+	bool_type_checker(fn(v: Any) -> Bool {
 		get_type(v) == AnyRecord && fold(true, internal._record_keys(fields), fn(acc, field_name) {
 			type = internal._index(fields, field_name)
 			result = internal._try(fn() {
@@ -112,5 +139,5 @@ pub let new_optional_interface = fn(fields: Record(Type)) -> Type {
 				true
 			}
 		})
-	}
+	})
 }
