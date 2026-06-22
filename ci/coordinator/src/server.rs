@@ -135,12 +135,10 @@ impl Server {
                     .await
             }
             RepoHostKind::Forgejo => {
-                let forgejo = forgejo_api::Forgejo::new(
-                    forgejo_api::Auth::Token(
-                        repository_host.app_key.context("no token")?.expose_secret(),
-                    ),
-                    Url::parse(&repository_host.url)?,
-                )?;
+                let forgejo = crate::forgejo::Forgejo::new(
+                    &repository_host.url,
+                    repository_host.app_key.context("no token")?.expose_secret(),
+                );
                 crate::forgejo::handle_run_request(self, start, run, owner, repo, sha, forgejo)
                     .await
             }

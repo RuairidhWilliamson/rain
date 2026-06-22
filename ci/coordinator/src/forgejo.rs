@@ -3,7 +3,10 @@ use std::sync::Arc;
 use alias::Alias as _;
 use anyhow::{Context as _, Result, anyhow};
 use chrono::Utc;
-use http::Request;
+use http::{
+    Request,
+    header::{ACCEPT, CONTENT_TYPE},
+};
 use http_body_util::BodyExt as _;
 use hyper::body::Incoming;
 use log::info;
@@ -26,6 +29,93 @@ use serde::Deserialize;
 use tokio::task::JoinHandle;
 
 use crate::{RunRequest, runner::RunComplete, server::Server};
+
+pub struct Forgejo {
+    api: forgejo_api::Forgejo,
+    client: reqwest::Client,
+    url: url::Url,
+}
+
+impl Forgejo {
+    pub fn new(url: &str, token: &str) -> Self {
+        let url = url::Url::parse(url).unwrap();
+        let mut headers = reqwest::header::HeaderMap::new();
+        let mut header: reqwest::header::HeaderValue = format!("token {token}").try_into().unwrap();
+        header.set_sensitive(true);
+        headers.insert("Authorization", header);
+        let client = reqwest::ClientBuilder::new()
+            .default_headers(headers)
+            .build()
+            .unwrap();
+        let api = forgejo_api::Forgejo::new(forgejo_api::Auth::Token(token), url.clone()).unwrap();
+        Self { url, client, api }
+    }
+
+    async fn smudge_git_lfs(
+        &self,
+        owner: &str,
+        repo: &str,
+        entries: Vec<(std::path::PathBuf, git_lfs_rs::object::Object)>,
+    ) -> Result<()> {
+        if entries.is_empty() {
+            return Ok(());
+        }
+        let request = git_lfs_rs::api::Request {
+            operation: git_lfs_rs::api::Operation::Download,
+            transfers: vec![git_lfs_rs::api::Transfer::Basic],
+            r#ref: None,
+            objects: entries.iter().map(|(_, o)| o.into()).collect(),
+            hash_algo: git_lfs_rs::api::HashAlgorithm::Sha256,
+        };
+        let response = self
+            .git_lfs_api(owner, repo, request)
+            .await
+            .context("git lfs api")?;
+        for (resp, (path, _)) in response.objects.into_iter().zip(entries) {
+            let mut f = tokio::fs::File::create(&path)
+                .await
+                .context("create lfs file")?;
+            let body = self
+                .client
+                .get(
+                    &resp
+                        .actions
+                        .get(&git_lfs_rs::api::Operation::Download)
+                        .context("no download action")?
+                        .href,
+                )
+                .send()
+                .await
+                .context("download lfs object")?
+                .error_for_status()?
+                .bytes()
+                .await?;
+            let mut reader = &body[..];
+            tokio::io::copy(&mut reader, &mut f).await?;
+        }
+        Ok(())
+    }
+
+    async fn git_lfs_api(
+        &self,
+        owner: &str,
+        repo: &str,
+        request: git_lfs_rs::api::Request,
+    ) -> Result<git_lfs_rs::api::Response> {
+        let url = &self.url;
+        let response = self
+            .client
+            .post(format!("{url}/{owner}/{repo}.git/info/lfs/objects/batch"))
+            .header(CONTENT_TYPE, "application/vnd.git-lfs+json")
+            .header(ACCEPT, "application/vnd.git-lfs+json")
+            .json(&request)
+            .send()
+            .await?
+            .error_for_status()?;
+        let response: git_lfs_rs::api::Response = response.json().await?;
+        Ok(response)
+    }
+}
 
 #[derive(Debug, Deserialize)]
 pub struct ForgejoPushEvent {
@@ -118,11 +208,12 @@ pub async fn handle_run_request(
     owner: String,
     repo: String,
     sha: String,
-    forgejo: forgejo_api::Forgejo,
+    forgejo: Forgejo,
 ) -> Result<()> {
     let context = format!("rain-run-{}", run.id);
     let target_url = server.target_url(run.id)?;
     forgejo
+        .api
         .repo_create_status(
             &owner,
             &repo,
@@ -141,6 +232,7 @@ pub async fn handle_run_request(
         .context("storage dequeue run")?;
 
     forgejo
+        .api
         .repo_create_status(
             &owner,
             &repo,
@@ -176,6 +268,7 @@ pub async fn handle_run_request(
     .await
     .context("storage finished run")?;
     forgejo
+        .api
         .repo_create_status(
             &owner,
             &repo,
@@ -194,18 +287,19 @@ pub async fn handle_run_request(
 
 async fn download_and_run(
     server: &Arc<Server>,
-    forgejo: &forgejo_api::Forgejo,
+    forgejo: &Forgejo,
     owner: &str,
     repo: &str,
     sha: &str,
     target: String,
 ) -> Result<JoinHandle<Result<RunComplete, anyhow::Error>>, anyhow::Error> {
-    let server = (server).alias();
+    let server = server.alias();
     let download = forgejo
+        .api
         .repo_get_archive(owner, repo, &format!("{sha}.zip"))
         .await?;
     #[expect(clippy::unwrap_used)]
-    let (root, _lfs_entries) = tokio::task::spawn_blocking(move || {
+    let (root, lfs_entries) = tokio::task::spawn_blocking(move || {
         let config = rain_core::config::Config::new();
         let driver = rain_core::driver::DriverImpl::new(config);
         let download_area = driver
@@ -238,7 +332,7 @@ async fn download_and_run(
         (root, lfs_entries)
     })
     .await?;
-    // TODO: Smudge lfs
+    forgejo.smudge_git_lfs(owner, repo, lfs_entries).await?;
     log::info!("Prepare run complete");
     #[expect(clippy::unwrap_used)]
     Ok(tokio::task::spawn_blocking(move || {
