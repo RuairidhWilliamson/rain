@@ -69,7 +69,7 @@ unnecessary_debug_formatting = "allow"
 [workspace.dependencies]
 anyhow = "1.0"
 base16 = "0.2"
-bytes = "1.10"
+bytes = "1.11"
 chrono = { version = "0.4", default-features = false, features = ["std", "now", "serde"] }
 ciborium = "0.2"
 clap = { version = "4.5", features = ["derive", "env"] }
