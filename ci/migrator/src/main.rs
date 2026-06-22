@@ -9,7 +9,9 @@ use std::{
 use anyhow::{Context as _, Result, anyhow};
 use rustc_stable_hash::{FromStableHash, SipHasher128Hash};
 use secrecy::{ExposeSecret as _, SecretString};
-use sqlx::{ConnectOptions as _, Connection as _, Row as _, postgres::PgConnectOptions};
+use sqlx::{
+    AssertSqlSafe, ConnectOptions as _, Connection as _, Row as _, postgres::PgConnectOptions,
+};
 use url::Url;
 
 #[derive(Debug, serde::Deserialize)]
@@ -96,7 +98,7 @@ async fn main() -> Result<()> {
             ));
         }
 
-        match sqlx::raw_sql(&m.sql).execute(&mut *tx).await {
+        match sqlx::raw_sql(AssertSqlSafe(m.sql)).execute(&mut *tx).await {
             Ok(_) => {}
             Err(err) => {
                 println!("Error performing migration {} with name {}", m.id, m.name);
