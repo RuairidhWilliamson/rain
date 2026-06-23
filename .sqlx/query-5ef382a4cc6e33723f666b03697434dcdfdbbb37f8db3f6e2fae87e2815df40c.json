@@ -6,17 +6,35 @@
       {
         "ordinal": 0,
         "name": "host",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "repos",
+            "name": "host"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "owner",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "repos",
+            "name": "owner"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "name",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "repos",
+            "name": "name"
+          }
+        }
       }
     ],
     "parameters": {

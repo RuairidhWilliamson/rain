@@ -6,57 +6,123 @@
       {
         "ordinal": 0,
         "name": "id",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "id"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "commit",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "commit"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "created_at",
-        "type_info": "Timestamp"
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "created_at"
+          }
+        }
       },
       {
         "ordinal": 3,
         "name": "dequeued_at",
-        "type_info": "Timestamp"
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "dequeued_at"
+          }
+        }
       },
       {
         "ordinal": 4,
         "name": "rain_version",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "rain_version"
+          }
+        }
       },
       {
         "ordinal": 5,
         "name": "repo_id",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "repo"
+          }
+        }
       },
       {
         "ordinal": 6,
         "name": "target",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "target"
+          }
+        }
       },
       {
         "ordinal": 7,
         "name": "finished_at?",
-        "type_info": "Timestamp"
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "finished_runs",
+            "name": "finished_at"
+          }
+        }
       },
       {
         "ordinal": 8,
         "name": "status?",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "finished_runs",
+            "name": "status"
+          }
+        }
       },
       {
         "ordinal": 9,
         "name": "execution_time_millis?",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "finished_runs",
+            "name": "execution_time_millis"
+          }
+        }
       },
       {
         "ordinal": 10,
         "name": "output?",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "finished_runs",
+            "name": "output"
+          }
+        }
       }
     ],
     "parameters": {
