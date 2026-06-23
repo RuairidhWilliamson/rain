@@ -137,6 +137,10 @@ impl Server {
             RepoHostKind::Forgejo => {
                 let forgejo = crate::forgejo::Forgejo::new(
                     &repository_host.url,
+                    repository_host
+                        .app_id
+                        .as_ref()
+                        .context("no app id / username")?,
                     repository_host.app_key.context("no token")?.expose_secret(),
                 )
                 .context("create forgejo api client")?;

@@ -34,20 +34,22 @@ pub struct Forgejo {
     api: forgejo_api::Forgejo,
     client: reqwest::Client,
     url: url::Url,
+    username: String,
+    token: String,
 }
 
 impl Forgejo {
-    pub fn new(url: &str, token: &str) -> Result<Self> {
+    pub fn new(url: &str, username: &str, token: &str) -> Result<Self> {
         let url = url::Url::parse(url)?;
-        let mut headers = reqwest::header::HeaderMap::new();
-        let mut header: reqwest::header::HeaderValue = format!("token {token}").try_into()?;
-        header.set_sensitive(true);
-        headers.insert("Authorization", header);
-        let client = reqwest::ClientBuilder::new()
-            .default_headers(headers)
-            .build()?;
+        let client = reqwest::ClientBuilder::new().build()?;
         let api = forgejo_api::Forgejo::new(forgejo_api::Auth::Token(token), url.clone())?;
-        Ok(Self { api, client, url })
+        Ok(Self {
+            api,
+            client,
+            url,
+            username: username.to_owned(),
+            token: token.to_owned(),
+        })
     }
 
     async fn smudge_git_lfs(
@@ -83,6 +85,7 @@ impl Forgejo {
                         .context("no download action")?
                         .href,
                 )
+                .basic_auth(self.username.clone(), Some(self.token.clone()))
                 .send()
                 .await
                 .context("download lfs object")?
@@ -101,17 +104,21 @@ impl Forgejo {
         repo: &str,
         request: git_lfs_rs::api::Request,
     ) -> Result<git_lfs_rs::api::Response> {
-        let url = &self.url;
-        let response = self
+        let url = self
+            .url
+            .join(&format!("/{owner}/{repo}.git/info/lfs/objects/batch"))?;
+        let response: git_lfs_rs::api::Response = self
             .client
-            .post(format!("{url}/{owner}/{repo}.git/info/lfs/objects/batch"))
+            .post(url)
+            .basic_auth(self.username.clone(), Some(self.token.clone()))
             .header(CONTENT_TYPE, "application/vnd.git-lfs+json")
             .header(ACCEPT, "application/vnd.git-lfs+json")
             .json(&request)
             .send()
             .await?
-            .error_for_status()?;
-        let response: git_lfs_rs::api::Response = response.json().await?;
+            .error_for_status()?
+            .json()
+            .await?;
         Ok(response)
     }
 }
