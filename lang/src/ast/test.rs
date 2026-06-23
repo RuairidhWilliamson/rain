@@ -351,13 +351,14 @@ fn invalid_exprs() {
     assert!(parse_expr("()").is_err());
 }
 
+fn parse_display_module(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
+    Module::parse(src).map(|m| {
+        log::error!("{}", m.display(src));
+    })
+}
+
 #[test]
 fn invalid_scripts() {
-    fn parse_display_module(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
-        Module::parse(src).map(|m| {
-            log::error!("{}", m.display(src));
-        })
-    }
     assert!(parse_display_module("let foo = fn() {5 6}").is_err());
     assert!(parse_display_module("let foo = fn() {a b c}").is_err());
 }

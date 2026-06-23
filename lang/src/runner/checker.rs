@@ -202,7 +202,7 @@ impl CheckCx<'_, '_> {
                     declaration.value = CheckValue::Unknown;
                 }
             }
-        };
+        }
     }
 
     fn check_node<'b, 'c>(&'c mut self, nid: NodeId, expected: CheckValue) -> CheckValue
@@ -525,14 +525,7 @@ impl CheckCx<'_, '_> {
                 ..
             }) => CheckValue::ExactValue(Value::Boolean(false)),
             Node::SimpleLiteral(SimpleLiteral {
-                kind: SimpleLiteralKind::Import,
-                ..
-            }) => CheckValue::Callable {
-                arg_types: vec![CheckValue::ExactType(RainTypeId::String)],
-                return_type: Box::new(CheckValue::ExactType(RainTypeId::Module)),
-            },
-            Node::SimpleLiteral(SimpleLiteral {
-                kind: SimpleLiteralKind::Stdlib,
+                kind: SimpleLiteralKind::Import | SimpleLiteralKind::Stdlib,
                 ..
             }) => CheckValue::Callable {
                 arg_types: vec![CheckValue::ExactType(RainTypeId::String)],

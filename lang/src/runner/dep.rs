@@ -63,9 +63,9 @@ impl Dep {
             | Self::Print
             | Self::Counter
             | Self::MutateDeps => false,
-            // Not sure if this is correct or not
-            Self::LocalDir => true,
-            Self::Escape
+            // Not sure if LocalDir is correct or not
+            Self::LocalDir
+            | Self::Escape
             | Self::Secret
             | Self::EnvVar
             | Self::Config

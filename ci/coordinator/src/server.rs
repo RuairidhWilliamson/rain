@@ -138,7 +138,8 @@ impl Server {
                 let forgejo = crate::forgejo::Forgejo::new(
                     &repository_host.url,
                     repository_host.app_key.context("no token")?.expose_secret(),
-                );
+                )
+                .context("create forgejo api client")?;
                 crate::forgejo::handle_run_request(self, start, run, owner, repo, sha, forgejo)
                     .await
             }

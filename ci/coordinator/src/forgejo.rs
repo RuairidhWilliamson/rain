@@ -37,18 +37,17 @@ pub struct Forgejo {
 }
 
 impl Forgejo {
-    pub fn new(url: &str, token: &str) -> Self {
-        let url = url::Url::parse(url).unwrap();
+    pub fn new(url: &str, token: &str) -> Result<Self> {
+        let url = url::Url::parse(url)?;
         let mut headers = reqwest::header::HeaderMap::new();
-        let mut header: reqwest::header::HeaderValue = format!("token {token}").try_into().unwrap();
+        let mut header: reqwest::header::HeaderValue = format!("token {token}").try_into()?;
         header.set_sensitive(true);
         headers.insert("Authorization", header);
         let client = reqwest::ClientBuilder::new()
             .default_headers(headers)
-            .build()
-            .unwrap();
-        let api = forgejo_api::Forgejo::new(forgejo_api::Auth::Token(token), url.clone()).unwrap();
-        Self { url, client, api }
+            .build()?;
+        let api = forgejo_api::Forgejo::new(forgejo_api::Auth::Token(token), url.clone())?;
+        Ok(Self { api, client, url })
     }
 
     async fn smudge_git_lfs(
