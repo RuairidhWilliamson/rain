@@ -222,7 +222,7 @@ struct AuthRedirect;
 
 impl IntoResponse for AuthRedirect {
     fn into_response(self) -> Response {
-        Redirect::temporary("/auth/default").into_response()
+        Redirect::temporary("/auth").into_response()
     }
 }
 
