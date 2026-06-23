@@ -6,6 +6,7 @@ use std::{
 };
 
 use alias::Alias as _;
+use digest_io::IoWrapper;
 use git2::{Cred, Oid};
 use poison_panic::MutexExt as _;
 use rain_lang::{
@@ -446,18 +447,18 @@ impl DriverTrait for DriverImpl<'_> {
     fn sha256(&self, file: &File) -> Result<[u8; 32], RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.fsinner());
         let mut file = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
-        let mut hasher = sha2::Sha256::new();
+        let mut hasher = IoWrapper(sha2::Sha256::new());
         std::io::copy(&mut file, &mut hasher).map_err(RunnerError::AreaIOError)?;
-        let hash_result = hasher.finalize();
+        let hash_result = hasher.0.finalize();
         Ok(hash_result.into())
     }
 
     fn sha512(&self, file: &File) -> Result<[u8; 64], RunnerError> {
         let resolved_path = self.resolve_fs_entry(file.fsinner());
         let mut file = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
-        let mut hasher = sha2::Sha512::new();
+        let mut hasher = IoWrapper(sha2::Sha512::new());
         std::io::copy(&mut file, &mut hasher).map_err(RunnerError::AreaIOError)?;
-        let hash_result = hasher.finalize();
+        let hash_result = hasher.0.finalize();
         Ok(hash_result.into())
     }
 

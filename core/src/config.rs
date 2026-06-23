@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use digest_io::IoWrapper;
 use rain_lang::{
     afs::{
         FSEntryTrait as _, area::FileAreaRef, entry::FSEntryRef, generated::area::GeneratedFSArea,
@@ -108,9 +109,9 @@ impl FSTrait for Config {
     fn query_file_hash(&self, entry: FSEntryRef) -> Result<FileHash, std::io::Error> {
         let path = self.resolve_fs_entry(entry);
         let mut file = std::fs::File::open(path)?;
-        let mut hasher = sha2::Sha256::new();
+        let mut hasher = IoWrapper(sha2::Sha256::new());
         std::io::copy(&mut file, &mut hasher)?;
-        let hash_result = hasher.finalize();
+        let hash_result = hasher.0.finalize();
         let hash_result = &hash_result[..];
         Ok(FileHash(
             hash_result

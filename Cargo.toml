@@ -73,6 +73,7 @@ bytes = "1.11"
 chrono = { version = "0.4", default-features = false, features = ["std", "now", "serde"] }
 ciborium = "0.2"
 clap = { version = "4.5", features = ["derive", "env"] }
+digest-io = "0.1"
 dotenvy = "0.15"
 env_logger = "0.11"
 envy = "0.4"
