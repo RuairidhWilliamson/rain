@@ -228,7 +228,7 @@ pub async fn handle_run_request(
                 context: Some(context.clone()),
                 description: Some("rain run queued".into()),
                 state: Some(forgejo_api::structs::CommitStatusState::Pending),
-                target_url: Some(target_url.clone()),
+                target_url: Some(target_url.to_string()),
             },
         )
         .await?;
@@ -247,7 +247,7 @@ pub async fn handle_run_request(
                 context: Some(context.clone()),
                 description: Some("rain run in progress".into()),
                 state: Some(forgejo_api::structs::CommitStatusState::Pending),
-                target_url: Some(target_url.clone()),
+                target_url: Some(target_url.to_string()),
             },
         )
         .await?;
@@ -283,7 +283,7 @@ pub async fn handle_run_request(
                 context: Some(context.clone()),
                 description: Some("rain run complete".into()),
                 state: Some(conclusion),
-                target_url: Some(target_url.clone()),
+                target_url: Some(target_url.to_string()),
             },
         )
         .await?;
