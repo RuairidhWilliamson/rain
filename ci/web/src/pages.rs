@@ -31,10 +31,20 @@ impl Base {
     }
 }
 
-pub async fn home(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
+#[derive(serde::Deserialize)]
+pub struct NextQuery {
+    next: Option<String>,
+}
+
+pub async fn home(
+    auth: Option<AuthUser>,
+    Query(next): Query<NextQuery>,
+) -> Result<Html<String>, AppError> {
     #[derive(Template)]
     #[template(path = "landing.html")]
-    struct PublicHomepage;
+    struct PublicHomepage {
+        next: Option<String>,
+    }
 
     #[derive(Template)]
     #[template(path = "home.html")]
@@ -47,7 +57,7 @@ pub async fn home(auth: Option<AuthUser>) -> Result<Html<String>, AppError> {
         };
         Ok(Html(homepage.render()?))
     } else {
-        Ok(Html(PublicHomepage.render()?))
+        Ok(Html(PublicHomepage { next: next.next }.render()?))
     }
 }
 

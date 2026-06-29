@@ -1,7 +1,9 @@
+use std::str::FromStr as _;
 use std::sync::Arc;
 
 use anyhow::{Context as _, Result};
 use axum::extract::Path;
+use axum::http::Uri;
 use axum::http::header::{ACCEPT, USER_AGENT};
 use axum::{
     Extension, Router,
@@ -15,6 +17,7 @@ use oauth2::{
     EmptyExtraTokenFields, EndpointNotSet, EndpointSet, RedirectUrl, StandardTokenResponse,
     TokenResponse as _, TokenUrl, basic::BasicTokenType, url::Url,
 };
+use percent_encoding_rfc3986::utf8_percent_encode;
 use rain_ci_common::db::Db;
 use reqwest::Certificate;
 use secrecy::ExposeSecret as _;
@@ -30,12 +33,29 @@ pub fn router() -> Router<AppState> {
         .route("/{name}/authorized", get(authorized))
 }
 
-async fn default_auth(State(config): State<Arc<Config>>) -> impl IntoResponse {
-    Redirect::to(&format!("/auth/{}", config.default_auth))
+#[derive(Debug, serde::Deserialize)]
+struct AuthQuery {
+    next: Option<String>,
+}
+
+async fn default_auth(
+    Query(query): Query<AuthQuery>,
+    State(config): State<Arc<Config>>,
+) -> impl IntoResponse {
+    if let Some(next) = query.next {
+        Redirect::to(&format!(
+            "/auth/{}?next={}",
+            config.default_auth,
+            utf8_percent_encode(&next, percent_encoding_rfc3986::NON_ALPHANUMERIC)
+        ))
+    } else {
+        Redirect::to(&format!("/auth/{}", config.default_auth))
+    }
 }
 
 async fn auth(
     Path(name): Path<String>,
+    Query(query): Query<AuthQuery>,
     State(db): State<Db>,
     State(config): State<Arc<Config>>,
     Extension(session): Extension<session::Session>,
@@ -43,7 +63,7 @@ async fn auth(
     let auth_provider = crate::db::get_auth_provider(&db, &name).await?;
     let client = Client::new_from_auth_provider(&config.base_url, auth_provider).await?;
     let (auth_url, csrf_token) = client.authorize_url();
-    crate::db::set_session_csrf(&db, &session.id, csrf_token)
+    crate::db::set_session_csrf(&db, &session.id, csrf_token, query.next)
         .await
         .context("set session csrf")?;
     Ok(Redirect::to(auth_url.as_ref()))
@@ -68,7 +88,7 @@ async fn authorized(
     let client = Client::new_from_auth_provider(&config.base_url, auth_provider)
         .await
         .context("new auth provider client")?;
-    crate::db::check_session_csrf(&db, &session.id, query.state)
+    let next_url = crate::db::check_session_csrf(&db, &session.id, query.state)
         .await
         .map_err(|err| anyhow::format_err!("csrf check failed: {err:#}"))?;
     let token = client.exchange_code(query.code).await?;
@@ -79,7 +99,13 @@ async fn authorized(
     crate::db::auth_user_session(&db, &session.id, &name, user)
         .await
         .map_err(|err| anyhow::format_err!("auth user session: {err:#}"))?;
-    Ok(Redirect::to("/"))
+    if let Some(next_url) = next_url
+        && let Ok(uri) = Uri::from_str(&next_url)
+    {
+        Ok(Redirect::to(uri.path()))
+    } else {
+        Ok(Redirect::to("/"))
+    }
 }
 
 type BasicClient = oauth2::basic::BasicClient<

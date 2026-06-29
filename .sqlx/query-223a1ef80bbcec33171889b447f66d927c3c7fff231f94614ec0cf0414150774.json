@@ -1,15 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE sessions SET csrf=$2 WHERE id=$1",
+  "query": "UPDATE sessions SET csrf=$2, next_url=$3 WHERE id=$1",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
         "Uuid",
+        "Text",
         "Text"
       ]
     },
     "nullable": []
   },
-  "hash": "16faa02fa8de7cc8a643515b24f373b69561dbdce7c16b206f3d6490cc74ac8b"
+  "hash": "223a1ef80bbcec33171889b447f66d927c3c7fff231f94614ec0cf0414150774"
 }

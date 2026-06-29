@@ -11,7 +11,12 @@
   <div id="content">
     <h1>Rain CI Landing</h1>
 
+    {% match next %}
+    {% when Some with (next) %}
+    <a href='/auth?next={{ next }}'>Login</a>
+    {% when None %}
     <a href='/auth'>Login</a>
+    {% endmatch %}
   </div>
 </body>
 

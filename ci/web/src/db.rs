@@ -59,20 +59,30 @@ pub async fn load_or_create_session(db: &Db, id: &SessionId) -> Result<Option<Se
     Ok(Some(session_id))
 }
 
-pub async fn set_session_csrf(db: &Db, id: &SessionId, csrf: CsrfToken) -> Result<()> {
+pub async fn set_session_csrf(
+    db: &Db,
+    id: &SessionId,
+    csrf: CsrfToken,
+    next_url: Option<String>,
+) -> Result<()> {
     sqlx::query!(
-        "UPDATE sessions SET csrf=$2 WHERE id=$1",
+        "UPDATE sessions SET csrf=$2, next_url=$3 WHERE id=$1",
         id.0,
         csrf.secret(),
+        next_url,
     )
     .execute(&db.pool)
     .await?;
     Ok(())
 }
 
-pub async fn check_session_csrf(db: &Db, id: &SessionId, csrf: CsrfToken) -> Result<()> {
+pub async fn check_session_csrf(
+    db: &Db,
+    id: &SessionId,
+    csrf: CsrfToken,
+) -> Result<Option<String>> {
     let mut tx = db.pool.begin().await?;
-    let row = sqlx::query!("SELECT csrf FROM sessions WHERE id=$1", id.0)
+    let row = sqlx::query!("SELECT csrf, next_url FROM sessions WHERE id=$1", id.0)
         .fetch_one(&mut *tx)
         .await?;
     let expected: Option<String> = row.csrf;
@@ -85,7 +95,7 @@ pub async fn check_session_csrf(db: &Db, id: &SessionId, csrf: CsrfToken) -> Res
         .await?;
 
     tx.commit().await?;
-    Ok(())
+    Ok(row.next_url)
 }
 
 pub async fn auth_user_session(

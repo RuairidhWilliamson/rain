@@ -4,17 +4,18 @@ mod pages;
 mod session;
 mod user;
 
-use std::{convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{convert::Infallible, net::SocketAddr, path::PathBuf, str::FromStr as _, sync::Arc};
 
 use anyhow::{Context as _, Result};
 use axum::{
     Form, Router,
     extract::{FromRef, FromRequestParts, OptionalFromRequestParts, Path, State},
-    http::{StatusCode, header, request::Parts},
+    http::{StatusCode, Uri, header, request::Parts},
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
 };
 use chrono::Utc;
+use percent_encoding_rfc3986::utf8_percent_encode;
 use rain_ci_common::{
     db::{
         Db, DbConfig, Resource as _,
@@ -218,11 +219,32 @@ where
     }
 }
 
-struct AuthRedirect;
+struct AuthRedirect {
+    next: Option<Uri>,
+}
+
+impl AuthRedirect {
+    fn new(parts: &Parts) -> Self {
+        Self {
+            next: Uri::from_str(parts.uri.path()).ok(),
+        }
+    }
+}
 
 impl IntoResponse for AuthRedirect {
     fn into_response(self) -> Response {
-        Redirect::temporary("/auth").into_response()
+        let uri = if let Some(next) = &self.next {
+            &format!(
+                "/?next={}",
+                utf8_percent_encode(
+                    &next.to_string(),
+                    percent_encoding_rfc3986::NON_ALPHANUMERIC
+                )
+            )
+        } else {
+            "/auth"
+        };
+        Redirect::temporary(uri).into_response()
     }
 }
 
@@ -248,9 +270,9 @@ where
             .await
             .map_err(|err| {
                 tracing::error!("get user: {err:#}");
-                AuthRedirect
+                AuthRedirect::new(parts)
             })?
-            .ok_or(AuthRedirect)?;
+            .ok_or_else(|| AuthRedirect::new(parts))?;
 
         Ok(Self { user })
     }
@@ -269,7 +291,7 @@ where
     ) -> Result<Option<Self>, Self::Rejection> {
         match <Self as FromRequestParts<S>>::from_request_parts(parts, state).await {
             Ok(res) => Ok(Some(res)),
-            Err(AuthRedirect) => Ok(None),
+            Err(AuthRedirect { .. }) => Ok(None),
         }
     }
 }

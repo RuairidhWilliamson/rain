@@ -1,0 +1,1 @@
+ALTER TABLE sessions ADD COLUMN next_url TEXT NULL;
