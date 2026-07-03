@@ -30,6 +30,7 @@ pub struct Run {
     pub finished: Option<FinishedRun>,
     pub target: String,
     pub rain_version: Option<String>,
+    pub check_run_id: Option<String>,
 }
 
 impl super::Resource for Run {
@@ -50,7 +51,8 @@ impl super::Resource for Run {
                     finished_at as "finished_at?",
                     status as "status?",
                     execution_time_millis as "execution_time_millis?",
-                    output as "output?"
+                    output as "output?",
+                    check_run_id
                 FROM runs
                 LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
                 WHERE runs.id=$1;
@@ -98,7 +100,8 @@ impl Run {
                 finished_at AS "finished_at?",
                 status AS "status?",
                 execution_time_millis AS "execution_time_millis?",
-                output AS "output?"
+                output AS "output?",
+                check_run_id
             FROM runs
             LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
             WHERE repo=$1
@@ -144,7 +147,8 @@ impl Run {
                 finished_at AS "finished_at?",
                 status AS "status?",
                 execution_time_millis AS "execution_time_millis?",
-                output AS "output?"
+                output AS "output?",
+                check_run_id
             FROM runs
             LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
             ORDER BY runs.id DESC
@@ -171,11 +175,17 @@ impl Run {
         Ok(Paginated::new(elements, full_count, page.per_page(), page))
     }
 
-    pub async fn dequeued(db: &super::Db, id: RunId, rain_version: &str) -> Result<()> {
+    pub async fn dequeued(
+        db: &super::Db,
+        id: RunId,
+        rain_version: &str,
+        check_run_id: Option<&str>,
+    ) -> Result<()> {
         sqlx::query!(
-            "UPDATE runs SET dequeued_at=$1, rain_version=$2 WHERE id=$3",
+            "UPDATE runs SET dequeued_at=$1, rain_version=$2, check_run_id=$3 WHERE id=$4",
             &Utc::now().naive_utc(),
             rain_version,
+            check_run_id,
             id.0,
         )
         .execute(&db.pool)
@@ -266,6 +276,7 @@ struct QueryRun {
     finished_at: Option<NaiveDateTime>,
     execution_time_millis: Option<i64>,
     output: Option<String>,
+    check_run_id: Option<String>,
 }
 
 impl QueryRun {
@@ -295,6 +306,7 @@ impl QueryRun {
                     })
                     .transpose()?,
                 repository: RepositoryId(row.repo_id),
+                check_run_id: row.check_run_id,
             },
         })
     }
@@ -340,7 +352,8 @@ impl ResolvedRun {
                 finished_at AS "finished_at?",
                 status AS "status?",
                 execution_time_millis AS "execution_time_millis?",
-                output AS "output?"
+                output AS "output?",
+                check_run_id
             FROM runs
             LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
             ORDER BY runs.id DESC
@@ -392,7 +405,8 @@ impl ResolvedRun {
                 finished_at AS "finished_at?",
                 status AS "status?",
                 execution_time_millis AS "execution_time_millis?",
-                output AS "output?"
+                output AS "output?",
+                check_run_id
             FROM runs
             LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run
             WHERE repo=$1

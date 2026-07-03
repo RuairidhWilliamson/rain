@@ -1,5 +1,6 @@
 mod forgejo;
 mod github;
+mod repo_host;
 mod runner;
 mod server;
 
@@ -15,10 +16,7 @@ use hyper_util::{
 };
 use ipnet::IpNet;
 use log::{error, info, warn};
-use rain_ci_common::db::{
-    Db, DbConfig,
-    run::{FinishedRun, Run, RunId},
-};
+use rain_ci_common::db::{Db, DbConfig, run::RunId};
 use runner::Runner;
 use sqlx::postgres::PgListener;
 use tokio::{sync::mpsc::Sender, task::JoinSet};
@@ -57,7 +55,6 @@ async fn main() -> Result<()> {
 
     let (tx, rx) = tokio::sync::mpsc::channel(10);
     start_pg_notify_worker(&db, &tx);
-    cleanup_old_runs(&db).await?;
 
     let server = Arc::new(server::Server {
         runner: Runner::new(config.seal),
@@ -65,6 +62,7 @@ async fn main() -> Result<()> {
         db,
         tx,
     });
+    server.cleanup_old_runs().await?;
     server.start_server_run_request_worker(rx);
     info!("listening on {}", listener.local_addr()?);
     let mut join_set = JoinSet::new();
@@ -95,26 +93,6 @@ async fn main() -> Result<()> {
             }
         });
     }
-}
-
-async fn cleanup_old_runs(db: &Db) -> Result<()> {
-    let ids = sqlx::query!("SELECT id FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run WHERE dequeued_at IS NOT NULL AND run IS NULL")
-        .fetch_all(&db.pool)
-        .await?;
-    for row in ids {
-        Run::finished(
-            db,
-            RunId(row.id),
-            FinishedRun {
-                finished_at: chrono::Utc::now(),
-                status: rain_ci_common::db::run::RunStatus::SystemFailure,
-                execution_time: chrono::TimeDelta::zero(),
-                output: String::from("run was cleaned up on coordinator startup"),
-            },
-        )
-        .await?;
-    }
-    Ok(())
 }
 
 struct RunRequest {

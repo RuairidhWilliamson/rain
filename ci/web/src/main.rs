@@ -141,6 +141,7 @@ async fn repo_create_run(
                 finished: None,
                 target: data.target,
                 rain_version: None,
+                check_run_id: None,
             }
             .create(&db)
             .await?;
@@ -171,6 +172,7 @@ async fn repo_create_run(
                 finished: None,
                 target: data.target,
                 rain_version: None,
+                check_run_id: None,
             }
             .create(&db)
             .await?;

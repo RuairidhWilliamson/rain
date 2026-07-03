@@ -7,15 +7,14 @@ use hyper::body::Incoming;
 use log::error;
 use rain_ci_common::db::repository::Repository;
 use rain_ci_common::db::repository_host::{RepoHostKind, RepositoryHost, RepositoryHostId};
-use rain_ci_common::db::run::{Run, RunId};
+use rain_ci_common::db::run::{FinishedRun, Run, RunId};
 use rain_ci_common::db::{Db, Resource as _};
-use rain_ci_common::github::implementation::{AppAuth, AppClient};
-use rain_ci_common::github::model::AppId;
 use secrecy::ExposeSecret as _;
 use tokio::sync::mpsc::Receiver;
 use url::Url;
 
 use crate::RunRequest;
+use crate::repo_host::RepoHostApi as _;
 use crate::runner::Runner;
 
 pub struct Server {
@@ -81,14 +80,16 @@ impl Server {
         repo_host_id: RepositoryHostId,
         request: Request<Incoming>,
     ) -> Result<()> {
-        let repository_host = RepositoryHost::get(&self.db, repo_host_id).await?.resource;
+        let repository_host = RepositoryHost::get(&self.db, repo_host_id).await?;
 
-        match repository_host.kind {
+        match repository_host.resource.kind {
             RepoHostKind::Github => {
-                crate::github::handle_webhook(self, repo_host_id, request, &repository_host).await
+                let api = crate::github::Github::new(repository_host)?;
+                api.handle_webhook(self, request).await
             }
             RepoHostKind::Forgejo => {
-                crate::forgejo::handle_webhook(self, repo_host_id, request, repository_host).await
+                let api = crate::forgejo::Forgejo::new(repository_host)?;
+                api.handle_webhook(self, request).await
             }
         }
     }
@@ -100,54 +101,74 @@ impl Server {
         let run_id = run_request.run_id;
         let start = chrono::Utc::now();
         let run = Run::get(&self.db, run_id).await?;
-        let repository = Repository::get(&self.db, run.resource.repository)
-            .await?
-            .resource;
-        let repository_host = RepositoryHost::get(&self.db, repository.host)
-            .await?
-            .resource;
+        let repository = Repository::get(&self.db, run.resource.repository).await?;
+        let repository_host = RepositoryHost::get(&self.db, repository.resource.host).await?;
 
-        let owner = repository.owner;
-        let repo = repository.name;
-        let sha = run.resource.commit.clone();
-
-        match repository_host.kind {
+        match repository_host.resource.kind {
             RepoHostKind::Github => {
-                let github_client = AppClient::new(AppAuth {
-                    app_id: AppId(
-                        repository_host
-                            .app_id
-                            .context("no app id")?
-                            .parse()
-                            .context("invalid app id")?,
-                    ),
-                    key: jsonwebtoken::EncodingKey::from_rsa_pem(
-                        repository_host
-                            .app_key
-                            .context("no app key")?
-                            .expose_secret()
-                            .as_bytes(),
-                    )
-                    .context("decode github app key")?,
-                });
-
-                crate::github::handle_run_request(self, start, run, owner, repo, sha, github_client)
-                    .await
+                let api = crate::github::Github::new(repository_host)?;
+                api.handle_run_request(self, run, repository, start).await
             }
             RepoHostKind::Forgejo => {
-                let forgejo = crate::forgejo::Forgejo::new(
-                    &repository_host.url,
-                    repository_host
-                        .app_id
-                        .as_ref()
-                        .context("no app id / username")?,
-                    repository_host.app_key.context("no token")?.expose_secret(),
-                )
-                .context("create forgejo api client")?;
-                crate::forgejo::handle_run_request(self, start, run, owner, repo, sha, forgejo)
-                    .await
+                let api = crate::forgejo::Forgejo::new(repository_host)?;
+                api.handle_run_request(self, run, repository, start).await
             }
         }
+    }
+
+    pub async fn cleanup_old_runs(self: &Arc<Self>) -> Result<()> {
+        let ids = sqlx::query!("SELECT id FROM runs LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run WHERE dequeued_at IS NOT NULL AND run IS NULL")
+        .fetch_all(&self.db.pool)
+        .await?;
+        for row in ids {
+            let run = Run::get(&self.db, RunId(row.id)).await?;
+            let repository = Repository::get(&self.db, run.resource.repository).await?;
+            let repository_host = RepositoryHost::get(&self.db, repository.resource.host).await?;
+            let output = String::from("run was cleaned up on coordinator startup");
+            let finished_at = chrono::Utc::now();
+            let execution_time = chrono::TimeDelta::zero();
+            match repository_host.resource.kind {
+                RepoHostKind::Github => {
+                    let api = crate::github::Github::new(repository_host)?;
+                    api.finish_run(
+                        self,
+                        run,
+                        repository,
+                        rain_ci_common::db::run::RunStatus::SystemFailure,
+                        output.clone(),
+                        finished_at,
+                        execution_time,
+                    )
+                    .await?;
+                }
+                RepoHostKind::Forgejo => {
+                    let api = crate::forgejo::Forgejo::new(repository_host)?;
+                    api.finish_run(
+                        self,
+                        run,
+                        repository,
+                        rain_ci_common::db::run::RunStatus::SystemFailure,
+                        output.clone(),
+                        finished_at,
+                        execution_time,
+                    )
+                    .await?;
+                }
+            }
+
+            Run::finished(
+                &self.db,
+                RunId(row.id),
+                FinishedRun {
+                    finished_at,
+                    status: rain_ci_common::db::run::RunStatus::SystemFailure,
+                    execution_time,
+                    output,
+                },
+            )
+            .await?;
+        }
+        Ok(())
     }
 }
 
