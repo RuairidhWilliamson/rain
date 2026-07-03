@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                runs.id,\n                commit,\n                created_at,\n                dequeued_at,\n                rain_version,\n                repo AS repo_id,\n                target,\n                finished_at AS \"finished_at?\",\n                status AS \"status?\",\n                execution_time_millis AS \"execution_time_millis?\",\n                output AS \"output?\"\n            FROM runs\n            LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run\n            WHERE repo=$1\n            ORDER BY runs.id DESC\n            OFFSET $2 LIMIT $3;\n            ",
+  "query": "\n            SELECT\n                runs.id,\n                commit,\n                created_at,\n                dequeued_at,\n                rain_version,\n                repo AS repo_id,\n                target,\n                finished_at AS \"finished_at?\",\n                status AS \"status?\",\n                execution_time_millis AS \"execution_time_millis?\",\n                output AS \"output?\",\n                check_run_id\n            FROM runs\n            LEFT OUTER JOIN finished_runs ON runs.id=finished_runs.run\n            WHERE repo=$1\n            ORDER BY runs.id DESC\n            OFFSET $2 LIMIT $3;\n            ",
   "describe": {
     "columns": [
       {
@@ -123,6 +123,17 @@
             "name": "output"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "check_run_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "check_run_id"
+          }
+        }
       }
     ],
     "parameters": {
@@ -143,8 +154,9 @@
       false,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "df6cb03ce84d21ae8f8581434bb4391443c30f14a815a1f6a20f5e2fc9c2e369"
+  "hash": "09954d2e49a4a467d8f013cee3cfcff4b21435631a9b7d81ed0d200f6d5b89eb"
 }

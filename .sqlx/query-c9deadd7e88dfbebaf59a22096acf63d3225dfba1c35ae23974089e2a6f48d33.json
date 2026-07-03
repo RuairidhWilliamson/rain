@@ -1,16 +1,17 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE runs SET dequeued_at=$1, rain_version=$2 WHERE id=$3",
+  "query": "UPDATE runs SET dequeued_at=$1, rain_version=$2, check_run_id=$3 WHERE id=$4",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
         "Timestamp",
         "Text",
+        "Text",
         "Int8"
       ]
     },
     "nullable": []
   },
-  "hash": "6498ddc99383cf86c58e0c824d8f5810972c066e0ea7d300367843290cb4fb2b"
+  "hash": "c9deadd7e88dfbebaf59a22096acf63d3225dfba1c35ae23974089e2a6f48d33"
 }

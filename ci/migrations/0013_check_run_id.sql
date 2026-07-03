@@ -1,0 +1,1 @@
+ALTER TABLE runs ADD COLUMN check_run_id TEXT NULL;
