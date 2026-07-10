@@ -1,6 +1,6 @@
 FROM alpine AS blender-install
 
-FROM docker.io/rust:1.96-slim
+FROM docker.io/rust:1.97-slim
 WORKDIR /usr/rain
 RUN rustup component add rustfmt clippy
 RUN \
