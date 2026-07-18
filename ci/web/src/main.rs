@@ -41,6 +41,7 @@ struct Config {
     database_password_file: Option<PathBuf>,
     database_url: Url,
     default_auth: String,
+    skip_auth: bool,
 }
 
 #[tokio::main]
@@ -73,6 +74,7 @@ async fn main() -> Result<()> {
         .route("/profile", get(pages::profile))
         .route("/repos", get(pages::repos))
         .route("/repo/{id}", get(pages::repo))
+        .route("/repo/{id}/secrets", get(pages::repo_secrets))
         .route("/repo/{id}/run", post(repo_create_run))
         .route("/run", get(pages::runs))
         .route("/run/{id}", get(pages::run))
@@ -86,7 +88,7 @@ async fn main() -> Result<()> {
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    tracing::info!("listening on {}", listener.local_addr()?);
+    tracing::info!("listening on http://{}", listener.local_addr()?);
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;

@@ -1,8 +1,9 @@
-DROP TABLE sessions;
-DROP TABLE users;
-DROP TABLE finished_runs;
-DROP TABLE runs;
-DROP TABLE migrations;
-DROP TABLE repos;
-DROP TABLE repo_hosts;
-DROP TABLE auth_providers;
+DROP TABLE sessions CASCADE;
+DROP TABLE users CASCADE;
+DROP TABLE finished_runs CASCADE;
+DROP TABLE runs CASCADE;
+DROP TABLE migrations CASCADE;
+DROP TABLE repos CASCADE;
+DROP TABLE repo_hosts CASCADE;
+DROP TABLE auth_providers CASCADE;
+DROP TABLE secrets CASCADE;

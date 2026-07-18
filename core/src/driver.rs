@@ -47,6 +47,14 @@ pub struct DriverImpl<'a> {
     pub embed: Option<Cow<'static, str>>,
     pub host_triple: Cow<'static, str>,
     pub internal_counts: Mutex<HashMap<Arc<String>, usize>>,
+    pub secrets: Secrets,
+}
+
+#[derive(Default)]
+pub enum Secrets {
+    #[default]
+    Environment,
+    Set(HashMap<String, String>),
 }
 
 pub const fn default_host_triple() -> &'static str {
@@ -65,6 +73,7 @@ impl DriverImpl<'_> {
             embed: Some(include_str!("../../lib/embed/embed.rain").into()),
             host_triple: default_host_triple().into(),
             internal_counts: Default::default(),
+            secrets: Secrets::default(),
         }
     }
 
@@ -660,31 +669,41 @@ impl DriverTrait for DriverImpl<'_> {
     }
 
     fn get_secret(&self, name: &str) -> Result<String, RunnerError> {
-        // TODO: Ask before accessing
-        match std::env::var(name) {
-            Ok(secret) => return Ok(secret),
-            Err(std::env::VarError::NotPresent) => {}
-            Err(std::env::VarError::NotUnicode(_)) => {
-                return Err(RunnerError::Makeshift("secret not utf8".into()));
+        match &self.secrets {
+            Secrets::Environment => {
+                // TODO: Ask before accessing
+                match std::env::var(name) {
+                    Ok(secret) => return Ok(secret),
+                    Err(std::env::VarError::NotPresent) => {}
+                    Err(std::env::VarError::NotUnicode(_)) => {
+                        return Err(RunnerError::Makeshift("secret not utf8".into()));
+                    }
+                }
+                match std::fs::read_to_string("secrets.toml") {
+                    Ok(secrets_contents) => {
+                        let toml: toml::Value = toml::from_str(&secrets_contents)
+                            .map_err(|_err| RunnerError::Makeshift("parse secrets.toml".into()))?;
+                        return Ok(toml
+                            .get(name)
+                            .ok_or_else(|| RunnerError::Makeshift("secret is not present".into()))?
+                            .as_str()
+                            .ok_or_else(|| RunnerError::Makeshift("secret is not a string".into()))?
+                            .to_owned());
+                    }
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(err) => {
+                        return Err(RunnerError::MakeshiftIO("open secrets.toml".into(), err));
+                    }
+                }
+                Err(RunnerError::Makeshift(
+                    format!("secret {name:?} not found").into(),
+                ))
             }
+            Secrets::Set(hash_map) => Ok(hash_map
+                .get(name)
+                .ok_or_else(|| RunnerError::Makeshift("secret is not present".into()))?
+                .to_owned()),
         }
-        match std::fs::read_to_string("secrets.toml") {
-            Ok(secrets_contents) => {
-                let toml: toml::Value = toml::from_str(&secrets_contents)
-                    .map_err(|_err| RunnerError::Makeshift("parse secrets.toml".into()))?;
-                return Ok(toml
-                    .get(name)
-                    .ok_or_else(|| RunnerError::Makeshift("secret is not present".into()))?
-                    .as_str()
-                    .ok_or_else(|| RunnerError::Makeshift("secret is not a string".into()))?
-                    .to_owned());
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-            Err(err) => return Err(RunnerError::MakeshiftIO("open secrets.toml".into(), err)),
-        }
-        Err(RunnerError::Makeshift(
-            format!("secret {name:?} not found").into(),
-        ))
     }
 
     fn git_contents(&self, url: &str, commit: &str) -> Result<GeneratedFSArea, RunnerError> {

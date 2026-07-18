@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use alias::Alias as _;
 use anyhow::{Context as _, Result, anyhow};
@@ -211,6 +211,10 @@ impl RepoHostApi for Github {
             .context("update check run")?;
 
         log::info!("Preparing run");
+        let secrets = Repository::get_secrets(&server.db, repository.id)
+            .await
+            .context("get repo secrets")?;
+
         let result_handle = download_and_run(
             &server,
             &installation_client,
@@ -218,6 +222,7 @@ impl RepoHostApi for Github {
             &repository.resource.name,
             run.resource.commit.clone(),
             run.resource.target.clone(),
+            secrets,
         )
         .await;
 
@@ -309,6 +314,7 @@ async fn download_and_run(
     repo: &str,
     sha: String,
     target: String,
+    secrets: HashMap<String, String>,
 ) -> Result<JoinHandle<Result<RunComplete, anyhow::Error>>, anyhow::Error> {
     let server = server.alias();
     let installation_client = installation_client.alias();
@@ -360,7 +366,8 @@ async fn download_and_run(
     log::info!("Prepare run complete");
     #[expect(clippy::unwrap_used)]
     Ok(tokio::task::spawn_blocking(move || {
-        let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
+        let mut driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
+        driver.secrets = rain_core::driver::Secrets::Set(secrets);
         let area = driver
             .create_overlay_area(
                 std::iter::once(root.fsinner().into()),

@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
     });
     server.cleanup_old_runs().await?;
     server.start_server_run_request_worker(rx);
-    info!("listening on {}", listener.local_addr()?);
+    info!("listening on http://{}", listener.local_addr()?);
     let mut join_set = JoinSet::new();
     loop {
         let (stream, addr) = listener.accept().await?;

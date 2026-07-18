@@ -60,6 +60,24 @@ async fn auth(
     State(config): State<Arc<Config>>,
     Extension(session): Extension<session::Session>,
 ) -> Result<impl IntoResponse, AppError> {
+    if config.skip_auth {
+        tracing::warn!("using insecure auth");
+        crate::db::auth_user_session(
+            &db,
+            &session.id,
+            &name,
+            UserDetails {
+                name: "TestUser".into(),
+                email: "test@test.com".into(),
+                login: None,
+                preferred_username: None,
+                avatar_url: None,
+            },
+        )
+        .await
+        .map_err(|err| anyhow::format_err!("auth user session: {err:#}"))?;
+        return Ok(Redirect::to("/"));
+    }
     let auth_provider = crate::db::get_auth_provider(&db, &name).await?;
     let client = Client::new_from_auth_provider(&config.base_url, auth_provider).await?;
     let (auth_url, csrf_token) = client.authorize_url();

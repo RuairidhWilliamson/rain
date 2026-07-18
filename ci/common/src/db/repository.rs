@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 
 use crate::{
@@ -115,6 +117,19 @@ impl Repository {
                 name = self.name,
             ),
         }
+    }
+
+    pub async fn get_secrets(
+        db: &super::Db,
+        repository_id: RepositoryId,
+    ) -> Result<HashMap<String, String>> {
+        let rows = sqlx::query!(
+            "SELECT name, value FROM secrets WHERE repo=$1",
+            repository_id.0
+        )
+        .fetch_all(&db.pool)
+        .await?;
+        Ok(rows.into_iter().map(|s| (s.name, s.value)).collect())
     }
 }
 

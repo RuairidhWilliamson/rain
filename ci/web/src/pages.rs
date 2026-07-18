@@ -10,7 +10,7 @@ use rain_ci_common::{
     db::{
         Db, Resource as _, WithId,
         repository::{Repository, RepositoryId, ResolvedRepository},
-        run::{ResolvedRun, Run, RunId},
+        run::{RepoSecret, ResolvedRun, Run, RunId},
     },
     pagination::{Paginated, Pagination},
 };
@@ -125,6 +125,36 @@ pub async fn repo(
             paged_runs: ResolvedRun::list_in_repo(&db, &page, id)
                 .await
                 .context("list repos")?,
+        }
+        .render()?,
+    ))
+}
+
+pub async fn repo_secrets(
+    auth: AuthUser,
+    Query(page): Query<Pagination>,
+    Path(id): Path<RepositoryId>,
+    State(db): State<Db>,
+) -> Result<Html<String>, AppError> {
+    #[derive(Template)]
+    #[template(path = "repo_secrets.html")]
+    struct RepoSecretsPage {
+        base: Base,
+        repo_id: RepositoryId,
+        repo: ResolvedRepository,
+        pages_repo_secrets: Paginated<RepoSecret>,
+    }
+    Ok(Html(
+        RepoSecretsPage {
+            base: Base::new(auth.user),
+            repo: Repository::get(&db, id)
+                .await
+                .context("get repo")?
+                .resource
+                .resolve(&db)
+                .await?,
+            repo_id: id,
+            pages_repo_secrets: RepoSecret::list_in_repo(&db, &page, id).await?,
         }
         .render()?,
     ))

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use alias::Alias as _;
 use anyhow::{Context as _, Result, anyhow};
@@ -144,6 +144,7 @@ impl Forgejo {
         repo: &str,
         sha: &str,
         target: String,
+        secrets: HashMap<String, String>,
     ) -> Result<JoinHandle<Result<RunComplete, anyhow::Error>>, anyhow::Error> {
         let server = server.alias();
         let download = self
@@ -188,7 +189,8 @@ impl Forgejo {
         log::info!("Prepare run complete");
         #[expect(clippy::unwrap_used)]
         Ok(tokio::task::spawn_blocking(move || {
-            let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
+            let mut driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
+            driver.secrets = rain_core::driver::Secrets::Set(secrets);
             let area = driver
                 .create_overlay_area(
                     std::iter::once(root.fsinner().into()),
@@ -311,6 +313,9 @@ impl RepoHostApi for Forgejo {
             .await?;
 
         log::info!("Preparing run");
+        let secrets = Repository::get_secrets(&server.db, repository.id)
+            .await
+            .context("get repo secrets")?;
 
         let result_handle = self
             .download_and_run(
@@ -319,6 +324,7 @@ impl RepoHostApi for Forgejo {
                 &repository.resource.name,
                 &run.resource.commit,
                 run.resource.target.clone(),
+                secrets,
             )
             .await;
 

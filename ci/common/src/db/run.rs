@@ -312,6 +312,45 @@ impl QueryRun {
     }
 }
 
+pub struct RepoSecret {
+    pub name: String,
+    pub value: String,
+}
+
+impl RepoSecret {
+    pub async fn list_in_repo(
+        db: &super::Db,
+        page: &Pagination,
+        id: RepositoryId,
+    ) -> Result<Paginated<Self>> {
+        let mut tx = db.pool.begin().await?;
+        let per_page = i64::try_from(page.per_page())?;
+        let rows = sqlx::query_as!(
+            Self,
+            r#"
+                SELECT name, value FROM secrets WHERE repo=$1
+                ORDER BY name DESC
+                OFFSET $2 LIMIT $3
+            "#,
+            id.0,
+            page.page_numberz()? * per_page,
+            per_page,
+        )
+        .fetch_all(&mut *tx)
+        .await?;
+        let count_row = sqlx::query!("SELECT COUNT(*) FROM secrets WHERE repo=$1", id.0)
+            .fetch_one(&mut *tx)
+            .await?;
+        tx.rollback().await?;
+        let mut elements = Vec::with_capacity(rows.len());
+        for row in rows {
+            elements.push(row);
+        }
+        let full_count = u64::try_from(count_row.count.unwrap_or_default()).unwrap_or_default();
+        Ok(Paginated::new(elements, full_count, page.per_page(), page))
+    }
+}
+
 pub struct ResolvedRun {
     pub repository: WithId<ResolvedRepository>,
     pub commit: String,
