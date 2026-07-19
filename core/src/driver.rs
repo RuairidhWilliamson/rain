@@ -23,7 +23,7 @@ use rain_lang::{
     },
     driver::{
         CreateAreaOptions, DownloadStatus, DriverTrait, EscapeRunStatus, FSEntryQueryResult,
-        FSTrait, FileMetadata, PathConflicts, RunOptions, RunStatus,
+        FSTrait, FileMetadata, HiddenFiles, PathConflicts, RunOptions, RunStatus,
         monitoring::{Call, MonitoringTrait},
     },
     hash::FileHash,
@@ -124,7 +124,7 @@ impl DriverImpl<'_> {
                     .map_err(|err| RunnerError::MakeshiftIO("copy file".into(), err))?;
             } else if metadata.is_dir() {
                 let walker = ignore::WalkBuilder::new(&path)
-                    .hidden(!options.include_hidden)
+                    .hidden(options.hidden == HiddenFiles::Exclude)
                     .build();
                 let dir_name = path
                     .file_name()
@@ -334,7 +334,6 @@ impl DriverTrait for DriverImpl<'_> {
             self.create_overlay_area(
                 std::iter::once(Dir::root(overlay_area).fsinner()),
                 &CreateAreaOptions {
-                    include_hidden: true,
                     flatten_input_dirs: true,
                     ..Default::default()
                 },
@@ -568,7 +567,7 @@ impl DriverTrait for DriverImpl<'_> {
         let src_path = self.resolve_fs_entry(src.fsinner());
         let dst_path = self.resolve_fs_entry(dst);
         // TODO: Backup old file before overwriting, if it exists
-        let walker = ignore::WalkBuilder::new(&src_path).build();
+        let walker = ignore::WalkBuilder::new(&src_path).hidden(false).build();
         for entry in walker {
             let Ok(entry) = entry else {
                 continue;
@@ -811,7 +810,7 @@ impl DriverTrait for DriverImpl<'_> {
                     .path()
                     .strip_prefix(&input_path)
                     .map_err(|_| RunnerError::Makeshift("strip prefix failed".into()))?;
-                let dest_entry = output_path.join(name).join(rel_dest);
+                let dest_entry = output_path.join(rel_dest);
                 std::fs::create_dir_all(
                     dest_entry
                         .parent()

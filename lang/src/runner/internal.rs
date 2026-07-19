@@ -199,6 +199,7 @@ pub struct InternalCx<'a, 'b, 'c, Driver, Cache> {
 
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
     pub fn call_internal_function(self) -> ResultValue {
+        log::trace!("call {:?} with {:?}", self.func, self.arg_values);
         match self.func {
             InternalFunction::Print => self.print(),
             InternalFunction::Debug => self.debug(),

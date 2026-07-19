@@ -195,7 +195,6 @@ impl Forgejo {
                 .create_overlay_area(
                     std::iter::once(root.fsinner().into()),
                     &CreateAreaOptions {
-                        include_hidden: true,
                         flatten_input_dirs: true,
                         ..Default::default()
                     },

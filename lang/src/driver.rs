@@ -154,9 +154,16 @@ pub struct FileMetadata {
 
 #[derive(Default)]
 pub struct CreateAreaOptions {
-    pub include_hidden: bool,
+    pub hidden: HiddenFiles,
     pub flatten_input_dirs: bool,
     pub conflicts: PathConflicts,
+}
+
+#[derive(Default, PartialEq, Eq)]
+pub enum HiddenFiles {
+    #[default]
+    Include,
+    Exclude,
 }
 
 #[derive(Default)]

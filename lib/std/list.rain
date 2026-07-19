@@ -58,11 +58,17 @@ pub let concat = fn(a: List(Any), b: List(Any)) -> List(Any) {
 }
 
 pub let join = fn(list: List(String), separator: String) -> String {
-	fold("", list, fn(acc: String, x: String) {
+	fold("", list, fn(acc: String, x: String) -> String {
 		if acc != "" {
 			acc = acc + separator
 		}
 		acc = acc + x
 		acc
+	})
+}
+
+pub let last = fn(list: List(Any)) -> Any {
+	fold(unit, list, fn(acc, x) {
+		x
 	})
 }
