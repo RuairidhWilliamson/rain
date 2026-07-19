@@ -2,6 +2,7 @@ use std::{sync::Arc, time::Instant};
 
 use chrono::Utc;
 use indexmap::IndexMap;
+use tracing::{debug, warn};
 
 use crate::{
     driver::{DownloadStatus, DriverTrait, monitoring::Call},
@@ -45,18 +46,18 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 );
                 if let Some(cache_entry) = &cache_entry {
                     let Some(expires) = cache_entry.expires else {
-                        log::debug!("Download cache hit, no expiry");
+                        debug!("Download cache hit, no expiry");
                         return Ok(cache_entry.value.clone());
                     };
                     if expires > Utc::now() {
-                        log::debug!("Download cache hit, not expired");
+                        debug!("Download cache hit, not expired");
                         return Ok(cache_entry.value.clone());
                     }
                     if self.runner.offline {
-                        log::debug!("Download cache hit, expired but offline mode");
+                        debug!("Download cache hit, expired but offline mode");
                         return Ok(cache_entry.value.clone());
                     }
-                    log::debug!("Download cache miss because expired");
+                    debug!("Download cache miss because expired");
                 }
                 if self.runner.offline {
                     return Err(self.caller_cx.nid_err(
@@ -66,7 +67,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         ),
                     ));
                 }
-                log::debug!("Download cache miss");
+                debug!("Download cache miss");
                 let etag: Option<&[u8]> = cache_entry.as_ref().and_then(|e| e.etag.as_deref());
                 let DownloadStatus {
                     ok,
@@ -81,7 +82,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 if !ok && status_code == Some(304) {
                     // Etag matched we can use our cached value!
                     if let Some(cache_entry) = cache_entry {
-                        log::debug!("Download cache etag hit");
+                        debug!("Download cache etag hit");
                         return Ok(cache_entry.value);
                     }
                 }
@@ -99,7 +100,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     m.insert("file".to_owned(), Value::Unit);
                 }
                 if etag.is_none() {
-                    log::warn!("no etag provided for download can result in more cache misses");
+                    warn!("no etag provided for download can result in more cache misses");
                 }
                 let out = Value::Record(Arc::new(RainRecord(m)));
                 self.runner.cache.put(

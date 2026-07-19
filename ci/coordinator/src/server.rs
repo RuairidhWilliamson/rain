@@ -4,13 +4,13 @@ use alias::Alias as _;
 use anyhow::{Context as _, Result};
 use http::{Request, Response};
 use hyper::body::Incoming;
-use log::error;
 use rain_ci_common::db::repository::Repository;
 use rain_ci_common::db::repository_host::{RepoHostKind, RepositoryHost, RepositoryHostId};
 use rain_ci_common::db::run::{FinishedRun, Run, RunId};
 use rain_ci_common::db::{Db, Resource as _};
 use secrecy::ExposeSecret as _;
 use tokio::sync::mpsc::Receiver;
+use tracing::error;
 use url::Url;
 
 use crate::RunRequest;

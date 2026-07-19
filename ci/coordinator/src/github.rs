@@ -6,7 +6,6 @@ use chrono::Utc;
 use http::Request;
 use http_body_util::BodyExt as _;
 use hyper::body::Incoming;
-use log::info;
 use rain_ci_common::{
     db::{
         Resource as _, WithId,
@@ -31,6 +30,7 @@ use rain_lang::{
 };
 use secrecy::ExposeSecret as _;
 use tokio::task::JoinHandle;
+use tracing::{error, info};
 
 use crate::{RunRequest, repo_host::RepoHostApi, runner::RunComplete, server::Server};
 
@@ -210,7 +210,7 @@ impl RepoHostApi for Github {
             .await
             .context("update check run")?;
 
-        log::info!("Preparing run");
+        info!("Preparing run");
         let secrets = Repository::get_secrets(&server.db, repository.id)
             .await
             .context("get repo secrets")?;
@@ -363,7 +363,7 @@ async fn download_and_run(
         .smudge_git_lfs(owner, repo, lfs_entries)
         .await
         .context("smudge git lfs")?;
-    log::info!("Prepare run complete");
+    info!("Prepare run complete");
     #[expect(clippy::unwrap_used)]
     Ok(tokio::task::spawn_blocking(move || {
         let mut driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
@@ -398,17 +398,17 @@ async fn resolve_error(
                     output,
                 })) => (RunStatus::Failure, output),
                 Ok(Err(err)) => {
-                    log::error!("runner error: {err:?}");
+                    error!("runner error: {err:?}");
                     (RunStatus::Failure, String::default())
                 }
                 Err(err) => {
-                    log::error!("runner panicked: {err:?}");
+                    error!("runner panicked: {err:?}");
                     (RunStatus::Failure, String::default())
                 }
             }
         }
         Err(err) => {
-            log::error!("runner download error: {err:?}");
+            error!("runner download error: {err:?}");
             (RunStatus::Failure, String::default())
         }
     }

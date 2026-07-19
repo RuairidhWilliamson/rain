@@ -1,4 +1,5 @@
-use test_log::test;
+use tracing::error;
+use tracing_test::traced_test;
 
 use crate::{
     ast::{Module, Node, error::ParseError},
@@ -15,6 +16,7 @@ fn parse_display_script(src: &str) -> String {
     s.display(src)
 }
 
+#[traced_test]
 #[test]
 fn hello_world() {
     insta::assert_snapshot!(parse_display_script(
@@ -26,6 +28,7 @@ fn hello_world() {
     ));
 }
 
+#[traced_test]
 #[test]
 fn let_declare() {
     insta::assert_snapshot!(parse_display_script(
@@ -36,6 +39,7 @@ fn let_declare() {
     ));
 }
 
+#[traced_test]
 #[test]
 fn fn_call() {
     insta::assert_snapshot!(parse_display_script(
@@ -46,6 +50,7 @@ fn fn_call() {
     ));
 }
 
+#[traced_test]
 #[test]
 fn factorial() {
     insta::assert_snapshot!(parse_display_script(
@@ -68,6 +73,7 @@ fn factorial() {
     ));
 }
 
+#[traced_test]
 #[test]
 fn comment() {
     insta::assert_snapshot!(parse_display_script(
@@ -80,6 +86,7 @@ fn comment() {
     ));
 }
 
+#[traced_test]
 #[test]
 fn pub_fn() {
     insta::assert_snapshot!(parse_display_script(
@@ -89,6 +96,7 @@ fn pub_fn() {
     ));
 }
 
+#[traced_test]
 #[test]
 fn pub_let() {
     insta::assert_snapshot!(parse_display_script(
@@ -98,6 +106,7 @@ fn pub_let() {
     ));
 }
 
+#[traced_test]
 #[test]
 fn let_type_spec() {
     insta::assert_snapshot!(parse_display_script(
@@ -107,6 +116,7 @@ fn let_type_spec() {
     ));
 }
 
+#[traced_test]
 #[test]
 fn fn_type_spec_args() {
     insta::assert_snapshot!(parse_display_script(
@@ -116,6 +126,7 @@ fn fn_type_spec_args() {
     ));
 }
 
+#[traced_test]
 #[test]
 fn list_missing_comma() {
     let src = "let a = [
@@ -128,30 +139,35 @@ fn list_missing_comma() {
     }
 }
 
+#[traced_test]
 #[test]
 fn destructure_single_item() {
     let src = "let {a} = {a = 4}";
     insta::assert_snapshot!(parse_display_script(src));
 }
 
+#[traced_test]
 #[test]
 fn destructure_two_items() {
     let src = "let {a: Integer, b} = {a = 4, b = 6}";
     insta::assert_snapshot!(parse_display_script(src));
 }
 
+#[traced_test]
 #[test]
 fn destructure_list() {
     let src = "let [a: Integer, b] = [4, 6]";
     insta::assert_snapshot!(parse_display_script(src));
 }
 
+#[traced_test]
 #[test]
 fn empty_source() {
     let src = "";
     insta::assert_snapshot!(parse_display_script(src));
 }
 
+#[traced_test]
 #[test]
 fn comment_no_text() {
     let src = "//\0";
@@ -185,131 +201,157 @@ fn parse_display_expr(src: &str) -> String {
     }
 }
 
+#[traced_test]
 #[test]
 fn number_literal() {
     insta::assert_snapshot!(parse_display_expr("4"));
 }
 
+#[traced_test]
 #[test]
 fn false_literal() {
     insta::assert_snapshot!(parse_display_expr("false"));
 }
 
+#[traced_test]
 #[test]
 fn true_literal() {
     insta::assert_snapshot!(parse_display_expr("true"));
 }
 
+#[traced_test]
 #[test]
 fn string_literal() {
     insta::assert_snapshot!(parse_display_expr("\"asldjf\""));
 }
 
+#[traced_test]
 #[test]
 fn number_add() {
     insta::assert_snapshot!(parse_display_expr("1 + 1"));
 }
 
+#[traced_test]
 #[test]
 fn number_add_left_associative() {
     insta::assert_snapshot!(parse_display_expr("1 + 2 + 3"));
 }
 
+#[traced_test]
 #[test]
 fn number_multiply() {
     insta::assert_snapshot!(parse_display_expr("1 * 2"));
 }
 
+#[traced_test]
 #[test]
 fn number_multiply_left_associative() {
     insta::assert_snapshot!(parse_display_expr("1 * 2 * 3"));
 }
 
+#[traced_test]
 #[test]
 fn number_multiply_add_precedence1() {
     insta::assert_snapshot!(parse_display_expr("5 * 2 + 3"));
 }
 
+#[traced_test]
 #[test]
 fn number_multiply_add_precedence2() {
     insta::assert_snapshot!(parse_display_expr("5 + 2 * 3"));
 }
 
+#[traced_test]
 #[test]
 fn number_add_subtract_precedence() {
     insta::assert_snapshot!(parse_display_expr("5 - 2 + 3 - 4"));
 }
 
+#[traced_test]
 #[test]
 fn number_add_subtract_multiply_precedence() {
     insta::assert_snapshot!(parse_display_expr("5 * 2 + 3 - 4"));
 }
 
+#[traced_test]
 #[test]
 fn number_add_subtrace_multiply_divide_precedence() {
     insta::assert_snapshot!(parse_display_expr("1 - 3 / 2 + 4 * 3"));
 }
 
+#[traced_test]
 #[test]
 fn ident_maths() {
     insta::assert_snapshot!(parse_display_expr("a + b - c * d / e"));
 }
 
+#[traced_test]
 #[test]
 fn ident_dot_ident() {
     insta::assert_snapshot!(parse_display_expr("foo.bar"));
 }
 
+#[traced_test]
 #[test]
 fn ident_dot_ident_dot_ident() {
     insta::assert_snapshot!(parse_display_expr("foo.bar.baz"));
 }
 
+#[traced_test]
 #[test]
 fn ident_dot_maths() {
     insta::assert_snapshot!(parse_display_expr("a.b.c + 3 * d.e"));
 }
 
+#[traced_test]
 #[test]
 fn maths_parens1() {
     insta::assert_snapshot!(parse_display_expr("1 - (a + 3) * 4"));
 }
 
+#[traced_test]
 #[test]
 fn maths_parens2() {
     insta::assert_snapshot!(parse_display_expr("(3 - b) * c"));
 }
 
+#[traced_test]
 #[test]
 fn fn_call_no_args() {
     insta::assert_snapshot!(parse_display_expr("foo()"));
 }
 
+#[traced_test]
 #[test]
 fn fn_call_no_args_call_no_args() {
     insta::assert_snapshot!(parse_display_expr("foo()()"));
 }
 
+#[traced_test]
 #[test]
 fn fn_call_no_args_precedence() {
     insta::assert_snapshot!(parse_display_expr("foo.bar()"));
 }
 
+#[traced_test]
 #[test]
 fn fn_call_one_arg() {
     insta::assert_snapshot!(parse_display_expr("foo(1)"));
 }
 
+#[traced_test]
 #[test]
 fn fn_call_two_arg() {
     insta::assert_snapshot!(parse_display_expr("foo(1, 2)"));
 }
 
+#[traced_test]
 #[test]
 fn fn_call_two_arg_trailing_comma() {
     insta::assert_snapshot!(parse_display_expr("foo(1, 2,)"));
 }
 
+#[traced_test]
 #[test]
 fn logical_operators() {
     insta::assert_snapshot!(parse_display_expr(
@@ -317,26 +359,31 @@ fn logical_operators() {
     ));
 }
 
+#[traced_test]
 #[test]
 fn record_constructor() {
     insta::assert_snapshot!(parse_display_expr("{a = 1, b = 2, c = \"ajlsdkf\"}"));
 }
 
+#[traced_test]
 #[test]
 fn record_constructor_nested() {
     insta::assert_snapshot!(parse_display_expr("{a = {b = {c = 5}},}"));
 }
 
+#[traced_test]
 #[test]
 fn record_constructor_nls() {
     insta::assert_snapshot!(parse_display_expr("{\na = b, \n// comment \n c = 4\n}"));
 }
 
+#[traced_test]
 #[test]
 fn list_constructor_nested() {
     insta::assert_snapshot!(parse_display_expr("[a, b, 123, [567, d]]"));
 }
 
+#[traced_test]
 #[test]
 fn list_constructor_nested_nls() {
     insta::assert_snapshot!(parse_display_expr(
@@ -344,6 +391,7 @@ fn list_constructor_nested_nls() {
     ));
 }
 
+#[traced_test]
 #[test]
 fn invalid_exprs() {
     assert!(parse_expr("4.").is_err());
@@ -353,81 +401,96 @@ fn invalid_exprs() {
 
 fn parse_display_module(src: &str) -> Result<(), ErrorLocalSpan<ParseError>> {
     Module::parse(src).map(|m| {
-        log::error!("{}", m.display(src));
+        error!("{}", m.display(src));
     })
 }
 
+#[traced_test]
 #[test]
 fn invalid_scripts() {
     assert!(parse_display_module("let foo = fn() {5 6}").is_err());
     assert!(parse_display_module("let foo = fn() {a b c}").is_err());
 }
 
+#[traced_test]
 #[test]
 fn not_and_operation() {
     insta::assert_snapshot!(parse_display_expr("false && !!!true || !false"));
 }
 
+#[traced_test]
 #[test]
 fn not_paren_operation() {
     insta::assert_snapshot!(parse_display_expr("!(!a || !b)"));
 }
 
+#[traced_test]
 #[test]
 fn not_dot_operation() {
     insta::assert_snapshot!(parse_display_expr("!a.b"));
 }
 
+#[traced_test]
 #[test]
 fn not_or_operation() {
     insta::assert_snapshot!(parse_display_expr("!a || b"));
 }
 
+#[traced_test]
 #[test]
 fn not_not_or_operation() {
     insta::assert_snapshot!(parse_display_expr("!!a || b"));
 }
 
+#[traced_test]
 #[test]
 fn or_not_dot_operation() {
     insta::assert_snapshot!(parse_display_expr("a || !b.c"));
 }
 
+#[traced_test]
 #[test]
 fn not_dot_plus_expr() {
     insta::assert_snapshot!(parse_display_expr("!a.b + d"));
 }
 
+#[traced_test]
 #[test]
 fn plus_not_dot_plus_expr() {
     insta::assert_snapshot!(parse_display_expr("f + !a.b + d"));
 }
 
+#[traced_test]
 #[test]
 fn dot_not_plus_dot_plus_expr() {
     insta::assert_snapshot!(parse_display_expr("a.b + !c + !d.e"));
 }
 
+#[traced_test]
 #[test]
 fn less_than() {
     insta::assert_snapshot!(parse_display_expr("b < c && d > e"));
 }
 
+#[traced_test]
 #[test]
 fn greater_than_eq() {
     insta::assert_snapshot!(parse_display_expr("a >= b"));
 }
 
+#[traced_test]
 #[test]
 fn closure() {
     insta::assert_snapshot!(parse_display_expr("fn () {}"));
 }
 
+#[traced_test]
 #[test]
 fn closure_args() {
     insta::assert_snapshot!(parse_display_expr("fn (a: A, b: B) { 5 }(a, b)"));
 }
 
+#[traced_test]
 #[test]
 fn internal() {
     insta::assert_snapshot!(parse_display_expr("internal._print(42)"));

@@ -31,6 +31,7 @@ use rain_lang::{
 };
 
 use sha2::Digest as _;
+use tracing::debug;
 
 use crate::config::Config;
 
@@ -240,7 +241,7 @@ impl DriverTrait for DriverImpl<'_> {
         let area = self.create_empty_area()?;
         let output_dir = GeneratedDir::root(area.clone());
         let output_dir_path = self.resolve_fs_entry(output_dir.fsinner().into());
-        log::debug!("extract zip {resolved_path:?}");
+        debug!("extract zip {resolved_path:?}");
         let f = std::fs::File::open(resolved_path).map_err(RunnerError::AreaIOError)?;
         let mut zip = zip::read::ZipArchive::new(f)
             .map_err(|err| RunnerError::ExtractError(Box::new(err)))?;
@@ -350,7 +351,7 @@ impl DriverTrait for DriverImpl<'_> {
             cmd.env_clear();
         }
         cmd.envs(env);
-        log::debug!("Running {cmd:?}");
+        debug!("Running {cmd:?}");
         let output = match cmd.output() {
             Ok(output) => output,
             Err(err) => {
@@ -389,7 +390,7 @@ impl DriverTrait for DriverImpl<'_> {
             cmd.env_clear();
         }
         cmd.envs(env);
-        log::debug!("Running {cmd:?}");
+        debug!("Running {cmd:?}");
         let output = match cmd.output() {
             Ok(output) => output,
             Err(err) => {
@@ -424,11 +425,11 @@ impl DriverTrait for DriverImpl<'_> {
         if let Some(etag) = etag {
             request = request.header(http::header::IF_NONE_MATCH, etag);
         }
-        log::debug!("Download {url}");
+        debug!("Download {url}");
         let mut response = request
             .send()
             .map_err(|err| RunnerError::Makeshift(format!("download request: {err:#}").into()))?;
-        log::debug!("Download complete {url} {}", response.status());
+        debug!("Download complete {url} {}", response.status());
         let etag: Option<Vec<u8>> = response
             .headers()
             .get(http::header::ETAG)

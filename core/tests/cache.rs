@@ -20,7 +20,7 @@ use rain_lang::{
         value::{RainInteger, Value},
     },
 };
-use test_log::test;
+use tracing_test::traced_test;
 
 struct CacheTester {
     config: rain_core::config::Config,
@@ -98,6 +98,7 @@ impl Drop for CacheTesterRun<'_> {
     }
 }
 
+#[traced_test]
 #[test]
 fn unchanged_local_file_declaration() {
     let mut tester = CacheTester::new();
@@ -134,6 +135,7 @@ fn unchanged_local_file_declaration() {
     assert_eq!(1, tester.driver.get_counter(&counter_name));
 }
 
+#[traced_test]
 #[test]
 fn modify_local_root() {
     let mut tester = CacheTester::new();
@@ -153,6 +155,7 @@ fn modify_local_root() {
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(6))));
 }
 
+#[traced_test]
 #[test]
 fn modify_local_import() {
     let mut tester = CacheTester::new();
@@ -176,6 +179,7 @@ fn modify_local_import() {
     assert_eq!(value, Value::Integer(Arc::new(RainInteger::from(5))));
 }
 
+#[traced_test]
 #[test]
 fn unchanged_local_import() {
     let mut tester = CacheTester::new();
@@ -230,6 +234,7 @@ fn unchanged_local_import() {
     assert_eq!(2, tester.driver.get_counter(&counter_name));
 }
 
+#[traced_test]
 #[test]
 fn non_capturing_closure_caching() {
     let mut tester = CacheTester::new();
@@ -263,6 +268,7 @@ fn non_capturing_closure_caching() {
     assert_eq!(1, tester.driver.get_counter(&counter_name));
 }
 
+#[traced_test]
 #[test]
 fn capturing_closure_caching() {
     let mut tester = CacheTester::new();
@@ -296,6 +302,7 @@ fn capturing_closure_caching() {
     assert_eq!(1, tester.driver.get_counter(&counter_name));
 }
 
+#[traced_test]
 #[test]
 fn capturing_closure_across_modules_caching() {
     let mut tester = CacheTester::new();

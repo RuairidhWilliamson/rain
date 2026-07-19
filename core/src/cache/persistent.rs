@@ -20,6 +20,7 @@ use rain_lang::{
         value::{ClosureCaptures, RainInteger, RainList, RainRecord, RainTypeId, Value},
     },
 };
+use tracing::{error, info, trace, warn};
 
 use crate::config::Config;
 
@@ -51,7 +52,7 @@ impl PersistCache {
         let serialized = match std::fs::read(path) {
             Ok(serialized) => serialized,
             Err(err) if err.kind() == ErrorKind::NotFound => {
-                log::info!("persistent cache did not exist");
+                info!("persistent cache did not exist");
                 return Err(PersistCacheError::DoesNotExist);
             }
             Err(err) => return Err(err.into()),
@@ -86,12 +87,12 @@ impl PersistCache {
             .iter()
             .filter_map(|(k, e)| {
                 let Some(k) = PersistCacheKey::persist(k, rir) else {
-                    log::trace!("could not persist cache key {k:?}");
+                    trace!("could not persist cache key {k:?}");
                     stats.persist_fails.inc();
                     return None;
                 };
                 let Some(e) = PersistCacheEntry::persist(e, rir) else {
-                    log::trace!("could not persist cache entry {e:?}");
+                    trace!("could not persist cache entry {e:?}");
                     stats.persist_fails.inc();
                     return None;
                 };
@@ -111,12 +112,12 @@ impl PersistCache {
         let mut lru = lru::LruCache::new(super::CACHE_SIZE);
         for (k, e) in self.entries {
             let Some(k) = k.depersist(config, rir) else {
-                log::warn!("could not depersist cache key for {e:?}");
+                warn!("could not depersist cache key for {e:?}");
                 stats.depersist_fails.inc();
                 continue;
             };
             let Some(e) = e.depersist(config, rir) else {
-                log::warn!("could not depersist cache entry");
+                warn!("could not depersist cache entry");
                 stats.depersist_fails.inc();
                 continue;
             };
@@ -272,7 +273,7 @@ impl PersistValue {
                 match rir.insert_module(Some(file), src, ast) {
                     Ok(mid) => Some(Value::Module(mid)),
                     Err(err) => {
-                        log::error!("error loading cached module: {err:?}");
+                        error!("error loading cached module: {err:?}");
                         None
                     }
                 }

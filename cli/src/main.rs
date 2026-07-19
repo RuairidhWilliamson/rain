@@ -11,9 +11,10 @@ use std::path::PathBuf;
 use std::{ffi::OsStr, process::ExitCode};
 
 use clap::{Parser, Subcommand};
-use env_logger::Env;
 use rain_core::config::Config;
 use remote::client::ClientMode;
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::EnvFilter;
 
 fn main() -> ExitCode {
     if fallible_main().is_ok() {
@@ -26,12 +27,21 @@ fn main() -> ExitCode {
 fn fallible_main() -> Result<(), ()> {
     let config = rain_core::config::Config::default();
     if std::env::var_os("RAIN_SERVER").as_deref() == Some(OsStr::new("1")) {
-        env_logger::init_from_env(Env::new().filter_or("RAIN_LOG", "debug"));
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                EnvFilter::builder()
+                    .with_default_directive(LevelFilter::DEBUG.into())
+                    .with_env_var("RAIN_LOG")
+                    .from_env_lossy(),
+            )
+            .init();
         return remote::server::rain_server(config).map_err(|err| {
             eprintln!("rain server error: {err:?}");
         });
     }
-    env_logger::init_from_env(Env::new().filter("RAIN_LOG"));
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_env("RAIN_LOG"))
+        .init();
     ctrlc::set_handler(|| {
         println!("\nCTRL+C pressed");
         std::process::exit(1);

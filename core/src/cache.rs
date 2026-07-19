@@ -23,6 +23,7 @@ use rain_lang::{
         value::{RainTypeId, Value},
     },
 };
+use tracing::{debug, error, info, trace};
 
 const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(10240).expect("cache size must be non zero");
 
@@ -82,7 +83,7 @@ impl CacheGuard {
             return;
         }
         if value != &existing_entry.value {
-            log::error!(
+            error!(
                 "cache violation {key:?}\nexisting cache entry = {existing_entry:?}\nactual value = {value:?}"
             );
         }
@@ -162,36 +163,36 @@ impl CacheTrait for Cache {
         if let Some(entry) = &res {
             for d in entry.deps.iter() {
                 if !d.is_valid(fs, lfhc) {
-                    log::trace!("cache get miss because dep is not valid {key:?} {d:?}");
+                    trace!("cache get miss because dep is not valid {key:?} {d:?}");
                     return None;
                 }
             }
             self.stats.hits.inc();
-            log::trace!("cache get hit {key:?} {:?}", entry.deps);
+            trace!("cache get hit {key:?} {:?}", entry.deps);
         } else {
             self.stats.misses.inc();
-            log::debug!("cache get miss {key:?}");
+            debug!("cache get miss {key:?}");
         }
         res
     }
 
     fn put(&self, key: CacheKey, entry: CacheEntry) {
         if entry.deps.iter().any(|d| !d.is_intra_run_stable()) {
-            log::debug!(
+            debug!(
                 "not caching {key:?} because it has intra run unstable deps {entry_deps:?}",
                 entry_deps = entry.deps
             );
             self.stats.put_fails.inc();
             return;
         }
-        log::trace!("caching {key:?}");
+        trace!("caching {key:?}");
         self.stats.puts.inc();
         self.core.plock().storage.put(key, entry);
     }
 
     fn put_if_slow(&self, key: CacheKey, entry: CacheEntry) {
         if entry.execution_time < self.execution_time_thresold {
-            log::trace!(
+            trace!(
                 "not caching {key:?} because it is too fast {:?}",
                 entry.execution_time,
             );
@@ -279,7 +280,7 @@ impl CacheCore {
         config: &crate::config::Config,
     ) -> std::io::Result<PruneStats> {
         let mut stats = PruneStats { size: 0, errors: 0 };
-        log::info!("Pruning");
+        info!("Pruning");
         let connected = self.get_all_generated_areas();
         for entry in std::fs::read_dir(&config.base_generated_dir)? {
             let entry = entry?;
@@ -294,21 +295,21 @@ impl CacheCore {
             };
             let area = GeneratedFSArea { id };
             if connected.contains(&area) {
-                log::info!("Not Pruning {area:?}");
+                info!("Not Pruning {area:?}");
                 continue;
             }
-            log::info!("Pruning {area:?}");
+            info!("Pruning {area:?}");
             match remove_recursive(&entry.path()) {
                 Ok(s) => {
                     stats.size += s;
                 }
                 Err(err) => {
-                    log::error!("Failed to prune {area:?} because {err}");
+                    error!("Failed to prune {area:?} because {err}");
                     stats.errors += 1;
                 }
             }
         }
-        log::info!("Prune complete");
+        info!("Prune complete");
         Ok(stats)
     }
 }
@@ -357,15 +358,15 @@ fn remove_recursive(path: &Path) -> std::io::Result<u64> {
 fn remove_dir_all_recursive(path: &Path) -> std::io::Result<u64> {
     let mut size = 0;
     let stat = std::fs::symlink_metadata(path)
-        .inspect_err(|err| log::error!("metadata {path:?} error: {err}"))?;
+        .inspect_err(|err| error!("metadata {path:?} error: {err}"))?;
     if stat.is_symlink() {
         std::fs::remove_file(path)?;
         return Ok(0);
     }
     ensure_writable(path, &stat)
-        .inspect_err(|err| log::error!("ensure writable {path:?} error: {err}"))?;
+        .inspect_err(|err| error!("ensure writable {path:?} error: {err}"))?;
     for child in
-        std::fs::read_dir(path).inspect_err(|err| log::error!("read dir {path:?} error: {err}"))?
+        std::fs::read_dir(path).inspect_err(|err| error!("read dir {path:?} error: {err}"))?
     {
         let child = child?;
         let ftype = child.file_type()?;

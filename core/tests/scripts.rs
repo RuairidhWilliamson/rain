@@ -4,7 +4,7 @@ use std::path::Path;
 
 use rain_core::cache::Cache;
 use rain_lang::runner::value::Value;
-use test_log::test;
+use tracing_test::traced_test;
 
 fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
     let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::default());
@@ -20,6 +20,7 @@ fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
 macro_rules! tests {
     ($($name:ident,)*) => {
         $(
+        #[traced_test]
         #[test]
         fn $name() {
             insta::assert_debug_snapshot!(run(concat!("tests/scripts/", stringify!($name), ".rain")).unwrap());

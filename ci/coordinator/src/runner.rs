@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
 use alias::Alias as _;
-use log::{error, info};
 use poison_panic::MutexExt as _;
 use rain_core::{
     cache::{Cache, CacheStats, persistent::PersistCache},
@@ -14,6 +13,7 @@ use rain_lang::{
     driver::DriverTrait as _,
     runner::dep_list::DepList,
 };
+use tracing::{error, info};
 
 #[derive(Clone)]
 pub struct Runner {

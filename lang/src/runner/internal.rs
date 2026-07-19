@@ -19,6 +19,7 @@ use std::{
 use alias::Alias as _;
 use indexmap::IndexMap;
 use num_bigint::BigInt;
+use tracing::{debug, trace};
 
 use crate::{
     afs::{Dir, File, absolute::AbsolutePathBuf, area::FSArea},
@@ -199,7 +200,7 @@ pub struct InternalCx<'a, 'b, 'c, Driver, Cache> {
 
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
     pub fn call_internal_function(self) -> ResultValue {
-        log::trace!("call {:?} with {:?}", self.func, self.arg_values);
+        trace!("call {:?} with {:?}", self.func, self.arg_values);
         match self.func {
             InternalFunction::Print => self.print(),
             InternalFunction::Debug => self.debug(),
@@ -733,7 +734,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn clear_calling_cache_deps(self) -> ResultValue {
         self.no_args()?;
-        log::debug!("cleared deps {:?}", self.caller_cx.deps);
+        debug!("cleared deps {:?}", self.caller_cx.deps);
         self.caller_cx.deps.clear();
         self.deps.push(Dep::MutateDeps);
         Ok(Value::Unit)

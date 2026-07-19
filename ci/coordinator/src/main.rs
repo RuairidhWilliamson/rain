@@ -15,11 +15,11 @@ use hyper_util::{
     server::conn::auto::Builder,
 };
 use ipnet::IpNet;
-use log::{error, info, warn};
 use rain_ci_common::db::{Db, DbConfig, run::RunId};
 use runner::Runner;
 use sqlx::postgres::PgListener;
 use tokio::{sync::mpsc::Sender, task::JoinSet};
+use tracing::{error, info, warn};
 use url::Url;
 
 #[derive(Debug, serde::Deserialize)]
@@ -34,7 +34,7 @@ struct Config {
 #[tokio::main]
 async fn main() -> Result<()> {
     let dotenv_result = dotenvy::dotenv();
-    env_logger::init();
+    tracing_subscriber::fmt().init();
     if let Err(err) = dotenv_result {
         warn!(".env could not be loaded: {err:#}");
     }
@@ -104,7 +104,7 @@ fn start_pg_notify_worker(db: &Db, tx: &Sender<RunRequest>) {
     let tx = tx.clone();
     tokio::spawn(async move {
         if let Err(err) = pg_notify_worker(db, tx).await {
-            log::error!("pg notify worker error: {err}");
+            error!("pg notify worker error: {err}");
         }
     });
 }

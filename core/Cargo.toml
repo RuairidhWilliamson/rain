@@ -22,7 +22,7 @@ http.workspace = true
 ignore = "0.4"
 indexmap.workspace = true
 liblzma = "0.4"
-log.workspace = true
+tracing.workspace = true
 lru = "0.18"
 num-bigint.workspace = true
 poison_panic.path = "../poison_panic"
@@ -40,4 +40,4 @@ zstd = "0.13"
 [dev-dependencies]
 insta.workspace = true
 tempfile.workspace = true
-test-log.workspace = true
+tracing-test.workspace = true

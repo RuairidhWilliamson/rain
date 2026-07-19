@@ -27,6 +27,7 @@ use rain_core::{
         runner::{cache::CacheTrait as _, dep_list::DepList, value::Value},
     },
 };
+use tracing::{error, info};
 
 use crate::remote::msg::{
     Request, RequestTrait, RequestWrapper, RestartReason, ServerMessage,
@@ -73,7 +74,7 @@ impl From<ciborium::de::Error<io::Error>> for Error {
 }
 
 pub fn rain_server(config: Config) -> Result<(), Error> {
-    log::info!("starting cli server");
+    info!("starting cli server");
     let mut s = Server::new(config)?;
     let socket_path = s.config.server_socket_path();
     fs::create_dir_all(socket_path.parent().expect("path parent"))?;
@@ -81,7 +82,7 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
     for stream in l.incoming() {
         match stream {
             Ok(connection) => {
-                log::info!("got a stream {connection:?}");
+                info!("got a stream {connection:?}");
                 let result = ClientHandler {
                     server: &mut s,
                     stream: IpcMsgConnection { connection },
@@ -94,11 +95,11 @@ pub fn rain_server(config: Config) -> Result<(), Error> {
                 }
             }
             Err(err) => {
-                log::error!("unix listener error: {err}");
+                error!("unix listener error: {err}");
             }
         }
     }
-    log::error!("server ended unexpectedly");
+    error!("server ended unexpectedly");
     Ok(())
 }
 
@@ -119,7 +120,7 @@ impl Server {
         let modified_time = exe_stat.modified()?;
         let cache = PersistCache::load(&config.cache_json_path())
             .inspect_err(|err| {
-                log::info!("failed to load persist cache: {err}");
+                info!("failed to load persist cache: {err}");
             })
             .ok();
         Ok(Self {
@@ -192,20 +193,20 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
     pub fn handle_client(mut self) -> Result<(), Error> {
         let RequestWrapper { header, request } = self.stream.receive()?;
         if header.exe != crate::exe::current_exe().ok_or(Error::CurrentExe)? {
-            log::info!("Restarting because exe symlink changed");
+            info!("Restarting because exe symlink changed");
             return self.restart();
         }
         if header.modified_time != self.server.modified_time {
-            log::info!("Restarting because modified time does not match");
+            info!("Restarting because modified time does not match");
             return self.restart();
         }
         if header.config != self.server.config {
-            log::info!("Restarting because config does not match");
+            info!("Restarting because config does not match");
             return self.restart();
         }
-        log::info!("Header {header:?}");
+        info!("Header {header:?}");
         let request: Request = ciborium::from_reader(io::Cursor::new(request))?;
-        log::info!("Request {request:?}");
+        info!("Request {request:?}");
         self.server
             .stats
             .requests_received
@@ -227,7 +228,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
                 .join()
         }) {
             Err(err) => {
-                log::error!("panic during handle request");
+                error!("panic during handle request");
                 self.send_panic()?;
                 panic::resume_unwind(err)
             }
@@ -237,7 +238,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
                     PersistCache::persist(&cache.core.plock(), &cache.stats, &ir);
                 persistent_cache.save(&self.server.config.cache_json_path())?;
                 self.server.cache = Some(persistent_cache);
-                log::info!("cache stats {:#?}", self.server.cache_stats);
+                info!("cache stats {:#?}", self.server.cache_stats);
                 Ok(())
             }
         }
@@ -289,7 +290,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
                 Ok(())
             }
             Request::Shutdown(req) => {
-                log::info!("Goodbye");
+                info!("Goodbye");
                 self.send_response(req, &super::msg::shutdown::Goodbye)?;
                 Err(Error::GracefulExit)
             }
@@ -322,7 +323,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
     }
 
     fn clean(&mut self, cache: &Cache, req: super::msg::clean::CleanRequest) -> Result<(), Error> {
-        log::info!("Cleaning");
+        info!("Cleaning");
         cache.clean();
         let clean_paths = &[
             &self.server.config.base_cache_dir,
@@ -332,22 +333,22 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
         ];
         let mut sizes = HashMap::new();
         for p in clean_paths {
-            log::info!("removing {}", p.display());
+            info!("removing {}", p.display());
             let metadata = match fs::metadata(p) {
                 Err(err) => {
-                    log::error!("failed {}: {err}", p.display());
+                    error!("failed {}: {err}", p.display());
                     continue;
                 }
                 Ok(metadata) => metadata,
             };
             if !metadata.is_dir() {
-                log::error!("failed {} is not a directory", p.display());
+                error!("failed {} is not a directory", p.display());
                 continue;
             }
             let size = remove_recursive(p)?;
             sizes.insert((*p).clone(), size);
         }
-        log::info!("Goodbye");
+        info!("Goodbye");
         self.send_response(req, &super::msg::clean::Cleaned(sizes))?;
         Err(Error::GracefulExit)
     }
@@ -419,7 +420,7 @@ fn run_inner<C: MsgConnection>(
             .plock()
             .send_intermediate(req, &RunProgress::Print(m.to_owned()));
         if let Err(err) = send_result {
-            log::error!("send intermediate print: {err}");
+            error!("send intermediate print: {err}");
         }
     }));
     driver.enter_handler = Some(Box::new(|m| {
@@ -427,7 +428,7 @@ fn run_inner<C: MsgConnection>(
             .plock()
             .send_intermediate(req, &RunProgress::EnterCall(m.to_owned()));
         if let Err(err) = send_result {
-            log::error!("send intermediate enter call: {err}");
+            error!("send intermediate enter call: {err}");
         }
     }));
     driver.exit_handler = Some(Box::new(|m| {
@@ -435,7 +436,7 @@ fn run_inner<C: MsgConnection>(
             .plock()
             .send_intermediate(req, &RunProgress::ExitCall(m.to_owned()));
         if let Err(err) = send_result {
-            log::error!("send intermediate exit call: {err}");
+            error!("send intermediate exit call: {err}");
         }
     }));
     if let Some(host_override) = &req.host_override {

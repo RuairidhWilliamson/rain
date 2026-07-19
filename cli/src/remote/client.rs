@@ -5,6 +5,7 @@ use std::{
 };
 
 use rain_core::config::Config;
+use tracing::{debug, error, info};
 
 use crate::remote::{
     msg::{Request, RequestHeader, RequestTrait, RequestWrapper, RestartReason, ServerMessage},
@@ -74,15 +75,15 @@ where
     let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
     match client_mode {
         ClientMode::ForkProcess => {
-            log::info!("Connecting");
+            info!("Connecting");
             let mut stream = match ruipc::Client::connect(config.server_socket_path()) {
                 Ok(s) => s,
                 Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                    log::info!("No socket at path");
+                    info!("No socket at path");
                     spawn_local_server(config)?
                 }
                 Err(err) if err.kind() == std::io::ErrorKind::ConnectionRefused => {
-                    log::info!("Found stale socket, removing...");
+                    info!("Found stale socket, removing...");
                     std::fs::remove_file(config.server_socket_path())?;
                     spawn_local_server(config)?
                 }
@@ -103,7 +104,7 @@ where
             };
             let mut restart_attempt = 0;
             loop {
-                log::debug!("sending request {req:?}");
+                debug!("sending request {req:?}");
                 ciborium::into_writer(&req, &mut stream)?;
                 loop {
                     let msg: ServerMessage = ciborium::from_reader(&mut stream)?;
@@ -114,13 +115,13 @@ where
                             handle(im);
                         }
                         ServerMessage::ServerPanic => {
-                            log::error!("server panic");
+                            error!("server panic");
                             let panic_path = config.server_panic_path(uuid::Uuid::new_v4());
                             let _ =
                                 std::fs::create_dir_all(panic_path.parent().expect("parent path"));
                             match std::fs::hard_link(config.server_stderr_path(), &panic_path) {
                                 Err(err) => {
-                                    log::error!("failed to hardlink panic: {err}");
+                                    error!("failed to hardlink panic: {err}");
                                     return Err(Error::ServerPanic(Some(
                                         config.server_stderr_path(),
                                     )));
@@ -133,7 +134,7 @@ where
                                 return Err(Error::RestartLoop(reason));
                             }
                             restart_attempt += 1;
-                            log::info!("server requested restart, reason {reason:?}");
+                            info!("server requested restart, reason {reason:?}");
                             stream = spawn_local_server(config)?;
                             break;
                         }
@@ -185,7 +186,7 @@ where
                 let recv_result = rx.recv();
                 match recv_result {
                     Ok(ServerMessage::ServerPanic) => {
-                        log::error!("server panicked");
+                        error!("server panicked");
                         return Err(Error::ServerPanic(None));
                     }
                     Ok(ServerMessage::RestartPls(_restart_reason)) => todo!(),
@@ -195,14 +196,14 @@ where
                         handle(im);
                     }
                     Ok(ServerMessage::Response(response)) => {
-                        log::debug!("waiting for server to finish");
+                        debug!("waiting for server to finish");
                         if let Err(err) = server_thread_handle.join() {
-                            log::error!("server panicked waiting for finish {err:?}");
+                            error!("server panicked waiting for finish {err:?}");
                         }
                         return Ok(ciborium::from_reader(std::io::Cursor::new(response))?);
                     }
                     Err(err) => {
-                        log::error!("channel closed: {err}");
+                        error!("channel closed: {err}");
                         return Err(Error::ChannelClosed);
                     }
                 }
@@ -212,7 +213,7 @@ where
 }
 
 fn spawn_local_server(config: &Config) -> Result<ruipc::Client, Error> {
-    log::info!("Starting server...");
+    info!("Starting server...");
     let p = Command::new(crate::exe::current_exe().ok_or(Error::CurrentExe)?)
         .arg("server")
         .env("RAIN_SERVER", "1")
@@ -220,14 +221,14 @@ fn spawn_local_server(config: &Config) -> Result<ruipc::Client, Error> {
         .stdout(Stdio::null())
         .stderr(create_new_unlink(config.server_stderr_path())?)
         .spawn()?;
-    log::info!("Started {}", p.id());
-    log::info!("waiting for server connection");
+    info!("Started {}", p.id());
+    info!("waiting for server connection");
     let start = Instant::now();
     // Wait for the socket to be created
     for _ in 0..50 {
         match ruipc::Client::connect(config.server_socket_path()) {
             Ok(stream) => {
-                log::info!("connected to server after {:?}", start.elapsed());
+                info!("connected to server after {:?}", start.elapsed());
                 return Ok(stream);
             }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
@@ -238,7 +239,7 @@ fn spawn_local_server(config: &Config) -> Result<ruipc::Client, Error> {
             }
         }
     }
-    log::error!("timeout waiting for server to start");
+    error!("timeout waiting for server to start");
     Err(Error::TimeoutWaitingForServer)
 }
 

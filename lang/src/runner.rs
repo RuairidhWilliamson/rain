@@ -18,6 +18,7 @@ use error::{ErrorTrace, RunnerError, Throwing};
 use indexmap::IndexMap;
 use internal::InternalFunction;
 use regex::Regex;
+use tracing::{error, trace};
 
 use crate::{
     afs::{
@@ -471,7 +472,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     return Ok(v);
                 }
                 let _call = self.driver.call_guard(Call::Internal(*f));
-                log::trace!("internal function call {f:?} {arg_values:?}");
+                trace!("internal function call {f:?} {arg_values:?}");
                 let mut deps = DepList::new();
                 let mut cache_hint = true;
                 let internal_cx = internal::InternalCx {
@@ -646,7 +647,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                 Ok(Value::Boolean(left != right))
             }
             (left, _, right) => {
-                log::error!("invalid binary op usage {left:?} {op:?} {right:?}");
+                error!("invalid binary op usage {left:?} {op:?} {right:?}");
                 Err(cx.err(op.op_span, RunnerError::InvalidBinaryOp))
             }
         }

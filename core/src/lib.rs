@@ -27,6 +27,7 @@ use rain_lang::{
     },
 };
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 type Runner<'a> = rain_lang::runner::Runner<'a, DriverImpl<'a>, cache::Cache>;
 
@@ -222,7 +223,7 @@ pub fn load_cache_or_default(config: &config::Config) -> (cache::Cache, rain_lan
             )
         }
         Err(err) => {
-            log::info!("failed to load persist cache: {err}");
+            info!("failed to load persist cache: {err}");
             (cache::Cache::default(), ir)
         }
     }
