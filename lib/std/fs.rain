@@ -81,3 +81,8 @@ pub let list_files = fn(dir: DirLike) -> List(File) {
 pub let recursive_list_files = fn(dir: DirLike) -> List(File) {
 	internal._glob(dir, "**/*")
 }
+
+pub let create_dir = fn(fs_entries: List(Any), name: String) -> Dir {
+	create_area2(fs_entries)
+	copy_dir(_, name)
+}

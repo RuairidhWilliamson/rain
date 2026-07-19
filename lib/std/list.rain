@@ -2,7 +2,18 @@ let std = import("std.rain")
 let {unit} = std.utils
 let {Any, List, Bool, Integer, String} = std.types
 
-pub let fold = internal._fold
+pub let fold = fn(initial: Any, list: List(Any), f) -> Any {
+	internal._fold(initial, list, f)
+}
+
+pub let fold_enumerate = fn(initial: Any, list: List(Any), func) -> Any {
+	{index, value} = fold({index = 0, value = initial}, list, fn(acc, x) {
+		{index, acc} = acc
+		new_value = func(acc, index, x)
+		{index = index + 1, value = new_value}
+	})
+	value
+}
 
 pub let map = fn(list: List(Any), func) -> List(Any) {
 	fold([], list, fn(acc, x) {
@@ -64,6 +75,27 @@ pub let join = fn(list: List(String), separator: String) -> String {
 		}
 		acc = acc + x
 		acc
+	})
+}
+
+pub let first = head
+pub let head = fn(list: List(Any)) -> Any {
+	fold_enumerate(unit, list, fn(acc, i, v) {
+		if i == 0 {
+			v
+		} else {
+			acc
+		}
+	})
+}
+
+pub let tail = fn(list: List(Any)) -> List(Any) {
+	fold_enumerate([], list, fn(acc, i, v) {
+		if i == 0 {
+			acc
+		} else {
+			acc + [v]
+		}
 	})
 }
 

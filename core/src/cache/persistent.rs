@@ -51,7 +51,7 @@ impl PersistCache {
         let serialized = match std::fs::read(path) {
             Ok(serialized) => serialized,
             Err(err) if err.kind() == ErrorKind::NotFound => {
-                log::debug!("persistent cache did not exist");
+                log::info!("persistent cache did not exist");
                 return Err(PersistCacheError::DoesNotExist);
             }
             Err(err) => return Err(err.into()),
@@ -86,12 +86,12 @@ impl PersistCache {
             .iter()
             .filter_map(|(k, e)| {
                 let Some(k) = PersistCacheKey::persist(k, rir) else {
-                    log::debug!("could not persist cache key {k:?}");
+                    log::trace!("could not persist cache key {k:?}");
                     stats.persist_fails.inc();
                     return None;
                 };
                 let Some(e) = PersistCacheEntry::persist(e, rir) else {
-                    log::debug!("could not persist cache entry {e:?}");
+                    log::trace!("could not persist cache entry {e:?}");
                     stats.persist_fails.inc();
                     return None;
                 };
