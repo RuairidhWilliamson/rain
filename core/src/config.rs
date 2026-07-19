@@ -46,8 +46,8 @@ impl Config {
         }
     }
 
-    pub fn cache_json_path(&self) -> PathBuf {
-        self.base_cache_dir.join("cache.json")
+    pub fn cache_desc_path(&self) -> PathBuf {
+        self.base_cache_dir.join("cache.cbor")
     }
 
     #[cfg(target_family = "unix")]

@@ -49,18 +49,19 @@ pub struct PersistCache {
 
 impl PersistCache {
     pub fn load(path: &Path) -> Result<Self, PersistCacheError> {
-        let serialized = match std::fs::read(path) {
-            Ok(serialized) => serialized,
+        let f = match std::fs::File::open(path) {
+            Ok(f) => f,
             Err(err) if err.kind() == ErrorKind::NotFound => {
                 info!("persistent cache did not exist");
                 return Err(PersistCacheError::DoesNotExist);
             }
             Err(err) => return Err(err.into()),
         };
+        let f = std::io::BufReader::new(f);
         let PersistCacheWrapper {
             format_version,
             inner,
-        }: PersistCacheWrapper = ciborium::from_reader(&serialized[..])?;
+        }: PersistCacheWrapper = ciborium::from_reader(f)?;
         if format_version != FORMAT_VERSION {
             return Err(PersistCacheError::FormatVersionMissmatch);
         }
@@ -77,6 +78,7 @@ impl PersistCache {
         };
         std::fs::create_dir_all(dir_path)?;
         let f = std::fs::File::create(path)?;
+        let f = std::io::BufWriter::new(f);
         ciborium::into_writer(&p, f)?;
         Ok(())
     }

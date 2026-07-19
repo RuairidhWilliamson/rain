@@ -118,7 +118,7 @@ impl Server {
     pub fn new(config: Config) -> Result<Self, Error> {
         let exe_stat = crate::exe::current_exe_metadata().ok_or(Error::CurrentExe)?;
         let modified_time = exe_stat.modified()?;
-        let cache = PersistCache::load(&config.cache_json_path())
+        let cache = PersistCache::load(&config.cache_desc_path())
             .inspect_err(|err| {
                 info!("failed to load persist cache: {err}");
             })
@@ -234,11 +234,13 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
             }
             Ok(Err(err)) => Err(err),
             Ok(Ok(())) => {
+                info!("persisting cache");
                 let persistent_cache =
                     PersistCache::persist(&cache.core.plock(), &cache.stats, &ir);
-                persistent_cache.save(&self.server.config.cache_json_path())?;
+                info!("saving cache");
+                persistent_cache.save(&self.server.config.cache_desc_path())?;
                 self.server.cache = Some(persistent_cache);
-                info!("cache stats {:#?}", self.server.cache_stats);
+                info!("cache stats {:#?}", &cache.stats);
                 Ok(())
             }
         }
@@ -475,6 +477,7 @@ fn run_core(
         Err(err) => return (Err(err), deps),
     };
     let result = rain_core::evaluate_and_call_chain(&mut runner, mid, &mut deps, target, args);
+    info!("evaluate done");
     (
         result.map(|v| match v {
             Value::Unit => String::new(),

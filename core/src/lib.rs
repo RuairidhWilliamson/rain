@@ -210,7 +210,7 @@ pub fn find_main_rain() -> Option<std::path::PathBuf> {
 pub fn load_cache_or_default(config: &config::Config) -> (cache::Cache, rain_lang::ir::Rir) {
     let stats = cache::CacheStats::default();
     let mut ir = rain_lang::ir::Rir::new();
-    match cache::persistent::PersistCache::load(&config.cache_json_path()) {
+    match cache::persistent::PersistCache::load(&config.cache_desc_path()) {
         Ok(p) => {
             let core = p.depersist(config, &stats, &mut ir);
             (

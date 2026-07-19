@@ -196,7 +196,7 @@ where
                         handle(im);
                     }
                     Ok(ServerMessage::Response(response)) => {
-                        debug!("waiting for server to finish");
+                        debug!("waiting for server thread to finish");
                         if let Err(err) = server_thread_handle.join() {
                             error!("server panicked waiting for finish {err:?}");
                         }

@@ -23,7 +23,7 @@ use rain_lang::{
         value::{RainTypeId, Value},
     },
 };
-use tracing::{debug, error, info, trace};
+use tracing::{error, info, trace};
 
 const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(10240).expect("cache size must be non zero");
 
@@ -171,14 +171,14 @@ impl CacheTrait for Cache {
             trace!("cache get hit {key:?} {:?}", entry.deps);
         } else {
             self.stats.misses.inc();
-            debug!("cache get miss {key:?}");
+            trace!("cache get miss {key:?}");
         }
         res
     }
 
     fn put(&self, key: CacheKey, entry: CacheEntry) {
         if entry.deps.iter().any(|d| !d.is_intra_run_stable()) {
-            debug!(
+            trace!(
                 "not caching {key:?} because it has intra run unstable deps {entry_deps:?}",
                 entry_deps = entry.deps
             );
