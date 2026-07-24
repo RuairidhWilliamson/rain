@@ -243,10 +243,12 @@ impl Client {
     }
 
     pub async fn exchange_code(&self, code: AuthorizationCode) -> Result<OAuthToken> {
+        let client =
+            oauth2_reqwest::ReqwestClient::from(Self::http_client(self.certificate.clone())?);
         let token = self
             .oauth
             .exchange_code(code)
-            .request_async(&Self::http_client(self.certificate.clone())?)
+            .request_async(&client)
             .await?;
         Ok(token)
     }
