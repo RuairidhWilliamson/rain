@@ -1,11 +1,9 @@
-FROM alpine AS blender-install
-
 FROM docker.io/rust:1.97-slim
 WORKDIR /usr/rain
 RUN rustup component add rustfmt clippy
 RUN \
   apt-get -qqy update && \
-  apt-get -qqy install libgit2-dev pkg-config libssl-dev curl xz-utils libasound2-dev clang nodejs python3-numpy libxxf86vm1 libxfixes3 libxi6 libx11-6 libxkbcommon0 libgl1 libxrender1 libsm6 && \
+  apt-get -qqy install libgit2-dev pkg-config libssl-dev curl xz-utils libasound2-dev clang nodejs python3-numpy libxxf86vm1 libxfixes3 libxi6 libx11-6 libxkbcommon0 libgl1 libxrender1 libsm6 uuid-runtime && \
   apt-get remove -y --auto-remove
 
 ADD \
