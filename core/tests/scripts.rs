@@ -7,7 +7,10 @@ use rain_lang::runner::value::Value;
 use tracing_test::traced_test;
 
 fn run(path: impl AsRef<Path>) -> Result<Value, ()> {
-    let driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::default());
+    let mut driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::default());
+    driver.print_handler = Some(Box::new(|s: &str| {
+        eprintln!("print: {s}");
+    }));
     let cache = Cache {
         verification: true,
         ..Cache::default()

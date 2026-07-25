@@ -1,8 +1,11 @@
+let stdlib_area = internal._local_area("../../../lib/std")
+let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
+
+let {Integer} = std.types
+
 let main = fn() {
 	[a, b]
 }
-
-let Integer = internal._get_type(0)
 
 let {a, b: Integer} = {a = "4", b = 10}
 let [c, d: Integer] = [10, 11]

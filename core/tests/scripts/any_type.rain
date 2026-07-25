@@ -1,10 +1,8 @@
+let stdlib_area = internal._local_area("../../../lib/std")
+let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
+
 let main = fn() {
 	x
 }
 
-let Bool = internal._get_type(true)
-let Any = fn(v) -> Bool {
-	true
-}
-
-let x: Any = 5
+let x: std.types.Any = 5

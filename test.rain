@@ -45,8 +45,10 @@ let test_import_cache = fn() {
 
 let test_type_check = fn() {
 	a = "abcd"
-	std.assert.not_equal(internal._get_type(a), std.types.Integer)
-	std.assert.equal(internal._get_type(a), std.types.String)
+	std.assert.is_false(internal._try(fn() {
+		std.types.Integer(a)
+	}).success)
+	std.types.String(a)
 }
 
 pub let test_interface = fn() {
@@ -56,7 +58,7 @@ pub let test_interface = fn() {
 		z = std.types.Integer,
 		foo = std.types.String,
 	})
-	std.assert.is_false(std.types.check_type({}, MyInterface))
-	std.assert.is_false(std.types.check_type({x = 1, y = 2, z = 3, foo = 4}, MyInterface))
-	std.assert.is_true(std.types.check_type({x = 1, y = 2, z = 3, foo = "Hi"}, MyInterface))
+	std.assert.is_false(internal._try(fn() {MyInterface({})}).success)
+	std.assert.is_false(internal._try(fn() {MyInterface({x = 1, y = 2, z = 3, foo = 4})}).success)
+	MyInterface({x = 1, y = 2, z = 3, foo = "Hi"})
 }

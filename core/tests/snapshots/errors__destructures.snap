@@ -2,9 +2,11 @@
 source: core/tests/errors.rs
 expression: "run_error(concat! (\"tests/errors/\", stringify! (destructures), \".rain\"))"
 ---
-<hidden>:3:12 main
-<hidden>:4:18
-| 
-| let main = fn() {
-| 	{x: Integer, y: Integer} = {x = 4, y = "6"}
-  	                ^^^^^^^ unrecoverable error: type mismatch, expected [Integer] actual String
+<hidden>:6:12 main
+<hidden>:7:18 main-inner
+<hidden>:39:4 type_constraint_from_concrete-inner
+<hidden>:11:3
+| 	})
+| 	if res.success {
+| 		internal._throw(f"type error for ${res.value}, expected ${expected}")
+  		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ "type error for 6, expected Integer"

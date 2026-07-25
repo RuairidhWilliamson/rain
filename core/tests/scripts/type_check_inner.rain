@@ -1,6 +1,7 @@
-let Integer = internal._get_type(0)
-let String = internal._get_type("")
-let TypeSpec = internal._get_type(String)
+let stdlib_area = internal._local_area("../../../lib/std")
+let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
+
+let {Integer, String, TypeConstraint} = std.types
 
 let main = fn() {
 	[
@@ -9,6 +10,6 @@ let main = fn() {
 	]
 }
 
-let add = fn(T: TypeSpec, x: T, y: T) -> T {
+let add = fn(T: TypeConstraint, x: T, y: T) -> T {
 	x + y
 }

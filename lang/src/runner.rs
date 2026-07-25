@@ -163,6 +163,10 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     .expect("we just put this here")
                     .clone();
                 self.evaluate_type_check(&mut callee_cx, &v, type_spec.type_expr)?;
+                *callee_cx
+                    .args
+                    .get_mut(a.name.contents(&m.src))
+                    .expect("we just put this here") = v;
             }
         }
         let value = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
@@ -512,18 +516,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     ) -> Result<(), ErrorTrace<Throwing>> {
         let type_spec_value = self.evaluate_node(cx, type_spec_nid)?;
         match type_spec_value {
-            Value::Type(expected_type) => {
-                if v.rain_type_id() != expected_type {
-                    return Err(cx.nid_err(
-                        type_spec_nid,
-                        RunnerError::ExpectedType {
-                            actual: v.rain_type_id(),
-                            expected: Cow::Owned(vec![expected_type]),
-                        },
-                    ));
-                }
-                Ok(())
-            }
             Value::Closure(_) => {
                 let result = self.call_function_like(
                     cx,
@@ -532,34 +524,23 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     cx.module.span(type_spec_nid),
                     vec![(type_spec_nid, v.clone())],
                 )?;
-                match result {
-                    Value::Boolean(ok) => {
-                        if !ok {
-                            return Err(cx.nid_err(
-                                type_spec_nid,
-                                RunnerError::ExpectedType {
-                                    actual: v.rain_type_id(),
-                                    // FIXME: We have no way to know what types would work here :(
-                                    expected: Cow::Owned(vec![]),
-                                },
-                            ));
-                        }
-                        Ok(())
-                    }
-                    _ => Err(cx.nid_err(
-                        type_spec_nid,
-                        RunnerError::ExpectedType {
-                            actual: type_spec_value.rain_type_id(),
-                            expected: Cow::Borrowed(&[RainTypeId::Boolean]),
-                        },
-                    )),
-                }
+
+                debug_assert_eq!(
+                    result.rain_type_id(),
+                    RainTypeId::Unit,
+                    "type constraint {:?} {:?}",
+                    cx.module
+                        .span(type_spec_nid)
+                        .contents(cx.module.src.as_ref()),
+                    cx.module.file,
+                );
+                Ok(())
             }
             _ => Err(cx.nid_err(
                 type_spec_nid,
                 RunnerError::ExpectedType {
                     actual: type_spec_value.rain_type_id(),
-                    expected: Cow::Borrowed(&[RainTypeId::Type, RainTypeId::Closure]),
+                    expected: Cow::Borrowed(&[RainTypeId::Closure]),
                 },
             )),
         }
@@ -851,6 +832,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             Value::EscapeFile(f) => Ok(format!("{}", f.0.display())),
             Value::Integer(i) => Ok(i.to_string()),
             Value::Boolean(b) => Ok(b.to_string()),
+            Value::Type(typ) => Ok(typ.to_string()),
             _ => Err(cx.nid_err(
                 nid,
                 RunnerError::ExpectedType {
@@ -866,6 +848,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         RainTypeId::EscapeFile,
                         RainTypeId::Integer,
                         RainTypeId::Boolean,
+                        RainTypeId::Type,
                     ]),
                 },
             )),

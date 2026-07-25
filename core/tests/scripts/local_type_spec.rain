@@ -1,11 +1,14 @@
+let stdlib_area = internal._local_area("../../../lib/std")
+let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
+
+let {Integer} = std.types
+
 let main = fn() {
 	foo = create_foo()
 	foo(5)
 }
 
 let create_foo = fn() {
-	Integer = internal._get_type(0)
-
 	fn(x: Integer) -> Integer {
 		x + 1
 	}
