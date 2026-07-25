@@ -1,6 +1,6 @@
 FROM docker.io/rust:1.97-slim
 WORKDIR /usr/rain
-RUN rustup toolchain install 1.97-x86_64-pc-windows-gnu
+RUN rustup target add x86_64-pc-windows-gnu
 RUN rustup component add rustfmt clippy
 RUN \
   apt-get -qqy update && \
