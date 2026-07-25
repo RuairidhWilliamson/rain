@@ -139,4 +139,6 @@ pub enum RunnerError {
     CheckError(#[from] CheckError),
     #[error("no exec set")]
     NoExec,
+    #[error("invalid regex: {0}")]
+    InvalidRegex(regex::Error),
 }

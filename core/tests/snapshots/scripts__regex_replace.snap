@@ -1,0 +1,7 @@
+---
+source: core/tests/scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (regex_replace), \".rain\")).unwrap()"
+---
+String(
+    "elephant <> <> dog <>",
+)

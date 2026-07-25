@@ -16,3 +16,9 @@ pub let to_string = fn(value: Any) -> String {
 pub let replace = fn(haystack: String, needle: String, replacement: String) -> String {
 	internal._string_replace_all(haystack, needle, replacement)
 }
+
+pub let regex_replace = fn(haystack: String, pattern: String, replacement: String) -> String {
+	internal._regex_replace_f(haystack, pattern, fn(matched) {
+		replacement
+	})
+}

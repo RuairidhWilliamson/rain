@@ -63,4 +63,5 @@ tests! {
     closure_disambiguation,
     // Currently doesn't work correctly
     // create_unique,
+    regex_replace,
 }

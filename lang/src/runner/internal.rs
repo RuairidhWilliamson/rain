@@ -93,6 +93,7 @@ pub enum InternalFunction {
     SplitString,
     StringContains,
     StringReplaceAll,
+    RegexReplaceF,
     Stringify,
     Throw,
     Unit,
@@ -168,6 +169,7 @@ impl InternalFunction {
             "_split_string" => Some(Self::SplitString),
             "_string_contains" => Some(Self::StringContains),
             "_string_replace_all" => Some(Self::StringReplaceAll),
+            "_regex_replace_f" => Some(Self::RegexReplaceF),
             "_stringify" => Some(Self::Stringify),
             "_throw" => Some(Self::Throw),
             "_unit" => Some(Self::Unit),
@@ -266,6 +268,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::Try => self.try_function(),
             InternalFunction::CreateUnique => self.create_unique(),
             InternalFunction::Offline => self.offline(),
+            InternalFunction::RegexReplaceF => self.regex_replace_f(),
         }
     }
 
@@ -662,6 +665,60 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::String(Arc::new(
             haystack.replace(&**needle, replacement),
         )))
+    }
+
+    fn regex_replace_f(self) -> ResultValue {
+        let (haystack, pattern, (func_nid, func_value)) = three_args!(self);
+        let haystack = expect_type!(self, String, haystack);
+        let pattern = expect_type!(self, String, pattern);
+        let re = regex::Regex::new(pattern).map_err(|err| {
+            self.caller_cx
+                .nid_err(self.nid, RunnerError::InvalidRegex(err))
+        })?;
+        let mut err_acc = None;
+        let out = re.replace_all(haystack, |cap: &regex::Captures<'_>| -> String {
+            let matched = Value::String(Arc::new(cap.get_match().as_str().to_owned()));
+            let res = self.runner.call_function_like(
+                self.caller_cx,
+                self.nid,
+                func_value,
+                self.call_span,
+                vec![(func_nid, matched)],
+            );
+            let replacement = match res {
+                Ok(replacement) => replacement,
+                Err(err) => {
+                    if err_acc.is_none() {
+                        err_acc = Some(err);
+                    }
+                    return String::new();
+                }
+            };
+
+            let Value::String(v) = &replacement else {
+                if err_acc.is_none() {
+                    err_acc = Some(self.caller_cx.nid_err(
+                        self.nid,
+                        crate::runner::RunnerError::ExpectedType {
+                            actual: replacement.rain_type_id(),
+                            expected: std::borrow::Cow::Borrowed(&[
+                                crate::runner::value::RainTypeId::String,
+                            ]),
+                        },
+                    ));
+                }
+                return String::new();
+            };
+            debug_assert_eq!(
+                replacement.rain_type_id(),
+                crate::runner::value::RainTypeId::String
+            );
+            v.to_string()
+        });
+        if let Some(err) = err_acc {
+            return Err(err);
+        }
+        Ok(Value::String(Arc::new(out.into_owned())))
     }
 
     fn stringify(self) -> ResultValue {
