@@ -3,141 +3,150 @@ let fold = internal._fold
 
 let concrete_types = internal._concrete_types()
 
-let throw_type = fn() {
-	internal._throw("type error")
-}
-
-let bool_type_checker = fn(old) {
-	fn(v) {
-		if old(v) {
-			v
-		} else {
-			throw_type()
-		}
-	}
-}
-
-pub let check_type = fn(v: Any, type_constraint: Type) -> Any {
-	if get_type(type_constraint) == get_type(Unit) {
-		if get_type(v) == type_constraint {
-			v
-		} else {
-			throw_type()
-		}
+let throw_type = fn(expected, v) {
+	res = internal._try(fn() {
+		internal._stringify(v)
+	})
+	if res.success {
+		internal._throw(f"type error for ${res.value}, expected ${expected}")
 	} else {
-		type_constraint(v)
+		internal._throw(f"type error, expected ${expected}")
 	}
 }
 
-pub let Any = fn(v) { v }
-pub let Never = fn(v) { throw_type() }
+let bool_type_checker = fn(old, expected) -> TypeConstraint {
+	fn(v) {
+		if !old(v) {
+			throw_type(expected, v)
+		}
+	}
+}
 
-// A type constraint is currently equivalent to a type
-pub let TypeConstraint = Type
-pub let Type = bool_type_checker(fn(v) {
-	// A type is either a concrete type or a function
-	get_type(v) == get_type(Unit) || get_type(v) == get_type(Any)
-})
+pub let Any = fn(v) {}
+pub let Never = fn(v) { throw_type("never", v) }
 
-pub let Unit = get_type(internal._unit())
-pub let Bool = get_type(false)
-pub let Integer = get_type(0)
-pub let String = get_type("")
-pub let AnyRecord = get_type({})
-pub let AnyList = get_type([])
+// A type constraint is a function that takes a value and throws or returns nothing
+pub let TypeConstraint = fn(v) {
+	if get_type(v) != get_type(fn() {}) {
+		throw_type("TypeConstraint", v)
+	}
+	// TODO: Check number of arguments, argument type and return type
+}
 
-pub let GeneratedArea = concrete_types.generated_fs_area
-pub let LocalArea = concrete_types.local_fs_area
-pub let Area = Either(GeneratedArea, LocalArea)
-pub let GeneratedFile = concrete_types.generated_file
-pub let GeneratedDir = concrete_types.generated_dir
-pub let LocalFile = concrete_types.local_file
-pub let LocalDir = concrete_types.local_dir
-pub let File = Either(GeneratedFile, LocalFile)
-pub let Dir = Either(GeneratedDir, LocalDir)
-pub let DirLike = Either(Dir, Area)
+let type_constraint_from_concrete = fn(conc) -> TypeConstraint {
+	fn(v) {
+		if get_type(v) != conc {
+			throw_type(conc, v)
+		}
+	}
+}
 
-pub let Either = fn(a: Type, b: Type) -> Type {
+// A type is a concrete type
+// let Type = bool_type_checker(fn(v) {
+// 	get_type(v) == get_type(Unit)
+// }, "Type")
+
+pub let Unit: TypeConstraint = type_constraint_from_concrete(get_type(internal._unit()))
+pub let Bool: TypeConstraint = type_constraint_from_concrete(get_type(false))
+pub let Integer: TypeConstraint = type_constraint_from_concrete(get_type(0))
+pub let String: TypeConstraint = type_constraint_from_concrete(get_type(""))
+pub let AnyRecord: TypeConstraint = type_constraint_from_concrete(get_type({}))
+pub let AnyList: TypeConstraint = type_constraint_from_concrete(get_type([]))
+
+pub let GeneratedArea: TypeConstraint = type_constraint_from_concrete(concrete_types.generated_fs_area)
+pub let LocalArea: TypeConstraint = type_constraint_from_concrete(concrete_types.local_fs_area)
+pub let Area: TypeConstraint = Either(GeneratedArea, LocalArea)
+pub let GeneratedFile: TypeConstraint = type_constraint_from_concrete(concrete_types.generated_file)
+pub let GeneratedDir: TypeConstraint = type_constraint_from_concrete(concrete_types.generated_dir)
+pub let LocalFile: TypeConstraint = type_constraint_from_concrete(concrete_types.local_file)
+pub let LocalDir: TypeConstraint = type_constraint_from_concrete(concrete_types.local_dir)
+pub let File: TypeConstraint = Either(GeneratedFile, LocalFile)
+pub let Dir: TypeConstraint = Either(GeneratedDir, LocalDir)
+pub let DirLike: TypeConstraint = Either(Dir, Area)
+
+pub let Either = fn(a: TypeConstraint, b: TypeConstraint) -> TypeConstraint {
 	Union([a, b])
 }
 
-pub let Union = fn(types: List(Type)) -> Type {
+pub let Union = fn(types: List(TypeConstraint)) -> TypeConstraint {
 	fn(v: Any) {
 		result = fold(false, types, fn(acc, x) {
 			result = internal._try(fn() {
-				check_type(v, x)
+				x(v)
 			})
 			acc || result.success
 		})
-		if result {
-			v
-		} else {
-			throw_type()
+		if !result {
+			throw_type("Union", v)
 		}
 	}
 }
 
 pub let PositiveInteger = bool_type_checker(fn(v: Any) -> Bool {
-	check_type(v, Integer) && v > 0
-})
+	Integer(v)
+	v > 0
+}, "PositiveInteger")
 
 pub let NonPositiveInteger = bool_type_checker(fn(v: Any) -> Bool {
-	check_type(v, Integer) && v <= 0
-})
+	Integer(v)
+	v <= 0
+}, "NonPositiveInteger")
 
 pub let NonNegativeInteger = bool_type_checker(fn(v: Any) -> Bool {
-	check_type(v, Integer) && v >= 0
-})
+	Integer(v)
+	v >= 0
+}, "NonNegativeInteger")
 
 pub let NegativeInteger = bool_type_checker(fn(v: Any) -> Bool {
-	check_type(v, Integer) && v < 0
-})
+	Integer(v)
+	v < 0
+}, "NegativeInteger")
 
-pub let List = fn(inner: Type) -> Type {
-	internal._print(inner)
-	internal._print(bool_type_checker(fn(v: Any) -> Bool {
-		internal._print(get_type(v) == AnyList && fold(true, v, fn(acc, x) {
-			acc && check_type(x, inner)
-		}))
-	}))
-}
-
-pub let Record = fn(inner: Type) -> Type {
-	bool_type_checker(fn(v: Any) -> Bool {
-		get_type(v) == AnyRecord && fold(true, internal._record_keys(v), fn(acc, x) {
-			acc && check_type(internal._index(v, x), inner)
+pub let List = fn(inner: TypeConstraint) -> TypeConstraint {
+	fn(v: Any) {
+		AnyList(v)
+		fold(internal._unit(), v, fn(acc, x) {
+			inner(x)
 		})
-	})
+	}
 }
 
-pub let new_interface = fn(fields: Record(Type)) -> Type {
-	bool_type_checker(fn(v: Any) -> Bool {
-		get_type(v) == AnyRecord && fold(true, internal._record_keys(fields), fn(acc, field_name) {
+pub let Record = fn(inner: TypeConstraint) -> TypeConstraint {
+	fn(v: Any) {
+		AnyRecord(v)
+		fold(internal._unit(), internal._record_keys(v), fn(acc, x) {
+			inner(internal._index(v, x))
+		})
+	}
+}
+
+pub let new_interface = fn(fields: Record(TypeConstraint)) -> TypeConstraint {
+	fn(v: Any) {
+		AnyRecord(v)
+		fold(internal._unit(), internal._record_keys(fields), fn(acc, field_name) {
+			type = internal._index(fields, field_name)
+			result = internal._try(fn() {
+				internal._index(v, field_name)
+			})
+			if !result.success {
+				internal._throw(f"missing field of record: ${field_name}")
+			}
+			type(result.value)
+		})
+	}
+}
+
+pub let new_optional_interface = fn(fields: Record(TypeConstraint)) -> TypeConstraint {
+	fn(v: Any) {
+		AnyRecord(v)
+		fold(internal._unit(), internal._record_keys(fields), fn(acc, field_name) {
 			type = internal._index(fields, field_name)
 			result = internal._try(fn() {
 				internal._index(v, field_name)
 			})
 			if result.success {
-				acc && check_type(result.value, type)
-			} else {
-				false
+				type(result.value)
 			}
 		})
-	})
-}
-
-pub let new_optional_interface = fn(fields: Record(Type)) -> Type {
-	bool_type_checker(fn(v: Any) -> Bool {
-		get_type(v) == AnyRecord && fold(true, internal._record_keys(fields), fn(acc, field_name) {
-			type = internal._index(fields, field_name)
-			result = internal._try(fn() {
-				internal._index(v, field_name)
-			})
-			if result.success {
-				acc && check_type(result.value, type)
-			} else {
-				true
-			}
-		})
-	})
+	}
 }

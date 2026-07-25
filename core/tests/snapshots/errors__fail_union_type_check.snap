@@ -3,8 +3,10 @@ source: core/tests/errors.rs
 expression: "run_error(concat!\n(\"tests/errors/\", stringify! (fail_union_type_check), \".rain\"))"
 ---
 <hidden>:6:12 main
-<hidden>:9:5
-| 	x: Union([String, Integer]) = 6
-| 	y: Union([String, Integer]) = "hi"
-| 	z: Union([String, Integer]) = false
-  	   ^^^^^^^^^^^^^^^^^^^^^^^^ unrecoverable error: type mismatch, expected [] actual Boolean
+<hidden>:9:5 main-inner
+<hidden>:80:4 Union-inner
+<hidden>:11:3
+| 	})
+| 	if res.success {
+| 		internal._throw(f"type error for ${res.value}, expected ${expected}")
+  		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ "type error for false, expected Union"

@@ -157,21 +157,21 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         );
         for a in &closure_declare.args {
             if let Some(type_spec) = &a.type_spec {
-                let mut v = callee_cx
+                let v = callee_cx
                     .args
                     .get(a.name.contents(&m.src))
                     .expect("we just put this here")
                     .clone();
-                self.evaluate_type_check(&mut callee_cx, &mut v, type_spec.type_expr)?;
+                self.evaluate_type_check(&mut callee_cx, &v, type_spec.type_expr)?;
                 *callee_cx
                     .args
                     .get_mut(a.name.contents(&m.src))
                     .expect("we just put this here") = v;
             }
         }
-        let mut value = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
+        let value = self.evaluate_node(&mut callee_cx, closure_declare.block)?;
         if let Some(type_spec) = &closure_declare.return_type {
-            self.evaluate_type_check(&mut callee_cx, &mut value, type_spec.type_expr)?;
+            self.evaluate_type_check(&mut callee_cx, &value, type_spec.type_expr)?;
         }
         cx.propagate_deps(callee_cx.deps.clone());
         guard.put_if_slow(callee_cx.deps, value.clone());
@@ -212,25 +212,25 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         let _call = self
             .driver
             .call_guard(Call::Declaration(declaration_name.to_string()));
-        let mut result = self.evaluate_node(&mut callee_cx, assignment.expr)?;
+        let result = self.evaluate_node(&mut callee_cx, assignment.expr)?;
         let value = match &assignment.name {
             DeclareName::Single(single) => {
                 if let Some(type_spec) = &single.type_spec {
-                    self.evaluate_type_check(&mut callee_cx, &mut result, type_spec.type_expr)?;
+                    self.evaluate_type_check(&mut callee_cx, &result, type_spec.type_expr)?;
                 }
                 result
             }
             DeclareName::NamedDestructure(_) | DeclareName::SequenceDestructure(_) => {
                 let span = m.get_declaration_name_span(id.local_id());
                 let name = span.contents(&m.src);
-                let Some(mut value) = self.evaluate_named_index(cx, &result, span, name)? else {
+                let Some(value) = self.evaluate_named_index(cx, &result, span, name)? else {
                     return Err(cx.nid_err(
                         assignment.expr,
                         RunnerError::IndexKeyNotFound(name.to_owned()),
                     ));
                 };
                 if let Some(type_spec) = m.get_declaration_type_spec(id.local_id()).as_ref() {
-                    self.evaluate_type_check(&mut callee_cx, &mut value, type_spec.type_expr)?;
+                    self.evaluate_type_check(&mut callee_cx, &value, type_spec.type_expr)?;
                 }
                 value
             }
@@ -369,12 +369,12 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     }
 
     fn evaluate_assignment(&mut self, cx: &mut Cx, assignment: &Assignment) -> ResultValue {
-        let mut v = self.evaluate_node(cx, assignment.expr)?;
+        let v = self.evaluate_node(cx, assignment.expr)?;
         match &assignment.name {
             DeclareName::Single(declare_name_single) => {
                 let name = declare_name_single.name.contents(&cx.module.src);
                 if let Some(type_spec) = &declare_name_single.type_spec {
-                    self.evaluate_type_check(cx, &mut v, type_spec.type_expr)?;
+                    self.evaluate_type_check(cx, &v, type_spec.type_expr)?;
                 }
                 cx.locals.insert(name, v);
                 Ok(Value::Unit)
@@ -382,8 +382,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             DeclareName::NamedDestructure(declare_name_destructure) => {
                 for name_element in &declare_name_destructure.elements {
                     let name = name_element.name.contents(&cx.module.src);
-                    let Some(mut value) =
-                        self.evaluate_named_index(cx, &v, name_element.name, name)?
+                    let Some(value) = self.evaluate_named_index(cx, &v, name_element.name, name)?
                     else {
                         return Err(cx.nid_err(
                             assignment.expr,
@@ -392,7 +391,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     };
 
                     if let Some(type_spec) = &name_element.type_spec {
-                        self.evaluate_type_check(cx, &mut value, type_spec.type_expr)?;
+                        self.evaluate_type_check(cx, &value, type_spec.type_expr)?;
                     }
                     cx.locals.insert(name, value);
                 }
@@ -401,7 +400,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             DeclareName::SequenceDestructure(declare_name_destructure) => {
                 for (index, name_element) in declare_name_destructure.elements.iter().enumerate() {
                     let name = name_element.name.contents(&cx.module.src);
-                    let Some(mut value) = Self::evaluate_index(cx, &v, name_element.name, index)?
+                    let Some(value) = Self::evaluate_index(cx, &v, name_element.name, index)?
                     else {
                         return Err(cx.nid_err(
                             assignment.expr,
@@ -410,7 +409,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     };
 
                     if let Some(type_spec) = &name_element.type_spec {
-                        self.evaluate_type_check(cx, &mut value, type_spec.type_expr)?;
+                        self.evaluate_type_check(cx, &value, type_spec.type_expr)?;
                     }
                     cx.locals.insert(name, value);
                 }
@@ -512,23 +511,11 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     fn evaluate_type_check(
         &mut self,
         cx: &mut Cx<'_>,
-        v: &mut Value,
+        v: &Value,
         type_spec_nid: NodeId,
     ) -> Result<(), ErrorTrace<Throwing>> {
         let type_spec_value = self.evaluate_node(cx, type_spec_nid)?;
         match type_spec_value {
-            Value::Type(expected_type) => {
-                if v.rain_type_id() != expected_type {
-                    return Err(cx.nid_err(
-                        type_spec_nid,
-                        RunnerError::ExpectedType {
-                            actual: v.rain_type_id(),
-                            expected: Cow::Owned(vec![expected_type]),
-                        },
-                    ));
-                }
-                Ok(())
-            }
             Value::Closure(_) => {
                 let result = self.call_function_like(
                     cx,
@@ -537,14 +524,23 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     cx.module.span(type_spec_nid),
                     vec![(type_spec_nid, v.clone())],
                 )?;
-                *v = result;
+
+                debug_assert_eq!(
+                    result.rain_type_id(),
+                    RainTypeId::Unit,
+                    "type constraint {:?} {:?}",
+                    cx.module
+                        .span(type_spec_nid)
+                        .contents(cx.module.src.as_ref()),
+                    cx.module.file,
+                );
                 Ok(())
             }
             _ => Err(cx.nid_err(
                 type_spec_nid,
                 RunnerError::ExpectedType {
                     actual: type_spec_value.rain_type_id(),
-                    expected: Cow::Borrowed(&[RainTypeId::Type, RainTypeId::Closure]),
+                    expected: Cow::Borrowed(&[RainTypeId::Closure]),
                 },
             )),
         }
@@ -836,6 +832,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             Value::EscapeFile(f) => Ok(format!("{}", f.0.display())),
             Value::Integer(i) => Ok(i.to_string()),
             Value::Boolean(b) => Ok(b.to_string()),
+            Value::Type(typ) => Ok(typ.to_string()),
             _ => Err(cx.nid_err(
                 nid,
                 RunnerError::ExpectedType {
@@ -851,6 +848,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                         RainTypeId::EscapeFile,
                         RainTypeId::Integer,
                         RainTypeId::Boolean,
+                        RainTypeId::Type,
                     ]),
                 },
             )),

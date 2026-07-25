@@ -6,5 +6,6 @@ let {flatten, map} = std.list
 let main = fn() {
     a = "hi"
     cb = fn(x) {[a, x]}
-    flatten(map(["joe", "susan"], cb))
+    map(["joe", "susan"], cb)
+    flatten(_)
 }
