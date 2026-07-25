@@ -42,6 +42,7 @@ struct Config {
     database_password_file: Option<PathBuf>,
     database_url: Url,
     default_auth: String,
+    #[serde(default)]
     skip_auth: bool,
 }
 
