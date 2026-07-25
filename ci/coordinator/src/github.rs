@@ -6,6 +6,7 @@ use chrono::Utc;
 use http::Request;
 use http_body_util::BodyExt as _;
 use hyper::body::Incoming;
+use jsonwebtoken::EncodingKey;
 use rain_ci_common::{
     db::{
         Resource as _, WithId,
@@ -51,7 +52,7 @@ impl Github {
                     .parse()
                     .context("invalid app id")?,
             ),
-            key: jsonwebtoken::EncodingKey::from_rsa_pem(
+            key: EncodingKey::from_rsa_pem(
                 repository_host
                     .resource
                     .app_key

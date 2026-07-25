@@ -15,6 +15,7 @@ use axum::{
     routing::{get, post},
 };
 use chrono::Utc;
+use jsonwebtoken::EncodingKey;
 use percent_encoding_rfc3986::utf8_percent_encode;
 use rain_ci_common::{
     db::{
@@ -119,7 +120,7 @@ async fn repo_create_run(
                         .parse()
                         .context("invalid app id")?,
                 ),
-                key: jsonwebtoken::EncodingKey::from_rsa_pem(
+                key: EncodingKey::from_rsa_pem(
                     repository_host
                         .app_key
                         .context("no app key")?

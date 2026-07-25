@@ -16,8 +16,8 @@ constant_time_eq = "0.5.0"
 dotenvy.workspace = true
 envy.workspace = true
 forgejo-api.workspace = true
-jsonwebtoken = { version = "10.0.0", default-features = false , features = ["use_pem", "rust_crypto"] }
 oauth2.workspace = true
+jsonwebtoken.workspace = true
 oauth2-reqwest.workspace = true
 rain-ci-common.path = "../common"
 reqwest.workspace = true
