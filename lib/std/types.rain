@@ -22,6 +22,13 @@ let bool_type_checker = fn(old, expected) -> TypeConstraint {
 	}
 }
 
+pub let check_type = fn(v, type_constraint) -> Bool {
+	internal._try(fn() {
+		type_constraint(v)
+	})
+	_.success
+}
+
 pub let Any = fn(v) {}
 pub let Never = fn(v) { throw_type("never", v) }
 
