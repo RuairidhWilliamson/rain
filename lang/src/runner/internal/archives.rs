@@ -10,7 +10,7 @@ use crate::{
         error::RunnerError,
         internal::{
             InternalCx,
-            macros::{expect_type, single_arg, three_args, two_args},
+            macros::{expect_type, unpack_args},
         },
         value::Value,
     },
@@ -19,7 +19,7 @@ use crate::{
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
     pub fn extract_zip(mut self) -> Result<Value> {
         self.add_deps_from_args();
-        let f = self.expect_file(single_arg!(self))?;
+        let f = self.expect_file(unpack_args!(self, 1))?;
         let area = self
             .runner
             .driver
@@ -30,7 +30,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     pub fn extract_gzip(mut self) -> Result<Value> {
         self.add_deps_from_args();
-        let (file, name) = two_args!(self);
+        let (file, name) = unpack_args!(self, 2);
         let file = self.expect_file(file)?;
         let name = expect_type!(self, String, name);
         let area = self
@@ -43,7 +43,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     pub fn extract_xz(mut self) -> Result<Value> {
         self.add_deps_from_args();
-        let (file, name) = two_args!(self);
+        let (file, name) = unpack_args!(self, 2);
         let file = self.expect_file(file)?;
         let name = expect_type!(self, String, name);
         let area = self
@@ -56,7 +56,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     pub fn extract_tar(mut self) -> Result<Value> {
         self.add_deps_from_args();
-        let f = self.expect_file(single_arg!(self))?;
+        let f = self.expect_file(unpack_args!(self, 1))?;
         let area = self
             .runner
             .driver
@@ -67,7 +67,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     pub fn compress_zstd(mut self) -> Result<Value> {
         self.add_deps_from_args();
-        let (file, name, level) = three_args!(self);
+        let (file, name, level) = unpack_args!(self, 3);
         let file = self.expect_file(file)?;
         let name = expect_type!(self, String, name);
         let level = expect_type!(self, Integer, level);
@@ -95,7 +95,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     pub fn extract_zstd(mut self) -> Result<Value> {
         self.add_deps_from_args();
-        let (file, name) = two_args!(self);
+        let (file, name) = unpack_args!(self, 2);
         let file = self.expect_file(file)?;
         let name = expect_type!(self, String, name);
         let area = self
@@ -108,7 +108,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     pub fn create_tar(mut self) -> Result<Value> {
         self.add_deps_from_args();
-        let (dir, name) = two_args!(self);
+        let (dir, name) = unpack_args!(self, 2);
         let dir = self.expect_dir_or_area(dir)?;
         let name = expect_type!(self, String, name);
         Ok(Value::GeneratedFile(Arc::new(
@@ -121,7 +121,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     pub fn compress_gzip(mut self) -> Result<Value> {
         self.add_deps_from_args();
-        let (file, name) = two_args!(self);
+        let (file, name) = unpack_args!(self, 2);
         let file = self.expect_file(file)?;
         let name = expect_type!(self, String, name);
         Ok(Value::GeneratedFile(Arc::new(

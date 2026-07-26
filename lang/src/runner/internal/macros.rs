@@ -1,5 +1,5 @@
-macro_rules! single_arg {
-    ($icx:ident) => {
+macro_rules! unpack_args {
+    ($icx:ident, 1) => {
         match &$icx.arg_values[..] {
             [(arg_nid, arg_value)] => (*arg_nid, arg_value),
             _ => {
@@ -13,10 +13,7 @@ macro_rules! single_arg {
             }
         }
     };
-}
-
-macro_rules! two_args {
-    ($icx:ident) => {
+    ($icx:ident, 2) => {
         match &$icx.arg_values[..] {
             [(arg1_nid, arg1_value), (arg2_nid, arg2_value)] => {
                 ((*arg1_nid, arg1_value), (*arg2_nid, arg2_value))
@@ -32,10 +29,7 @@ macro_rules! two_args {
             }
         }
     };
-}
-
-macro_rules! three_args {
-    ($icx:ident) => {
+    ($icx:ident, 3) => {
         match &$icx.arg_values[..] {
             [
                 (arg1_nid, arg1_value),
@@ -77,6 +71,4 @@ macro_rules! expect_type {
 }
 
 pub(crate) use expect_type;
-pub(crate) use single_arg;
-pub(crate) use three_args;
-pub(crate) use two_args;
+pub(crate) use unpack_args;
