@@ -14,7 +14,7 @@ use crate::{
     },
     driver::{CreateAreaOptions, DriverTrait, FSEntryQueryResult, PathConflicts},
     runner::{
-        Result, ResultValue,
+        Result,
         cache::CacheTrait,
         dep::Dep,
         error::RunnerError,
@@ -96,7 +96,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    pub fn get_file(mut self) -> ResultValue {
+    pub fn get_file(mut self) -> Result<Value> {
         let entry = self.file_area_resolve_path()?;
         match self
             .runner
@@ -115,11 +115,11 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             }
             result => Err(self
                 .caller_cx
-                .nid_err(self.nid, RunnerError::FSQuery(entry, result))),
+                .nid_err(self.nid, RunnerError::FSQuery(Box::new(entry), result))),
         }
     }
 
-    pub fn get_dir(mut self) -> ResultValue {
+    pub fn get_dir(mut self) -> Result<Value> {
         let entry = self.file_area_resolve_path()?;
         match self
             .runner
@@ -136,18 +136,18 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             }
             result => Err(self
                 .caller_cx
-                .nid_err(self.nid, RunnerError::FSQuery(entry, result))),
+                .nid_err(self.nid, RunnerError::FSQuery(Box::new(entry), result))),
         }
     }
 
-    pub fn get_area(mut self) -> ResultValue {
+    pub fn get_area(mut self) -> Result<Value> {
         self.add_deps_from_args();
         *self.cache_hint = false;
         let f = self.expect_file(single_arg!(self))?;
         Ok(f.area().to_owned_area().to_value())
     }
 
-    pub fn sha256(mut self) -> ResultValue {
+    pub fn sha256(mut self) -> Result<Value> {
         self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
 
@@ -163,7 +163,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::String(Arc::new(base16::encode_lower(&hash))))
     }
 
-    pub fn sha512(mut self) -> ResultValue {
+    pub fn sha512(mut self) -> Result<Value> {
         self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
 
@@ -176,7 +176,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         ))))
     }
 
-    pub fn create_area(mut self) -> ResultValue {
+    pub fn create_area(mut self) -> Result<Value> {
         self.add_deps_from_args();
         let ((dirs_nid, dirs_value), flatten_input_dirs, overwrite_conflicts) = three_args!(self);
         let dirs = expect_type!(self, List, (dirs_nid, dirs_value));
@@ -228,7 +228,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(merged_area.to_value())
     }
 
-    pub fn create_write_area(mut self) -> ResultValue {
+    pub fn create_write_area(mut self) -> Result<Value> {
         self.add_deps_from_args();
         // TODO: This probably could be cached but it has some weird behaviour
         self.deps.push(Dep::Uncacheable);
@@ -270,7 +270,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(merged_area.to_value())
     }
 
-    pub fn read_file(mut self) -> ResultValue {
+    pub fn read_file(mut self) -> Result<Value> {
         self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
         Ok(Value::String(Arc::new(
@@ -281,7 +281,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )))
     }
 
-    pub fn create_file(mut self) -> ResultValue {
+    pub fn create_file(mut self) -> Result<Value> {
         self.add_deps_from_args();
         let (contents, name, executable) = three_args!(self);
         let contents = expect_type!(self, String, contents);
@@ -295,7 +295,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )))
     }
 
-    pub fn local_area(self) -> ResultValue {
+    pub fn local_area(self) -> Result<Value> {
         let FileAreaRef::Local(current_area_path) = &self
             .caller_cx
             .module
@@ -325,14 +325,15 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .nid_err(self.nid, RunnerError::AreaIOError(err))
             })? {
             FSEntryQueryResult::Directory => Ok(entry.area().to_owned_area().to_value()),
-            result => Err(self
-                .caller_cx
-                .nid_err(self.nid, RunnerError::FSQuery(entry.into(), result))),
+            result => Err(self.caller_cx.nid_err(
+                self.nid,
+                RunnerError::FSQuery(Box::new(entry.into()), result),
+            )),
         }
     }
 
     #[expect(clippy::too_many_lines)]
-    pub fn export_to_local(mut self) -> ResultValue {
+    pub fn export_to_local(mut self) -> Result<Value> {
         self.add_deps_from_args();
         self.deps.push(Dep::Uncacheable);
         match &self.arg_values[..] {
@@ -497,7 +498,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
     }
 
     #[expect(clippy::too_many_lines)]
-    pub fn check_export_to_local(mut self) -> ResultValue {
+    pub fn check_export_to_local(mut self) -> Result<Value> {
         self.add_deps_from_args();
         match &self.arg_values[..] {
             [(src_nid, src_value), (dst_nid, dst_value)] => {
@@ -617,7 +618,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    pub fn file_metadata(mut self) -> ResultValue {
+    pub fn file_metadata(mut self) -> Result<Value> {
         self.add_deps_from_args();
         let f = self.expect_file(single_arg!(self))?;
         let metadata = self
@@ -633,7 +634,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Record(Arc::new(RainRecord(record))))
     }
 
-    pub fn glob(mut self) -> ResultValue {
+    pub fn glob(mut self) -> Result<Value> {
         self.add_deps_from_args();
         match &self.arg_values[..] {
             [(dir_nid, dir_value)] => {
@@ -661,7 +662,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    pub fn file_name(mut self) -> ResultValue {
+    pub fn file_name(mut self) -> Result<Value> {
         self.add_deps_from_args();
         let file = single_arg!(self);
         let file = self.expect_file(file)?;
@@ -674,7 +675,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::String(Arc::new(name.to_string())))
     }
 
-    pub fn copy_dir(mut self) -> ResultValue {
+    pub fn copy_dir(mut self) -> Result<Value> {
         self.add_deps_from_args();
         let (dir, name) = two_args!(self);
         let dir = self.expect_dir_or_area(dir)?;

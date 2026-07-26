@@ -43,7 +43,6 @@ use crate::{
     },
 };
 
-type ResultValue = Result<Value>;
 type Result<T, E = ErrorTrace<Throwing>> = core::result::Result<T, E>;
 
 /// Runner represents a lifetime of a single run and makes a lot of assumptions around this
@@ -108,7 +107,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         call_span: LocalSpan,
         closure: &Closure,
         arg_values: Vec<Value>,
-    ) -> ResultValue {
+    ) -> Result<Value> {
         if self.no_exec {
             return Err(cx.err(call_span, RunnerError::NoExec));
         }
@@ -179,7 +178,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         Ok(value)
     }
 
-    pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> ResultValue {
+    pub fn evaluate_declaration(&mut self, cx: &mut Cx, id: DeclarationId) -> Result<Value> {
         let m = self.ir.get_module(id.module_id()).alias();
         let span = m.get_declaration_name_span(id.local_id());
         if self.no_exec {
@@ -240,7 +239,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         Ok(value)
     }
 
-    fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> ResultValue {
+    fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> Result<Value> {
         match cx.module.get(nid) {
             Node::Closure(_) => Ok(Self::evaluate_closure_definition(cx, nid)),
             Node::Block(block) => {
@@ -342,7 +341,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         &mut self,
         cx: &mut Cx<'_>,
         lit: &FormatStringLiteral,
-    ) -> ResultValue {
+    ) -> Result<Value> {
         let mut out = String::new();
         let mut start = lit.contents.start;
         for nid in &lit.nodes {
@@ -368,7 +367,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         Ok(Value::String(Arc::new(out)))
     }
 
-    fn evaluate_assignment(&mut self, cx: &mut Cx, assignment: &Assignment) -> ResultValue {
+    fn evaluate_assignment(&mut self, cx: &mut Cx, assignment: &Assignment) -> Result<Value> {
         let v = self.evaluate_node(cx, assignment.expr)?;
         match &assignment.name {
             DeclareName::Single(declare_name_single) => {
@@ -434,7 +433,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         Ok(None)
     }
 
-    fn evaluate_fn_call(&mut self, cx: &mut Cx, nid: NodeId, fn_call: &FnCall) -> ResultValue {
+    fn evaluate_fn_call(&mut self, cx: &mut Cx, nid: NodeId, fn_call: &FnCall) -> Result<Value> {
         let v = self.evaluate_node(cx, fn_call.callee)?;
         let arg_values: Vec<(NodeId, Value)> = fn_call
             .args
@@ -452,7 +451,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         function_value: &Value,
         call_span: LocalSpan,
         arg_values: Vec<(NodeId, Value)>,
-    ) -> ResultValue {
+    ) -> Result<Value> {
         if cx.call_depth >= self.max_call_depth {
             return Err(cx.err(call_span, RunnerError::MaxCallDepth));
         }
@@ -546,7 +545,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         }
     }
 
-    fn evaluate_binary_op(&mut self, cx: &mut Cx, op: &BinaryOp) -> ResultValue {
+    fn evaluate_binary_op(&mut self, cx: &mut Cx, op: &BinaryOp) -> Result<Value> {
         let left = self.evaluate_node(cx, op.left)?;
         let right = self.evaluate_node(cx, op.right)?;
 
@@ -683,7 +682,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         }
     }
 
-    fn evaluate_dot_operator(&mut self, cx: &mut Cx, namespace: &Namespace) -> ResultValue {
+    fn evaluate_dot_operator(&mut self, cx: &mut Cx, namespace: &Namespace) -> Result<Value> {
         let left = self.evaluate_node(cx, namespace.left)?;
         let name_contents = namespace.name.contents(&cx.module.src);
         let Some(value) = self.evaluate_named_index(cx, &left, namespace.name, name_contents)?
@@ -696,7 +695,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         Ok(value)
     }
 
-    fn evaluate_if_condition(&mut self, cx: &mut Cx, if_condition: &IfCondition) -> ResultValue {
+    fn evaluate_if_condition(&mut self, cx: &mut Cx, if_condition: &IfCondition) -> Result<Value> {
         let condition_value = self.evaluate_node(cx, if_condition.condition)?;
         let Value::Boolean(condition_bool) = condition_value else {
             return Err(cx.nid_err(
@@ -720,7 +719,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         }
     }
 
-    fn import_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> ResultValue {
+    fn import_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> Result<Value> {
         let embed_value = self.call_function_like(
             cx,
             nid,
@@ -760,7 +759,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         )
     }
 
-    fn stdlib_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> ResultValue {
+    fn stdlib_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> Result<Value> {
         let embed_value = self.call_function_like(
             cx,
             nid,
@@ -786,7 +785,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
         self.evaluate_declaration(cx, did)
     }
 
-    fn this_file_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> ResultValue {
+    fn this_file_sugar(&mut self, cx: &mut Cx, nid: NodeId, call_span: LocalSpan) -> Result<Value> {
         self.call_function_like(
             cx,
             nid,

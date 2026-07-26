@@ -27,7 +27,7 @@ use crate::{
     driver::DriverTrait,
     local_span::LocalSpan,
     runner::{
-        Result, ResultValue,
+        Result,
         cache::{CacheEntry, CacheKey, CacheTrait},
         cx::Cx,
         dep::Dep,
@@ -203,7 +203,7 @@ pub struct InternalCx<'a, 'b, 'c, Driver, Cache> {
 }
 
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
-    pub fn call_internal_function(self) -> ResultValue {
+    pub fn call_internal_function(self) -> Result<Value> {
         trace!("call {:?} with {:?}", self.func, self.arg_values);
         match self.func {
             InternalFunction::Print => self.print(),
@@ -382,7 +382,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    fn print(self) -> ResultValue {
+    fn print(self) -> Result<Value> {
         self.deps.push(Dep::Print);
         let args: Vec<String> = self
             .arg_values
@@ -399,7 +399,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Unit)
     }
 
-    fn import(mut self) -> ResultValue {
+    fn import(mut self) -> Result<Value> {
         self.add_deps_from_args();
         *self.cache_hint = false;
         let f = self.expect_file(single_arg!(self))?;
@@ -449,7 +449,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(v)
     }
 
-    fn module_file(self) -> ResultValue {
+    fn module_file(self) -> Result<Value> {
         self.deps.push(Dep::CallingModule);
         self.no_args()?;
         Ok(self
@@ -461,7 +461,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .to_value())
     }
 
-    fn escape_bin(self) -> ResultValue {
+    fn escape_bin(self) -> Result<Value> {
         self.check_escape_mode()?;
         self.deps.push(Dep::Escape);
         let name = expect_type!(self, String, single_arg!(self));
@@ -471,13 +471,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::EscapeFile(Arc::new(path)))
     }
 
-    fn unit(self) -> ResultValue {
+    fn unit(self) -> Result<Value> {
         *self.cache_hint = false;
         self.no_args()?;
         Ok(Value::Unit)
     }
 
-    fn throw(self) -> ResultValue {
+    fn throw(self) -> Result<Value> {
         *self.cache_hint = false;
         let (_, err_value) = single_arg!(self);
         Err(self
@@ -489,7 +489,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             .with_trace(self.caller_cx.stacktrace.clone()))
     }
 
-    fn bytes_to_string(self) -> ResultValue {
+    fn bytes_to_string(self) -> Result<Value> {
         let (bytes_nid, bytes_value) = single_arg!(self);
         let list = expect_type!(self, List, (bytes_nid, bytes_value));
         let bytes = list
@@ -511,7 +511,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )?)))
     }
 
-    fn parse_toml(self) -> ResultValue {
+    fn parse_toml(self) -> Result<Value> {
         fn toml_to_rain(v: toml::Value) -> Value {
             match v {
                 toml::Value::String(s) => Value::String(Arc::new(s)),
@@ -538,7 +538,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(toml_to_rain(parsed))
     }
 
-    fn parse_json(self) -> ResultValue {
+    fn parse_json(self) -> Result<Value> {
         fn json_to_rain(v: serde_json::Value) -> Value {
             match v {
                 serde_json::Value::Null => Value::Unit,
@@ -575,7 +575,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(json_to_rain(parsed))
     }
 
-    fn debug(self) -> ResultValue {
+    fn debug(self) -> Result<Value> {
         let (_nid, value) = single_arg!(self);
         let p = if let Value::String(s) = &value {
             s.to_string()
@@ -586,7 +586,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(value.clone())
     }
 
-    fn split_string(self) -> ResultValue {
+    fn split_string(self) -> Result<Value> {
         let (string, sep) = two_args!(self);
         let s = expect_type!(self, String, string);
         let sep = expect_type!(self, String, sep);
@@ -597,7 +597,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         ))))
     }
 
-    fn index(self) -> ResultValue {
+    fn index(self) -> Result<Value> {
         *self.cache_hint = true;
         let ((indexable_nid, indexable_value), (index_nid, index_value)) = two_args!(self);
         match index_value {
@@ -638,7 +638,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    fn host_info(self) -> ResultValue {
+    fn host_info(self) -> Result<Value> {
         self.no_args()?;
         let mut record = IndexMap::new();
         let host_triple = self.runner.driver.host_triple();
@@ -653,14 +653,14 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Record(Arc::new(RainRecord(record))))
     }
 
-    fn string_contains(self) -> ResultValue {
+    fn string_contains(self) -> Result<Value> {
         let (haystack, needle) = two_args!(self);
         let haystack = expect_type!(self, String, haystack);
         let needle = expect_type!(self, String, needle);
         Ok(Value::Boolean(haystack.contains(&**needle)))
     }
 
-    fn string_replace_all(self) -> ResultValue {
+    fn string_replace_all(self) -> Result<Value> {
         let (haystack, needle, replacement) = three_args!(self);
         let haystack = expect_type!(self, String, haystack);
         let needle = expect_type!(self, String, needle);
@@ -670,7 +670,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )))
     }
 
-    fn regex_replace_f(self) -> ResultValue {
+    fn regex_replace_f(self) -> Result<Value> {
         let (haystack, pattern, (func_nid, func_value)) = three_args!(self);
         let haystack = expect_type!(self, String, haystack);
         let pattern = expect_type!(self, String, pattern);
@@ -724,7 +724,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::String(Arc::new(out.into_owned())))
     }
 
-    fn stringify(self) -> ResultValue {
+    fn stringify(self) -> Result<Value> {
         let (nid, value) = single_arg!(self);
         Ok(Value::String(Arc::new(self.runner.stringify_value(
             self.caller_cx,
@@ -733,7 +733,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )?)))
     }
 
-    fn embed(self) -> ResultValue {
+    fn embed(self) -> Result<Value> {
         *self.cache_hint = false;
         self.no_args()?;
         let cache_key = CacheKey::Embed;
@@ -768,13 +768,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(v)
     }
 
-    fn rust_eq(self) -> ResultValue {
+    fn rust_eq(self) -> Result<Value> {
         *self.cache_hint = false;
         let ((_, a), (_, b)) = two_args!(self);
         Ok(Value::Boolean(a == b))
     }
 
-    fn get_secret(self) -> ResultValue {
+    fn get_secret(self) -> Result<Value> {
         let name = expect_type!(self, String, single_arg!(self));
         self.deps.push(Dep::Secret);
         let secret = self
@@ -785,14 +785,14 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::String(Arc::new(secret)))
     }
 
-    fn set_cache_never(self) -> ResultValue {
+    fn set_cache_never(self) -> Result<Value> {
         self.no_args()?;
         self.deps.push(Dep::Uncacheable);
         self.deps.push(Dep::MutateDeps);
         Ok(Value::Unit)
     }
 
-    fn clear_calling_cache_deps(self) -> ResultValue {
+    fn clear_calling_cache_deps(self) -> Result<Value> {
         self.no_args()?;
         debug!("cleared deps {:?}", self.caller_cx.deps);
         self.caller_cx.deps.clear();
@@ -800,7 +800,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Unit)
     }
 
-    fn merge_records(self) -> ResultValue {
+    fn merge_records(self) -> Result<Value> {
         let (record1, record2) = two_args!(self);
         let record1 = expect_type!(self, Record, record1);
         let record2 = expect_type!(self, Record, record2);
@@ -811,7 +811,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Record(Arc::new(out_record)))
     }
 
-    fn parse_target_triple(self) -> ResultValue {
+    fn parse_target_triple(self) -> Result<Value> {
         let triple = expect_type!(self, String, single_arg!(self));
         let triple = match target_lexicon::Triple::from_str(triple) {
             Ok(triple) => triple,
@@ -846,7 +846,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Record(Arc::new(RainRecord(out))))
     }
 
-    fn git_contents(self) -> ResultValue {
+    fn git_contents(self) -> Result<Value> {
         let (url, commit) = two_args!(self);
         let url = expect_type!(self, String, url);
         let commit = expect_type!(self, String, commit);
@@ -858,7 +858,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(area.to_value())
     }
 
-    fn git_lfs_smudge(self) -> ResultValue {
+    fn git_lfs_smudge(self) -> Result<Value> {
         let area = self.expect_fs_area(single_arg!(self))?;
         let new_area = self
             .runner
@@ -868,7 +868,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(new_area.to_value())
     }
 
-    fn env_var(self) -> ResultValue {
+    fn env_var(self) -> Result<Value> {
         self.deps.push(Dep::EnvVar);
         let var_name = expect_type!(self, String, single_arg!(self));
         if let Some(value) = self
@@ -883,7 +883,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    fn copy_file(mut self) -> ResultValue {
+    fn copy_file(mut self) -> Result<Value> {
         self.add_deps_from_args();
         let (file, name, executable) = three_args!(self);
         let file = self.expect_file(file)?;
@@ -897,7 +897,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::GeneratedFile(Arc::new(new_file)))
     }
 
-    fn escape_hard(self) -> ResultValue {
+    fn escape_hard(self) -> Result<Value> {
         self.deps.push(Dep::Escape);
         let file_path = expect_type!(self, String, single_arg!(self));
         Ok(Value::EscapeFile(Arc::new(
@@ -910,13 +910,13 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         )))
     }
 
-    fn get_type(self) -> ResultValue {
+    fn get_type(self) -> Result<Value> {
         *self.cache_hint = false;
         let (_arg_nid, arg_value) = single_arg!(self);
         Ok(Value::Type(arg_value.rain_type_id()))
     }
 
-    fn fold(self) -> ResultValue {
+    fn fold(self) -> Result<Value> {
         let ((initial_nid, initial_value), list, (func_nid, func_value)) = three_args!(self);
         let list = expect_type!(self, List, list);
         let mut acc = initial_value.clone();
@@ -932,7 +932,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(acc)
     }
 
-    fn record_keys(self) -> ResultValue {
+    fn record_keys(self) -> Result<Value> {
         let record = expect_type!(self, Record, single_arg!(self));
         Ok(Value::List(Arc::new(RainList(
             record
@@ -943,7 +943,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         ))))
     }
 
-    fn config(self) -> ResultValue {
+    fn config(self) -> Result<Value> {
         let name = expect_type!(self, String, single_arg!(self));
         match self.runner.driver.config(name.as_str()) {
             Some(v) => Ok(Value::String(v)),
@@ -951,7 +951,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    fn concrete_types(self) -> ResultValue {
+    fn concrete_types(self) -> Result<Value> {
         self.no_args()?;
         let mut map = IndexMap::new();
         map.insert(
@@ -978,14 +978,14 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Record(Arc::new(RainRecord(map))))
     }
 
-    fn inc_counter(self) -> ResultValue {
+    fn inc_counter(self) -> Result<Value> {
         self.deps.push(Dep::Counter);
         let name = expect_type!(self, String, single_arg!(self));
         self.runner.driver.increment_counter(name.alias());
         Ok(Value::Unit)
     }
 
-    fn try_function(self) -> ResultValue {
+    fn try_function(self) -> Result<Value> {
         let (_, func_value) = single_arg!(self);
         let result = self.runner.call_function_like(
             self.caller_cx,
@@ -1011,16 +1011,16 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         Ok(Value::Record(Arc::new(RainRecord(out))))
     }
 
-    fn create_unique(self) -> ResultValue {
+    fn create_unique(self) -> Result<Value> {
         let v = self.runner.next_unique.fetch_add(1, Ordering::Relaxed);
         Ok(Value::Unique(v))
     }
 
-    fn offline(self) -> ResultValue {
+    fn offline(self) -> Result<Value> {
         Ok(Value::Boolean(self.runner.offline))
     }
 
-    fn git_describe(self) -> ResultValue {
+    fn git_describe(self) -> Result<Value> {
         let area = self.expect_fs_area(single_arg!(self))?;
         let describe = match &area {
             FSArea::Local(absolute_path_buf) => self

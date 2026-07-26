@@ -7,7 +7,7 @@ use tracing::{debug, warn};
 use crate::{
     driver::{DownloadStatus, DriverTrait, monitoring::Call},
     runner::{
-        ResultValue,
+        Result,
         cache::{CacheEntry, CacheKey, CacheTrait},
         dep::Dep,
         dep_list::DepList,
@@ -18,7 +18,7 @@ use crate::{
 };
 
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
-    pub fn download(self) -> ResultValue {
+    pub fn download(self) -> Result<Value> {
         self.deps.push(Dep::Download);
         match &self.arg_values[..] {
             [(url_nid, url_value)] => {

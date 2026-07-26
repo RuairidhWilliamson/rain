@@ -11,13 +11,12 @@ use crate::{
 };
 
 use crate::runner::{
-    Result, ResultValue,
-    error::RunnerError,
+    Result, error::RunnerError,
     value::{RainInteger, RainRecord, RainTypeId, Value},
 };
 
 impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cache> {
-    pub fn run(mut self) -> ResultValue {
+    pub fn run(mut self) -> Result<Value> {
         self.add_deps_from_args();
         match &self.arg_values[..] {
             [
@@ -114,7 +113,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
         }
     }
 
-    pub fn escape_run(mut self) -> ResultValue {
+    pub fn escape_run(mut self) -> Result<Value> {
         self.add_deps_from_args();
         self.deps.push(Dep::Escape);
         self.check_escape_mode()?;

@@ -110,7 +110,7 @@ pub enum RunnerError {
     #[error("zip error: {0}")]
     ExtractError(Box<dyn std::error::Error>),
     #[error("fs query path {0} {1}")]
-    FSQuery(FSEntry, FSEntryQueryResult),
+    FSQuery(Box<FSEntry>, FSEntryQueryResult),
     #[error("index out of bounds: {0}")]
     IndexOutOfBounds(RainInteger),
     #[error("index key not found: {0}")]
