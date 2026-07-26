@@ -15,6 +15,6 @@ pub let dirty = fn(area: Area) -> Bool {
 	if res.exists {
 		res.dirty
 	} else {
-		""
+		false
 	}
 }
