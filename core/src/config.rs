@@ -87,9 +87,10 @@ impl FSTrait for Config {
         };
         match &entry.area() {
             FileAreaRef::Local(p) => p.join(rel_path),
-            FileAreaRef::Generated(GeneratedFSArea { id }) => {
-                self.base_generated_dir.join(id.to_string()).join(rel_path)
-            }
+            FileAreaRef::Generated(GeneratedFSArea {
+                id,
+                git_describe: _,
+            }) => self.base_generated_dir.join(id.to_string()).join(rel_path),
         }
     }
 

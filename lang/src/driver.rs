@@ -13,7 +13,11 @@ use crate::{
         absolute::AbsolutePathBuf,
         area::{FSArea, FileAreaRef},
         entry::FSEntryRef,
-        generated::{area::GeneratedFSArea, dir::GeneratedDir, file::GeneratedFile},
+        generated::{
+            area::{GeneratedFSArea, GitDescribe},
+            dir::GeneratedDir,
+            file::GeneratedFile,
+        },
     },
     hash::FileHash,
     runner::error::RunnerError,
@@ -100,6 +104,7 @@ pub trait DriverTrait: monitoring::MonitoringTrait + FSTrait {
     ) -> Result<GeneratedFile, RunnerError>;
     fn extract_zstd(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError>;
     fn config(&self, name: &str) -> Option<Arc<String>>;
+    fn git_describe(&self, path: &AbsolutePathBuf) -> Result<Option<GitDescribe>, RunnerError>;
 }
 
 pub struct RunOptions {

@@ -19,7 +19,9 @@ use rain_lang::{
     afs::{
         Dir, File,
         area::FSArea,
-        generated::{dir::GeneratedDir, entry::GeneratedFSEntry, file::GeneratedFile},
+        generated::{
+            area::GitDescribe, dir::GeneratedDir, entry::GeneratedFSEntry, file::GeneratedFile,
+        },
         path::SealedFilePath,
     },
     driver::{CreateAreaOptions, DriverTrait as _, FSTrait as _},
@@ -151,6 +153,7 @@ impl Forgejo {
             .api
             .repo_get_archive(owner, repo, &format!("{sha}.zip"))
             .await?;
+        let sha = sha.to_string();
         #[expect(clippy::unwrap_used)]
         let (root, lfs_entries) = tokio::task::spawn_blocking(move || {
             let config = rain_core::config::Config::new();
@@ -162,7 +165,11 @@ impl Forgejo {
                 GeneratedFSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
             std::fs::write(driver.resolve_fs_entry((&download_entry).into()), download).unwrap();
             let download = GeneratedFile::new_checked(&driver, download_entry).unwrap();
-            let area = driver.extract_zip(&File::Generated(download)).unwrap();
+            let mut area = driver.extract_zip(&File::Generated(download)).unwrap();
+            area.git_describe = Some(GitDescribe {
+                commit: sha,
+                dirty: false,
+            });
             let mut ls = std::fs::read_dir(
                 driver.resolve_fs_entry(GeneratedDir::root(area.clone()).fsinner().into()),
             )

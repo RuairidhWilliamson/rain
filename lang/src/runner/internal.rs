@@ -105,6 +105,7 @@ pub enum InternalFunction {
     Try,
     CreateUnique,
     Offline,
+    GitDescribe,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -181,6 +182,7 @@ impl InternalFunction {
             "_try" => Some(Self::Try),
             "_create_unique" => Some(Self::CreateUnique),
             "_offline" => Some(Self::Offline),
+            "_git_describe" => Some(Self::GitDescribe),
             _ => None,
         }
     }
@@ -269,6 +271,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::CreateUnique => self.create_unique(),
             InternalFunction::Offline => self.offline(),
             InternalFunction::RegexReplaceF => self.regex_replace_f(),
+            InternalFunction::GitDescribe => self.git_describe(),
         }
     }
 
@@ -1015,5 +1018,26 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
 
     fn offline(self) -> ResultValue {
         Ok(Value::Boolean(self.runner.offline))
+    }
+
+    fn git_describe(self) -> ResultValue {
+        let area = self.expect_fs_area(single_arg!(self))?;
+        let describe = match &area {
+            FSArea::Local(absolute_path_buf) => self
+                .runner
+                .driver
+                .git_describe(absolute_path_buf)
+                .map_err(|err| self.caller_cx.nid_err(self.nid, err))?,
+            FSArea::Generated(generated_fsarea) => generated_fsarea.git_describe.clone(),
+        };
+        let mut out = IndexMap::<String, Value>::new();
+        if let Some(exists) = describe {
+            out.insert("exists".into(), Value::Boolean(true));
+            out.insert("commit".into(), Value::String(Arc::new(exists.commit)));
+            out.insert("dirty".into(), Value::Boolean(exists.dirty));
+        } else {
+            out.insert("exists".into(), Value::Boolean(false));
+        }
+        Ok(Value::Record(Arc::new(RainRecord(out))))
     }
 }

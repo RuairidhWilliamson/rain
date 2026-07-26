@@ -14,7 +14,7 @@ use std::{
 use lru::LruCache;
 use poison_panic::MutexExt as _;
 use rain_lang::{
-    afs::{area::FileAreaRef, generated::area::GeneratedFSArea},
+    afs::area::FileAreaRef,
     driver::FSTrait,
     runner::{
         LocalFileHashCache,
@@ -24,6 +24,7 @@ use rain_lang::{
     },
 };
 use tracing::{error, info, trace};
+use uuid::Uuid;
 
 const CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(10240).expect("cache size must be non zero");
 
@@ -263,12 +264,12 @@ impl CacheCore {
         self.storage.len()
     }
 
-    pub fn get_all_generated_areas(&self) -> HashSet<&GeneratedFSArea> {
+    pub fn get_all_generated_area_ids(&self) -> HashSet<&Uuid> {
         let mut out = HashSet::new();
         for (_, entry) in &self.storage {
             for area in entry.value.find_areas() {
                 if let FileAreaRef::Generated(generated_file_area) = area {
-                    out.insert(generated_file_area);
+                    out.insert(&generated_file_area.id);
                 }
             }
         }
@@ -281,7 +282,7 @@ impl CacheCore {
     ) -> std::io::Result<PruneStats> {
         let mut stats = PruneStats { size: 0, errors: 0 };
         info!("Pruning");
-        let connected = self.get_all_generated_areas();
+        let connected = self.get_all_generated_area_ids();
         for entry in std::fs::read_dir(&config.base_generated_dir)? {
             let entry = entry?;
             if !entry.file_type()?.is_dir() {
@@ -293,18 +294,17 @@ impl CacheCore {
             let Ok(id) = uuid::Uuid::parse_str(&name) else {
                 continue;
             };
-            let area = GeneratedFSArea { id };
-            if connected.contains(&area) {
-                info!("Not Pruning {area:?}");
+            if connected.contains(&id) {
+                info!("Not Pruning {id:?}");
                 continue;
             }
-            info!("Pruning {area:?}");
+            info!("Pruning {id:?}");
             match remove_recursive(&entry.path()) {
                 Ok(s) => {
                     stats.size += s;
                 }
                 Err(err) => {
-                    error!("Failed to prune {area:?} because {err}");
+                    error!("Failed to prune {id:?} because {err}");
                     stats.errors += 1;
                 }
             }

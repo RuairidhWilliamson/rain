@@ -17,7 +17,10 @@ use rain_lang::{
         dir::Dir,
         entry::{FSEntry, FSEntryRef},
         generated::{
-            area::GeneratedFSArea, dir::GeneratedDir, entry::GeneratedFSEntry, file::GeneratedFile,
+            area::{GeneratedFSArea, GitDescribe},
+            dir::GeneratedDir,
+            entry::GeneratedFSEntry,
+            file::GeneratedFile,
         },
         path::SealedFilePath,
     },
@@ -828,6 +831,31 @@ impl DriverTrait for DriverImpl<'_> {
 
     fn config(&self, name: &str) -> Option<Arc<String>> {
         Some(self.custom_config.get(name)?.alias())
+    }
+
+    fn git_describe(&self, path: &AbsolutePathBuf) -> Result<Option<GitDescribe>, RunnerError> {
+        let repo = match git2::Repository::open(&path.0) {
+            Ok(repo) => repo,
+            Err(err) => return Err(RunnerError::Makeshift(format!("git error: {err}").into())),
+        };
+        let head = repo
+            .head()
+            .map_err(|err| RunnerError::Makeshift(format!("git error: repo head: {err}").into()))?;
+        let commit = head
+            .peel_to_commit()
+            .map_err(|err| RunnerError::Makeshift(format!("git error: peel head: {err}").into()))?;
+        let commit = commit.id().to_string();
+        let mut opts = git2::StatusOptions::new();
+        opts.include_untracked(false)
+            .include_ignored(false)
+            .exclude_submodules(true)
+            .renames_head_to_index(true);
+
+        let dirty = repo
+            .statuses(Some(&mut opts))
+            .map(|statuses| !statuses.is_empty())
+            .unwrap_or(false);
+        Ok(Some(GitDescribe { commit, dirty }))
     }
 }
 

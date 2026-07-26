@@ -24,7 +24,9 @@ use rain_lang::{
     afs::{
         Dir, File,
         area::FSArea,
-        generated::{dir::GeneratedDir, entry::GeneratedFSEntry, file::GeneratedFile},
+        generated::{
+            area::GitDescribe, dir::GeneratedDir, entry::GeneratedFSEntry, file::GeneratedFile,
+        },
         path::SealedFilePath,
     },
     driver::{CreateAreaOptions, DriverTrait as _, FSTrait as _},
@@ -337,7 +339,11 @@ async fn download_and_run(
         let raw_tar = driver
             .extract_gzip(&File::Generated(download), "extract_temp.tar")
             .unwrap();
-        let area = driver.extract_tar(&File::Generated(raw_tar)).unwrap();
+        let mut area = driver.extract_tar(&File::Generated(raw_tar)).unwrap();
+        area.git_describe = Some(GitDescribe {
+            commit: sha,
+            dirty: false,
+        });
         let mut ls = std::fs::read_dir(
             driver.resolve_fs_entry(GeneratedDir::root(area.clone()).fsinner().into()),
         )

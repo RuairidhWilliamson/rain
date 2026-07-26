@@ -5,6 +5,7 @@ use crate::runner::value::Value;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct GeneratedFSArea {
     pub id: uuid::Uuid,
+    pub git_describe: Option<GitDescribe>,
 }
 
 impl Default for GeneratedFSArea {
@@ -17,6 +18,7 @@ impl GeneratedFSArea {
     pub fn new() -> Self {
         Self {
             id: uuid::Uuid::new_v4(),
+            git_describe: None,
         }
     }
 
@@ -27,7 +29,16 @@ impl GeneratedFSArea {
 
 impl std::fmt::Display for GeneratedFSArea {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Self { id } = self;
+        let Self {
+            id,
+            git_describe: _,
+        } = self;
         f.write_fmt(format_args!("{id}"))
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct GitDescribe {
+    pub commit: String,
+    pub dirty: bool,
 }
