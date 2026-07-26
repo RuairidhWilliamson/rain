@@ -339,11 +339,7 @@ async fn download_and_run(
         let raw_tar = driver
             .extract_gzip(&File::Generated(download), "extract_temp.tar")
             .unwrap();
-        let mut area = driver.extract_tar(&File::Generated(raw_tar)).unwrap();
-        area.git_describe = Some(GitDescribe {
-            commit: sha,
-            dirty: false,
-        });
+        let area = driver.extract_tar(&File::Generated(raw_tar)).unwrap();
         let mut ls = std::fs::read_dir(
             driver.resolve_fs_entry(GeneratedDir::root(area.clone()).fsinner().into()),
         )
@@ -375,7 +371,7 @@ async fn download_and_run(
     Ok(tokio::task::spawn_blocking(move || {
         let mut driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
         driver.secrets = rain_core::driver::Secrets::Set(secrets);
-        let area = driver
+        let mut area = driver
             .create_overlay_area(
                 std::iter::once(root.fsinner().into()),
                 &CreateAreaOptions {
@@ -384,6 +380,10 @@ async fn download_and_run(
                 },
             )
             .unwrap();
+        area.git_describe = Some(GitDescribe {
+            commit: sha,
+            dirty: false,
+        });
         let run_complete = server.runner.run(&driver, FSArea::Generated(area), &target);
         Ok(run_complete)
     }))

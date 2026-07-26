@@ -165,11 +165,7 @@ impl Forgejo {
                 GeneratedFSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
             std::fs::write(driver.resolve_fs_entry((&download_entry).into()), download).unwrap();
             let download = GeneratedFile::new_checked(&driver, download_entry).unwrap();
-            let mut area = driver.extract_zip(&File::Generated(download)).unwrap();
-            area.git_describe = Some(GitDescribe {
-                commit: sha,
-                dirty: false,
-            });
+            let area = driver.extract_zip(&File::Generated(download)).unwrap();
             let mut ls = std::fs::read_dir(
                 driver.resolve_fs_entry(GeneratedDir::root(area.clone()).fsinner().into()),
             )
@@ -198,7 +194,7 @@ impl Forgejo {
         Ok(tokio::task::spawn_blocking(move || {
             let mut driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
             driver.secrets = rain_core::driver::Secrets::Set(secrets);
-            let area = driver
+            let mut area = driver
                 .create_overlay_area(
                     std::iter::once(root.fsinner().into()),
                     &CreateAreaOptions {
@@ -207,6 +203,10 @@ impl Forgejo {
                     },
                 )
                 .unwrap();
+            area.git_describe = Some(GitDescribe {
+                commit: sha,
+                dirty: false,
+            });
             let run_complete = server.runner.run(&driver, FSArea::Generated(area), &target);
             Ok(run_complete)
         }))
