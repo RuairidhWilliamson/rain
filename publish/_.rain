@@ -11,6 +11,9 @@ let bucket = "rain-e870e063"
 let webhook_url = internal._get_secret("RAIN_PUBLISH_WEBHOOK")
 
 let check_version = fn(version: String) {
+	if std.git.dirty(main.areea) {
+		_throw("git status is dirty")
+	}
 	std.fs.read_file(std.fs.file(main.area, "Cargo.toml"))
 	cargo_workspace_version = parse_toml(_).workspace.package.version
 	if cargo_workspace_version != version {
