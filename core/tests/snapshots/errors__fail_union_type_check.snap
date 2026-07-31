@@ -4,7 +4,7 @@ expression: "run_error(concat!\n(\"tests/errors/\", stringify! (fail_union_type_
 ---
 <hidden>:6:12 main
 <hidden>:9:5 main-inner
-<hidden>:80:4 Union-inner
+<hidden>:87:4 Union-inner
 <hidden>:11:3
 | 	})
 | 	if res.success {
