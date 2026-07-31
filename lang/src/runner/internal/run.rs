@@ -11,7 +11,8 @@ use crate::{
 };
 
 use crate::runner::{
-    Result, error::RunnerError,
+    Result,
+    error::RunnerError,
     value::{RainInteger, RainRecord, RainTypeId, Value},
 };
 
