@@ -1,6 +1,7 @@
 use std::io::{Write as _, stderr};
 
 use rain_core::rain_lang::driver::monitoring::Call;
+use termcolor::{Color, ColorSpec, StandardStream, WriteColor as _};
 
 use crate::{GlobalOptions, ReportMode, remote::msg::run::RunProgress};
 
@@ -31,9 +32,17 @@ pub struct Basic {
 impl Reporter for Basic {
     fn update(&mut self, progress: RunProgress) {
         match progress {
-            RunProgress::Print(s) => eprintln!("{s}"),
+            RunProgress::Print(s) => {
+                let mut stderr = StandardStream::stderr(termcolor::ColorChoice::Auto);
+                let _ = stderr.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(127, 127, 127))));
+                let _ = writeln!(stderr, "{s}");
+                let _ = stderr.reset();
+            }
             RunProgress::EnterCall(Call::Custom(s)) => {
-                eprintln!("{s}");
+                let mut stderr = StandardStream::stderr(termcolor::ColorChoice::Auto);
+                let _ = stderr.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(200, 200, 200))));
+                let _ = writeln!(stderr, "{s}");
+                let _ = stderr.reset();
             }
             _ => {}
         }
