@@ -346,8 +346,7 @@ impl CheckCx<'_, '_> {
                 CheckValue::Unknown
             }
             Node::IfCondition(condition) => {
-                Self::check_node(
-                    self,
+                self.check_node(
                     condition.condition,
                     CheckValue::ExactType(RainTypeId::Boolean),
                 );
@@ -389,11 +388,7 @@ impl CheckCx<'_, '_> {
                         }
                     }
                     DeclareName::SequenceDestructure(declare) => {
-                        Self::check_node(
-                            self,
-                            assignment.expr,
-                            CheckValue::ExactType(RainTypeId::List),
-                        );
+                        self.check_node(assignment.expr, CheckValue::ExactType(RainTypeId::List));
                         for e in &declare.elements {
                             let name = e.name.contents(&self.module.src);
                             if let Some(type_spec) = &e.type_spec {
