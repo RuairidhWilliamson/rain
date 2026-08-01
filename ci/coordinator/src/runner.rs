@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use alias::Alias as _;
 use poison_panic::MutexExt as _;
@@ -8,9 +11,15 @@ use rain_core::{
     driver::DriverImpl,
 };
 use rain_lang::{
-    afs::{File, area::FSArea, entry::FSEntry, path::SealedFilePath},
+    afs::{
+        File,
+        area::FSArea,
+        entry::FSEntry,
+        generated::{area::GitDescribe, dir::GeneratedDir},
+        path::SealedFilePath,
+    },
     ast::Module,
-    driver::DriverTrait as _,
+    driver::{CreateAreaOptions, DriverTrait as _},
     runner::dep_list::DepList,
 };
 use tracing::{error, info};
@@ -35,8 +44,48 @@ impl Runner {
         }
     }
 
+    fn create_driver_for_run(secrets: HashMap<String, String>) -> DriverImpl<'static> {
+        let mut driver = DriverImpl::new(rain_core::config::Config::new());
+        driver.secrets = rain_core::driver::Secrets::Set(secrets);
+        driver
+    }
+
     #[expect(clippy::unwrap_used)]
-    pub fn run(&self, driver: &DriverImpl, area: FSArea, target: &str) -> RunComplete {
+    fn create_area_for_run(
+        root: &GeneratedDir,
+        driver: &DriverImpl,
+        sha: String,
+    ) -> rain_lang::afs::generated::area::GeneratedFSArea {
+        let mut area = driver
+            .create_overlay_area(
+                std::iter::once(root.fsinner().into()),
+                &CreateAreaOptions {
+                    flatten_input_dirs: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        area.git_describe = Some(GitDescribe {
+            commit: sha,
+            dirty: false,
+        });
+        area
+    }
+
+    pub fn run(
+        &self,
+        root: &GeneratedDir,
+        secrets: HashMap<String, String>,
+        sha: String,
+        target: &str,
+    ) -> RunComplete {
+        let driver = Self::create_driver_for_run(secrets);
+        let area = Self::create_area_for_run(root, &driver, sha);
+        self.run_inner(&driver, FSArea::Generated(area), target)
+    }
+
+    #[expect(clippy::unwrap_used)]
+    fn run_inner(&self, driver: &DriverImpl, area: FSArea, target: &str) -> RunComplete {
         let root_entry = FSEntry::new(area, SealedFilePath::new("/main.rain").unwrap());
         info!("Root entry {root_entry}");
         let root = File::new_checked(driver, root_entry).unwrap();

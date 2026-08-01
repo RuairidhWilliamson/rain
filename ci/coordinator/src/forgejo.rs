@@ -15,17 +15,6 @@ use rain_ci_common::db::{
     repository_host::RepositoryHost,
     run::{FinishedRun, Run, RunStatus},
 };
-use rain_lang::{
-    afs::{
-        Dir, File,
-        area::FSArea,
-        generated::{
-            area::GitDescribe, dir::GeneratedDir, entry::GeneratedFSEntry, file::GeneratedFile,
-        },
-        path::SealedFilePath,
-    },
-    driver::{CreateAreaOptions, DriverTrait as _, FSTrait as _},
-};
 use secrecy::ExposeSecret as _;
 use serde::Deserialize;
 use tokio::task::JoinHandle;
@@ -154,61 +143,13 @@ impl Forgejo {
             .repo_get_archive(owner, repo, &format!("{sha}.zip"))
             .await?;
         let sha = sha.to_string();
-        #[expect(clippy::unwrap_used)]
-        let (root, lfs_entries) = tokio::task::spawn_blocking(move || {
-            let config = rain_core::config::Config::new();
-            let driver = rain_core::driver::DriverImpl::new(config);
-            let download_area = driver
-                .create_area(&[], &CreateAreaOptions::default())
-                .unwrap();
-            let download_entry =
-                GeneratedFSEntry::new(download_area, SealedFilePath::new("/download").unwrap());
-            std::fs::write(driver.resolve_fs_entry((&download_entry).into()), download).unwrap();
-            let download = GeneratedFile::new_checked(&driver, download_entry).unwrap();
-            let area = driver.extract_zip(&File::Generated(download)).unwrap();
-            let mut ls = std::fs::read_dir(
-                driver.resolve_fs_entry(GeneratedDir::root(area.clone()).fsinner().into()),
-            )
-            .unwrap();
-            let entry = ls.next().unwrap().unwrap();
-            let download_dir_name = entry.file_name().into_string().unwrap();
-            let download_dir_entry =
-                GeneratedFSEntry::new(area, SealedFilePath::new(&download_dir_name).unwrap());
-            let root = GeneratedDir::new_checked(&driver, download_dir_entry).unwrap();
-            let lfs_entries: Vec<_> = driver
-                .glob(&Dir::Generated(root.clone()), "**/*")
-                .unwrap()
-                .into_iter()
-                .filter_map(|entry| {
-                    let path = driver.resolve_fs_entry(entry.fsinner());
-                    let lfs_object = git_lfs_rs::object::Object::from_path(&path).ok()?;
-                    Some((path, lfs_object))
-                })
-                .collect();
-            (root, lfs_entries)
-        })
-        .await?;
+        let (root, lfs_entries) =
+            tokio::task::spawn_blocking(move || crate::prepare::prepare_ci_run_area_zip(download))
+                .await?;
         self.smudge_git_lfs(owner, repo, lfs_entries).await?;
         info!("Prepare run complete");
-        #[expect(clippy::unwrap_used)]
         Ok(tokio::task::spawn_blocking(move || {
-            let mut driver = rain_core::driver::DriverImpl::new(rain_core::config::Config::new());
-            driver.secrets = rain_core::driver::Secrets::Set(secrets);
-            let mut area = driver
-                .create_overlay_area(
-                    std::iter::once(root.fsinner().into()),
-                    &CreateAreaOptions {
-                        flatten_input_dirs: true,
-                        ..Default::default()
-                    },
-                )
-                .unwrap();
-            area.git_describe = Some(GitDescribe {
-                commit: sha,
-                dirty: false,
-            });
-            let run_complete = server.runner.run(&driver, FSArea::Generated(area), &target);
-            Ok(run_complete)
+            Ok(server.runner.run(&root, secrets, sha, &target))
         }))
     }
 }

@@ -1,5 +1,6 @@
 mod forgejo;
 mod github;
+mod prepare;
 mod repo_host;
 mod runner;
 mod server;
