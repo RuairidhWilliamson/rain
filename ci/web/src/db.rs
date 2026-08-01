@@ -166,6 +166,13 @@ pub async fn request_run(db: &Db, run: RunId) -> Result<()> {
     Ok(())
 }
 
+pub async fn cancel_run(db: &Db, run: RunId) -> Result<()> {
+    sqlx::query!("SELECT pg_notify('cancel_run', $1)", run.0.to_string())
+        .execute(&db.pool)
+        .await?;
+    Ok(())
+}
+
 #[derive(Debug)]
 pub struct AuthProvider {
     pub name: String,

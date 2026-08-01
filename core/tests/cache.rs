@@ -14,6 +14,7 @@ use rain_core::cache::{Cache, persistent::PersistCache};
 use rain_lang::{
     afs::{File, local::file::LocalFile},
     ast::Module,
+    cancellation::Cancellation,
     driver::FSTrait as _,
     runner::{
         dep_list::DepList,
@@ -81,8 +82,12 @@ struct CacheTesterRun<'a> {
 
 impl CacheTesterRun<'_> {
     fn exec(&mut self, target: &str) -> Value {
-        let mut runner =
-            rain_lang::runner::Runner::new(&mut self.ir, &self.cache, &self.tester.driver);
+        let mut runner = rain_lang::runner::Runner::new(
+            &mut self.ir,
+            &self.cache,
+            &self.tester.driver,
+            Cancellation::new(),
+        );
         let mut deps = DepList::new();
         rain_core::evaluate_and_call_chain(&mut runner, self.mid, &mut deps, target, &[]).unwrap()
     }

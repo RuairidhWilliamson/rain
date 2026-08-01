@@ -8,20 +8,23 @@ use rain_ci_common::db::repository::Repository;
 use rain_ci_common::db::repository_host::{RepoHostKind, RepositoryHost, RepositoryHostId};
 use rain_ci_common::db::run::{FinishedRun, Run, RunId};
 use rain_ci_common::db::{Db, Resource as _};
+use rain_lang::cancellation::Cancellation;
 use secrecy::ExposeSecret as _;
+use tokio::sync::Mutex;
 use tokio::sync::mpsc::Receiver;
-use tracing::error;
+use tracing::{error, info, warn};
 use url::Url;
 
-use crate::RunRequest;
 use crate::repo_host::RepoHostApi as _;
 use crate::runner::Runner;
+use crate::{CancelRun, RunRequest};
 
 pub struct Server {
     pub target_url: url::Url,
     pub runner: Runner,
     pub db: Db,
-    pub tx: tokio::sync::mpsc::Sender<RunRequest>,
+    pub run_request: tokio::sync::mpsc::Sender<RunRequest>,
+    pub active_run: Mutex<Option<(RunId, Cancellation)>>,
 }
 
 impl Server {
@@ -34,11 +37,34 @@ impl Server {
         tokio::spawn(async move {
             loop {
                 let Some(check_suite_event) = rx.recv().await else {
-                    error!("server recv channel closed");
+                    error!("server run request recv channel closed");
                     return;
                 };
                 if let Err(err) = server.alias().handle_run_request(check_suite_event).await {
                     error!("handle check suite event: {err}");
+                }
+            }
+        });
+    }
+
+    pub fn start_server_cancel_run_worker(self: &Arc<Self>, mut rx: Receiver<CancelRun>) {
+        let server = self.alias();
+        tokio::spawn(async move {
+            loop {
+                let Some(cancel_run) = rx.recv().await else {
+                    error!("server cancel run recv channel closed");
+                    return;
+                };
+                let active_run = server.active_run.lock().await;
+                let Some((run_id, cancel)) = &*active_run else {
+                    warn!("no active run to cancel");
+                    continue;
+                };
+                if run_id == &cancel_run.run_id {
+                    cancel.cancel();
+                    info!("cancelled active run");
+                } else {
+                    warn!("active run was not cancelled because it did not match the id");
                 }
             }
         });

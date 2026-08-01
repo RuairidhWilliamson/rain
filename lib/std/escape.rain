@@ -22,8 +22,8 @@ pub let bin_or_instruction = fn(name, install_instruction) {
 pub let run = fn(area, bin, args, env) {
 	run_result = internal._escape_run(area, bin, args, env)
 	if !run_result.success {
-		print("Stdout:", run_result.stdout)
-		print("Stderr:", run_result.stderr)
+		print("Stdout:", std.fs.read_file(run_result.stdout))
+		print("Stderr:", std.fs.read_file(run_result.stderr))
 		std.list.map(args, stringify)
 		std.list.join(_, " ")
 		_throw("run failed " + stringify(bin) + " " + _)

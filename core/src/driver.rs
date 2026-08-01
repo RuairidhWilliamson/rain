@@ -2,7 +2,9 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     path::{Path, PathBuf},
+    process::Stdio,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use alias::Alias as _;
@@ -24,6 +26,7 @@ use rain_lang::{
         },
         path::SealedFilePath,
     },
+    cancellation::Cancellation,
     driver::{
         CreateAreaOptions, DownloadStatus, DriverTrait, EscapeRunStatus, FSEntryQueryResult,
         FSTrait, FileMetadata, HiddenFiles, PathConflicts, RunOptions, RunStatus,
@@ -178,6 +181,47 @@ impl DriverImpl<'_> {
         }
         Ok(area)
     }
+
+    fn cmd_status(
+        &self,
+        mut cmd: std::process::Command,
+        cancel: &Cancellation,
+    ) -> Result<(std::process::ExitStatus, GeneratedFile, GeneratedFile), RunnerError> {
+        let pipe_area = self.create_empty_area()?;
+        let stdout = GeneratedFSEntry::new(pipe_area.clone(), SealedFilePath::new("stdout")?);
+        let resolved_path = self.resolve_fs_entry((&stdout).into());
+        cmd.stdout(Stdio::from(
+            std::fs::File::create(&resolved_path).map_err(RunnerError::AreaIOError)?,
+        ));
+        let stderr = GeneratedFSEntry::new(pipe_area, SealedFilePath::new("stderr")?);
+        let resolved_path = self.resolve_fs_entry((&stderr).into());
+        cmd.stderr(Stdio::from(
+            std::fs::File::create(&resolved_path).map_err(RunnerError::AreaIOError)?,
+        ));
+        let mut child = cmd.spawn().map_err(RunnerError::AreaIOError)?;
+        let mut sleep_duration = Duration::from_millis(10);
+
+        // FIXME: Replace this polling with something better
+        let status = loop {
+            if let Some(status) = child.try_wait().map_err(RunnerError::AreaIOError)? {
+                break status;
+            }
+            if cancel.is_cancelled() {
+                if let Err(err) = child.kill() {
+                    tracing::error!("failed to kill child process {child:?}: {err}");
+                } else {
+                    tracing::info!("killed child process {child:?}");
+                }
+                return Err(RunnerError::Cancelled);
+            }
+            std::thread::sleep(sleep_duration);
+            sleep_duration *= 2;
+            sleep_duration = sleep_duration.min(Duration::from_secs(2));
+        };
+        let stdout = GeneratedFile::new_checked(self, stdout)?;
+        let stderr = GeneratedFile::new_checked(self, stderr)?;
+        Ok((status, stdout, stderr))
+    }
 }
 
 impl FSTrait for DriverImpl<'_> {
@@ -330,9 +374,13 @@ impl DriverTrait for DriverImpl<'_> {
     fn run(
         &self,
         overlay_area: Option<FileAreaRef>,
-        bin: &Path,
-        args: Vec<String>,
-        RunOptions { inherit_env, env }: RunOptions,
+        RunOptions {
+            bin,
+            args,
+            inherit_env,
+            env,
+            cancel,
+        }: RunOptions,
     ) -> Result<RunStatus, RunnerError> {
         let output_area = if let Some(overlay_area) = overlay_area {
             self.create_overlay_area(
@@ -355,35 +403,28 @@ impl DriverTrait for DriverImpl<'_> {
         }
         cmd.envs(env);
         debug!("Running {cmd:?}");
-        let output = match cmd.output() {
-            Ok(output) => output,
-            Err(err) => {
-                return Ok(RunStatus {
-                    success: false,
-                    exit_code: None,
-                    area: output_area,
-                    stdout: String::new(),
-                    stderr: err.to_string(),
-                });
-            }
-        };
-        let success = output.status.success();
-        let exit_code = output.status.code();
+        let (status, stdout, stderr) = self.cmd_status(cmd, cancel)?;
+        let success = status.success();
+        let exit_code = status.code();
         Ok(RunStatus {
             success,
             exit_code,
             area: output_area,
-            stdout: String::from_utf8(output.stdout)?,
-            stderr: String::from_utf8(output.stderr)?,
+            stdout,
+            stderr,
         })
     }
 
     fn escape_run(
         &self,
         current_dir: &Dir,
-        bin: &Path,
-        args: Vec<String>,
-        RunOptions { inherit_env, env }: RunOptions,
+        RunOptions {
+            bin,
+            args,
+            inherit_env,
+            env,
+            cancel,
+        }: RunOptions,
     ) -> Result<EscapeRunStatus, RunnerError> {
         let current_dir_path = self.resolve_fs_entry(current_dir.fsinner());
         let mut cmd = std::process::Command::new(bin);
@@ -394,24 +435,14 @@ impl DriverTrait for DriverImpl<'_> {
         }
         cmd.envs(env);
         debug!("Running {cmd:?}");
-        let output = match cmd.output() {
-            Ok(output) => output,
-            Err(err) => {
-                return Ok(EscapeRunStatus {
-                    success: false,
-                    exit_code: None,
-                    stdout: String::new(),
-                    stderr: err.to_string(),
-                });
-            }
-        };
-        let success = output.status.success();
-        let exit_code = output.status.code();
+        let (status, stdout, stderr) = self.cmd_status(cmd, cancel)?;
+        let success = status.success();
+        let exit_code = status.code();
         Ok(EscapeRunStatus {
             success,
             exit_code,
-            stdout: String::from_utf8(output.stdout)?,
-            stderr: String::from_utf8(output.stderr)?,
+            stdout,
+            stderr,
         })
     }
 

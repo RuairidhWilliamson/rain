@@ -15,6 +15,7 @@ use driver::DriverImpl;
 use rain_lang::{
     afs::{File, local::file::LocalFile},
     ast::Module,
+    cancellation::Cancellation,
     driver::FSTrait as _,
     error::OwnedResolvedError,
     ir::ModuleId,
@@ -46,7 +47,7 @@ pub fn run(
     let mid = ir
         .insert_module(Some(File::Local(file)), src, module)
         .map_err(|err| CoreError::LangError(Box::new(err.resolve_ir(&ir).into_owned())))?;
-    let mut runner = rain_lang::runner::Runner::new(&mut ir, cache, driver);
+    let mut runner = rain_lang::runner::Runner::new(&mut ir, cache, driver, Cancellation::new());
     let mut deps = DepList::new();
     evaluate_and_call_chain(&mut runner, mid, &mut deps, target, &[])
 }
@@ -56,7 +57,7 @@ pub fn new_runner<'a>(
     cache: &'a cache::Cache,
     driver: &'a DriverImpl<'a>,
 ) -> Runner<'a> {
-    rain_lang::runner::Runner::new(ir, cache, driver)
+    rain_lang::runner::Runner::new(ir, cache, driver, Cancellation::new())
 }
 
 pub fn insert_local_module(

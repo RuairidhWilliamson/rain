@@ -22,7 +22,7 @@ use rain_ci_common::{
         Db, DbConfig, Resource as _,
         repository::{Repository, RepositoryId},
         repository_host::{RepoHostKind, RepositoryHost},
-        run::Run,
+        run::{Run, RunId},
     },
     github::{
         Client as _, InstallationClient as _,
@@ -80,6 +80,7 @@ async fn main() -> Result<()> {
         .route("/repo/{id}/run", post(repo_create_run))
         .route("/run", get(pages::runs))
         .route("/run/{id}", get(pages::run))
+        .route("/run/{id}/cancel", post(cancel_run))
         .route("/assets/script.js", get(script_asset))
         .route("/assets/style.css", get(style_asset))
         .layer(tower_http::trace::TraceLayer::new_for_http())
@@ -184,6 +185,16 @@ async fn repo_create_run(
             Ok(Redirect::to(&format!("/run/{run_id}")))
         }
     }
+}
+
+async fn cancel_run(
+    _auth: AdminUser,
+    Path(id): Path<RunId>,
+    State(db): State<Db>,
+) -> Result<impl IntoResponse, AppError> {
+    let run = Run::get(&db, id).await?;
+    db::cancel_run(&db, run.id).await?;
+    Ok(Redirect::to(&format!("/run/{}", run.id)))
 }
 
 async fn script_asset() -> impl IntoResponse {

@@ -19,7 +19,10 @@ use ipnet::IpNet;
 use rain_ci_common::db::{Db, DbConfig, run::RunId};
 use runner::Runner;
 use sqlx::postgres::PgListener;
-use tokio::{sync::mpsc::Sender, task::JoinSet};
+use tokio::{
+    sync::{Mutex, mpsc::Sender},
+    task::JoinSet,
+};
 use tracing::{error, info, warn};
 use url::Url;
 
@@ -54,17 +57,23 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    let (tx, rx) = tokio::sync::mpsc::channel(10);
-    start_pg_notify_worker(&db, &tx);
+    let (run_request, run_request_rx) = tokio::sync::mpsc::channel(10);
+    start_run_request_pg_notify_worker(&db, &run_request);
+    let (cancel_run, cancel_run_rx) = tokio::sync::mpsc::channel(10);
+    start_cancel_run_pg_notify_worker(&db, &cancel_run);
 
     let server = Arc::new(server::Server {
         runner: Runner::new(config.seal),
         target_url: config.target_url,
         db,
-        tx,
+        run_request,
+        active_run: Mutex::default(),
     });
     server.cleanup_old_runs().await?;
-    server.start_server_run_request_worker(rx);
+
+    server.start_server_run_request_worker(run_request_rx);
+
+    server.start_server_cancel_run_worker(cancel_run_rx);
     info!("listening on http://{}", listener.local_addr()?);
     let mut join_set = JoinSet::new();
     loop {
@@ -100,26 +109,52 @@ struct RunRequest {
     run_id: RunId,
 }
 
-fn start_pg_notify_worker(db: &Db, tx: &Sender<RunRequest>) {
+struct CancelRun {
+    run_id: RunId,
+}
+
+fn start_run_request_pg_notify_worker(db: &Db, run_request: &Sender<RunRequest>) {
+    async fn worker(db: Db, tx: Sender<RunRequest>) -> anyhow::Result<()> {
+        let mut listener = PgListener::connect_with(&db.pool).await?;
+        listener.listen("request_run").await?;
+        loop {
+            let notif = listener.recv().await?;
+            assert_eq!(notif.channel(), "request_run");
+            let run_id: i64 = notif.payload().parse()?;
+            tx.send(RunRequest {
+                run_id: RunId(run_id),
+            })
+            .await?;
+        }
+    }
     let db = db.clone();
-    let tx = tx.clone();
+    let tx = run_request.clone();
     tokio::spawn(async move {
-        if let Err(err) = pg_notify_worker(db, tx).await {
+        if let Err(err) = worker(db, tx).await {
             error!("pg notify worker error: {err}");
         }
     });
 }
 
-async fn pg_notify_worker(db: Db, tx: Sender<RunRequest>) -> anyhow::Result<()> {
-    let mut listener = PgListener::connect_with(&db.pool).await?;
-    listener.listen("request_run").await?;
-    loop {
-        let notif = listener.recv().await?;
-        assert_eq!(notif.channel(), "request_run");
-        let run_id: i64 = notif.payload().parse()?;
-        tx.send(RunRequest {
-            run_id: RunId(run_id),
-        })
-        .await?;
+fn start_cancel_run_pg_notify_worker(db: &Db, cancel_run: &Sender<CancelRun>) {
+    async fn worker(db: Db, tx: Sender<CancelRun>) -> anyhow::Result<()> {
+        let mut listener = PgListener::connect_with(&db.pool).await?;
+        listener.listen("cancel_run").await?;
+        loop {
+            let notif = listener.recv().await?;
+            assert_eq!(notif.channel(), "cancel_run");
+            let run_id: i64 = notif.payload().parse()?;
+            tx.send(CancelRun {
+                run_id: RunId(run_id),
+            })
+            .await?;
+        }
     }
+    let db = db.clone();
+    let tx = cancel_run.clone();
+    tokio::spawn(async move {
+        if let Err(err) = worker(db, tx).await {
+            error!("pg notify worker error: {err}");
+        }
+    });
 }

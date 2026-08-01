@@ -12,7 +12,7 @@ use crate::{
     pagination::{Paginated, Pagination},
 };
 
-#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RunId(pub i64);
 
 impl std::fmt::Display for RunId {

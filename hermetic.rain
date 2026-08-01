@@ -7,8 +7,8 @@ let bwrap_run_ro = fn(image, command, args, env) {
 	bwrap = std.escape.bin("bwrap")
 	args = ["--ro-bind", image, "/", command] + args
 	result = internal._run(std.utils.unit, bwrap, args, env)
-	print(result.success)
-	print(result.stdout)
+	print(std.fs.read_file(result.success))
+	print(std.fs.read_file(result.stdout))
 	print(result.stderr)
 }
 

@@ -38,8 +38,8 @@ pub let download_with_sha256 = fn(url: String, sha256: String) -> File {
 pub let run_check = fn(area, bin, args: List(Any), env) {
 	run_result = run(area, bin, args, env)
 	if !run_result.success {
-		print("Stdout:", run_result.stdout)
-		print("Stderr:", run_result.stderr)
+		print("Stdout:", std.fs.read_file(run_result.stdout))
+		print("Stderr:", std.fs.read_file(run_result.stderr))
 		_throw("run failed")
 	}
 	run_result

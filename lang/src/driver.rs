@@ -19,6 +19,7 @@ use crate::{
             file::GeneratedFile,
         },
     },
+    cancellation::Cancellation,
     hash::FileHash,
     runner::error::RunnerError,
 };
@@ -38,18 +39,11 @@ pub trait DriverTrait: monitoring::MonitoringTrait + FSTrait {
     fn extract_gzip(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError>;
     fn extract_xz(&self, file: &File, name: &str) -> Result<GeneratedFile, RunnerError>;
     fn extract_tar(&self, file: &File) -> Result<GeneratedFSArea, RunnerError>;
-    fn run(
-        &self,
-        area: Option<FileAreaRef>,
-        bin: &Path,
-        args: Vec<String>,
-        options: RunOptions,
-    ) -> Result<RunStatus, RunnerError>;
+    fn run(&self, area: Option<FileAreaRef>, options: RunOptions)
+    -> Result<RunStatus, RunnerError>;
     fn escape_run(
         &self,
         current_dir: &Dir,
-        bin: &Path,
-        args: Vec<String>,
         options: RunOptions,
     ) -> Result<EscapeRunStatus, RunnerError>;
     fn download(
@@ -107,24 +101,27 @@ pub trait DriverTrait: monitoring::MonitoringTrait + FSTrait {
     fn git_describe(&self, path: &AbsolutePathBuf) -> Result<Option<GitDescribe>, RunnerError>;
 }
 
-pub struct RunOptions {
+pub struct RunOptions<'a> {
+    pub bin: &'a Path,
+    pub args: Vec<String>,
     pub inherit_env: bool,
     pub env: HashMap<String, String>,
+    pub cancel: &'a Cancellation,
 }
 
 pub struct RunStatus {
     pub success: bool,
     pub exit_code: Option<i32>,
     pub area: GeneratedFSArea,
-    pub stdout: String,
-    pub stderr: String,
+    pub stdout: GeneratedFile,
+    pub stderr: GeneratedFile,
 }
 
 pub struct EscapeRunStatus {
     pub success: bool,
     pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
+    pub stdout: GeneratedFile,
+    pub stderr: GeneratedFile,
 }
 
 pub struct DownloadStatus {

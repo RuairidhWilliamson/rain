@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use alias::Alias as _;
 use anyhow::{Context as _, Result, anyhow};
@@ -15,12 +15,18 @@ use rain_ci_common::db::{
     repository_host::RepositoryHost,
     run::{FinishedRun, Run, RunStatus},
 };
+use rain_lang::cancellation::Cancellation;
 use secrecy::ExposeSecret as _;
 use serde::Deserialize;
 use tokio::task::JoinHandle;
 use tracing::{error, info};
 
-use crate::{RunRequest, repo_host::RepoHostApi, runner::RunComplete, server::Server};
+use crate::{
+    RunRequest,
+    repo_host::RepoHostApi,
+    runner::{RunComplete, RunOptions},
+    server::Server,
+};
 
 pub struct Forgejo {
     repository_host: WithId<RepositoryHost>,
@@ -133,23 +139,20 @@ impl Forgejo {
         server: &Arc<Server>,
         owner: &str,
         repo: &str,
-        sha: &str,
-        target: String,
-        secrets: HashMap<String, String>,
+        options: RunOptions,
     ) -> Result<JoinHandle<Result<RunComplete, anyhow::Error>>, anyhow::Error> {
         let server = server.alias();
         let download = self
             .api
-            .repo_get_archive(owner, repo, &format!("{sha}.zip"))
+            .repo_get_archive(owner, repo, &format!("{}.zip", options.sha))
             .await?;
-        let sha = sha.to_string();
         let (root, lfs_entries) =
             tokio::task::spawn_blocking(move || crate::prepare::prepare_ci_run_area_zip(download))
                 .await?;
         self.smudge_git_lfs(owner, repo, lfs_entries).await?;
         info!("Prepare run complete");
         Ok(tokio::task::spawn_blocking(move || {
-            Ok(server.runner.run(&root, secrets, sha, &target))
+            Ok(server.runner.run(&root, options))
         }))
     }
 }
@@ -214,7 +217,7 @@ impl RepoHostApi for Forgejo {
         .create(&server.db)
         .await?;
 
-        server.tx.send(RunRequest { run_id }).await?;
+        server.run_request.send(RunRequest { run_id }).await?;
         Ok(())
     }
 
@@ -264,16 +267,35 @@ impl RepoHostApi for Forgejo {
             .await
             .context("get repo secrets")?;
 
+        let cancel = Cancellation::new();
+        let mut active_run = server.active_run.lock().await;
+        if active_run.is_some() {
+            error!("overwriting active run");
+        }
+        *active_run = Some((run.id, cancel.clone()));
+        drop(active_run);
         let result_handle = self
             .download_and_run(
                 &server,
                 &repository.resource.owner,
                 &repository.resource.name,
-                &run.resource.commit,
-                run.resource.target.clone(),
-                secrets,
+                RunOptions {
+                    sha: run.resource.commit.clone(),
+                    target: run.resource.target.clone(),
+                    secrets,
+                    cancel,
+                },
             )
             .await;
+        let mut active_run = server.active_run.lock().await;
+        if let Some((run_id, _)) = active_run.take() {
+            if run_id != run.id {
+                error!("active run id changed during run");
+            }
+        } else {
+            error!("active run was removed during run");
+        }
+        drop(active_run);
 
         let (status, output) = resolve_error(result_handle).await;
 

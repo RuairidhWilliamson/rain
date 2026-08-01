@@ -31,6 +31,7 @@ use crate::{
         FormatStringLiteral, IfCondition, Namespace, Node, NodeId, Not, SimpleLiteral,
         SimpleLiteralKind,
     },
+    cancellation::Cancellation,
     driver::{DriverTrait, FSTrait, monitoring::Call},
     hash::FileHash,
     ir::{DeclarationId, Rir},
@@ -60,6 +61,7 @@ pub struct Runner<'a, Driver, Cache> {
     pub max_call_depth: usize,
     pub local_file_hash_cache: LocalFileHashCache,
     pub next_unique: AtomicU64,
+    pub cancel: Cancellation,
 }
 
 #[derive(Default)]
@@ -85,7 +87,12 @@ impl LocalFileHashCache {
 }
 
 impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
-    pub fn new(ir: &'a mut Rir, cache: &'a Cache, driver: &'a Driver) -> Self {
+    pub fn new(
+        ir: &'a mut Rir,
+        cache: &'a Cache,
+        driver: &'a Driver,
+        cancel: Cancellation,
+    ) -> Self {
         Self {
             ir,
             cache,
@@ -97,6 +104,7 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             max_call_depth: 250,
             local_file_hash_cache: LocalFileHashCache::default(),
             next_unique: AtomicU64::new(0),
+            cancel,
         }
     }
 
@@ -240,6 +248,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     }
 
     fn evaluate_node(&mut self, cx: &mut Cx, nid: NodeId) -> Result<Value> {
+        if self.cancel.is_cancelled() {
+            return Err(cx.nid_err(nid, RunnerError::Cancelled));
+        }
         match cx.module.get(nid) {
             Node::Closure(_) => Ok(Self::evaluate_closure_definition(cx, nid)),
             Node::Block(block) => {

@@ -91,11 +91,12 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .driver
                     .run(
                         overlay_area,
-                        &bin,
-                        args,
                         RunOptions {
+                            bin: &bin,
+                            args,
                             inherit_env: false,
                             env,
+                            cancel: &self.runner.cancel,
                         },
                     )
                     .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
@@ -106,8 +107,14 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     Value::Integer(Arc::new(RainInteger(status.exit_code.unwrap_or(-1).into()))),
                 );
                 m.insert("area".to_owned(), status.area.to_value());
-                m.insert("stdout".to_owned(), Value::String(Arc::new(status.stdout)));
-                m.insert("stderr".to_owned(), Value::String(Arc::new(status.stderr)));
+                m.insert(
+                    "stdout".to_owned(),
+                    Value::GeneratedFile(Arc::new(status.stdout)),
+                );
+                m.insert(
+                    "stderr".to_owned(),
+                    Value::GeneratedFile(Arc::new(status.stderr)),
+                );
                 Ok(Value::Record(Arc::new(RainRecord(m))))
             }
             _ => self.incorrect_args(4..=4),
@@ -174,11 +181,12 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     .driver
                     .escape_run(
                         &dir,
-                        &bin,
-                        args,
                         RunOptions {
+                            bin: &bin,
+                            args,
                             inherit_env: true,
                             env,
+                            cancel: &self.runner.cancel,
                         },
                     )
                     .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
@@ -188,8 +196,14 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     "exit_code".to_owned(),
                     Value::Integer(Arc::new(RainInteger(status.exit_code.unwrap_or(-1).into()))),
                 );
-                m.insert("stdout".to_owned(), Value::String(Arc::new(status.stdout)));
-                m.insert("stderr".to_owned(), Value::String(Arc::new(status.stderr)));
+                m.insert(
+                    "stdout".to_owned(),
+                    Value::GeneratedFile(Arc::new(status.stdout)),
+                );
+                m.insert(
+                    "stderr".to_owned(),
+                    Value::GeneratedFile(Arc::new(status.stderr)),
+                );
                 Ok(Value::Record(Arc::new(RainRecord(m))))
             }
             _ => self.incorrect_args(4..=4),

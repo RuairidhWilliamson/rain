@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use alias::Alias as _;
 use anyhow::{Context as _, Result, anyhow};
@@ -20,11 +20,17 @@ use rain_ci_common::{
         model::{AppId, CheckRunConclusion},
     },
 };
+use rain_lang::cancellation::Cancellation;
 use secrecy::ExposeSecret as _;
 use tokio::task::JoinHandle;
 use tracing::{error, info};
 
-use crate::{RunRequest, repo_host::RepoHostApi, runner::RunComplete, server::Server};
+use crate::{
+    RunRequest,
+    repo_host::RepoHostApi,
+    runner::{RunComplete, RunOptions},
+    server::Server,
+};
 
 pub struct Github {
     repository_host: WithId<RepositoryHost>,
@@ -144,7 +150,7 @@ impl RepoHostApi for Github {
         .create(&server.db)
         .await?;
 
-        server.tx.send(RunRequest { run_id }).await?;
+        server.run_request.send(RunRequest { run_id }).await?;
         Ok(())
     }
 
@@ -207,16 +213,35 @@ impl RepoHostApi for Github {
             .await
             .context("get repo secrets")?;
 
+        let cancel = Cancellation::new();
+        let mut active_run = server.active_run.lock().await;
+        if active_run.is_some() {
+            error!("overwriting active run");
+        }
+        *active_run = Some((run.id, cancel.clone()));
+        drop(active_run);
         let result_handle = download_and_run(
             &server,
             &installation_client,
             &repository.resource.owner,
             &repository.resource.name,
-            run.resource.commit.clone(),
-            run.resource.target.clone(),
-            secrets,
+            RunOptions {
+                sha: run.resource.commit.clone(),
+                target: run.resource.target.clone(),
+                secrets,
+                cancel,
+            },
         )
         .await;
+        let mut active_run = server.active_run.lock().await;
+        if let Some((run_id, _)) = active_run.take() {
+            if run_id != run.id {
+                error!("active run id changed during run");
+            }
+        } else {
+            error!("active run was removed during run");
+        }
+        drop(active_run);
 
         let (status, output) = resolve_error(result_handle).await;
 
@@ -304,14 +329,12 @@ async fn download_and_run(
     installation_client: &Arc<impl rain_ci_common::github::InstallationClient>,
     owner: &str,
     repo: &str,
-    sha: String,
-    target: String,
-    secrets: HashMap<String, String>,
+    options: RunOptions,
 ) -> Result<JoinHandle<Result<RunComplete, anyhow::Error>>, anyhow::Error> {
     let server = server.alias();
     let installation_client = installation_client.alias();
     let download = installation_client
-        .download_repo_tar(owner, repo, &sha)
+        .download_repo_tar(owner, repo, &options.sha)
         .await
         .context("download repo")?;
     let (root, lfs_entries) =
@@ -323,7 +346,7 @@ async fn download_and_run(
         .context("smudge git lfs")?;
     info!("Prepare run complete");
     Ok(tokio::task::spawn_blocking(move || {
-        Ok(server.runner.run(&root, secrets, sha, &target))
+        Ok(server.runner.run(&root, options))
     }))
 }
 

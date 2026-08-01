@@ -19,6 +19,7 @@ use rain_lang::{
         path::SealedFilePath,
     },
     ast::Module,
+    cancellation::Cancellation,
     driver::{CreateAreaOptions, DriverTrait as _},
     runner::dep_list::DepList,
 };
@@ -75,17 +76,26 @@ impl Runner {
     pub fn run(
         &self,
         root: &GeneratedDir,
-        secrets: HashMap<String, String>,
-        sha: String,
-        target: &str,
+        RunOptions {
+            secrets,
+            sha,
+            target,
+            cancel,
+        }: RunOptions,
     ) -> RunComplete {
         let driver = Self::create_driver_for_run(secrets);
         let area = Self::create_area_for_run(root, &driver, sha);
-        self.run_inner(&driver, FSArea::Generated(area), target)
+        self.run_inner(&driver, FSArea::Generated(area), &target, cancel)
     }
 
     #[expect(clippy::unwrap_used)]
-    fn run_inner(&self, driver: &DriverImpl, area: FSArea, target: &str) -> RunComplete {
+    fn run_inner(
+        &self,
+        driver: &DriverImpl,
+        area: FSArea,
+        target: &str,
+        cancel: Cancellation,
+    ) -> RunComplete {
         let root_entry = FSEntry::new(area, SealedFilePath::new("/main.rain").unwrap());
         info!("Root entry {root_entry}");
         let root = File::new_checked(driver, root_entry).unwrap();
@@ -113,7 +123,7 @@ impl Runner {
             stats: self.cache_stats.alias(),
             ..Default::default()
         };
-        let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, driver);
+        let mut runner = rain_lang::runner::Runner::new(&mut ir, &cache, driver, cancel);
         runner.seal = self.seal;
         info!("Running");
         let mut deps = DepList::new();
@@ -158,4 +168,11 @@ impl Runner {
 pub struct RunComplete {
     pub success: bool,
     pub output: String,
+}
+
+pub struct RunOptions {
+    pub secrets: HashMap<String, String>,
+    pub sha: String,
+    pub target: String,
+    pub cancel: Cancellation,
 }

@@ -141,4 +141,6 @@ pub enum RunnerError {
     NoExec,
     #[error("invalid regex: {0}")]
     InvalidRegex(regex::Error),
+    #[error("cancelled")]
+    Cancelled,
 }
