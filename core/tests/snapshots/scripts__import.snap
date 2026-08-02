@@ -1,9 +1,0 @@
----
-source: core/tests/scripts.rs
-expression: "run(concat! (\"tests/scripts/\", stringify! (import), \".rain\")).unwrap()"
----
-Integer(
-    RainInteger(
-        16,
-    ),
-)

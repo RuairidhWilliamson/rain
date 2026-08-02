@@ -1,9 +1,0 @@
----
-source: core/tests/errors.rs
-expression: "run_error(concat! (\"tests/errors/\", stringify! (check_return_type), \".rain\"))"
----
-<hidden>:8:3
-| 		8
-| 	}
-| 	!foo()
-  	 ^^^^^ unrecoverable error: check error: type error: expected Boolean, actual Integer

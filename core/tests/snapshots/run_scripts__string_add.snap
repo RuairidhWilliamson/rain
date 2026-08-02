@@ -1,0 +1,8 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (string_add), \".rain\"))"
+---
+Ok
+String(
+    "helloworld",
+)

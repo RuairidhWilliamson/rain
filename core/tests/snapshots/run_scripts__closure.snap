@@ -1,0 +1,23 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (closure), \".rain\"))"
+---
+Ok
+List(
+    RainList(
+        [
+            String(
+                "hi",
+            ),
+            String(
+                "joe",
+            ),
+            String(
+                "hi",
+            ),
+            String(
+                "susan",
+            ),
+        ],
+    ),
+)

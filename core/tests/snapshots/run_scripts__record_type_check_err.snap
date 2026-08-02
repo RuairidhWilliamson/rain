@@ -1,0 +1,15 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (record_type_check_err), \".rain\"))"
+---
+Err
+<hidden>:6:12 main
+<hidden>:10:10 foo-inner
+<hidden>:124:3 Record-inner
+<hidden>:125:4 Record-inner
+<hidden>:46:4 type_constraint_from_concrete-inner
+<hidden>:11:3
+| 	})
+| 	if res.success {
+| 		internal._throw(f"type error for ${res.value}, expected ${expected}")
+  		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ "type error for 5, expected String"

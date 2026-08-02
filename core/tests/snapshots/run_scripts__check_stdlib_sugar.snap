@@ -1,0 +1,8 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (check_stdlib_sugar), \".rain\"))"
+---
+Err
+<hidden>:1:28
+| let std = stdlib("abc", 123)
+                             ^ unrecoverable error: check error: wrong number of arguments: expected 1, actual 2

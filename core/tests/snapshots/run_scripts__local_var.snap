@@ -1,0 +1,10 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (local_var), \".rain\"))"
+---
+Ok
+Integer(
+    RainInteger(
+        4,
+    ),
+)

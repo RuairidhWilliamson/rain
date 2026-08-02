@@ -1,0 +1,10 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (fail_let_type_check), \".rain\"))"
+---
+Err
+<hidden>:7:19
+| let Integer = internal._get_type(0)
+| 
+| let x: Integer = "5"
+                    ^ unrecoverable error: check error: type error: expected Integer, actual String

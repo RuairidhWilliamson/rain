@@ -1,0 +1,9 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (invalid_internal), \".rain\"))"
+---
+Err
+<hidden>:2:11
+| let main = fn() {
+| 	internal._banana
+  	         ^^^^^^^ unrecoverable error: check error: invalid internal

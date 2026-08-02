@@ -1,0 +1,20 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (unary_operators), \".rain\"))"
+---
+Ok
+List(
+    RainList(
+        [
+            Boolean(
+                false,
+            ),
+            Boolean(
+                false,
+            ),
+            Boolean(
+                false,
+            ),
+        ],
+    ),
+)

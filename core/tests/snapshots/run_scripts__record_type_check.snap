@@ -1,0 +1,17 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (record_type_check), \".rain\"))"
+---
+Ok
+Record(
+    RainRecord(
+        {
+            "x": String(
+                "abc",
+            ),
+            "y": String(
+                "5",
+            ),
+        },
+    ),
+)

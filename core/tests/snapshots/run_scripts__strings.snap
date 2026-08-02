@@ -1,0 +1,8 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (strings), \".rain\"))"
+---
+Ok
+Boolean(
+    true,
+)

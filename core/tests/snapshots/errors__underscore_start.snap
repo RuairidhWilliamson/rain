@@ -1,8 +1,0 @@
----
-source: core/tests/errors.rs
-expression: "run_error(concat! (\"tests/errors/\", stringify! (underscore_start), \".rain\"))"
----
-<hidden>:2:2
-| let main = fn() {
-| 	_ + 1
-  	^ unrecoverable error: check error: invalid underscore, no previous statement

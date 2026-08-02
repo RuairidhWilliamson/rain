@@ -1,7 +1,0 @@
----
-source: core/tests/errors.rs
-expression: "run_error(concat! (\"tests/errors/\", stringify! (check_import_sugar), \".rain\"))"
----
-<hidden>:1:34
-| let foo_bar = import("foo", "bar")
-                                   ^ unrecoverable error: check error: wrong number of arguments: expected 1, actual 2

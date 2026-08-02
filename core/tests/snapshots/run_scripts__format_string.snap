@@ -1,0 +1,8 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (format_string), \".rain\"))"
+---
+Ok
+String(
+    "a = 6, b = true, c = hi ${a}",
+)

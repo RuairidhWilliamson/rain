@@ -1,0 +1,8 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (cache_deps), \".rain\"))"
+---
+Ok
+Boolean(
+    true,
+)

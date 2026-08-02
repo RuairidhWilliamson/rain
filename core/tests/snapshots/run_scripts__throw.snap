@@ -1,0 +1,10 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (throw), \".rain\"))"
+---
+Err
+<hidden>:1:12 main
+<hidden>:2:2
+| let main = fn() {
+| 	internal._throw("test")
+  	^^^^^^^^^^^^^^^^^^^^^^^ "test"

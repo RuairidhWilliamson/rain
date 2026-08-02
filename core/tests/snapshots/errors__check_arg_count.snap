@@ -1,9 +1,0 @@
----
-source: core/tests/errors.rs
-expression: "run_error(concat! (\"tests/errors/\", stringify! (check_arg_count), \".rain\"))"
----
-<hidden>:6:10
-| 	foo = fn(a, b, c) {
-| 	}
-| 	foo(1, 2)
-  	        ^ unrecoverable error: check error: wrong number of arguments: expected 3, actual 2

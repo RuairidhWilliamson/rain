@@ -1,9 +1,0 @@
----
-source: core/tests/scripts.rs
-expression: "run(concat!\n(\"tests/scripts/\", stringify! (trailing_commas), \".rain\")).unwrap()"
----
-Integer(
-    RainInteger(
-        24,
-    ),
-)

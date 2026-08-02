@@ -1,0 +1,19 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (type_check_inner), \".rain\"))"
+---
+Ok
+List(
+    RainList(
+        [
+            Integer(
+                RainInteger(
+                    9,
+                ),
+            ),
+            String(
+                "hello world",
+            ),
+        ],
+    ),
+)

@@ -1,9 +1,0 @@
----
-source: core/tests/errors.rs
-expression: "run_error(concat! (\"tests/errors/\", stringify! (check_arg_type), \".rain\"))"
----
-<hidden>:8:19
-| 	Bool = internal._get_type(false)
-| 	foo = fn(a: Integer, b: String, c: Bool) {}
-| 	foo(1, "banana", 9)
-  	                 ^ unrecoverable error: check error: type error: expected Boolean, actual Integer

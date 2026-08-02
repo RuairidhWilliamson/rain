@@ -1,0 +1,6 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (create_area), \".rain\"))"
+---
+Ok
+Unit

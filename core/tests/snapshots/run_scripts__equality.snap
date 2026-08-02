@@ -1,0 +1,32 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (equality), \".rain\"))"
+---
+Ok
+List(
+    RainList(
+        [
+            Boolean(
+                false,
+            ),
+            Boolean(
+                true,
+            ),
+            Boolean(
+                false,
+            ),
+            Boolean(
+                true,
+            ),
+            Boolean(
+                false,
+            ),
+            Boolean(
+                true,
+            ),
+            Boolean(
+                false,
+            ),
+        ],
+    ),
+)

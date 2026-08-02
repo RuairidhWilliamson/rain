@@ -1,0 +1,10 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat!\n(\"tests/scripts/\", stringify! (conflicting_declarations), \".rain\"))"
+---
+Err
+<hidden>:4:5
+| 
+| let foo = fn() { }
+| let foo = fn() { }
+      ^^^ unrecoverable error: check error: conflicting declaration

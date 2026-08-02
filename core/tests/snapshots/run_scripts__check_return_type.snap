@@ -1,0 +1,10 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (check_return_type), \".rain\"))"
+---
+Err
+<hidden>:8:3
+| 		8
+| 	}
+| 	!foo()
+  	 ^^^^^ unrecoverable error: check error: type error: expected Boolean, actual Integer

@@ -1,0 +1,55 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (addition), \".rain\"))"
+---
+Ok
+Record(
+    RainRecord(
+        {
+            "integers": Integer(
+                RainInteger(
+                    11,
+                ),
+            ),
+            "lists": List(
+                RainList(
+                    [
+                        Integer(
+                            RainInteger(
+                                1,
+                            ),
+                        ),
+                        Integer(
+                            RainInteger(
+                                2,
+                            ),
+                        ),
+                        Integer(
+                            RainInteger(
+                                3,
+                            ),
+                        ),
+                        Integer(
+                            RainInteger(
+                                4,
+                            ),
+                        ),
+                        Integer(
+                            RainInteger(
+                                5,
+                            ),
+                        ),
+                        Integer(
+                            RainInteger(
+                                6,
+                            ),
+                        ),
+                    ],
+                ),
+            ),
+            "strings": String(
+                "abcdef",
+            ),
+        },
+    ),
+)

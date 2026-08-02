@@ -1,0 +1,9 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (private_declaration), \".rain\"))"
+---
+Err
+<hidden>:1:12 main
+<hidden>:1:5
+| let bar = 5
+      ^^^ unrecoverable error: declaration is private

@@ -1,0 +1,9 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (underscore_start), \".rain\"))"
+---
+Err
+<hidden>:2:2
+| let main = fn() {
+| 	_ + 1
+  	^ unrecoverable error: check error: invalid underscore, no previous statement
