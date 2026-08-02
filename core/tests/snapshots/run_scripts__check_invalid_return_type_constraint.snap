@@ -1,0 +1,10 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat!\n(\"tests/scripts/\", stringify! (check_invalid_return_type_constraint),\n\".rain\"))"
+---
+Err
+<hidden>:5:16
+| let bar = fn() {
+| 	Integer = internal._get_type(0)
+| 	foo = fn() -> Integer {
+  	              ^^^^^^^ unrecoverable error: check error: type error: type constraint must be closure, actual Type

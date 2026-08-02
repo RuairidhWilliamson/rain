@@ -14,7 +14,7 @@ use crate::{
     local_span::ErrorLocalSpan,
     runner::{
         internal::InternalFunction,
-        value::{RainTypeId, Value},
+        value::{Closure, RainTypeId, Value},
     },
 };
 
@@ -87,11 +87,15 @@ pub enum CheckValue {
     /// No clue, could be anything
     #[default]
     Unknown,
-    /// The value is known to be of this type but it is not known what value it is within the type
+    /// The value be of this concrete type but it is not known what value it is within the type
     ExactType(RainTypeId),
-    /// The value is known to be this value
+    /// The value should be a type constraint
+    UnknownTypeConstraint,
+    /// The value should satisfy this type constraint, the closure should not throw
+    SatisfiesTypeConstraint(Closure),
+    /// The value should be this value
     ExactValue(Value),
-    /// The value is known to be callable (closure or similar) with a certain number of arguments
+    /// The value should be callable (closure or similar) with a certain number of arguments
     Callable {
         arg_types: Vec<Self>,
         return_type: Box<Self>,
@@ -101,9 +105,9 @@ pub enum CheckValue {
 impl CheckValue {
     fn exact_type(&self) -> Option<RainTypeId> {
         match self {
-            Self::Unknown | Self::Callable { .. } => None,
             Self::ExactType(rain_type_id) => Some(*rain_type_id),
             Self::ExactValue(value) => Some(value.rain_type_id()),
+            _ => None,
         }
     }
 
@@ -111,6 +115,93 @@ impl CheckValue {
         match self {
             Self::ExactValue(Value::Type(rain_type_id)) => Some(*rain_type_id),
             _ => None,
+        }
+    }
+
+    fn type_check(&self, actual: &Self) -> Option<CheckError> {
+        let expected = self;
+        match (expected, actual) {
+            (Self::Unknown, _) | (_, Self::Unknown) => None,
+            (Self::ExactType(expected), Self::ExactType(actual)) => {
+                if *expected == *actual {
+                    None
+                } else {
+                    Some(CheckError::TypeError(*expected, *actual))
+                }
+            }
+            (Self::ExactType(expected), Self::ExactValue(value)) => {
+                if *expected == value.rain_type_id() {
+                    None
+                } else {
+                    Some(CheckError::TypeError(*expected, value.rain_type_id()))
+                }
+            }
+            (Self::UnknownTypeConstraint, Self::ExactType(RainTypeId::Closure)) => {
+                // Closures are the only valid type constraint
+                None
+            }
+            (Self::UnknownTypeConstraint, Self::ExactType(type_id)) => {
+                Some(CheckError::InvalidTypeConstraint(*type_id))
+            }
+            (
+                Self::UnknownTypeConstraint,
+                Self::Callable {
+                    arg_types,
+                    return_type: _,
+                },
+            ) => {
+                if arg_types.len() == 1 {
+                    None
+                } else {
+                    Some(CheckError::InvalidTypeConstraintWrongArgCount(
+                        arg_types.len(),
+                    ))
+                }
+            }
+            (
+                Self::Callable {
+                    arg_types: expected_arg_types,
+                    return_type: _,
+                },
+                Self::Callable {
+                    arg_types: actual_arg_types,
+                    return_type: _,
+                },
+            ) => {
+                if expected_arg_types.len() == actual_arg_types.len() {
+                    None
+                } else {
+                    Some(CheckError::WrongArgCount(
+                        expected_arg_types.len(),
+                        actual_arg_types.len(),
+                    ))
+                }
+            }
+            (Self::Callable { .. }, _) => todo!(),
+            (Self::SatisfiesTypeConstraint { .. }, _) => todo!(),
+            (Self::ExactValue { .. }, _) => todo!(),
+            (Self::ExactType { .. }, _) => todo!(),
+            (Self::UnknownTypeConstraint, Self::ExactValue(value)) => {
+                Some(CheckError::InvalidTypeConstraint(value.rain_type_id()))
+            }
+            (Self::UnknownTypeConstraint, _) => todo!(),
+        }
+    }
+
+    fn into_satisfies_type_constraint(self) -> Self {
+        match self {
+            Self::ExactValue(Value::Closure(closure)) => Self::SatisfiesTypeConstraint(closure),
+            Self::Callable {
+                arg_types,
+                return_type: _,
+            } if arg_types.len() == 1 => Self::Unknown,
+            Self::Unknown
+            | Self::ExactType(RainTypeId::Closure)
+            | Self::UnknownTypeConstraint
+            | Self::SatisfiesTypeConstraint(_) => Self::Unknown,
+            Self::ExactValue { .. } | Self::Callable { .. } | Self::ExactType { .. } => {
+                Self::Unknown
+            }
         }
     }
 }
@@ -211,17 +302,11 @@ impl CheckCx<'_, '_> {
     {
         let mut actual = self.check_node_inner(nid, expected.clone());
         // Check the type
-        match (&expected, actual.exact_type()) {
-            (CheckValue::ExactType(expected), Some(actual)) if *expected != actual => {
-                self.errors.push(
-                    self.module
-                        .span(nid)
-                        .with_error(CheckError::TypeError(*expected, actual)),
-                );
-            }
-            _ => (),
+        if let Some(err) = expected.type_check(&actual) {
+            self.errors.push(self.module.span(nid).with_error(err));
         }
         if matches!(actual, CheckValue::Unknown) {
+            // The expected type knows more about this than the implementation so lets use that
             actual = expected;
         }
         self.node_types.insert(nid, actual.clone());
@@ -283,10 +368,8 @@ impl CheckCx<'_, '_> {
                 }
                 let expected = if let Some(return_type) = &closure.return_type {
                     callee_cx
-                        .check_node(return_type.type_expr, CheckValue::Unknown)
-                        .type_constraint()
-                        .map(CheckValue::ExactType)
-                        .unwrap_or_default()
+                        .check_node(return_type.type_expr, CheckValue::UnknownTypeConstraint)
+                        .into_satisfies_type_constraint()
                 } else {
                     CheckValue::Unknown
                 };
@@ -595,6 +678,10 @@ pub enum CheckError {
     ConflictingDeclaration,
     #[error("invalid internal")]
     InvalidInternal,
+    #[error("type error: type constraint must be closure, actual {0}")]
+    InvalidTypeConstraint(RainTypeId),
+    #[error("type error: type constraint must be closure with 1 argument, actual {0}")]
+    InvalidTypeConstraintWrongArgCount(usize),
     #[error("type error: expected {0}, actual {1}")]
     TypeError(RainTypeId, RainTypeId),
     #[error("invalid underscore, no previous statement")]

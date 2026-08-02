@@ -6,9 +6,6 @@ let Integer = fn(v) {
 	}
 }
 
-let bar = fn() {
-	foo = fn() -> Integer {
-		8
-	}
-	!foo()
+let bar = fn() -> Integer {
+	"abc"
 }
