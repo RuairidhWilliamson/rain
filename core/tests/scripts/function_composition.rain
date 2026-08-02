@@ -1,0 +1,27 @@
+let stdlib_area = internal._local_area("../../../lib/std")
+let std = internal._import(internal._get_file(stdlib_area, "std.rain"))
+
+let {Integer} = std.types
+
+let main = fn() {
+	double_then_double = compose(double, double)
+	[
+		double_then_double(5),
+		compose(double, add_ten)(3),
+		compose(add_ten, double)(3),
+	]
+}
+
+let compose = fn(f, g) {
+	fn(x) {
+		f(g(x))
+	}
+}
+
+let double = fn(x: Integer) -> Integer {
+	x * 2
+}
+
+let add_ten = fn(x: Integer) -> Integer {
+	x + 10
+}

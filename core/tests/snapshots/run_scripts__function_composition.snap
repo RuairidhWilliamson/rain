@@ -1,0 +1,26 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (function_composition), \".rain\"))"
+---
+Ok
+List(
+    RainList(
+        [
+            Integer(
+                RainInteger(
+                    20,
+                ),
+            ),
+            Integer(
+                RainInteger(
+                    26,
+                ),
+            ),
+            Integer(
+                RainInteger(
+                    16,
+                ),
+            ),
+        ],
+    ),
+)
