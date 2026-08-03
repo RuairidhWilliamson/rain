@@ -174,7 +174,7 @@ impl TokenStream<'_> {
             "throw" | "try" | "type" | "for" | "in" | "while" | "match" | "async" | "await"
             | "default" | "struct" | "trait" | "break" | "continue" | "return" | "yield"
             | "enum" | "union" | "safe" | "unsafe" | "macro" | "const" | "var" | "interface"
-            | "abstract" | "alias" | "super" => Token::Reserved,
+            | "abstract" | "alias" | "super" | "infer" => Token::Reserved,
             _ => Token::Ident,
         };
         TokenLocalSpan {
