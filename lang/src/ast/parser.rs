@@ -434,25 +434,31 @@ impl<'src> ModuleParser<'src> {
             && peek.token == Token::Else
         {
             let _ = self.stream.parse_next()?;
-            alternate = Some(self.parse_alternate()?);
+            alternate = Some(self.parse_alternate(peek)?);
         }
         Ok(self.push(IfCondition {
+            if_token: if_token.span,
             condition,
             then_block,
             alternate,
         }))
     }
 
-    fn parse_alternate(&mut self) -> ParseResult<AlternateCondition> {
+    fn parse_alternate(&mut self, else_token: TokenLocalSpan) -> ParseResult<AlternateCondition> {
+        debug_assert_eq!(else_token.token, Token::Else);
         let peek = self.stream.expect_peek(&[Token::If, Token::LBrace])?;
         match peek.token {
             Token::If => {
                 let _ = self.stream.parse_next()?;
-                Ok(AlternateCondition::IfElseCondition(
-                    self.parse_if_condition(peek)?,
-                ))
+                Ok(AlternateCondition::IfElseCondition {
+                    else_token: else_token.span,
+                    if_condition: self.parse_if_condition(peek)?,
+                })
             }
-            Token::LBrace => Ok(AlternateCondition::ElseBlock(self.parse_block()?)),
+            Token::LBrace => Ok(AlternateCondition::ElseBlock {
+                else_token: else_token.span,
+                else_block: self.parse_block()?,
+            }),
             _ => unreachable!("parse_alternate"),
         }
     }

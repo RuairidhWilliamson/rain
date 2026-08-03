@@ -18,7 +18,7 @@ use crate::{
     },
     ast::NodeId,
     ir::ModuleId,
-    runner::internal::InternalFunction,
+    runner::{checker::CheckValue, internal::InternalFunction},
 };
 
 pub struct NamedValue {
@@ -258,7 +258,7 @@ impl std::fmt::Display for Closure {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct ClosureCaptures(pub Arc<HashMap<String, Value>>);
+pub struct ClosureCaptures(pub Arc<HashMap<String, CheckValue>>);
 
 impl std::hash::Hash for ClosureCaptures {
     fn hash<H: Hasher>(&self, state: &mut H) {

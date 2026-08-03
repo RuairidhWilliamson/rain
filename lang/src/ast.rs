@@ -609,6 +609,7 @@ impl AstNode for FnCall {
 
 #[derive(Debug)]
 pub struct IfCondition {
+    pub if_token: LocalSpan,
     pub condition: NodeId,
     pub then_block: NodeId,
     pub alternate: Option<AlternateCondition>,
@@ -616,8 +617,14 @@ pub struct IfCondition {
 
 #[derive(Debug)]
 pub enum AlternateCondition {
-    IfElseCondition(NodeId),
-    ElseBlock(NodeId),
+    IfElseCondition {
+        else_token: LocalSpan,
+        if_condition: NodeId,
+    },
+    ElseBlock {
+        else_token: LocalSpan,
+        else_block: NodeId,
+    },
 }
 
 impl From<IfCondition> for Node {
@@ -628,11 +635,14 @@ impl From<IfCondition> for Node {
 
 impl AstNode for IfCondition {
     fn span(&self, list: &NodeList) -> LocalSpan {
-        list.span(self.condition)
+        self.if_token
             + match &self.alternate {
                 Some(
-                    AlternateCondition::IfElseCondition(nid) | AlternateCondition::ElseBlock(nid),
-                ) => list.span(*nid),
+                    AlternateCondition::IfElseCondition {
+                        if_condition: id, ..
+                    }
+                    | AlternateCondition::ElseBlock { else_block: id, .. },
+                ) => list.span(*id),
                 None => list.span(self.then_block),
             }
     }
@@ -641,9 +651,12 @@ impl AstNode for IfCondition {
         let mut b = f.node("IfCondition");
         b.child(self.condition).child(self.then_block);
         match &self.alternate {
-            Some(AlternateCondition::IfElseCondition(id) | AlternateCondition::ElseBlock(id)) => {
-                b.child(*id)
-            }
+            Some(
+                AlternateCondition::IfElseCondition {
+                    if_condition: id, ..
+                }
+                | AlternateCondition::ElseBlock { else_block: id, .. },
+            ) => b.child(*id),
             None => &mut b,
         }
         .finish()

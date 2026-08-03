@@ -1,0 +1,10 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat!\n(\"tests/scripts/\", stringify! (check_conflicting_return_type), \".rain\"))"
+---
+Err
+<hidden>:10:3
+| 
+| let bar = fn() -> Integer {
+| 	"abc"
+  	 ^^^ unrecoverable error: check error: failed type check

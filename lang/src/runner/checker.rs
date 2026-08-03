@@ -14,7 +14,7 @@ use crate::{
     local_span::ErrorLocalSpan,
     runner::{
         internal::InternalFunction,
-        value::{Closure, RainTypeId, Value},
+        value::{Closure, ClosureCaptures, RainTypeId, Value},
     },
 };
 
@@ -82,7 +82,7 @@ impl CheckModuleResult {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub enum CheckValue {
     /// No clue, could be anything
     #[default]
@@ -100,6 +100,7 @@ pub enum CheckValue {
         arg_types: Vec<Self>,
         return_type: Box<Self>,
     },
+    Throwing,
 }
 
 impl CheckValue {
@@ -118,76 +119,6 @@ impl CheckValue {
         }
     }
 
-    fn type_check(&self, actual: &Self) -> Option<CheckError> {
-        let expected = self;
-        match (expected, actual) {
-            (Self::Unknown, _) | (_, Self::Unknown) => None,
-            (Self::ExactType(expected), Self::ExactType(actual)) => {
-                if *expected == *actual {
-                    None
-                } else {
-                    Some(CheckError::TypeError(*expected, *actual))
-                }
-            }
-            (Self::ExactType(expected), Self::ExactValue(value)) => {
-                if *expected == value.rain_type_id() {
-                    None
-                } else {
-                    Some(CheckError::TypeError(*expected, value.rain_type_id()))
-                }
-            }
-            (Self::UnknownTypeConstraint, Self::ExactType(RainTypeId::Closure)) => {
-                // Closures are the only valid type constraint
-                None
-            }
-            (Self::UnknownTypeConstraint, Self::ExactType(type_id)) => {
-                Some(CheckError::InvalidTypeConstraint(*type_id))
-            }
-            (
-                Self::UnknownTypeConstraint,
-                Self::Callable {
-                    arg_types,
-                    return_type: _,
-                },
-            ) => {
-                if arg_types.len() == 1 {
-                    None
-                } else {
-                    Some(CheckError::InvalidTypeConstraintWrongArgCount(
-                        arg_types.len(),
-                    ))
-                }
-            }
-            (
-                Self::Callable {
-                    arg_types: expected_arg_types,
-                    return_type: _,
-                },
-                Self::Callable {
-                    arg_types: actual_arg_types,
-                    return_type: _,
-                },
-            ) => {
-                if expected_arg_types.len() == actual_arg_types.len() {
-                    None
-                } else {
-                    Some(CheckError::WrongArgCount(
-                        expected_arg_types.len(),
-                        actual_arg_types.len(),
-                    ))
-                }
-            }
-            (Self::Callable { .. }, _) => todo!(),
-            (Self::SatisfiesTypeConstraint { .. }, _) => todo!(),
-            (Self::ExactValue { .. }, _) => todo!(),
-            (Self::ExactType { .. }, _) => todo!(),
-            (Self::UnknownTypeConstraint, Self::ExactValue(value)) => {
-                Some(CheckError::InvalidTypeConstraint(value.rain_type_id()))
-            }
-            (Self::UnknownTypeConstraint, _) => todo!(),
-        }
-    }
-
     fn into_satisfies_type_constraint(self) -> Self {
         match self {
             Self::ExactValue(Value::Closure(closure)) => Self::SatisfiesTypeConstraint(closure),
@@ -202,6 +133,7 @@ impl CheckValue {
             Self::ExactValue { .. } | Self::Callable { .. } | Self::ExactType { .. } => {
                 Self::Unknown
             }
+            Self::Throwing => Self::Throwing,
         }
     }
 }
@@ -224,6 +156,100 @@ pub struct Declaration {
 }
 
 impl CheckCx<'_, '_> {
+    fn type_check(&mut self, expected: &CheckValue, actual: &CheckValue) -> Option<CheckError> {
+        match (expected, actual) {
+            (CheckValue::Unknown | CheckValue::Throwing, _)
+            | (_, CheckValue::Unknown | CheckValue::Throwing) => None,
+            (CheckValue::ExactType(expected), CheckValue::ExactType(actual)) => {
+                if *expected == *actual {
+                    None
+                } else {
+                    Some(CheckError::TypeError(*expected, *actual))
+                }
+            }
+            (CheckValue::ExactType(expected), CheckValue::ExactValue(value)) => {
+                if *expected == value.rain_type_id() {
+                    None
+                } else {
+                    Some(CheckError::TypeError(*expected, value.rain_type_id()))
+                }
+            }
+            (CheckValue::UnknownTypeConstraint, CheckValue::ExactType(RainTypeId::Closure)) => {
+                // Closures are the only valid type constraint
+                None
+            }
+            (CheckValue::UnknownTypeConstraint, CheckValue::ExactType(type_id)) => {
+                Some(CheckError::InvalidTypeConstraint(*type_id))
+            }
+            (
+                CheckValue::UnknownTypeConstraint,
+                CheckValue::Callable {
+                    arg_types,
+                    return_type: _,
+                },
+            ) => {
+                if arg_types.len() == 1 {
+                    None
+                } else {
+                    Some(CheckError::InvalidTypeConstraintWrongArgCount(
+                        arg_types.len(),
+                    ))
+                }
+            }
+            (
+                CheckValue::Callable {
+                    arg_types: expected_arg_types,
+                    return_type: _,
+                },
+                CheckValue::Callable {
+                    arg_types: actual_arg_types,
+                    return_type: _,
+                },
+            ) => {
+                if expected_arg_types.len() == actual_arg_types.len() {
+                    None
+                } else {
+                    Some(CheckError::WrongArgCount(
+                        expected_arg_types.len(),
+                        actual_arg_types.len(),
+                    ))
+                }
+            }
+            (CheckValue::Callable { .. }, _) => todo!(),
+            (CheckValue::SatisfiesTypeConstraint(closure), v) => {
+                let mut callee_cx = self.callee();
+                let m = callee_cx.module;
+                let Node::Closure(closure_declare) = m.get(closure.node) else {
+                    unreachable!()
+                };
+                if closure_declare.args.len() != 1 {
+                    return Some(CheckError::InvalidTypeConstraintWrongArgCount(
+                        closure_declare.args.len(),
+                    ));
+                }
+                callee_cx
+                    .args
+                    .insert(closure_declare.args[0].name.contents(&m.src), v.clone());
+                match callee_cx.check_node(closure_declare.block, CheckValue::Unknown) {
+                    CheckValue::Throwing => Some(CheckError::FailedTypeCheck),
+                    _ => None,
+                }
+            }
+            (CheckValue::UnknownTypeConstraint, CheckValue::ExactValue(Value::Closure(..))) => {
+                // Closure is allowed
+                None
+            }
+            (CheckValue::ExactValue { .. }, _) => todo!(),
+            (CheckValue::ExactType { .. }, _) => {
+                todo!()
+            }
+            (CheckValue::UnknownTypeConstraint, CheckValue::ExactValue(value)) => {
+                Some(CheckError::InvalidTypeConstraint(value.rain_type_id()))
+            }
+            (CheckValue::UnknownTypeConstraint, _) => todo!(),
+        }
+    }
+
     fn check_unused_declarations(&mut self) {
         for (&id, Declaration { usage, .. }) in self.declarations.iter() {
             let span = self.module.get_declaration_name_span(id);
@@ -302,7 +328,7 @@ impl CheckCx<'_, '_> {
     {
         let mut actual = self.check_node_inner(nid, expected.clone());
         // Check the type
-        if let Some(err) = expected.type_check(&actual) {
+        if let Some(err) = self.type_check(&expected, &actual) {
             self.errors.push(self.module.span(nid).with_error(err));
         }
         if matches!(actual, CheckValue::Unknown) {
@@ -344,13 +370,16 @@ impl CheckCx<'_, '_> {
                     return CheckValue::ExactValue(Value::Unit);
                 };
                 for &nid in statements {
-                    self.previous = Some(self.check_node(nid, CheckValue::Unknown));
+                    let checked = self.check_node(nid, CheckValue::Unknown);
+                    if checked == CheckValue::Throwing {
+                        return CheckValue::Throwing;
+                    }
+                    self.previous = Some(checked);
                 }
                 self.check_node(*last, expected)
             }
             Node::Closure(closure) => {
                 let mut callee_cx = self.callee();
-                let mut arg_types = Vec::new();
                 for a in &closure.args {
                     let expected = if let Some(a) = &a.type_spec {
                         callee_cx
@@ -361,23 +390,28 @@ impl CheckCx<'_, '_> {
                     } else {
                         CheckValue::Unknown
                     };
-                    arg_types.push(expected.clone());
                     callee_cx
                         .args
                         .insert(a.name.contents(&callee_cx.module.src), expected);
                 }
-                let expected = if let Some(return_type) = &closure.return_type {
+                let expected_return_type = if let Some(return_type) = &closure.return_type {
                     callee_cx
                         .check_node(return_type.type_expr, CheckValue::UnknownTypeConstraint)
                         .into_satisfies_type_constraint()
                 } else {
                     CheckValue::Unknown
                 };
-                callee_cx.check_node(closure.block, expected.clone());
-                CheckValue::Callable {
-                    arg_types,
-                    return_type: Box::new(expected),
-                }
+                callee_cx.check_node(closure.block, expected_return_type);
+                CheckValue::ExactValue(Value::Closure(Closure {
+                    captures: ClosureCaptures(Arc::new(
+                        self.captures
+                            .iter()
+                            .map(|(k, v)| (k.to_string(), v.clone()))
+                            .collect(),
+                    )),
+                    module: self.module.id,
+                    node: nid,
+                }))
             }
             Node::FnCall(fn_call) => {
                 let callee = self.check_node(fn_call.callee, CheckValue::Unknown);
@@ -407,6 +441,9 @@ impl CheckCx<'_, '_> {
                                 .with_error(CheckError::WrongArgCount(0, fn_call.args.len())),
                         );
                     }
+                    CheckValue::ExactValue(Value::InternalFunction(InternalFunction::Throw)) => {
+                        return CheckValue::Throwing;
+                    }
                     CheckValue::Callable {
                         arg_types,
                         return_type,
@@ -421,23 +458,50 @@ impl CheckCx<'_, '_> {
                         }
                         return *return_type;
                     }
-                    _ => {}
-                }
-                for &a in &fn_call.args {
-                    self.check_node(a, CheckValue::Unknown);
+                    _ => {
+                        for &a in &fn_call.args {
+                            self.check_node(a, CheckValue::Unknown);
+                        }
+                    }
                 }
                 CheckValue::Unknown
             }
             Node::IfCondition(condition) => {
-                self.check_node(
+                match self.check_node(
                     condition.condition,
                     CheckValue::ExactType(RainTypeId::Boolean),
-                );
+                ) {
+                    CheckValue::ExactValue(Value::Boolean(true)) => {
+                        return self.check_node(condition.then_block, expected);
+                    }
+                    CheckValue::ExactValue(Value::Boolean(false)) => {
+                        return match &condition.alternate {
+                            Some(
+                                AlternateCondition::IfElseCondition {
+                                    else_token: _,
+                                    if_condition: alternate,
+                                }
+                                | AlternateCondition::ElseBlock {
+                                    else_token: _,
+                                    else_block: alternate,
+                                },
+                            ) => self.check_node(*alternate, expected),
+                            None => CheckValue::ExactValue(Value::Unit),
+                        };
+                    }
+                    _ => {}
+                }
                 self.check_node(condition.then_block, expected.clone());
                 match &condition.alternate {
                     Some(
-                        AlternateCondition::IfElseCondition(alternate)
-                        | AlternateCondition::ElseBlock(alternate),
+                        AlternateCondition::IfElseCondition {
+                            else_token: _,
+                            if_condition: alternate,
+                        }
+                        | AlternateCondition::ElseBlock {
+                            else_token: _,
+                            else_block: alternate,
+                        },
                     ) => {
                         self.check_node(*alternate, expected);
                     }
@@ -511,13 +575,45 @@ impl CheckCx<'_, '_> {
             }
             Node::BinaryOp(BinaryOp {
                 left,
-                op: BinaryOperatorKind::Equals | BinaryOperatorKind::NotEquals,
+                op: BinaryOperatorKind::Equals,
                 right,
                 ..
             }) => {
-                self.check_node(*left, CheckValue::Unknown);
-                self.check_node(*right, CheckValue::Unknown);
-                CheckValue::ExactType(RainTypeId::Boolean)
+                let left = self.check_node(*left, CheckValue::Unknown);
+                let right = self.check_node(*right, CheckValue::Unknown);
+                match (left, right) {
+                    (
+                        CheckValue::ExactValue(Value::Type(left)),
+                        CheckValue::ExactValue(Value::Type(right)),
+                    ) => CheckValue::ExactValue(Value::Boolean(left == right)),
+                    (CheckValue::ExactValue(left), CheckValue::ExactValue(right))
+                        if left.rain_type_id() != right.rain_type_id() =>
+                    {
+                        CheckValue::ExactValue(Value::Boolean(false))
+                    }
+                    _ => CheckValue::ExactType(RainTypeId::Boolean),
+                }
+            }
+            Node::BinaryOp(BinaryOp {
+                left,
+                op: BinaryOperatorKind::NotEquals,
+                right,
+                ..
+            }) => {
+                let left = self.check_node(*left, CheckValue::Unknown);
+                let right = self.check_node(*right, CheckValue::Unknown);
+                match (left, right) {
+                    (
+                        CheckValue::ExactValue(Value::Type(left)),
+                        CheckValue::ExactValue(Value::Type(right)),
+                    ) => CheckValue::ExactValue(Value::Boolean(left != right)),
+                    (CheckValue::ExactValue(left), CheckValue::ExactValue(right))
+                        if left.rain_type_id() == right.rain_type_id() =>
+                    {
+                        CheckValue::ExactValue(Value::Boolean(false))
+                    }
+                    _ => CheckValue::ExactType(RainTypeId::Boolean),
+                }
             }
             Node::BinaryOp(BinaryOp {
                 left,
@@ -688,4 +784,6 @@ pub enum CheckError {
     InvalidUnderscore,
     #[error("wrong number of arguments: expected {0}, actual {1}")]
     WrongArgCount(usize, usize),
+    #[error("failed type check")]
+    FailedTypeCheck,
 }

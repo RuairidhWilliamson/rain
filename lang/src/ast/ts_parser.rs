@@ -599,27 +599,32 @@ fn parse_closure_declare(mut walker: Walker<'_, '_>) -> Result<NodeId, Error> {
 }
 
 fn parse_if_condition(walker: &mut Walker) -> Result<NodeId, Error> {
-    // let if_span = walker.span_expect("if");
+    let if_span = walker.span_expect("if");
     walker.next();
     let condition = parse_expr(walker.child()?)?;
     walker.next();
     let then_block = parse_block(walker.child()?)?;
     let then_block = walker.nodes.push(then_block);
     let alternate = if walker.maybe_next() && walker.kind() == "else" {
-        // let else_span = walker.span();
+        let else_span = walker.span();
         walker.next();
         if walker.kind() == "if" {
-            Some(AlternateCondition::IfElseCondition(parse_if_condition(
-                walker,
-            )?))
+            Some(AlternateCondition::IfElseCondition {
+                else_token: else_span,
+                if_condition: parse_if_condition(walker)?,
+            })
         } else {
             let block = parse_block(walker.child()?)?;
-            Some(AlternateCondition::ElseBlock(walker.nodes.push(block)))
+            Some(AlternateCondition::ElseBlock {
+                else_token: else_span,
+                else_block: walker.nodes.push(block),
+            })
         }
     } else {
         None
     };
     Ok(walker.nodes.push(IfCondition {
+        if_token: if_span,
         condition,
         then_block,
         alternate,

@@ -132,6 +132,10 @@ impl IrModule {
         self.inner().0.span(id)
     }
 
+    pub fn node_src(&self, id: NodeId) -> &str {
+        self.span(id).contents(&self.src)
+    }
+
     pub fn declaration_ids(&self) -> impl Iterator<Item = LocalDeclarationId> {
         (0..self.inner().module_root().declarations.len()).map(|id| LocalDeclarationId(id, 0))
     }

@@ -15,6 +15,7 @@ use rain_lang::{
     ir::Rir,
     runner::{
         cache::{CacheEntry, CacheKey},
+        checker::CheckValue,
         dep_list::DepList,
         internal::InternalFunction,
         value::{ClosureCaptures, RainInteger, RainList, RainRecord, RainTypeId, Value},
@@ -329,7 +330,12 @@ impl PersistCacheKey {
                 captures: captures
                     .0
                     .iter()
-                    .map(|(name, v)| Some((name.clone(), PersistValue::persist(v, rir)?)))
+                    .map(|(name, v)| {
+                        let CheckValue::ExactValue(v) = v else {
+                            return None;
+                        };
+                        Some((name.clone(), PersistValue::persist(v, rir)?))
+                    })
                     .collect::<Option<_>>()?,
                 module: PersistFile::persist(module)?,
                 node: *node,
@@ -367,7 +373,9 @@ impl PersistCacheKey {
                 captures: ClosureCaptures(Arc::new(
                     captures
                         .into_iter()
-                        .map(|(name, v)| Some((name, v.depersist(config, rir)?)))
+                        .map(|(name, v)| {
+                            Some((name, CheckValue::ExactValue(v.depersist(config, rir)?)))
+                        })
                         .collect::<Option<_>>()?,
                 )),
                 module: module.depersist(config)?,

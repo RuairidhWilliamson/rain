@@ -38,6 +38,7 @@ use crate::{
     local_span::LocalSpan,
     runner::{
         cache::{CacheGuardTrait as _, CacheKey, CacheTrait},
+        checker::CheckValue,
         cx::{Cx, StacktraceEntry},
         dep_list::DepList,
         value::{Closure, ClosureCaptures, RainInteger, RainList, RainRecord, RainTypeId, Value},
@@ -436,6 +437,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             return Ok(Some(v.clone()));
         }
         if let Some(v) = cx.captures.0.get(ident) {
+            let CheckValue::ExactValue(v) = v else {
+                unreachable!("runner always uses exact values");
+            };
             return Ok(Some(v.clone()));
         }
         if let Some(declaration_id) = self.ir.resolve_global_declaration(cx.module.id, ident) {
@@ -721,10 +725,14 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
             self.evaluate_node(cx, if_condition.then_block)
         } else {
             match if_condition.alternate {
-                Some(AlternateCondition::IfElseCondition(if_condition)) => {
-                    self.evaluate_node(cx, if_condition)
-                }
-                Some(AlternateCondition::ElseBlock(block)) => self.evaluate_node(cx, block),
+                Some(AlternateCondition::IfElseCondition {
+                    else_token: _,
+                    if_condition,
+                }) => self.evaluate_node(cx, if_condition),
+                Some(AlternateCondition::ElseBlock {
+                    else_token: _,
+                    else_block,
+                }) => self.evaluate_node(cx, else_block),
                 None => Ok(Value::Unit),
             }
         }
@@ -866,15 +874,15 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
     }
 
     fn evaluate_closure_definition(cx: &mut Cx, nid: NodeId) -> Value {
-        let mut captures = HashMap::<String, Value>::new();
+        let mut captures = HashMap::<String, CheckValue>::new();
         for (k, v) in cx.captures.0.iter() {
             captures.insert(k.clone(), v.clone());
         }
         for (k, v) in &cx.args {
-            captures.insert(k.to_string(), v.clone());
+            captures.insert(k.to_string(), CheckValue::ExactValue(v.clone()));
         }
         for (k, v) in &cx.locals {
-            captures.insert(k.to_string(), v.clone());
+            captures.insert(k.to_string(), CheckValue::ExactValue(v.clone()));
         }
         Value::Closure(Closure {
             captures: ClosureCaptures(Arc::new(captures)),
