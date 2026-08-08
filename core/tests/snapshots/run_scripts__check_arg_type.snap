@@ -1,0 +1,10 @@
+---
+source: core/tests/run_scripts.rs
+expression: "run(concat! (\"tests/scripts/\", stringify! (check_arg_type), \".rain\"))"
+---
+Err
+<hidden>:16:19
+| 	Bool = type_constraint_from_concrete(internal._get_type(false))
+| 	foo = fn(a: Integer, b: String, c: Bool) {}
+| 	foo(1, "banana", 9)
+  	                 ^ unrecoverable error: check error: failed type check

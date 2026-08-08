@@ -1,6 +1,11 @@
 let main = fn() {}
 
+let Integer = fn(v) {
+	if internal._get_type(v) != internal._get_type(0) {
+		internal._throw("not an integer")
+	}
+}
+
 let foo = fn() {
-	Integer = internal._get_type(0)
 	foo: Integer = ""
 }

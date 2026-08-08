@@ -18,6 +18,8 @@ use crate::{
     },
 };
 
+const CHECK_DEPTH_LIMIT: usize = 10;
+
 pub struct CheckModuleResult {
     pub errors: Vec<ErrorLocalSpan<CheckError>>,
     pub declarations: HashMap<LocalDeclarationId, Declaration>,
@@ -42,11 +44,12 @@ impl CheckModuleResult {
             module: &module.alias(),
             previous: None,
             locals: HashMap::new(),
-            captures: HashMap::new(),
+            captures: ClosureCaptures::default(),
             args: HashMap::new(),
             errors: &mut errors,
             node_types: &mut node_types,
             declarations: &mut declarations,
+            call_depth: 0,
         };
         for id in module.declaration_ids() {
             check_cx.check_declaration(id);
@@ -56,7 +59,7 @@ impl CheckModuleResult {
             "locals cannot be set in declaration scope"
         );
         debug_assert!(
-            check_cx.captures.is_empty(),
+            check_cx.captures.0.is_empty(),
             "captures cannot be set in declaration scope"
         );
         debug_assert!(
@@ -112,13 +115,6 @@ impl CheckValue {
         }
     }
 
-    fn type_constraint(&self) -> Option<RainTypeId> {
-        match self {
-            Self::ExactValue(Value::Type(rain_type_id)) => Some(*rain_type_id),
-            _ => None,
-        }
-    }
-
     fn into_satisfies_type_constraint(self) -> Self {
         match self {
             Self::ExactValue(Value::Closure(closure)) => Self::SatisfiesTypeConstraint(closure),
@@ -142,11 +138,12 @@ struct CheckCx<'a, 'b> {
     module: &'a Arc<IrModule>,
     previous: Option<CheckValue>,
     locals: HashMap<&'a str, CheckValue>,
-    captures: HashMap<&'a str, CheckValue>,
+    captures: ClosureCaptures,
     args: HashMap<&'a str, CheckValue>,
     errors: &'b mut Vec<ErrorLocalSpan<CheckError>>,
     node_types: &'b mut HashMap<NodeId, CheckValue>,
     declarations: &'b mut HashMap<LocalDeclarationId, Declaration>,
+    call_depth: usize,
 }
 
 #[derive(Debug, Default)]
@@ -217,7 +214,17 @@ impl CheckCx<'_, '_> {
             }
             (CheckValue::Callable { .. }, _) => todo!(),
             (CheckValue::SatisfiesTypeConstraint(closure), v) => {
-                let mut callee_cx = self.callee();
+                let mut callee_cx = CheckCx {
+                    module: self.module,
+                    previous: None,
+                    locals: HashMap::new(),
+                    captures: closure.captures.alias(),
+                    args: HashMap::new(),
+                    errors: self.errors,
+                    node_types: self.node_types,
+                    declarations: self.declarations,
+                    call_depth: self.call_depth + 1,
+                };
                 let m = callee_cx.module;
                 let Node::Closure(closure_declare) = m.get(closure.node) else {
                     unreachable!()
@@ -239,14 +246,16 @@ impl CheckCx<'_, '_> {
                 // Closure is allowed
                 None
             }
-            (CheckValue::ExactValue { .. }, _) => todo!(),
-            (CheckValue::ExactType { .. }, _) => {
-                todo!()
-            }
             (CheckValue::UnknownTypeConstraint, CheckValue::ExactValue(value)) => {
                 Some(CheckError::InvalidTypeConstraint(value.rain_type_id()))
             }
-            (CheckValue::UnknownTypeConstraint, _) => todo!(),
+            // Not sure about these
+            (
+                CheckValue::ExactValue { .. }
+                | CheckValue::ExactType { .. }
+                | CheckValue::UnknownTypeConstraint,
+                _,
+            ) => None,
         }
     }
 
@@ -277,10 +286,7 @@ impl CheckCx<'_, '_> {
             DeclareName::Single(declare) => {
                 let name = declare.name.contents(&self.module.src);
                 let expected = if let Some(type_spec) = &declare.type_spec {
-                    self.check_node(type_spec.type_expr, CheckValue::Unknown)
-                        .type_constraint()
-                        .map(CheckValue::ExactType)
-                        .unwrap_or(CheckValue::Unknown)
+                    self.type_constraint(type_spec.type_expr)
                 } else {
                     CheckValue::Unknown
                 };
@@ -326,6 +332,9 @@ impl CheckCx<'_, '_> {
     where
         'c: 'b,
     {
+        if self.call_depth > CHECK_DEPTH_LIMIT {
+            return CheckValue::Unknown;
+        }
         let mut actual = self.check_node_inner(nid, expected.clone());
         // Check the type
         if let Some(err) = self.type_check(&expected, &actual) {
@@ -353,7 +362,7 @@ impl CheckCx<'_, '_> {
                 if let Some(v) = self.args.get(ident) {
                     return v.clone();
                 }
-                if let Some(v) = self.captures.get(ident) {
+                if let Some(v) = self.captures.0.get(ident) {
                     return v.clone();
                 }
                 if let Some(id) = self.module.find_declaration_by_name(ident) {
@@ -379,14 +388,27 @@ impl CheckCx<'_, '_> {
                 self.check_node(*last, expected)
             }
             Node::Closure(closure) => {
-                let mut callee_cx = self.callee();
+                let mut captures = self.captures.0.as_ref().clone();
+                for (&name, v) in &self.args {
+                    captures.insert(name.into(), v.clone());
+                }
+                for (&name, v) in &self.locals {
+                    captures.insert(name.into(), v.clone());
+                }
+                let mut callee_cx = CheckCx {
+                    module: self.module,
+                    previous: None,
+                    locals: HashMap::new(),
+                    captures: ClosureCaptures(Arc::new(captures)),
+                    args: HashMap::new(),
+                    errors: self.errors,
+                    node_types: self.node_types,
+                    declarations: self.declarations,
+                    call_depth: self.call_depth + 1,
+                };
                 for a in &closure.args {
                     let expected = if let Some(a) = &a.type_spec {
-                        callee_cx
-                            .check_node(a.type_expr, CheckValue::Unknown)
-                            .type_constraint()
-                            .map(CheckValue::ExactType)
-                            .unwrap_or_default()
+                        callee_cx.type_constraint(a.type_expr)
                     } else {
                         CheckValue::Unknown
                     };
@@ -395,20 +417,20 @@ impl CheckCx<'_, '_> {
                         .insert(a.name.contents(&callee_cx.module.src), expected);
                 }
                 let expected_return_type = if let Some(return_type) = &closure.return_type {
-                    callee_cx
-                        .check_node(return_type.type_expr, CheckValue::UnknownTypeConstraint)
-                        .into_satisfies_type_constraint()
+                    callee_cx.type_constraint(return_type.type_expr)
                 } else {
                     CheckValue::Unknown
                 };
                 callee_cx.check_node(closure.block, expected_return_type);
+                let mut captures = self.captures.0.as_ref().clone();
+                for (k, v) in &self.locals {
+                    captures.insert((*k).into(), v.clone());
+                }
+                for (k, v) in &self.args {
+                    captures.insert((*k).into(), v.clone());
+                }
                 CheckValue::ExactValue(Value::Closure(Closure {
-                    captures: ClosureCaptures(Arc::new(
-                        self.captures
-                            .iter()
-                            .map(|(k, v)| (k.to_string(), v.clone()))
-                            .collect(),
-                    )),
+                    captures: ClosureCaptures(Arc::new(captures)),
                     module: self.module.id,
                     node: nid,
                 }))
@@ -430,6 +452,7 @@ impl CheckCx<'_, '_> {
                                     .with_error(CheckError::WrongArgCount(1, fn_call.args.len())),
                             );
                         }
+                        CheckValue::Unknown
                     }
                     CheckValue::ExactValue(Value::InternalFunction(InternalFunction::Unit)) => {
                         if let &[] = &fn_call.args[..] {
@@ -440,9 +463,74 @@ impl CheckCx<'_, '_> {
                                 .rparen_token
                                 .with_error(CheckError::WrongArgCount(0, fn_call.args.len())),
                         );
+                        CheckValue::Unknown
                     }
                     CheckValue::ExactValue(Value::InternalFunction(InternalFunction::Throw)) => {
-                        return CheckValue::Throwing;
+                        CheckValue::Throwing
+                    }
+                    CheckValue::ExactValue(Value::Closure(Closure {
+                        captures,
+                        module: _,
+                        node,
+                    })) => {
+                        let mut callee = CheckCx {
+                            module: self.module,
+                            captures: captures.alias(),
+                            previous: None,
+                            locals: HashMap::new(),
+                            args: HashMap::new(),
+                            errors: self.errors,
+                            node_types: self.node_types,
+                            declarations: self.declarations,
+                            call_depth: self.call_depth + 1,
+                        };
+                        let node = callee.module.get(node);
+                        let Node::Closure(closure) = &node else {
+                            unreachable!();
+                        };
+                        let expected_arg_count = closure.args.len();
+                        if expected_arg_count != fn_call.args.len() {
+                            callee.errors.push(fn_call.rparen_token.with_error(
+                                CheckError::WrongArgCount(expected_arg_count, fn_call.args.len()),
+                            ));
+                            return CheckValue::Unknown;
+                        }
+
+                        for a in &closure.args {
+                            let v = a
+                                .type_spec
+                                .as_ref()
+                                .map(|t| callee.type_constraint(t.type_expr))
+                                .unwrap_or_default();
+                            callee.args.insert(a.name.contents(&callee.module.src), v);
+                        }
+                        let mut arg_types = callee.args;
+                        let mut args = HashMap::new();
+                        for (caller_nid, callee_arg) in fn_call.args.iter().zip(&closure.args) {
+                            let name = callee_arg.name.contents(&self.module.src);
+                            let Some(type_constraint) = arg_types.remove(name) else {
+                                unreachable!();
+                            };
+                            let v = self.check_node(*caller_nid, type_constraint);
+                            args.insert(name, v);
+                        }
+                        let mut callee = CheckCx {
+                            module: self.module,
+                            captures: captures.alias(),
+                            previous: None,
+                            locals: HashMap::new(),
+                            args,
+                            errors: self.errors,
+                            node_types: self.node_types,
+                            declarations: self.declarations,
+                            call_depth: self.call_depth + 1,
+                        };
+                        let return_type = closure
+                            .return_type
+                            .as_ref()
+                            .map(|return_type| callee.type_constraint(return_type.type_expr))
+                            .unwrap_or_default();
+                        callee.check_node(closure.block, return_type)
                     }
                     CheckValue::Callable {
                         arg_types,
@@ -456,15 +544,15 @@ impl CheckCx<'_, '_> {
                         for (expected, arg) in arg_types.into_iter().zip(&fn_call.args) {
                             self.check_node(*arg, expected);
                         }
-                        return *return_type;
+                        *return_type
                     }
                     _ => {
                         for &a in &fn_call.args {
                             self.check_node(a, CheckValue::Unknown);
                         }
+                        CheckValue::Unknown
                     }
                 }
-                CheckValue::Unknown
             }
             Node::IfCondition(condition) => {
                 match self.check_node(
@@ -514,10 +602,7 @@ impl CheckCx<'_, '_> {
                     DeclareName::Single(declare) => {
                         let name = declare.name.contents(&self.module.src);
                         let expected = if let Some(type_spec) = &declare.type_spec {
-                            self.check_node(type_spec.type_expr, CheckValue::Unknown)
-                                .type_constraint()
-                                .map(CheckValue::ExactType)
-                                .unwrap_or(CheckValue::Unknown)
+                            self.type_constraint(type_spec.type_expr)
                         } else {
                             CheckValue::Unknown
                         };
@@ -739,28 +824,9 @@ impl CheckCx<'_, '_> {
         }
     }
 
-    #[must_use]
-    fn callee<'b, 'c>(&'c mut self) -> CheckCx<'c, 'b>
-    where
-        'c: 'b,
-    {
-        let mut captures = self.captures.clone();
-        for (&name, v) in &self.args {
-            captures.insert(name, v.clone());
-        }
-        for (&name, v) in &self.locals {
-            captures.insert(name, v.clone());
-        }
-        CheckCx {
-            module: self.module,
-            previous: None,
-            locals: HashMap::new(),
-            captures,
-            args: HashMap::new(),
-            errors: self.errors,
-            node_types: self.node_types,
-            declarations: self.declarations,
-        }
+    fn type_constraint(&mut self, nid: NodeId) -> CheckValue {
+        self.check_node(nid, CheckValue::UnknownTypeConstraint)
+            .into_satisfies_type_constraint()
     }
 }
 

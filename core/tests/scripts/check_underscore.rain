@@ -1,0 +1,8 @@
+let main = fn() { }
+
+let foo = fn() {
+	"hi"
+	baz(_)
+}
+
+let baz = fn(a) { }

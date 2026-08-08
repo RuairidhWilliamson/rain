@@ -3,8 +3,8 @@ source: core/tests/run_scripts.rs
 expression: "run(concat! (\"tests/scripts/\", stringify! (check_type), \".rain\"))"
 ---
 Err
-<hidden>:5:18
+<hidden>:10:18
+| 
 | let foo = fn() {
-| 	Integer = internal._get_type(0)
 | 	foo: Integer = ""
-  	                 unrecoverable error: check error: type error: expected Integer, actual String
+  	                 unrecoverable error: check error: failed type check

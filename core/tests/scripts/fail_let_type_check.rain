@@ -2,6 +2,10 @@ let main = fn() {
 	x
 }
 
-let Integer = internal._get_type(0)
+let Integer = fn(v) {
+	if internal._get_type(v) != internal._get_type(0) {
+		internal._throw("not an integer")
+	}
+}
 
 let x: Integer = "5"

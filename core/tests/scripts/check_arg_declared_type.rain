@@ -1,7 +1,16 @@
 let main = fn() {}
 
-let Integer = internal._get_type(0)
-let String = internal._get_type("")
+let Integer = fn(v) {
+	if internal._get_type(v) != internal._get_type(0) {
+		internal._throw("not an integer")
+	}
+}
+
+let String = fn(v) {
+	if internal._get_type(v) != internal._get_type("") {
+		internal._throw("not an string")
+	}
+}
 
 let foo = fn(a: Integer) {
 	bar(a)
