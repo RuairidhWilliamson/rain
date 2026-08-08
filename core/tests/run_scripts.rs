@@ -104,7 +104,7 @@ tests! {
     check_arg_type,
     check_import_sugar,
     check_stdlib_sugar,
-    // check_arg_declared_type,
+    // check_arg_contravariance,
     fail_union_type_check,
     function_composition,
     check_underscore,
