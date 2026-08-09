@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "alias"
-version = "0.21.3"
+version = "0.22.0"
 
 [[package]]
 name = "allocator-api2"
@@ -2553,7 +2553,7 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "poison_panic"
-version = "0.21.3"
+version = "0.22.0"
 
 [[package]]
 name = "portable-atomic"
@@ -2708,7 +2708,7 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "rain"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "chrono",
  "ciborium",
@@ -2730,7 +2730,7 @@ dependencies = [
 
 [[package]]
 name = "rain-ci-common"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2752,7 +2752,7 @@ dependencies = [
 
 [[package]]
 name = "rain-ci-coordinator"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "alias",
  "anyhow",
@@ -2792,7 +2792,7 @@ dependencies = [
 
 [[package]]
 name = "rain-ci-migrator"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "dotenvy",
@@ -2807,7 +2807,7 @@ dependencies = [
 
 [[package]]
 name = "rain-ci-web"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "askama",
@@ -2838,7 +2838,7 @@ dependencies = [
 
 [[package]]
 name = "rain-core"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "alias",
  "base16",
@@ -2873,7 +2873,7 @@ dependencies = [
 
 [[package]]
 name = "rain-fuzz"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "libfuzzer-sys",
  "rain-lang",
@@ -2881,7 +2881,7 @@ dependencies = [
 
 [[package]]
 name = "rain-lang"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "alias",
  "base16",
@@ -2909,7 +2909,7 @@ dependencies = [
 
 [[package]]
 name = "rain-lsp"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "alias",
  "lsp-types",
@@ -3114,7 +3114,7 @@ dependencies = [
 
 [[package]]
 name = "ruipc"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "windows",
 ]
@@ -4314,7 +4314,7 @@ checksum = "009994f150cc0cd50ff54917d5bc8bffe8cad10ca10d81c34da2ec421ae61782"
 
 [[package]]
 name = "tree-sitter-rain"
-version = "0.21.3"
+version = "0.22.0"
 dependencies = [
  "cc",
  "tree-sitter",
