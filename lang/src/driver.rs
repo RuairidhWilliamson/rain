@@ -46,12 +46,8 @@ pub trait DriverTrait: monitoring::MonitoringTrait + FSTrait {
         current_dir: &Dir,
         options: RunOptions,
     ) -> Result<EscapeRunStatus, RunnerError>;
-    fn download(
-        &self,
-        url: &str,
-        outname: &str,
-        etag: Option<&[u8]>,
-    ) -> Result<DownloadStatus, RunnerError>;
+    fn http_download(&self, url: &str, etag: Option<&[u8]>) -> Result<DownloadStatus, RunnerError>;
+    fn http_post(&self, request: HttpPostRequest) -> Result<HttpPostResponse, RunnerError>;
     fn sha256(&self, file: &File) -> Result<[u8; 32], RunnerError>;
     fn sha512(&self, file: &File) -> Result<[u8; 64], RunnerError>;
     fn create_area(
@@ -110,7 +106,6 @@ pub struct RunOptions<'a> {
 }
 
 pub struct RunStatus {
-    pub success: bool,
     pub exit_code: Option<i32>,
     pub area: GeneratedFSArea,
     pub stdout: GeneratedFile,
@@ -118,16 +113,14 @@ pub struct RunStatus {
 }
 
 pub struct EscapeRunStatus {
-    pub success: bool,
     pub exit_code: Option<i32>,
     pub stdout: GeneratedFile,
     pub stderr: GeneratedFile,
 }
 
 pub struct DownloadStatus {
-    pub ok: bool,
-    pub status_code: Option<u16>,
-    pub file: Option<GeneratedFile>,
+    pub status_code: u16,
+    pub file: GeneratedFile,
     pub etag: Option<Vec<u8>>,
 }
 
@@ -173,4 +166,15 @@ pub enum PathConflicts {
     #[default]
     Throw,
     Overwrite,
+}
+
+pub struct HttpPostRequest {
+    pub url: String,
+    pub headers: Vec<(String, String)>,
+    pub body: File,
+}
+
+pub struct HttpPostResponse {
+    pub status_code: u16,
+    pub body: GeneratedFile,
 }

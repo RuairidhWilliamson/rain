@@ -1,0 +1,34 @@
+let std = import("std.rain")
+let {String, List, File, Bool, Integer, ListLength} = std.types
+
+pub let DownloadResponse = std.types.new_interface({
+	ok = Bool,
+	status_code = Integer,
+	file = File,
+})
+
+pub let download = fn(url: String) -> DownloadResponse {
+	internal._download(url)
+}
+
+pub let download_with_sha256 = fn(url: String, sha256: String) -> File {
+	download_result = download(url)
+	actual_sha256 = std.fs.sha256(download_result.file)
+	if actual_sha256 != sha256 {
+		internal._throw("bad sha256 " + actual_sha256)
+	}
+	// Because we have checked the sha256 we can safely ignore the Download dep
+	std.cache.unsafe_clear_deps()
+	download_result.file
+}
+
+pub let PostResponse = std.types.new_interface({
+	ok = Bool,
+	status_code = Integer,
+	body = File,
+})
+
+pub let post = fn(url: String, headers: List(ListLength(String, 2)), body: File) -> PostResponse {
+	internal._http_post(url, headers, body)
+}
+

@@ -2,7 +2,7 @@ let main = import("main.rain")
 let std = main.std
 
 pub let tree_sitter_cli = fn() {
-	download = std.utils.download("https://github.com/tree-sitter/tree-sitter/releases/download/v0.26.3/tree-sitter-linux-x64.gz")
+	download = std.http.download("https://github.com/tree-sitter/tree-sitter/releases/download/v0.26.3/tree-sitter-linux-x64.gz")
 	if !download.ok {
 		std.utils._throw("download tree_sitter failed")
 	}

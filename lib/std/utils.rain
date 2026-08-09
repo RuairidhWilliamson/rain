@@ -1,6 +1,6 @@
 // utils.rain is designed to be removed in the future but provides useful APIs
 let std = import("std.rain")
-let {String, List, File, Bool, Any} = std.types
+let {String, List, Bool, Any} = std.types
 let {print} = std
 
 pub let run = internal._run
@@ -19,21 +19,6 @@ pub let stringify = internal._stringify
 
 // Reserved keywords are prefixed with _
 pub let _throw = internal._throw
-
-pub let download = fn(url) {
-	internal._download(url)
-}
-
-pub let download_with_sha256 = fn(url: String, sha256: String) -> File {
-	download_result = internal._download(url)
-	actual_sha256 = internal._sha256(download_result.file)
-	if actual_sha256 != sha256 {
-		internal._throw("bad sha256 " + actual_sha256)
-	}
-	// Because we have checked the sha256 we can safely ignore the Download dep
-	std.cache.unsafe_clear_deps()
-	download_result.file
-}
 
 pub let run_check = fn(area, bin, args: List(Any), env) {
 	run_result = run(area, bin, args, env)

@@ -1,8 +1,8 @@
 #![allow(clippy::unnecessary_wraps)]
 
 mod archives;
-mod download;
 mod fs;
+mod http;
 mod macros;
 mod run;
 
@@ -106,6 +106,7 @@ pub enum InternalFunction {
     CreateUnique,
     Offline,
     GitDescribe,
+    HttpPost,
 }
 
 impl std::fmt::Display for InternalFunction {
@@ -183,6 +184,7 @@ impl InternalFunction {
             "_create_unique" => Some(Self::CreateUnique),
             "_offline" => Some(Self::Offline),
             "_git_describe" => Some(Self::GitDescribe),
+            "_http_post" => Some(Self::HttpPost),
             _ => None,
         }
     }
@@ -272,6 +274,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             InternalFunction::Offline => self.offline(),
             InternalFunction::RegexReplaceF => self.regex_replace_f(),
             InternalFunction::GitDescribe => self.git_describe(),
+            InternalFunction::HttpPost => self.http_post(),
         }
     }
 

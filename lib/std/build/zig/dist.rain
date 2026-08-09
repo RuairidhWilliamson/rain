@@ -7,7 +7,7 @@ let {String, File} = std.types
 pub let download = fn(version: String, arch: String, os: String) -> File {
 	if os == "windows" {
 		url = "https://ziglang.org/download/" + version + "/zig-" + arch + "-" + os + "-" + version + ".zip"
-		download_result = std.utils.download(url)
+		download_result = std.http.download(url)
 		if !download_result.ok {
 			std.print(url)
 			std.print(download_result)
@@ -16,7 +16,7 @@ pub let download = fn(version: String, arch: String, os: String) -> File {
 		std.fs.file(std.compression.extract_zip(download_result.file), "zig-" + arch + "-" + os + "-" + version + "/zig")
 	} else {
 		url = "https://ziglang.org/download/" + version + "/zig-" + arch + "-" + os + "-" + version + ".tar.xz"
-		download_result = std.utils.download(url)
+		download_result = std.http.download(url)
 		if !download_result.ok {
 			std.print(url)
 			std.print(download_result)

@@ -118,6 +118,18 @@ pub let List = fn(inner: TypeConstraint) -> TypeConstraint {
 	}
 }
 
+pub let ListLength = fn(inner: TypeConstraint, length: Integer) -> TypeConstraint {
+	fn (v: Any) {
+		List(inner)
+		len = fold(0, v, fn(acc, x) {
+			acc + 1
+		})
+		if len != length {
+			internal._throw(f"list should be of length ${length}")
+		}
+	}
+}
+
 pub let Record = fn(inner: TypeConstraint) -> TypeConstraint {
 	fn(v: Any) {
 		AnyRecord(v)

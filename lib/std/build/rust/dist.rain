@@ -1,7 +1,7 @@
 let std = import("std.rain")
 
-let download = std.utils.download
-let _throw = std.utils._throw
+let {download} = std.http
+let {_throw} = std.utils
 let get_dir = std.fs.dir
 
 let download_pre_sha = fn(url, filename) {

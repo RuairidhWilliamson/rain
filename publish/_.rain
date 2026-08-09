@@ -46,7 +46,7 @@ pub let publish_tree_sitter_rain_crate = fn(version: String) {
 	std.escape.run(tree_sitter_rain_dir, cargo, ["package", "--index", "sparse+https://storage.googleapis.com/" + bucket + "/crates/index/"], main.cargo_env)
 	crate = std.fs.file(main.area, "target/package/tmp-registry/tree-sitter-rain-" + version + ".crate")
 	new_index = std.fs.file(main.area, "target/package/tmp-registry/index/tr/ee/tree-sitter-rain")
-	download = std.utils.download("https://storage.googleapis.com/" + bucket + "/crates/index/tr/ee/tree-sitter-rain")
+	download = std.http.download("https://storage.googleapis.com/" + bucket + "/crates/index/tr/ee/tree-sitter-rain")
 	if download.ok {
 		index = std.fs.create_file(std.fs.read_file(download.file) + "\n" + std.fs.read_file(new_index), "tree-sitter-rain")
 	} else {

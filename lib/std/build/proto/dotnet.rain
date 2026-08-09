@@ -3,7 +3,7 @@ let std = import("std.rain")
 let {String, Area} = std.types
 
 pub let download_grpc_tools = fn(version: String) -> Area {
-	tools_download = std.utils.download("https://www.nuget.org/api/v2/package/Grpc.Tools/" + version)
+	tools_download = std.http.download("https://www.nuget.org/api/v2/package/Grpc.Tools/" + version)
 	if !tools_download.ok {
 		std.utils._throw("failed to download grpc tools from nuget")
 	} 

@@ -7,7 +7,11 @@ use indexmap::IndexMap;
 use crate::{
     afs::area::FileAreaRef,
     driver::{DriverTrait, RunOptions, monitoring::Call},
-    runner::{cache::CacheTrait, dep::Dep, internal::InternalCx},
+    runner::{
+        cache::CacheTrait,
+        dep::Dep,
+        internal::{InternalCx, macros::expect_type},
+    },
 };
 
 use crate::runner::{
@@ -43,15 +47,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     ))?,
                 };
                 let bin = self.expect_file_path((*file_nid, file_value))?;
-                let Value::List(args) = args_value else {
-                    return Err(self.caller_cx.nid_err(
-                        *args_nid,
-                        RunnerError::ExpectedType {
-                            actual: args_value.rain_type_id(),
-                            expected: Cow::Borrowed(&[RainTypeId::List]),
-                        },
-                    ));
-                };
+                let args = expect_type!(self, List, (args_nid, args_value));
                 let args = args
                     .0
                     .iter()
@@ -101,7 +97,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     )
                     .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
                 let mut m = IndexMap::new();
-                m.insert("success".to_owned(), Value::Boolean(status.success));
+                m.insert(
+                    "success".to_owned(),
+                    Value::Boolean(status.exit_code == Some(0)),
+                );
                 m.insert(
                     "exit_code".to_owned(),
                     Value::Integer(Arc::new(RainInteger(status.exit_code.unwrap_or(-1).into()))),
@@ -134,15 +133,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
             ] => {
                 let dir = self.expect_dir_or_area((*area_nid, area_value))?;
                 let bin = self.expect_file_path((*file_nid, file_value))?;
-                let Value::List(args) = args_value else {
-                    return Err(self.caller_cx.nid_err(
-                        *args_nid,
-                        RunnerError::ExpectedType {
-                            actual: args_value.rain_type_id(),
-                            expected: Cow::Borrowed(&[RainTypeId::List]),
-                        },
-                    ));
-                };
+                let args = expect_type!(self, List, (args_nid, args_value));
                 let args = args
                     .0
                     .iter()
@@ -191,7 +182,10 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                     )
                     .map_err(|err| self.caller_cx.nid_err(self.nid, err))?;
                 let mut m = IndexMap::new();
-                m.insert("success".to_owned(), Value::Boolean(status.success));
+                m.insert(
+                    "success".to_owned(),
+                    Value::Boolean(status.exit_code == Some(0)),
+                );
                 m.insert(
                     "exit_code".to_owned(),
                     Value::Integer(Arc::new(RainInteger(status.exit_code.unwrap_or(-1).into()))),

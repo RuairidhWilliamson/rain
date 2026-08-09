@@ -29,7 +29,8 @@ use rain_lang::{
     cancellation::Cancellation,
     driver::{
         CreateAreaOptions, DownloadStatus, DriverTrait, EscapeRunStatus, FSEntryQueryResult,
-        FSTrait, FileMetadata, HiddenFiles, PathConflicts, RunOptions, RunStatus,
+        FSTrait, FileMetadata, HiddenFiles, HttpPostRequest, HttpPostResponse, PathConflicts,
+        RunOptions, RunStatus,
         monitoring::{Call, MonitoringTrait},
     },
     hash::FileHash,
@@ -404,10 +405,8 @@ impl DriverTrait for DriverImpl<'_> {
         cmd.envs(env);
         debug!("Running {cmd:?}");
         let (status, stdout, stderr) = self.cmd_status(cmd, cancel)?;
-        let success = status.success();
         let exit_code = status.code();
         Ok(RunStatus {
-            success,
             exit_code,
             area: output_area,
             stdout,
@@ -436,22 +435,15 @@ impl DriverTrait for DriverImpl<'_> {
         cmd.envs(env);
         debug!("Running {cmd:?}");
         let (status, stdout, stderr) = self.cmd_status(cmd, cancel)?;
-        let success = status.success();
         let exit_code = status.code();
         Ok(EscapeRunStatus {
-            success,
             exit_code,
             stdout,
             stderr,
         })
     }
 
-    fn download(
-        &self,
-        url: &str,
-        name: &str,
-        etag: Option<&[u8]>,
-    ) -> Result<DownloadStatus, RunnerError> {
+    fn http_download(&self, url: &str, etag: Option<&[u8]>) -> Result<DownloadStatus, RunnerError> {
         let agent = reqwest::blocking::ClientBuilder::new()
             .build()
             .map_err(|err| RunnerError::Makeshift(format!("create client: {err:#}").into()))?;
@@ -469,7 +461,7 @@ impl DriverTrait for DriverImpl<'_> {
             .get(http::header::ETAG)
             .map(|h| h.as_bytes().to_vec());
         let area = self.create_empty_area()?;
-        let path = SealedFilePath::new(name)?;
+        let path = SealedFilePath::new("download")?;
         let entry = GeneratedFSEntry::new(area, path);
         let output_path = self.resolve_fs_entry((&entry).into());
         let mut out = std::fs::File::create_new(output_path)
@@ -480,10 +472,43 @@ impl DriverTrait for DriverImpl<'_> {
         // Safety: We just created the file and checked for errors so it is present
         let output = unsafe { GeneratedFile::new(entry) };
         Ok(DownloadStatus {
-            ok: response.status().is_success(),
-            status_code: Some(response.status().as_u16()),
-            file: Some(output),
+            status_code: response.status().as_u16(),
+            file: output,
             etag,
+        })
+    }
+
+    fn http_post(&self, request: HttpPostRequest) -> Result<HttpPostResponse, RunnerError> {
+        let HttpPostRequest { url, headers, body } = request;
+        let agent = reqwest::blocking::ClientBuilder::new()
+            .build()
+            .map_err(|err| RunnerError::Makeshift(format!("create client: {err:#}").into()))?;
+        let mut request = agent.post(url.clone());
+        for (name, value) in headers {
+            request = request.header(name, value);
+        }
+        let body_entry = self.resolve_fs_entry(body.fsinner());
+        let body = std::fs::read(body_entry)
+            .map_err(|err| RunnerError::MakeshiftIO("read body".into(), err))?;
+        request = request.body(body);
+        debug!("Post {url}");
+        let mut response = request
+            .send()
+            .map_err(|err| RunnerError::Makeshift(format!("post request: {err:#}").into()))?;
+        let area = self.create_empty_area()?;
+        let path = SealedFilePath::new("download")?;
+        let entry = GeneratedFSEntry::new(area, path);
+        let output_path = self.resolve_fs_entry((&entry).into());
+        let mut out = std::fs::File::create_new(output_path)
+            .map_err(|err| RunnerError::MakeshiftIO("create post file".into(), err))?;
+        response
+            .copy_to(&mut out)
+            .map_err(|err| RunnerError::Makeshift(format!("post file: {err:#}").into()))?;
+        // Safety: We just created the file and checked for errors so it is present
+        let output = unsafe { GeneratedFile::new(entry) };
+        Ok(HttpPostResponse {
+            status_code: response.status().as_u16(),
+            body: output,
         })
     }
 

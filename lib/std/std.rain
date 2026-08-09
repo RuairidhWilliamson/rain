@@ -10,6 +10,7 @@ pub let compression = import("compression.rain")
 pub let fs = import("fs.rain")
 pub let string = import("string.rain")
 pub let git = import("git.rain")
+pub let http = import("http.rain")
 
 pub let unit = internal._unit()
 pub let print = internal._print
