@@ -1,7 +1,0 @@
----
-source: core/tests/run_scripts.rs
-assertion_line: 51
-expression: "run(concat! (\"tests/scripts/\", stringify! (check_arg_declared_type), \".rain\"))"
----
-Ok
-Unit

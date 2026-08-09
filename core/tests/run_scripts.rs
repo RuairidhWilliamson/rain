@@ -80,10 +80,7 @@ tests! {
     trailing_commas,
     format_string,
     closure_disambiguation,
-    // Currently doesn't work correctly
-    // create_unique,
     regex_replace,
-    fail_type_check,
     fail_let_type_check,
     fail_let_destructure_type_check,
     record_type_check_err,
@@ -104,8 +101,11 @@ tests! {
     check_arg_type,
     check_import_sugar,
     check_stdlib_sugar,
-    // check_arg_contravariance,
     fail_union_type_check,
     function_composition,
     check_underscore,
+    // Currently doesn't work correctly
+    // create_unique,
+    // check_arg_contravariance,
+    fail_type_check,
 }
