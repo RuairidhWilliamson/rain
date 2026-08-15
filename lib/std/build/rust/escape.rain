@@ -1,31 +1,76 @@
 let std = import("std.rain")
 
-let {String, File, Bool, Area} = std.types
+let {unit} = std
+let {String, List, Record, Any, File, Area} = std.types
+let {map, flatten} = std.list
+let {file} = std.fs
+let merge_records = std.record.merge
+let {exe_suffix} = std.utils
 
 let cargo = std.escape.bin("cargo")
 
-let cargo_env =  {
+let Stringable = Any
+let Env = Record(Stringable)
+
+let cargo_env: Env = {
 	CARGO_TERM_COLOR = "always",
 	CARGO_TERM_QUIET = "true",
 }
 
-pub let cargo_build = fn(area: Area, package: String, target_triple: String, release: Bool) -> File {
-	args = [
-		"build",
-		"--locked",
-		"--package", package,
-		"--target", target_triple,
-	]
+pub let cargo_build = fn(area: Area, args: Record(Any)) -> File {
+	default_args = {
+		bin = unit,
+		target = std.utils.host_info().triple,
+		default_features = true,
+		features = [],
+		release = false,
+		env = {},
+	}
+	{bin, target, default_features, features, release, env} = std.record.merge(default_args, args)
+	args = ["build", "--bin", bin, "--target", target]
+	if !default_features {
+		args = args + ["--no-default-features"]
+	}
+	args = args + expand_feature_args(features)
 	if internal._offline() {
 		args = args + ["--offline"]
 	}
 	if release {
 		args = args + ["--release"]
 	}
-	std.escape.run(area, cargo, args, cargo_env)
-	profile = "debug"
-	if release {
-		profile = "release"
+	env = merge_records(cargo_env, env)
+	std.escape.run(area, cargo, args, env)
+	profile = if release {"release"} else {"debug"}
+	file(area, f"target/${target}/${profile}/${bin}${exe_suffix(target)}")
+}
+
+let expand_feature_args = fn(features: List(String)) -> List(String) {
+	flatten(map(features, fn(f) {["-F", f]}))
+}
+
+pub let cargo_fmt_check = fn(area: Area) {
+	std.escape.run(area, cargo, ["fmt", "--check"], {})
+	unit
+}
+
+pub let cargo_clippy = fn(area: Area, features: List(String), env: Env) {
+	args = ["clippy", "--all-targets"]
+	args = args + expand_feature_args(features)
+	args = args + ["--", "-Dwarnings"]
+	if internal._offline() {
+		args = args + ["--offline"]
 	}
-	std.fs.file(area, "target/" + target_triple + "/" + profile + "/" + package + std.utils.exe_suffix(target_triple))
+	env = merge_records(cargo_env, env)
+	std.escape.run(area, cargo, args, env)
+	unit
+}
+
+pub let cargo_test = fn(area, features: List(String), env: Env) {
+	args = ["test"] + expand_feature_args(features)
+	if internal._offline() {
+		args = args + ["--offline"]
+	}
+	env = merge_records(cargo_env, env)
+	std.escape.run(area, cargo, args, env)
+	unit
 }
