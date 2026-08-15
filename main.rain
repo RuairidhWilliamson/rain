@@ -44,11 +44,11 @@ pub let check = fn() {
 }
 
 pub let build_cli_release = fn(target_triple: String) -> File {
-	std.build.rust.escape.cargo_build(area, "rain", target_triple, true)
+	std.build.rust.escape.cargo_build(area, {bin = "rain", target = target_triple, release = true})
 }
 
 pub let build_lsp_release = fn(target_triple: String) -> File {
-	std.build.rust.escape.cargo_build(area, "rain-lsp", target_triple, true)
+	std.build.rust.escape.cargo_build(area, {bin = "rain-lsp", target = target_triple, release = true})
 }
 
 let check_empty_files = fn() {

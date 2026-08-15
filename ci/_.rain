@@ -4,11 +4,11 @@ let std = main.std
 let {File} = std.types
 
 pub let build_ci_web = fn() -> File {
-	std.build.rust.escape.cargo_build(main.area, "rain-ci-web", "x86_64-unknown-linux-musl", true)
+	std.build.rust.escape.cargo_build(main.area, {bin = "rain-ci-web", target = "x86_64-unknown-linux-musl", release = true})
 }
 
 pub let build_ci_migrator = fn() -> File {
-	std.build.rust.escape.cargo_build(main.area, "rain-ci-migrator", "x86_64-unknown-linux-musl", true)
+	std.build.rust.escape.cargo_build(main.area, {bin = "rain-ci-migrator", target = "x86_64-unknown-linux-musl", release = true})
 }
 
 pub let build_ci_migrations = fn() -> File {
@@ -16,5 +16,5 @@ pub let build_ci_migrations = fn() -> File {
 }
 
 pub let build_ci_coordinator = fn() -> File {
-	std.build.rust.escape.cargo_build(main.area, "rain-ci-coordinator", "x86_64-unknown-linux-gnu", true)
+	std.build.rust.escape.cargo_build(main.area, {bin = "rain-ci-coordinator", target = "x86_64-unknown-linux-gnu", release = true})
 }
