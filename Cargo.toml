@@ -43,6 +43,9 @@ undocumented_unsafe_blocks = "warn"
 unused_result_ok = "warn"
 unused_trait_names = "warn"
 unwrap_used = "warn"
+verbose_file_reads = "warn"
+tests_outside_test_module = "warn"
+indexing_slicing = "warn"
 
 # Nursery
 nursery = { level = "warn", priority = -1 }
