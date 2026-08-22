@@ -1,4 +1,4 @@
-FROM docker.io/rust:1.97-slim
+FROM docker.io/rust:1.98-slim
 WORKDIR /usr/rain
 RUN rustup target add x86_64-pc-windows-gnu
 RUN rustup component add rustfmt clippy
