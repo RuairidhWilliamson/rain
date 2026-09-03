@@ -37,8 +37,8 @@ impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::TokenError(err) => std::fmt::Display::fmt(err, f),
-            Self::ExpectedToken(tokens) if tokens.len() == 1 => {
-                f.write_fmt(format_args!("bad syntax: expected {:?}", tokens[0]))
+            Self::ExpectedToken(tokens) if let Some(token) = tokens.first() => {
+                f.write_fmt(format_args!("bad syntax: expected {token:?}"))
             }
             Self::ExpectedToken(tokens) => {
                 f.write_fmt(format_args!("bad syntax: expected one of {tokens:?}"))

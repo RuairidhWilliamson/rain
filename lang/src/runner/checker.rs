@@ -229,14 +229,12 @@ impl CheckCx<'_, '_> {
                 let Node::Closure(closure_declare) = m.get(closure.node) else {
                     unreachable!()
                 };
-                if closure_declare.args.len() != 1 {
+                let Some(a) = closure_declare.args.first() else {
                     return Some(CheckError::InvalidTypeConstraintWrongArgCount(
                         closure_declare.args.len(),
                     ));
-                }
-                callee_cx
-                    .args
-                    .insert(closure_declare.args[0].name.contents(&m.src), v.clone());
+                };
+                callee_cx.args.insert(a.name.contents(&m.src), v.clone());
                 match callee_cx.check_node(closure_declare.block, CheckValue::Unknown) {
                     CheckValue::Throwing => Some(CheckError::FailedTypeCheck),
                     _ => None,

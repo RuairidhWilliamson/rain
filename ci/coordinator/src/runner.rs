@@ -4,6 +4,7 @@ use std::{
 };
 
 use alias::Alias as _;
+use anyhow::Context as _;
 use poison_panic::MutexExt as _;
 use rain_core::{
     cache::{Cache, CacheStats, persistent::PersistCache},
@@ -85,21 +86,30 @@ impl Runner {
     ) -> RunComplete {
         let driver = Self::create_driver_for_run(secrets);
         let area = Self::create_area_for_run(root, &driver, sha);
-        self.run_inner(&driver, FSArea::Generated(area), &target, cancel)
+        let res = self.run_inner(&driver, FSArea::Generated(area), &target, cancel);
+        match res {
+            Ok(complete) => complete,
+            Err(err) => {
+                error!("run error: {err:?}");
+                RunComplete {
+                    success: false,
+                    output: err.to_string(),
+                }
+            }
+        }
     }
 
-    #[expect(clippy::unwrap_used)]
     fn run_inner(
         &self,
         driver: &DriverImpl,
         area: FSArea,
         target: &str,
         cancel: Cancellation,
-    ) -> RunComplete {
-        let root_entry = FSEntry::new(area, SealedFilePath::new("/main.rain").unwrap());
+    ) -> anyhow::Result<RunComplete> {
+        let root_entry = FSEntry::new(area, SealedFilePath::new("/main.rain")?);
         info!("Root entry {root_entry}");
-        let root = File::new_checked(driver, root_entry).unwrap();
-        let src = driver.read_file(&root).unwrap();
+        let root = File::new_checked(driver, root_entry).context("get main.rain")?;
+        let src = driver.read_file(&root).context("read main.rain")?;
         let module = Module::parse(&src);
         let mut ir = rain_lang::ir::Rir::new();
         let mid = match ir.insert_module(Some(root), src, module) {
@@ -107,10 +117,10 @@ impl Runner {
             Err(err) => {
                 let err = err.resolve_ir(&ir);
                 error!("\n{err}");
-                return RunComplete {
+                return Ok(RunComplete {
                     success: false,
                     output: format!("{err}"),
-                };
+                });
             }
         };
         let mut persistent_cache = self.persistent_cache.plock();
@@ -135,18 +145,18 @@ impl Runner {
         match res {
             Ok(value) => {
                 info!("Value {value}");
-                RunComplete {
+                Ok(RunComplete {
                     success: true,
                     output: format!("{prints}\n--\n{value:#}"),
-                }
+                })
             }
             Err(err) => {
                 error!("{err:?}");
                 error!("\n{err}");
-                RunComplete {
+                Ok(RunComplete {
                     success: false,
                     output: format!("{prints}\n--\n{err}"),
-                }
+                })
             }
         }
     }

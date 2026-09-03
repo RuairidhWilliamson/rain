@@ -108,7 +108,7 @@ pub fn evaluate_and_call_chain(
                 .collect();
             let mut prefix = String::new();
             if i > 0 {
-                prefix = target_chain[..i].join(".") + ".";
+                prefix = target_chain.get(..i).expect("guaranteed safe").join(".") + ".";
             }
             return Err(CoreError::UnknownDeclaration {
                 prefix,

@@ -26,7 +26,7 @@ impl ResolvedError<'_> {
             src,
             call_span,
             name,
-        } in &trace[..trace.len() - 1]
+        } in trace.iter().take(trace.len() - 1)
         {
             let (line, col) = call_span.start_line_colo(src);
             let filename = file
@@ -45,7 +45,7 @@ impl ResolvedError<'_> {
             src,
             call_span,
             name,
-        } = &trace[trace.len() - 1];
+        } = trace.last().expect("at least one trace span");
         let (line, col) = call_span.start_line_colo(src);
         let [before, contents, after] = call_span.surrounding_lines(src, 2);
         let before = before.replace('\n', "\n| ");

@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 use digest_io::IoWrapper;
 use rain_lang::{
@@ -68,7 +71,7 @@ impl Config {
         self.base_data_dir.join(format!("server-panic-{id}.stderr"))
     }
 
-    pub fn clean_directories(&self) -> Vec<&Path> {
+    pub fn clean_directories(&self) -> HashSet<&Path> {
         let dirs: &[&Path] = &[
             &self.base_cache_dir,
             &self.base_generated_dir,
@@ -122,40 +125,33 @@ impl FSTrait for Config {
     }
 }
 
-fn unique_directories<'a>(dirs: &[&'a Path]) -> Vec<&'a Path> {
-    let mut dirs: Vec<&Path> = dirs
-        .iter()
+fn unique_directories<'a>(dirs: &[&'a Path]) -> HashSet<&'a Path> {
+    dirs.iter()
         .filter(|&d1| !dirs.iter().any(|d2| d1 != d2 && d1.starts_with(d2)))
         .copied()
-        .collect();
-    dirs.sort_unstable();
-    let mut i = 1;
-    while i < dirs.len() {
-        if dirs[i] == dirs[i - 1] {
-            dirs.remove(i);
-        } else {
-            i += 1;
-        }
-    }
-    dirs
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::{collections::HashSet, path::Path};
 
     use super::unique_directories;
 
     #[test]
     fn test_directories_unique() {
-        assert_eq!(unique_directories(&[]), Vec::<&Path>::default());
+        assert_eq!(unique_directories(&[]), HashSet::<&Path>::default());
         assert_eq!(
             unique_directories(&[Path::new("/foo"), Path::new("/foo/bar"), Path::new("/foo")]),
             vec![Path::new("/foo")]
+                .into_iter()
+                .collect::<HashSet<&Path>>()
         );
         assert_eq!(
             unique_directories(&[Path::new("/foo"), Path::new("/foo"), Path::new("/foo")]),
             vec![Path::new("/foo")]
+                .into_iter()
+                .collect::<HashSet<&Path>>()
         );
     }
 }

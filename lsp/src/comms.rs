@@ -29,7 +29,10 @@ impl Comms {
             let mut newline_buf = [0u8; 1];
             self.stdin.read_exact(&mut newline_buf[..]).unwrap();
             assert_eq!(newline_buf[0], b'\n', "missing newline");
-            let s = std::str::from_utf8(&buf[..buf.len() - 1]).unwrap();
+            let Some(s) = buf.get(..buf.len() - 1) else {
+                break;
+            };
+            let s = std::str::from_utf8(s).unwrap();
             if s.is_empty() {
                 break;
             }
