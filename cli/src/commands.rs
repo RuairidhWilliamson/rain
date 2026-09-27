@@ -20,6 +20,7 @@ pub fn init_template() -> Result<(), ()> {
         .map_err(|err| eprintln!("could not write main.rain: {err}"))?;
     f.flush()
         .map_err(|err| eprintln!("could not flush main.rain: {err}"))?;
+    eprintln!("created main.rain");
     Ok(())
 }
 
