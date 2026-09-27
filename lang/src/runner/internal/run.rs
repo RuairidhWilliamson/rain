@@ -131,7 +131,7 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                 (args_nid, args_value),
                 (env_nid, env_value),
             ] => {
-                let dir = self.expect_dir_or_area((*area_nid, area_value))?;
+                let dir = self.expect_local_dir_or_area((*area_nid, area_value))?;
                 let bin = self.expect_file_path((*file_nid, file_value))?;
                 let args = expect_type!(self, List, (args_nid, args_value));
                 let args = args

@@ -22,7 +22,7 @@ use num_bigint::BigInt;
 use tracing::{debug, trace};
 
 use crate::{
-    afs::{Dir, File, absolute::AbsolutePathBuf, area::FSArea},
+    afs::{Dir, File, absolute::AbsolutePathBuf, area::FSArea, entry::FSEntryRef},
     ast::{Module, NodeId},
     driver::DriverTrait,
     local_span::LocalSpan,
@@ -369,7 +369,22 @@ impl<Driver: DriverTrait, Cache: CacheTrait> InternalCx<'_, '_, '_, Driver, Cach
                         RainTypeId::GeneratedDir,
                         RainTypeId::GeneratedFSArea,
                         RainTypeId::LocalFSArea,
+                        RainTypeId::LocalDir,
                     ]),
+                },
+            )),
+        }
+    }
+
+    fn expect_local_dir_or_area(&self, (arg_nid, arg_value): (NodeId, &Value)) -> Result<Dir> {
+        match arg_value {
+            Value::LocalFSArea(file_area) => Ok(Dir::root(file_area.as_ref().into())),
+            Value::LocalDir(dir) => Ok(Dir::Local(dir.as_ref().clone())),
+            _ => Err(self.caller_cx.nid_err(
+                arg_nid,
+                RunnerError::ExpectedType {
+                    actual: arg_value.rain_type_id(),
+                    expected: Cow::Borrowed(&[RainTypeId::LocalFSArea, RainTypeId::LocalDir]),
                 },
             )),
         }
