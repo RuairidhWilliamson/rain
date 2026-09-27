@@ -5,6 +5,7 @@ mod exe;
 mod remote;
 mod reporter;
 mod run;
+mod watch;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -153,6 +154,11 @@ enum RainCtlCommand {
         target: Option<String>,
         args: Vec<String>,
     },
+    /// Executes a rain function every time one of its dependant local files changes
+    Watch {
+        target: Option<String>,
+        args: Vec<String>,
+    },
     /// Stop the rain server process
     Shutdown,
     /// View rain config
@@ -188,6 +194,13 @@ impl Cli {
             RainCtlCommand::Check => run::run(config, "check", vec![], &self.options, client_mode),
             RainCtlCommand::Build => run::run(config, "build", vec![], &self.options, client_mode),
             RainCtlCommand::Exec { target, args } => run::run(
+                config,
+                &target.unwrap_or_default(),
+                args,
+                &self.options,
+                client_mode,
+            ),
+            RainCtlCommand::Watch { target, args } => watch::watch(
                 config,
                 &target.unwrap_or_default(),
                 args,

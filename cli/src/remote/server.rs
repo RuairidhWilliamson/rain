@@ -9,7 +9,7 @@ use std::{
         mpsc::{Receiver, SyncSender, sync_channel},
     },
     thread,
-    time::{Instant, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use poison_panic::MutexExt as _;
@@ -33,6 +33,7 @@ use crate::remote::msg::{
     Request, RequestTrait, RequestWrapper, RestartReason, ServerMessage,
     prune::Pruned,
     run::{RunProgress, RunResponse},
+    watch::{WatchProgress, WatchResponse},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -261,6 +262,7 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
     ) -> Result<(), Error> {
         match req {
             Request::Run(req) => self.run(cache, ir, req),
+            Request::Watch(req) => self.watch(cache, ir, req),
             Request::Info(req) => {
                 let resp = super::msg::info::InfoResponse {
                     pid: process::id(),
@@ -318,6 +320,27 @@ impl<C: MsgConnection> ClientHandler<'_, C> {
             &RunResponse {
                 output: result,
                 deps,
+                elapsed: start.elapsed(),
+            },
+        )?;
+        Ok(())
+    }
+
+    fn watch(
+        &mut self,
+        cache: &mut Cache,
+        ir: &mut Rir,
+        req: super::msg::watch::WatchRequest,
+    ) -> Result<(), Error> {
+        cache.verification = req.verification;
+        let config = self.server.config.clone();
+        let s = Mutex::new(self);
+        let start = Instant::now();
+        watch_inner(&req, config, cache, &s, ir);
+        let s = s.pinto_inner();
+        s.send_response(
+            req,
+            &WatchResponse {
                 elapsed: start.elapsed(),
             },
         )?;
@@ -493,6 +516,93 @@ fn run_core(
         }),
         deps,
     )
+}
+
+fn watch_inner<C: MsgConnection>(
+    req: &super::msg::watch::WatchRequest,
+    config: Config,
+    cache: &Cache,
+    s: &Mutex<&mut ClientHandler<'_, C>>,
+    ir: &mut Rir,
+) {
+    let mut driver = DriverImpl::new(config);
+    driver.custom_config = req
+        .custom_config
+        .iter()
+        .map(|(k, v)| (k.clone(), Arc::new(v.clone())))
+        .collect();
+    driver.print_handler = Some(Box::new(|m| {
+        let send_result = s
+            .plock()
+            .send_intermediate(req, &WatchProgress::Print(m.to_owned()));
+        if let Err(err) = send_result {
+            error!("send intermediate print: {err}");
+        }
+    }));
+    driver.enter_handler = Some(Box::new(|m| {
+        let send_result = s
+            .plock()
+            .send_intermediate(req, &WatchProgress::EnterCall(m.to_owned()));
+        if let Err(err) = send_result {
+            error!("send intermediate enter call: {err}");
+        }
+    }));
+    driver.exit_handler = Some(Box::new(|m| {
+        let send_result = s
+            .plock()
+            .send_intermediate(req, &WatchProgress::ExitCall(m.to_owned()));
+        if let Err(err) = send_result {
+            error!("send intermediate exit call: {err}");
+        }
+    }));
+    if let Some(host_override) = &req.host_override {
+        driver.host_triple = host_override.to_owned().into();
+    }
+
+    watch_core(req, cache, &driver, ir);
+}
+
+fn watch_core(
+    super::msg::watch::WatchRequest {
+        root,
+        target,
+        args,
+        resolve: _,
+        offline,
+        seal,
+        host_override: _,
+        custom_config: _,
+        verification: _,
+        unused,
+        no_exec,
+    }: &super::msg::watch::WatchRequest,
+    cache: &Cache,
+    driver: &DriverImpl<'_>,
+    ir: &mut Rir,
+) {
+    let mut runner = rain_core::new_runner(ir, cache, driver);
+    runner.offline = *offline;
+    runner.seal = *seal;
+    runner.check_unused = *unused;
+    runner.no_exec = *no_exec;
+    loop {
+        let mut deps = DepList::new();
+        match rain_core::insert_local_module(&mut runner, root) {
+            Ok(mid) => {
+                let result =
+                    rain_core::evaluate_and_call_chain(&mut runner, mid, &mut deps, target, args);
+                info!("{result:?}");
+            }
+            Err(err) => {
+                error!("failed {err:?}");
+            }
+        };
+        info!("evaluate done");
+        info!("sleeping 5 secs");
+        // TODO: Replace sleep with file watcher
+        std::thread::sleep(Duration::from_secs(5));
+        info!("evaluating");
+    }
 }
 
 fn remove_recursive(path: &Path) -> io::Result<u64> {

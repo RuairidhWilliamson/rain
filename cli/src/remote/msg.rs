@@ -34,6 +34,7 @@ pub enum RestartReason {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Request {
     Run(run::RunRequest),
+    Watch(watch::WatchRequest),
     Info(info::InfoRequest),
     Inspect(cache_inspect::CacheInspectRequest),
     Shutdown(shutdown::ShutdownRequest),
@@ -97,6 +98,60 @@ pub mod run {
     pub struct RunResponse {
         pub output: Result<String, CoreError>,
         pub deps: DepList,
+        pub elapsed: Duration,
+    }
+}
+
+pub mod watch {
+    use std::{collections::HashMap, path::PathBuf, time::Duration};
+
+    use rain_core::{
+        CoreError,
+        rain_lang::{driver::monitoring::Call, runner::dep_list::DepList},
+    };
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct WatchRequest {
+        pub root: PathBuf,
+        pub target: String,
+        pub args: Vec<String>,
+        pub resolve: bool,
+        pub offline: bool,
+        pub seal: bool,
+        pub host_override: Option<String>,
+        pub custom_config: HashMap<String, String>,
+        pub verification: bool,
+        pub unused: bool,
+        pub no_exec: bool,
+    }
+
+    impl From<WatchRequest> for super::Request {
+        fn from(req: WatchRequest) -> Self {
+            Self::Watch(req)
+        }
+    }
+
+    impl super::private::Sealed for WatchRequest {}
+
+    impl super::RequestTrait for WatchRequest {
+        type Intermediate = WatchProgress;
+        type Response = WatchResponse;
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub enum WatchProgress {
+        Print(String),
+        EnterCall(Call),
+        ExitCall(Call),
+        RunComplete {
+            output: Result<String, CoreError>,
+            deps: DepList,
+            elapsed: Duration,
+        },
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct WatchResponse {
         pub elapsed: Duration,
     }
 }

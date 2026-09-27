@@ -3,7 +3,7 @@ use std::io::{self, Write as _};
 use rain_core::config::Config;
 
 use crate::remote::{
-    client::{ClientMode, make_request_or_start},
+    client::{ClientMode, send_request},
     msg::{
         cache_inspect::{CacheInspectRequest, CacheInspectResponse},
         clean::CleanRequest,
@@ -24,7 +24,7 @@ pub fn init_template() -> Result<(), ()> {
 }
 
 pub fn info(config: &Config, client_mode: ClientMode) -> Result<(), ()> {
-    let info = make_request_or_start(config, InfoRequest, |()| {}, client_mode).map_err(|err| {
+    let info = send_request(config, InfoRequest, |()| {}, client_mode).map_err(|err| {
         eprintln!("{err}");
     })?;
     println!("{info:#?}");
@@ -32,7 +32,7 @@ pub fn info(config: &Config, client_mode: ClientMode) -> Result<(), ()> {
 }
 
 pub fn shutdown(config: &Config, client_mode: ClientMode) -> Result<(), ()> {
-    make_request_or_start(config, ShutdownRequest, |()| {}, client_mode).map_err(|err| {
+    send_request(config, ShutdownRequest, |()| {}, client_mode).map_err(|err| {
         eprintln!("{err}");
     })?;
     eprintln!("Server shutdown");
@@ -47,11 +47,9 @@ pub fn inspect_cache(config: &Config, client_mode: ClientMode) -> Result<(), ()>
     let CacheInspectResponse {
         cache_size,
         entries,
-    } = make_request_or_start(config, CacheInspectRequest, |()| {}, client_mode).map_err(
-        |err| {
-            eprintln!("{err}");
-        },
-    )?;
+    } = send_request(config, CacheInspectRequest, |()| {}, client_mode).map_err(|err| {
+        eprintln!("{err}");
+    })?;
     eprintln!("Cache size is {cache_size}");
     for e in entries {
         eprintln!("{e}");
@@ -83,7 +81,7 @@ pub fn clean(config: &Config, mode: ClientMode) -> Result<(), ()> {
         })?
         == Some(true)
     {
-        let resp = make_request_or_start(config, CleanRequest, |()| {}, mode).map_err(|err| {
+        let resp = send_request(config, CleanRequest, |()| {}, mode).map_err(|err| {
             eprintln!("{err}");
         })?;
         if resp.0.is_empty() {
@@ -105,8 +103,8 @@ pub fn clean(config: &Config, mode: ClientMode) -> Result<(), ()> {
 }
 
 pub fn prune(config: &Config, mode: ClientMode) -> Result<(), ()> {
-    let Pruned { size, errors } = make_request_or_start(config, PruneRequest, |()| {}, mode)
-        .map_err(|err| {
+    let Pruned { size, errors } =
+        send_request(config, PruneRequest, |()| {}, mode).map_err(|err| {
             eprintln!("{err}");
         })?;
     println!(

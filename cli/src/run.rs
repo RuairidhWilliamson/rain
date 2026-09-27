@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 
 use crate::GlobalOptions;
 use crate::remote::{
-    client::{ClientMode, make_request_or_start},
+    client::{ClientMode, send_request},
     msg::run::{RunRequest, RunResponse},
 };
 use rain_core::{CoreError, config::Config};
@@ -18,7 +18,7 @@ pub fn run(
     let custom_config = options.parse_config()?;
     let root = options.resolve_entrypoint()?;
     let mut reporter = crate::reporter::new_reporter(options);
-    let run_response = make_request_or_start(
+    let run_response = send_request(
         config,
         RunRequest {
             root,
