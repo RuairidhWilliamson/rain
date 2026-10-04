@@ -596,7 +596,7 @@ fn watch_core(
             Err(err) => {
                 error!("failed {err:?}");
             }
-        };
+        }
         info!("evaluate done");
         info!("sleeping 5 secs");
         // TODO: Replace sleep with file watcher

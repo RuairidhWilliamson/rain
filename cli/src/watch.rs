@@ -35,11 +35,11 @@ pub fn watch(
     .map_err(|err| {
         eprintln!("{err}");
     })?;
-    handle_watch_response(watch_response)
+    handle_watch_response(&watch_response);
+    Ok(())
 }
 
-fn handle_watch_response(watch_response: WatchResponse) -> Result<(), ()> {
+fn handle_watch_response(watch_response: &WatchResponse) {
     let WatchResponse { elapsed } = watch_response;
     eprintln!("Watch finished after {elapsed:.1?}");
-    Ok(())
 }

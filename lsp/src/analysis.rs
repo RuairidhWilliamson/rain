@@ -45,9 +45,8 @@ impl TextDocument {
         for change in params.content_changes {
             if let Some(rng) = change.range {
                 todo!("implement partial document changes: {rng:?}")
-            } else {
-                self.source = change.text;
             }
+            self.source = change.text;
         }
         self.tree = rain_lang::ast::ts_parser::parse(&self.source);
         self.version = params.text_document.version;

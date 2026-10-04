@@ -22,7 +22,7 @@ use num_bigint::BigInt;
 use tracing::{debug, trace};
 
 use crate::{
-    afs::{Dir, File, absolute::AbsolutePathBuf, area::FSArea, entry::FSEntryRef},
+    afs::{Dir, File, absolute::AbsolutePathBuf, area::FSArea},
     ast::{Module, NodeId},
     driver::DriverTrait,
     local_span::LocalSpan,

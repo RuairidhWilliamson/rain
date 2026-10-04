@@ -388,7 +388,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     self.evaluate_type_check(cx, &v, type_spec.type_expr)?;
                 }
                 cx.locals.insert(name, v);
-                Ok(Value::Unit)
             }
             DeclareName::NamedDestructure(declare_name_destructure) => {
                 for name_element in &declare_name_destructure.elements {
@@ -406,7 +405,6 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     }
                     cx.locals.insert(name, value);
                 }
-                Ok(Value::Unit)
             }
             DeclareName::SequenceDestructure(declare_name_destructure) => {
                 for (index, name_element) in declare_name_destructure.elements.iter().enumerate() {
@@ -424,9 +422,9 @@ impl<'a, Driver: DriverTrait, Cache: CacheTrait> Runner<'a, Driver, Cache> {
                     }
                     cx.locals.insert(name, value);
                 }
-                Ok(Value::Unit)
             }
         }
+        Ok(Value::Unit)
     }
 
     fn resolve_ident(&mut self, cx: &mut Cx, ident: &str) -> Result<Option<Value>> {
