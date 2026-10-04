@@ -326,10 +326,7 @@ impl CheckCx<'_, '_> {
         }
     }
 
-    fn check_node<'b, 'c>(&'c mut self, nid: NodeId, expected: CheckValue) -> CheckValue
-    where
-        'c: 'b,
-    {
+    fn check_node(&mut self, nid: NodeId, expected: CheckValue) -> CheckValue {
         if self.call_depth > CHECK_DEPTH_LIMIT {
             return CheckValue::Unknown;
         }
@@ -347,10 +344,7 @@ impl CheckCx<'_, '_> {
     }
 
     #[expect(clippy::too_many_lines)]
-    fn check_node_inner<'b, 'c>(&'c mut self, nid: NodeId, expected: CheckValue) -> CheckValue
-    where
-        'c: 'b,
-    {
+    fn check_node_inner(&mut self, nid: NodeId, expected: CheckValue) -> CheckValue {
         match self.module.get(nid) {
             Node::Ident(tls) => {
                 let ident = tls.0.contents(&self.module.src);
@@ -385,251 +379,10 @@ impl CheckCx<'_, '_> {
                 }
                 self.check_node(*last, expected)
             }
-            Node::Closure(closure) => {
-                let mut captures = self.captures.0.as_ref().clone();
-                for (&name, v) in &self.args {
-                    captures.insert(name.into(), v.clone());
-                }
-                for (&name, v) in &self.locals {
-                    captures.insert(name.into(), v.clone());
-                }
-                let mut callee_cx = CheckCx {
-                    module: self.module,
-                    previous: None,
-                    locals: HashMap::new(),
-                    captures: ClosureCaptures(Arc::new(captures)),
-                    args: HashMap::new(),
-                    errors: self.errors,
-                    node_types: self.node_types,
-                    declarations: self.declarations,
-                    call_depth: self.call_depth + 1,
-                };
-                for a in &closure.args {
-                    let expected = if let Some(a) = &a.type_spec {
-                        callee_cx.type_constraint(a.type_expr)
-                    } else {
-                        CheckValue::Unknown
-                    };
-                    callee_cx
-                        .args
-                        .insert(a.name.contents(&callee_cx.module.src), expected);
-                }
-                let expected_return_type = if let Some(return_type) = &closure.return_type {
-                    callee_cx.type_constraint(return_type.type_expr)
-                } else {
-                    CheckValue::Unknown
-                };
-                callee_cx.check_node(closure.block, expected_return_type);
-                let mut captures = self.captures.0.as_ref().clone();
-                for (k, v) in &self.locals {
-                    captures.insert((*k).into(), v.clone());
-                }
-                for (k, v) in &self.args {
-                    captures.insert((*k).into(), v.clone());
-                }
-                CheckValue::ExactValue(Value::Closure(Closure {
-                    captures: ClosureCaptures(Arc::new(captures)),
-                    module: self.module.id,
-                    node: nid,
-                }))
-            }
-            Node::FnCall(fn_call) => {
-                let callee = self.check_node(fn_call.callee, CheckValue::Unknown);
-                match callee {
-                    CheckValue::ExactValue(Value::InternalFunction(InternalFunction::GetType)) => {
-                        if let &[a] = &fn_call.args[..] {
-                            if let Some(exact_type) =
-                                self.check_node(a, CheckValue::Unknown).exact_type()
-                            {
-                                return CheckValue::ExactValue(Value::Type(exact_type));
-                            }
-                        } else {
-                            self.errors.push(
-                                fn_call
-                                    .rparen_token
-                                    .with_error(CheckError::WrongArgCount(1, fn_call.args.len())),
-                            );
-                        }
-                        CheckValue::Unknown
-                    }
-                    CheckValue::ExactValue(Value::InternalFunction(InternalFunction::Unit)) => {
-                        if let &[] = &fn_call.args[..] {
-                            return CheckValue::ExactValue(Value::Unit);
-                        }
-                        self.errors.push(
-                            fn_call
-                                .rparen_token
-                                .with_error(CheckError::WrongArgCount(0, fn_call.args.len())),
-                        );
-                        CheckValue::Unknown
-                    }
-                    CheckValue::ExactValue(Value::InternalFunction(InternalFunction::Throw)) => {
-                        CheckValue::Throwing
-                    }
-                    CheckValue::ExactValue(Value::Closure(Closure {
-                        captures,
-                        module: _,
-                        node,
-                    })) => {
-                        let mut callee = CheckCx {
-                            module: self.module,
-                            captures: captures.alias(),
-                            previous: None,
-                            locals: HashMap::new(),
-                            args: HashMap::new(),
-                            errors: self.errors,
-                            node_types: self.node_types,
-                            declarations: self.declarations,
-                            call_depth: self.call_depth + 1,
-                        };
-                        let node = callee.module.get(node);
-                        let Node::Closure(closure) = &node else {
-                            unreachable!();
-                        };
-                        let expected_arg_count = closure.args.len();
-                        if expected_arg_count != fn_call.args.len() {
-                            callee.errors.push(fn_call.rparen_token.with_error(
-                                CheckError::WrongArgCount(expected_arg_count, fn_call.args.len()),
-                            ));
-                            return CheckValue::Unknown;
-                        }
-
-                        for a in &closure.args {
-                            let v = a
-                                .type_spec
-                                .as_ref()
-                                .map(|t| callee.type_constraint(t.type_expr))
-                                .unwrap_or_default();
-                            callee.args.insert(a.name.contents(&callee.module.src), v);
-                        }
-                        let mut arg_types = callee.args;
-                        let mut args = HashMap::new();
-                        for (caller_nid, callee_arg) in fn_call.args.iter().zip(&closure.args) {
-                            let name = callee_arg.name.contents(&self.module.src);
-                            let Some(type_constraint) = arg_types.remove(name) else {
-                                unreachable!();
-                            };
-                            let v = self.check_node(*caller_nid, type_constraint);
-                            args.insert(name, v);
-                        }
-                        let mut callee = CheckCx {
-                            module: self.module,
-                            captures: captures.alias(),
-                            previous: None,
-                            locals: HashMap::new(),
-                            args,
-                            errors: self.errors,
-                            node_types: self.node_types,
-                            declarations: self.declarations,
-                            call_depth: self.call_depth + 1,
-                        };
-                        let return_type = closure
-                            .return_type
-                            .as_ref()
-                            .map(|return_type| callee.type_constraint(return_type.type_expr))
-                            .unwrap_or_default();
-                        callee.check_node(closure.block, return_type)
-                    }
-                    CheckValue::Callable {
-                        arg_types,
-                        return_type,
-                    } => {
-                        if fn_call.args.len() != arg_types.len() {
-                            self.errors.push(fn_call.rparen_token.with_error(
-                                CheckError::WrongArgCount(arg_types.len(), fn_call.args.len()),
-                            ));
-                        }
-                        for (expected, arg) in arg_types.into_iter().zip(&fn_call.args) {
-                            self.check_node(*arg, expected);
-                        }
-                        *return_type
-                    }
-                    _ => {
-                        for &a in &fn_call.args {
-                            self.check_node(a, CheckValue::Unknown);
-                        }
-                        CheckValue::Unknown
-                    }
-                }
-            }
-            Node::IfCondition(condition) => {
-                match self.check_node(
-                    condition.condition,
-                    CheckValue::ExactType(RainTypeId::Boolean),
-                ) {
-                    CheckValue::ExactValue(Value::Boolean(true)) => {
-                        return self.check_node(condition.then_block, expected);
-                    }
-                    CheckValue::ExactValue(Value::Boolean(false)) => {
-                        return match &condition.alternate {
-                            Some(
-                                AlternateCondition::IfElseCondition {
-                                    else_token: _,
-                                    if_condition: alternate,
-                                }
-                                | AlternateCondition::ElseBlock {
-                                    else_token: _,
-                                    else_block: alternate,
-                                },
-                            ) => self.check_node(*alternate, expected),
-                            None => CheckValue::ExactValue(Value::Unit),
-                        };
-                    }
-                    _ => {}
-                }
-                self.check_node(condition.then_block, expected.clone());
-                match &condition.alternate {
-                    Some(
-                        AlternateCondition::IfElseCondition {
-                            else_token: _,
-                            if_condition: alternate,
-                        }
-                        | AlternateCondition::ElseBlock {
-                            else_token: _,
-                            else_block: alternate,
-                        },
-                    ) => {
-                        self.check_node(*alternate, expected);
-                    }
-                    None => {}
-                }
-                CheckValue::Unknown
-            }
-            Node::Assignment(assignment) => {
-                match &assignment.name {
-                    DeclareName::Single(declare) => {
-                        let name = declare.name.contents(&self.module.src);
-                        let expected = if let Some(type_spec) = &declare.type_spec {
-                            self.type_constraint(type_spec.type_expr)
-                        } else {
-                            CheckValue::Unknown
-                        };
-                        let rhs = self.check_node(assignment.expr, expected);
-                        self.locals.insert(name, rhs);
-                    }
-                    DeclareName::NamedDestructure(declare) => {
-                        self.check_node(assignment.expr, CheckValue::Unknown);
-                        for e in &declare.elements {
-                            let name = e.name.contents(&self.module.src);
-                            if let Some(type_spec) = &e.type_spec {
-                                self.check_node(type_spec.type_expr, CheckValue::Unknown);
-                            }
-                            self.locals.insert(name, CheckValue::Unknown);
-                        }
-                    }
-                    DeclareName::SequenceDestructure(declare) => {
-                        self.check_node(assignment.expr, CheckValue::ExactType(RainTypeId::List));
-                        for e in &declare.elements {
-                            let name = e.name.contents(&self.module.src);
-                            if let Some(type_spec) = &e.type_spec {
-                                self.check_node(type_spec.type_expr, CheckValue::Unknown);
-                            }
-                            self.locals.insert(name, CheckValue::Unknown);
-                        }
-                    }
-                }
-                CheckValue::Unknown
-            }
+            Node::Closure(closure) => self.check_closure(nid, closure),
+            Node::FnCall(fn_call) => self.check_fn_call(fn_call),
+            Node::IfCondition(condition) => self.check_if_condition(expected, condition),
+            Node::Assignment(assignment) => self.check_assignment(assignment),
             Node::Namespace(Namespace { left, name, .. }) => {
                 if matches!(
                     self.check_node(*left, CheckValue::Unknown).exact_type(),
@@ -818,6 +571,263 @@ impl CheckCx<'_, '_> {
             Node::RawStringLiteral(lit) => {
                 let contents = lit.contents.contents(&self.module.src);
                 CheckValue::ExactValue(Value::String(Arc::new(contents.to_string())))
+            }
+        }
+    }
+
+    fn check_assignment(&mut self, assignment: &crate::ast::Assignment) -> CheckValue {
+        match &assignment.name {
+            DeclareName::Single(declare) => {
+                let name = declare.name.contents(&self.module.src);
+                let expected = if let Some(type_spec) = &declare.type_spec {
+                    self.type_constraint(type_spec.type_expr)
+                } else {
+                    CheckValue::Unknown
+                };
+                let rhs = self.check_node(assignment.expr, expected);
+                self.locals.insert(name, rhs);
+            }
+            DeclareName::NamedDestructure(declare) => {
+                self.check_node(assignment.expr, CheckValue::Unknown);
+                for e in &declare.elements {
+                    let name = e.name.contents(&self.module.src);
+                    if let Some(type_spec) = &e.type_spec {
+                        self.check_node(type_spec.type_expr, CheckValue::Unknown);
+                    }
+                    self.locals.insert(name, CheckValue::Unknown);
+                }
+            }
+            DeclareName::SequenceDestructure(declare) => {
+                self.check_node(assignment.expr, CheckValue::ExactType(RainTypeId::List));
+                for e in &declare.elements {
+                    let name = e.name.contents(&self.module.src);
+                    if let Some(type_spec) = &e.type_spec {
+                        self.check_node(type_spec.type_expr, CheckValue::Unknown);
+                    }
+                    self.locals.insert(name, CheckValue::Unknown);
+                }
+            }
+        }
+        CheckValue::Unknown
+    }
+
+    fn check_if_condition(
+        &mut self,
+        expected: CheckValue,
+        condition: &crate::ast::IfCondition,
+    ) -> CheckValue {
+        match self.check_node(
+            condition.condition,
+            CheckValue::ExactType(RainTypeId::Boolean),
+        ) {
+            CheckValue::ExactValue(Value::Boolean(true)) => {
+                return self.check_node(condition.then_block, expected);
+            }
+            CheckValue::ExactValue(Value::Boolean(false)) => {
+                return match &condition.alternate {
+                    Some(
+                        AlternateCondition::IfElseCondition {
+                            else_token: _,
+                            if_condition: alternate,
+                        }
+                        | AlternateCondition::ElseBlock {
+                            else_token: _,
+                            else_block: alternate,
+                        },
+                    ) => self.check_node(*alternate, expected),
+                    None => CheckValue::ExactValue(Value::Unit),
+                };
+            }
+            _ => {}
+        }
+        self.check_node(condition.then_block, expected.clone());
+        match &condition.alternate {
+            Some(
+                AlternateCondition::IfElseCondition {
+                    else_token: _,
+                    if_condition: alternate,
+                }
+                | AlternateCondition::ElseBlock {
+                    else_token: _,
+                    else_block: alternate,
+                },
+            ) => {
+                self.check_node(*alternate, expected);
+            }
+            None => {}
+        }
+        CheckValue::Unknown
+    }
+
+    fn check_closure(&mut self, nid: NodeId, closure: &crate::ast::Closure) -> CheckValue {
+        let mut captures = self.captures.0.as_ref().clone();
+        for (&name, v) in &self.args {
+            captures.insert(name.into(), v.clone());
+        }
+        for (&name, v) in &self.locals {
+            captures.insert(name.into(), v.clone());
+        }
+        let mut callee_cx = CheckCx {
+            module: self.module,
+            previous: None,
+            locals: HashMap::new(),
+            captures: ClosureCaptures(Arc::new(captures)),
+            args: HashMap::new(),
+            errors: self.errors,
+            node_types: self.node_types,
+            declarations: self.declarations,
+            call_depth: self.call_depth + 1,
+        };
+        for a in &closure.args {
+            let expected = if let Some(a) = &a.type_spec {
+                callee_cx.type_constraint(a.type_expr)
+            } else {
+                CheckValue::Unknown
+            };
+            callee_cx
+                .args
+                .insert(a.name.contents(&callee_cx.module.src), expected);
+        }
+        let expected_return_type = if let Some(return_type) = &closure.return_type {
+            callee_cx.type_constraint(return_type.type_expr)
+        } else {
+            CheckValue::Unknown
+        };
+        callee_cx.check_node(closure.block, expected_return_type);
+        let mut captures = self.captures.0.as_ref().clone();
+        for (k, v) in &self.locals {
+            captures.insert((*k).into(), v.clone());
+        }
+        for (k, v) in &self.args {
+            captures.insert((*k).into(), v.clone());
+        }
+        CheckValue::ExactValue(Value::Closure(Closure {
+            captures: ClosureCaptures(Arc::new(captures)),
+            module: self.module.id,
+            node: nid,
+        }))
+    }
+
+    #[expect(clippy::too_many_lines)]
+    fn check_fn_call(&mut self, fn_call: &crate::ast::FnCall) -> CheckValue {
+        let callee = self.check_node(fn_call.callee, CheckValue::Unknown);
+        match callee {
+            CheckValue::ExactValue(Value::InternalFunction(InternalFunction::GetType)) => {
+                if let &[a] = &fn_call.args[..] {
+                    if let Some(exact_type) = self.check_node(a, CheckValue::Unknown).exact_type() {
+                        return CheckValue::ExactValue(Value::Type(exact_type));
+                    }
+                } else {
+                    self.errors.push(
+                        fn_call
+                            .rparen_token
+                            .with_error(CheckError::WrongArgCount(1, fn_call.args.len())),
+                    );
+                }
+                CheckValue::Unknown
+            }
+            CheckValue::ExactValue(Value::InternalFunction(InternalFunction::Unit)) => {
+                if let &[] = &fn_call.args[..] {
+                    return CheckValue::ExactValue(Value::Unit);
+                }
+                self.errors.push(
+                    fn_call
+                        .rparen_token
+                        .with_error(CheckError::WrongArgCount(0, fn_call.args.len())),
+                );
+                CheckValue::Unknown
+            }
+            CheckValue::ExactValue(Value::InternalFunction(InternalFunction::Throw)) => {
+                CheckValue::Throwing
+            }
+            CheckValue::ExactValue(Value::Closure(Closure {
+                captures,
+                module: _,
+                node,
+            })) => {
+                let mut callee = CheckCx {
+                    module: self.module,
+                    captures: captures.alias(),
+                    previous: None,
+                    locals: HashMap::new(),
+                    args: HashMap::new(),
+                    errors: self.errors,
+                    node_types: self.node_types,
+                    declarations: self.declarations,
+                    call_depth: self.call_depth + 1,
+                };
+                let node = callee.module.get(node);
+                let Node::Closure(closure) = &node else {
+                    unreachable!();
+                };
+                let expected_arg_count = closure.args.len();
+                if expected_arg_count != fn_call.args.len() {
+                    callee
+                        .errors
+                        .push(fn_call.rparen_token.with_error(CheckError::WrongArgCount(
+                            expected_arg_count,
+                            fn_call.args.len(),
+                        )));
+                    return CheckValue::Unknown;
+                }
+
+                for a in &closure.args {
+                    let v = a
+                        .type_spec
+                        .as_ref()
+                        .map(|t| callee.type_constraint(t.type_expr))
+                        .unwrap_or_default();
+                    callee.args.insert(a.name.contents(&callee.module.src), v);
+                }
+                let mut arg_types = callee.args;
+                let mut args = HashMap::new();
+                for (caller_nid, callee_arg) in fn_call.args.iter().zip(&closure.args) {
+                    let name = callee_arg.name.contents(&self.module.src);
+                    let Some(type_constraint) = arg_types.remove(name) else {
+                        unreachable!();
+                    };
+                    let v = self.check_node(*caller_nid, type_constraint);
+                    args.insert(name, v);
+                }
+                let mut callee = CheckCx {
+                    module: self.module,
+                    captures: captures.alias(),
+                    previous: None,
+                    locals: HashMap::new(),
+                    args,
+                    errors: self.errors,
+                    node_types: self.node_types,
+                    declarations: self.declarations,
+                    call_depth: self.call_depth + 1,
+                };
+                let return_type = closure
+                    .return_type
+                    .as_ref()
+                    .map(|return_type| callee.type_constraint(return_type.type_expr))
+                    .unwrap_or_default();
+                callee.check_node(closure.block, return_type)
+            }
+            CheckValue::Callable {
+                arg_types,
+                return_type,
+            } => {
+                if fn_call.args.len() != arg_types.len() {
+                    self.errors
+                        .push(fn_call.rparen_token.with_error(CheckError::WrongArgCount(
+                            arg_types.len(),
+                            fn_call.args.len(),
+                        )));
+                }
+                for (expected, arg) in arg_types.into_iter().zip(&fn_call.args) {
+                    self.check_node(*arg, expected);
+                }
+                *return_type
+            }
+            _ => {
+                for &a in &fn_call.args {
+                    self.check_node(a, CheckValue::Unknown);
+                }
+                CheckValue::Unknown
             }
         }
     }
