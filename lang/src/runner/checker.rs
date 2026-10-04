@@ -346,39 +346,8 @@ impl CheckCx<'_, '_> {
     #[expect(clippy::too_many_lines)]
     fn check_node_inner(&mut self, nid: NodeId, expected: CheckValue) -> CheckValue {
         match self.module.get(nid) {
-            Node::Ident(tls) => {
-                let ident = tls.0.contents(&self.module.src);
-                if let Some(v) = self.locals.get(ident) {
-                    return v.clone();
-                }
-                if let Some(v) = self.args.get(ident) {
-                    return v.clone();
-                }
-                if let Some(v) = self.captures.0.get(ident) {
-                    return v.clone();
-                }
-                if let Some(id) = self.module.find_declaration_by_name(ident) {
-                    self.check_declaration(id);
-                    let declaration = self.declarations.entry(id).or_default();
-                    declaration.usage += 1;
-                    return declaration.value.clone();
-                }
-                self.errors.push(tls.0.with_error(CheckError::UnknownIdent));
-                CheckValue::Unknown
-            }
-            Node::Block(block) => {
-                let [statements @ .., last] = &block.statements[..] else {
-                    return CheckValue::ExactValue(Value::Unit);
-                };
-                for &nid in statements {
-                    let checked = self.check_node(nid, CheckValue::Unknown);
-                    if checked == CheckValue::Throwing {
-                        return CheckValue::Throwing;
-                    }
-                    self.previous = Some(checked);
-                }
-                self.check_node(*last, expected)
-            }
+            Node::Ident(tls) => self.check_ident(tls),
+            Node::Block(block) => self.check_block(expected, block),
             Node::Closure(closure) => self.check_closure(nid, closure),
             Node::FnCall(fn_call) => self.check_fn_call(fn_call),
             Node::IfCondition(condition) => self.check_if_condition(expected, condition),
@@ -573,6 +542,41 @@ impl CheckCx<'_, '_> {
                 CheckValue::ExactValue(Value::String(Arc::new(contents.to_string())))
             }
         }
+    }
+
+    fn check_block(&mut self, expected: CheckValue, block: &crate::ast::Block) -> CheckValue {
+        let [statements @ .., last] = &block.statements[..] else {
+            return CheckValue::ExactValue(Value::Unit);
+        };
+        for &nid in statements {
+            let checked = self.check_node(nid, CheckValue::Unknown);
+            if checked == CheckValue::Throwing {
+                return CheckValue::Throwing;
+            }
+            self.previous = Some(checked);
+        }
+        self.check_node(*last, expected)
+    }
+
+    fn check_ident(&mut self, tls: &crate::ast::Ident) -> CheckValue {
+        let ident = tls.0.contents(&self.module.src);
+        if let Some(v) = self.locals.get(ident) {
+            return v.clone();
+        }
+        if let Some(v) = self.args.get(ident) {
+            return v.clone();
+        }
+        if let Some(v) = self.captures.0.get(ident) {
+            return v.clone();
+        }
+        if let Some(id) = self.module.find_declaration_by_name(ident) {
+            self.check_declaration(id);
+            let declaration = self.declarations.entry(id).or_default();
+            declaration.usage += 1;
+            return declaration.value.clone();
+        }
+        self.errors.push(tls.0.with_error(CheckError::UnknownIdent));
+        CheckValue::Unknown
     }
 
     fn check_assignment(&mut self, assignment: &crate::ast::Assignment) -> CheckValue {
