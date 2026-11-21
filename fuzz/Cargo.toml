@@ -13,6 +13,9 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 rain-lang.path = "../lang"
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "fuzz_parser"
 path = "fuzz_targets/fuzz_parser.rs"
