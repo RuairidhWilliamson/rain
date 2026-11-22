@@ -4,11 +4,16 @@ build:
 
 playground: build
     tree-sitter playground
-    
+
 install-helix: build
     mkdir -p ~/.config/helix/runtime/queries/rain/
     cp ./queries/highlights.scm ~/.config/helix/runtime/queries/rain/highlights.scm
     hx --grammar build
+
+install-mitos: build
+    mkdir -p ~/.config/mitos/runtime/queries/rain/
+    cp ./queries/highlights.scm ~/.config/mitos/runtime/queries/rain/highlights.scm
+    ms --grammar build
 
 test: build
     tree-sitter parse --quiet ../*.rain
