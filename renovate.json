@@ -1,4 +1,4 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "schedule": ["* 2-5 * * 6"]
+  "schedule": ["* * * * 5-7"]
 }
