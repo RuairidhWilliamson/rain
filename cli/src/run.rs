@@ -24,7 +24,6 @@ pub fn run(
             root,
             target: target.to_owned(),
             args,
-            resolve: options.resolve,
             offline: options.offline,
             seal: options.seal,
             host_override: options.host.clone(),
@@ -65,7 +64,20 @@ fn handle_run_response(
                 }
                 color_stderr.reset().expect("write stderr");
             }
-            println!("{s}");
+            if options.run
+                && let Some(resolved) = &s.resolved
+            {
+                eprintln!("Running {resolved}");
+                let exit = std::process::Command::new(resolved).status().unwrap();
+                std::process::exit(exit.code().unwrap_or_default());
+            }
+            if options.resolve
+                && let Some(resolved) = &s.resolved
+            {
+                println!("{resolved}");
+            } else {
+                println!("{}", s.string_display);
+            }
             Ok(())
         }
         Err(s) => {

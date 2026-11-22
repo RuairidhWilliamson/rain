@@ -101,6 +101,9 @@ struct GlobalOptions {
 
     #[arg(long, global = true)]
     no_exec: bool,
+
+    #[arg(long, global = true)]
+    run: bool,
 }
 
 impl GlobalOptions {

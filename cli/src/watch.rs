@@ -18,7 +18,6 @@ pub fn watch(
             root,
             target: target.to_owned(),
             args,
-            resolve: options.resolve,
             offline: options.offline,
             seal: options.seal,
             host_override: options.host.clone(),

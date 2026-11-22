@@ -64,7 +64,6 @@ pub mod run {
         pub root: PathBuf,
         pub target: String,
         pub args: Vec<String>,
-        pub resolve: bool,
         pub offline: bool,
         pub seal: bool,
         pub host_override: Option<String>,
@@ -96,9 +95,16 @@ pub mod run {
 
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct RunResponse {
-        pub output: Result<String, CoreError>,
+        pub output: Result<Output, CoreError>,
         pub deps: DepList,
         pub elapsed: Duration,
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct Output {
+        pub rain_type: rain_core::rain_lang::runner::value::RainTypeId,
+        pub string_display: String,
+        pub resolved: Option<String>,
     }
 }
 
@@ -115,7 +121,6 @@ pub mod watch {
         pub root: PathBuf,
         pub target: String,
         pub args: Vec<String>,
-        pub resolve: bool,
         pub offline: bool,
         pub seal: bool,
         pub host_override: Option<String>,

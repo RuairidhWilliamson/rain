@@ -32,7 +32,7 @@ use tracing::{error, info};
 use crate::remote::msg::{
     Request, RequestTrait, RequestWrapper, RestartReason, ServerMessage,
     prune::Pruned,
-    run::{RunProgress, RunResponse},
+    run::{Output, RunProgress, RunResponse},
     watch::{WatchProgress, WatchResponse},
 };
 
@@ -433,7 +433,7 @@ fn run_inner<C: MsgConnection>(
     cache: &Cache,
     s: &Mutex<&mut ClientHandler<'_, C>>,
     ir: &mut Rir,
-) -> (Result<String, CoreError>, DepList) {
+) -> (Result<Output, CoreError>, DepList) {
     let mut driver = DriverImpl::new(config);
     driver.custom_config = req
         .custom_config
@@ -476,7 +476,6 @@ fn run_core(
         root,
         target,
         args,
-        resolve,
         offline,
         seal,
         host_override: _,
@@ -488,7 +487,7 @@ fn run_core(
     cache: &Cache,
     driver: &DriverImpl<'_>,
     ir: &mut Rir,
-) -> (Result<String, CoreError>, DepList) {
+) -> (Result<Output, CoreError>, DepList) {
     let mut runner = rain_core::new_runner(ir, cache, driver);
     runner.offline = *offline;
     runner.seal = *seal;
@@ -502,17 +501,39 @@ fn run_core(
     let result = rain_core::evaluate_and_call_chain(&mut runner, mid, &mut deps, target, args);
     info!("evaluate done");
     (
-        result.map(|v| match v {
-            Value::Unit => String::new(),
-            Value::GeneratedDir(d) if *resolve => driver
-                .resolve_fs_entry(d.fsinner().into())
-                .display()
-                .to_string(),
-            Value::GeneratedFile(f) if *resolve => driver
-                .resolve_fs_entry(f.fsinner().into())
-                .display()
-                .to_string(),
-            _ => format!("{v}"),
+        result.map(|v| {
+            let resolved = match &v {
+                Value::LocalFile(f) => Some(
+                    driver
+                        .resolve_fs_entry(f.fsinner().into())
+                        .display()
+                        .to_string(),
+                ),
+                Value::LocalDir(d) => Some(
+                    driver
+                        .resolve_fs_entry(d.fsinner().into())
+                        .display()
+                        .to_string(),
+                ),
+                Value::GeneratedDir(d) => Some(
+                    driver
+                        .resolve_fs_entry(d.fsinner().into())
+                        .display()
+                        .to_string(),
+                ),
+                Value::GeneratedFile(f) => Some(
+                    driver
+                        .resolve_fs_entry(f.fsinner().into())
+                        .display()
+                        .to_string(),
+                ),
+                _ => None,
+            };
+            Output {
+                string_display: v.to_string(),
+                rain_type: v.rain_type_id(),
+                resolved,
+            }
         }),
         deps,
     )
@@ -567,7 +588,6 @@ fn watch_core(
         root,
         target,
         args,
-        resolve: _,
         offline,
         seal,
         host_override: _,
