@@ -495,3 +495,15 @@ fn closure_args() {
 fn internal() {
     insta::assert_snapshot!(parse_display_expr("internal._print(42)"));
 }
+
+#[traced_test]
+#[test]
+fn single_quotes() {
+    let src = "
+        let main = fn() {
+            print('Hello world')
+        }
+        ";
+    let res = Module::parse(src);
+    std::assert_matches!(res.unwrap_err().err, ParseError::ExpectedExpression);
+}
